@@ -1,0 +1,22 @@
+﻿CAT_BASE;DEFAULT_VALUE;MIN;MAX;NATURALEZA_VALOR;MIN_MAX_DELTA_EN_UNA_ITER;LÓGICA;LÓGICA COMENTARIO
+A;1;1;inf;int;1;NA;
+B1;60;1;inf;int;10;NA;
+B2;0;0;1;bin;1;max bin;"Elegir el máximo dentro de la categoría B2-{capa} y llevar a 1. Dejar los demás en 0. 
+En valor por default, todos son 0…si todos son iguales, elegir random"
+B3;0.2;0;0.5;float;1;;
+B4;0;0;0;bin;0;bin;"Si es < 0.5, asignar 0
+Si es >= 0.5, asignar 1"
+B5;0;0;0;bin;0;bin;"Si es < 0.5, asignar 0
+Si es >= 0.5, asignar 1"
+C1.1;0;0;0;bin;0;bin;"Si es < 0.5, asignar 0
+Si es >= 0.5, asignar 1"
+C1.2;64;1;inf;int;10;NA;
+C2;0;0;1;bin;1;max bin;"Elegir el máximo dentro de la categoría C2 y llevar a 1. Dejar los demás en 0. 
+En valor por default, todos son 0…si todos son iguales, elegir random"
+D;0;0;1;bin;1;max bin;"Elegir el máximo dentro de la categoría D y llevar a 1. Dejar los demás en 0. 
+En valor por default, todos son 0…si todos son iguales, elegir random"
+E;0;0;1;bin;1;max bin;"Elegir el máximo dentro de la categoría E y llevar a 1. Dejar los demás en 0. 
+En valor por default, todos son 0…si todos son iguales, elegir random"
+F;32;0;256;int;10;NA;
+G;1;0;1;bin;1;bin;"Si es < 0.5, asignar 0
+Si es >= 0.5, asignar 1"
