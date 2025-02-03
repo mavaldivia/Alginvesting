@@ -1,5 +1,5 @@
 ﻿CAT_BASE;DEFAULT_VALUE;MIN;MAX;NATURALEZA_VALOR;MIN_MAX_DELTA_EN_UNA_ITER;LÓGICA;LÓGICA COMENTARIO
-A;1;1;inf;int;1;NA;
+A;1;1;15;int;1;NA;
 B1;60;1;inf;int;10;NA;
 B2;0;0;1;bin;1;max bin;"Elegir el máximo dentro de la categoría B2-{capa} y llevar a 1. Dejar los demás en 0. 
 En valor por default, todos son 0…si todos son iguales, elegir random"
