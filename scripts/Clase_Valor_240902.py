@@ -81,7 +81,10 @@ def generate_fibonacci(df, df_all_data, df_iteracion):
     campos_extremos = ['Open', 'Close'] if modo_vela == 'cuerpo' else ['Low', 'High']
     
     df_fibonacci = df[['Date', 't', 'Close point'] + campos_extremos].copy()
+    
+    print(df_fibonacci[['Date', 't']].tail(5))
 
+    # Se genera hasta date < last_date, esto significa, que la data generada nunca depende de lo que hay en last_t
     df_fibonacci[['sub_df', 'continuar']] = df_fibonacci['Date'].apply(lambda x: pd.Series(generate_df_subconjunto_funcion(x, df_all_data, n_datos))) # pd series porque el output tiene 2 o más valores
     
     df_fibonacci['X'] = df_fibonacci.apply(lambda row: fibonacci(row['sub_df'], row['Close point'], campos_extremos), axis = 1)
@@ -267,6 +270,7 @@ class Valor():
                 return None # Actualzada! No se extrae
         
         for i in range(reintentar): # Se intenta extraer la data hasta [reintentar] veces
+            print('Descarga de data')
             self.raw_data_new = yf.download(self.simbolo) # Descarga de datos
             if len(self.raw_data_new) > 0: # Si se descargó algo, se rompe el ciclo
                 break
@@ -276,10 +280,11 @@ class Valor():
             return None
         
         self.raw_data = self.raw_data_new.reset_index() # Se resetea el índice
+        self.raw_data.columns = ['Date', 'Close', 'High', 'Low', 'Open', 'Volume']
         self.raw_data['Date'] = pd.to_datetime(self.raw_data['Date'], format = '%Y-%m-%d').dt.date # Traspaso a formato día
         self.ultima_fecha_data = self.raw_data['Date'].max() # Último día para el que existen los datos
         
-        # Cortar los datos el día de ayer  (último día habil, o en que la bolsa estuvo abierta para este valor)
+        # Cortar los datos el día de ayer (último día habil, o en que la bolsa estuvo abierta para este valor)
         self.raw_data = self.raw_data[self.raw_data['Date'] < dt.datetime.now().date()].reset_index(drop = True)
         
         if self.output: # se muestran encabezado y cola
@@ -288,7 +293,14 @@ class Valor():
 
         return None
     
-    def ajustar_data(self, date_0 = dt.datetime(2024, 1, 1).date(), interpolar = False):
+    def ajustar_data(self, agregar_nuevo_dia, date_0 = dt.datetime(2024, 1, 1).date(), interpolar = False):
+        
+        if agregar_nuevo_dia:
+            df_date_new = pd.DataFrame({'Date': [dt.datetime.now().date()]})
+            self.raw_data = pd.concat([self.raw_data, df_date_new]).reset_index(drop = True)
+            self.raw_data = self.raw_data.fillna(0)
+            print(dt.datetime.now().date())
+        display(self.raw_data)
         
         date_0 = pd.to_datetime(date_0) # Convertir 'date_0' a datetime64[ns]
         self.raw_data['Date'] = pd.to_datetime(self.raw_data['Date']) # Convertir 'Date' en 'self.adj_data' a datetime64[ns]
@@ -315,6 +327,9 @@ class Valor():
         
         self.adj_data['rendimiento'] = self.adj_data['Close'].pct_change() # Se calcula el rendimiento
         self.adj_data = self.adj_data[['Date', 't', 'Open', 'High', 'Low', 'Close', 'Volume', 'rendimiento']] # Ordenamiento de campos
+        
+        display(self.adj_data)
+        #sys.exit()
         return None
 
     def generar_df_combinaciones(self, lista_dates, diccionario_combinaciones, iteradores, base_name, incluir_dates_en_iterar, df_explicito):
@@ -341,7 +356,22 @@ class Valor():
             df_all['NAME'] = df_all['NAME'].str[:-1]
         
         if len(self.raw_x) > 0: # Si no existe raw_x, entonces se genera todo df_all
-            self.raw_x['EXISTE'] = True # Para no agregarle el campo EXISTE al self.raw_x. self.rw_x contiene toda la info hasta el momento de las POFs generadas para este valor
+            
+            #print('PRINTS')
+            #display(self.raw_x)
+            #display(self.raw_x[self.raw_x['DATE'] == str(dt.datetime.now().date())])
+            #display(self.raw_x[self.raw_x['DATE'] == dt.datetime.now().date()])
+            df_rev = self.adj_data
+            df_rev['S'] = df_rev[['Open', 'High', 'Low', 'Close', 'Volume']].sum(axis = 1)
+            df_rev = df_rev[df_rev['S'] == 0]
+            df_rev['Date'] = df_rev['Date'].astype(str)
+            lista_dias_no_exist = list(df_rev['Date'].unique())
+            #display(self.adj_data[self.adj_data['DATE'] == dt.datetime.now().date()])
+            # Para no agregarle el campo EXISTE al self.raw_x. self.rw_x contiene toda la info hasta el momento de las POFs generadas para este valor
+            self.raw_x['EXISTE'] = np.where(self.raw_x['DATE'].isin(lista_dias_no_exist), False, True)
+            
+            #display(self.raw_x[self.raw_x['EXISTE'] == False])
+            #sys.exit('R8') 
             
             df_all['DATE'] = pd.to_datetime(df_all['DATE']) # formato datetime en ambos dfs
             self.raw_x['DATE'] = pd.to_datetime(self.raw_x['DATE'])
@@ -391,6 +421,9 @@ class Valor():
         continuar_si_hay_menos = configuraciones['continuar_si_hay_menos']
         
         lista_dates = self.adj_data['Date'].unique()
+        
+        print('Lista date en crear POF')
+        print(lista_dates[-10:])
         
         df_iterar, df_all = self.generar_df_combinaciones(lista_dates, diccionario_combinaciones, iteradores, name, incluir_dates_en_iterar, df_explicito)
             
@@ -539,9 +572,6 @@ class Valor():
             if ((i + 1) % saving_step == 0) or (i == len(df_iterar) - 1): # Se guarda cada saving_step iteraciones, o en la última de ellas
                 
                 self.guardar()
-    
-
-
     
     def alimentar_raw_X(self, df):
         df = df[['DATE', 'NAME', 'X']]

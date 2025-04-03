@@ -1,5 +1,5 @@
 ﻿SIMBOLO;NOMBRE;USAR
-BTC-USD;Bitcoin;1
+BTC-USD;Bitcoin;
 NFLX;Netflix, Inc.;1
 INO;Inovio Pharmaceuticals, Inc.;
 AI;C3.ai, Inc.;
@@ -15,8 +15,8 @@ SMCI;Super Micro Computer, Inc.;
 SLS;SELLAS Life Sciences Group, Inc.;
 PSNY;Polestar Automotive Holding UK PLC;
 GRPN;Groupon, Inc.;
-FCEL;FuelCell Energy, Inc.;1
-DVA;DaVita Inc.;1
+FCEL;FuelCell Energy, Inc.;
+DVA;DaVita Inc.;
 ENPH;Enphase Energy, Inc.;
 TUP;Tupperware Brands Corporation;
 AMD;Advanced Micro Devices, Inc.;
@@ -33,14 +33,14 @@ CRSP;CRISPR Therapeutics AG;
 MMM;;
 AXP;;
 AMGN;;
-AAPL;;1
+AAPL;Apple Inc.;1
 BA;;
 CAT;;
 CVX;;
 CSCO;;
 KO;;
 DIS;;
-DOW;;1
+DOW;;
 GS;;
 HD;;
 HON;;
