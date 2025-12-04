@@ -422,8 +422,8 @@ class Valor():
         
         lista_dates = self.adj_data['Date'].unique()
         
-        print('Lista date en crear POF')
-        print(lista_dates[-10:])
+        #print('Lista date en crear POF')
+        #print(lista_dates[-10:])
         
         df_iterar, df_all = self.generar_df_combinaciones(lista_dates, diccionario_combinaciones, iteradores, name, incluir_dates_en_iterar, df_explicito)
             
@@ -436,7 +436,7 @@ class Valor():
                 
             # Lo que falta
             #print('Revision POF')
-            display(df_iteracion)
+            #display(df_iteracion)
             #display(df_all)
             df_iteracion['SELECCION'] = True # Se filtran lo casos (en raw X) de la tupla seleccionada en df_iteracion (configuración del caso particular)
             df_all_seleccion = df_all.merge(df_iteracion, on = iteradores, how = 'left')

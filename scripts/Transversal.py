@@ -6,6 +6,7 @@ def leer_activos(carpeta_input):
     df_activos['USAR'] = df_activos['USAR'].fillna(0)
     df_activos['NOMBRE'] = df_activos['NOMBRE'].fillna(df_activos['SIMBOLO'])
     df_activos = df_activos[df_activos['USAR'] == 1].reset_index(drop = True)[['SIMBOLO', 'NOMBRE']]
+    df_activos = df_activos.sort_values(by = 'SIMBOLO').reset_index(drop = True)
 
     #print('Sin Small Batch')
     #print('Small batch 240925')
