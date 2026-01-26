@@ -25,4 +25,7 @@ def leer_parametros():
 def leer_configuracion():
     output_level = 30
     return output_level
+
+
+n_sizes = {'BTCUSD': 50, 'ETHUSD': 50, 'TSLA': 40, 'GOOGL': 40}
     
