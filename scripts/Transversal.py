@@ -13,7 +13,6 @@ def leer_activos(carpeta_input):
     #df_activos = df_activos.head(5)
     return df_activos
 
-
 def leer_parametros():
     carpeta_input = '../Inputs/'
     cofre = '../Cofre/' # donde se guardan / rescatan los valores con toda su info actualizada
@@ -21,11 +20,11 @@ def leer_parametros():
     saving_step = 1000
     return carpeta_input, cofre, seguimiento, saving_step
 
-
 def leer_configuracion():
     output_level = 30
     return output_level
 
+n_sizes = {'BTCUSD': 32, 'ETHUSD': 32, 'TSLA': 32, 'GOOGL': 32, 'NVDA': 32}
 
-n_sizes = {'BTCUSD': 50, 'ETHUSD': 50, 'TSLA': 40, 'GOOGL': 40}
+n_sizes_ejecucion = {'BTCUSD': 32, 'ETHUSD': 32, 'TSLA': 32, 'GOOGL': 32, 'NVDA': 32}
     
