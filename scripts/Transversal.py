@@ -24,7 +24,11 @@ def leer_configuracion():
     output_level = 30
     return output_level
 
-n_sizes = {'BTCUSD': 40, 'ETHUSD': 40, 'TSLA': 36, 'GOOGL': 36, 'NVDA': 36}
+n_sizes = {'BTCUSD': 130, 'ETHUSD': 130, 'TSLA': 120, 'GOOGL': 120, 'NVDA': 120, 'AMZN': 120}
 
-n_sizes_ejecucion = {'BTCUSD': 32, 'ETHUSD': 32, 'TSLA': 32, 'GOOGL': 32, 'NVDA': 32}
-    
+#n_sizes_ejecucion = {'BTCUSD': 32, 'ETHUSD': 32, 'TSLA': 32, 'GOOGL': 32, 'NVDA': 32}
+n_sizes_ejecucion = {'BTCUSD': 130, 'ETHUSD': 130, 'TSLA': 120, 'GOOGL': 120, 'NVDA': 120, 'AMZN': 120}
+#{'BTCUSD': 100, 'ETHUSD': 100, 'TSLA': 80, 'GOOGL': 80, 'NVDA': 80, 'AMZN': 80}
+#{'BTCUSD': 80, 'ETHUSD': 80, 'TSLA': 65, 'GOOGL': 50, 'NVDA': 65, 'AMZN': 65}
+
+#{'BTCUSD': 40, 'ETHUSD': 40, 'TSLA': 36, 'GOOGL': 36, 'NVDA': 36}
