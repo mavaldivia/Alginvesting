@@ -1,3 +1,25 @@
+# Referencia histórica (solo lectura)
+Alginvesting_base/
+
+# Archivos generados en ejecución
+Data/
+conjuntosN2/
+conjuntosN/
+*.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Legado
 Cofre/Valor
 Otros recursos
 scripts/__pycache__

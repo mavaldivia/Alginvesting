@@ -1,6 +1,0 @@
-﻿nombre_figura;slope_inf;slope_sup;paralelas
-libre;libre;libre;False
-canal;libre;libre;True
-arriba plano;libre;0;False
-abajo plano;0;libre;False
-canal lateral;0;0;True
