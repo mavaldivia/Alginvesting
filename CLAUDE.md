@@ -21,7 +21,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 - El código se desarrolla en Mac y se ejecuta en Windows donde está MT5.
 - `Alginvesting_base/` es el repo clonado de la versión Windows (solo lectura, referencia histórica).
-- Los archivos generados (`Data/`, `conjuntosN2/`) se crean en Windows al correr X0, no se trackean en git.
+- `Data/` se trackea en git (ver `docs/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `conjuntosN2/` (pickles de soportes) sigue fuera de git, se regenera corriendo X0.
 
 ---
 
@@ -35,12 +35,12 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. |
 | `transversal.py` | Parámetros globales: `n_sizes`, `n_sizes_ejecucion`. |
 
-### Directorios de datos (generados, no en git)
+### Directorios de datos
 
 | Carpeta | Contenido |
 |---|---|
-| `Data/` | CSVs OHLCV por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0 |
-| `conjuntosN2/` | Pickles con N soportes óptimos por activo — `{VALOR}_{N}_beta.pkl` (en optimización) / `{VALOR}_{N}.pkl` (productivo) |
+| `Data/` | CSVs OHLCV por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, **trackeados en git** (historia desde 2024-01-01) |
+| `conjuntosN2/` | Pickles con N soportes óptimos por activo — `{VALOR}_{N}_beta.pkl` (en optimización) / `{VALOR}_{N}.pkl` (productivo) — generados, fuera de git |
 
 ---
 
@@ -125,8 +125,8 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
   - Agregada lógica: si pérdida > `PERDIDA_MAX` → cerrar la operación (`controlar_perdida_max`)
 
 ### Mejoras X0 (después de migrar X1)
-- [ ] **Paralelización**: la búsqueda de soportes es independiente por cada par (valor, N) → paralelizar con `multiprocessing` o `concurrent.futures`. Ej: BTCUSD-130, ETHUSD-130, TSLA-120, etc. corriendo simultáneamente.
-- [ ] Velocidad: `calcular_distancias` es O(n²) con loops Python puros — evaluar vectorización numpy
+- [x] **Paralelización**: la búsqueda de soportes es independiente por cada par (valor, N) → paralelizar con `multiprocessing` o `concurrent.futures`. Ej: BTCUSD-130, ETHUSD-130, TSLA-120, etc. corriendo simultáneamente.
+- [x] Velocidad: `calcular_distancias` vectorizada con numpy por bloques (evita matriz n×n completa) — ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21213), resultados idénticos byte a byte
 - [ ] Velocidad: `calcular_FO` llama `asignar_soporte` con `apply` O(n×N) — evaluar `cdist` o broadcasting
 - [ ] Parámetros: documentar mejor el efecto de cada parámetro (N, LAMBDA, K, N_EXP, M, DELTA_INICIAL)
 - [ ] Storage: evaluar si pickle es lo mejor para `conjuntosN2/` o si conviene JSON/parquet
@@ -154,6 +154,10 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ---
 
 ## Última actualización
+
+**2026-06-07** — Vectorizar calcular_distancias + setup skills record/guardar
+
+`calcular_distancias` en `X0_data_supports.py` reemplaza el doble loop O(n²) con `.loc` por `_vecino_mas_cercano`, vectorizado con numpy por bloques (`BLOQUE_DISTANCIAS`). Resultados idénticos byte a byte, ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21.213). `Data/` pasa a trackearse en git (revierte la decisión del 2026-06-03): MT5 solo entrega ~1000 velas por descarga, así que sin el CSV existente se pierde la historia previa a `FECHA_INICIAL=2024-01-01`. Se crearon las skills globales `record` y `guardar` (registro de sesiones en `docs/records.md` + commit/push encadenado).
 
 **2026-06-06** — Paralelizar búsqueda de soportes por (valor, N)
 

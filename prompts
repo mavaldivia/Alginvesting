@@ -27,3 +27,9 @@
 
   Además, en la metodología de trabajo, cuando planifique, quiero que sugieras 2 o máximo 3 propuestas con una recomendada
   con trade-offs, pros y contras claros. En general, no escribas demasiado en los outputs cosas innecesarias
+
+
+  Antes de continuar con el to do. Quiero replicar en el repo, la carpeta Data que está en la rama base_v0 (salvo que ya tengas los csvs en el repo y no los haya
+  visto). Esto es porque, como se ve en X0.py, cuando se actualizan los csv, hay un limite de registros en mt5, por lo tanto, eso
+  se concatena con el archivo ya existente, y despues de un drop duplicates, eso va actualizando los datos (creo que tengo cerca de
+  40 días sin actualizar nada para no tener vacíos). Si empiezo esos archivos de nuevo, perderé toda la historia 

@@ -48,6 +48,9 @@ FECHA_INICIAL = '2024-01-01'    # inicio del período considerado para calcular 
 K = 1       # peso de las distancias futuras vs. pasadas: y = dist_izq + K * dist_der
 N_EXP = 1.3 # exponente de ponderación temporal: w = t^N_EXP  (t=0 más antiguo, t=1 más reciente)
 
+# calcular_distancias: tamaño de bloque para vectorizar sin construir la matriz (n x n) completa
+BLOQUE_DISTANCIAS = 2000
+
 # Optimizador
 M = 30              # candidatos evaluados por soporte en cada paso (linspace entre vecinos)
 LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
@@ -87,6 +90,40 @@ def notacion_cientifica(numero: float, decimales: int = 2) -> str:
 
 # ─── Funciones del algoritmo ──────────────────────────────────────────────────
 
+def _vecino_mas_cercano(valores: np.ndarray, low: np.ndarray, high: np.ndarray,
+                        t: np.ndarray, block_size: int = BLOQUE_DISTANCIAS) -> tuple:
+    """
+    Para cada i, busca el j más cercano a la izquierda y a la derecha (en índice)
+    cuyo rango [low[j], high[j]] contiene valores[i]. Devuelve las distancias
+    temporales (t[i] - t[j] / t[j] - t[i]), con NaN cuando no hay vecino.
+
+    Procesa por bloques de filas para vectorizar con numpy sin construir la
+    matriz (n x n) completa, que no entra en memoria para series largas (n ~ 30k+).
+    """
+    n = len(valores)
+    col = np.arange(n)
+    dist_izq = np.full(n, np.nan)
+    dist_der = np.full(n, np.nan)
+
+    for inicio in tqdm.tqdm(range(0, n, block_size)):
+        fin = min(inicio + block_size, n)
+        filas = np.arange(inicio, fin)
+        v = valores[inicio:fin][:, None]
+        contiene = (low[None, :] <= v) & (v <= high[None, :])
+
+        izq = contiene & (col[None, :] < filas[:, None])
+        idx_izq = (n - 1) - izq[:, ::-1].argmax(axis=1)
+        hay_izq = izq.any(axis=1)
+        dist_izq[inicio:fin] = np.where(hay_izq, t[filas] - t[idx_izq], np.nan)
+
+        der = contiene & (col[None, :] > filas[:, None])
+        idx_der = der.argmax(axis=1)
+        hay_der = der.any(axis=1)
+        dist_der[inicio:fin] = np.where(hay_der, t[idx_der] - t[filas], np.nan)
+
+    return dist_izq, dist_der
+
+
 def calcular_distancias(df: pd.DataFrame, find_low: bool = True, find_high: bool = True) -> pd.DataFrame:
     """
     Para cada vela i, busca la vela más cercana (izquierda y derecha en tiempo)
@@ -96,42 +133,16 @@ def calcular_distancias(df: pd.DataFrame, find_low: bool = True, find_high: bool
     Una vela con distancias grandes en ambas direcciones es un "extremo aislado",
     candidato natural a soporte o resistencia.
     """
-    n = len(df)
     df = df.copy()
+    low = df['Low'].to_numpy()
+    high = df['High'].to_numpy()
+    t = df['t'].to_numpy()
+    max_t = t.max()
 
     if find_low:
-        df['Low_left'] = np.nan
-        df['Low_right'] = np.nan
+        df['Low_left'], df['Low_right'] = _vecino_mas_cercano(low, low, high, t)
     if find_high:
-        df['High_left'] = np.nan
-        df['High_right'] = np.nan
-
-    max_t = df['t'].max()
-
-    for i in tqdm.tqdm(range(n)):
-        low_val = df.loc[i, 'Low']
-        high_val = df.loc[i, 'High']
-        t_i = df.loc[i, 't']
-
-        if find_low:
-            for j in range(i - 1, -1, -1):
-                if df.loc[j, 'Low'] <= low_val <= df.loc[j, 'High']:
-                    df.loc[i, 'Low_left'] = t_i - df.loc[j, 't']
-                    break
-            for j in range(i + 1, n):
-                if df.loc[j, 'Low'] <= low_val <= df.loc[j, 'High']:
-                    df.loc[i, 'Low_right'] = df.loc[j, 't'] - t_i
-                    break
-
-        if find_high:
-            for j in range(i - 1, -1, -1):
-                if df.loc[j, 'Low'] <= high_val <= df.loc[j, 'High']:
-                    df.loc[i, 'High_left'] = t_i - df.loc[j, 't']
-                    break
-            for j in range(i + 1, n):
-                if df.loc[j, 'Low'] <= high_val <= df.loc[j, 'High']:
-                    df.loc[i, 'High_right'] = df.loc[j, 't'] - t_i
-                    break
+        df['High_left'], df['High_right'] = _vecino_mas_cercano(high, low, high, t)
 
     # Velas sin vecino (extremos del dataset): distancia hasta el borde del período
     if find_low:
