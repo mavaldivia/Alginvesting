@@ -47,7 +47,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 ## Conceptos clave del dominio
 
 - **N (n_sizes)**: Cantidad de soportes a mantener activos por activo. Varía por activo: BTCUSD/ETHUSD=130, resto=120.
-- **M**: Cantidad de soportes candidatos (pool mayor del que se selecciona N).
+- **M**: Número de precios candidatos evaluados por soporte en cada paso del optimizador (linspace equidistante entre soportes vecinos). Controla la granularidad de la búsqueda local — mayor M, barrido más fino pero más evaluaciones de FO por iteración.
 - **Conjunto N**: Los N soportes óptimos elegidos por el algoritmo de optimización.
 - **OA / OE**: Órdenes Abiertas (posición activa) / Órdenes en Espera (buy limit pendiente).
 - **Trailing Stop**: SL que sigue el precio hacia arriba para proteger ganancias.
@@ -59,11 +59,32 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 ## Algoritmo de búsqueda de soportes (X0)
 
-1. Calcular `df_extremos`: para cada vela, distancias al mínimo anterior/futuro más cercano.
-2. Generar M candidatos (particiones uniformes del rango de precios).
-3. Optimización iterativa: reemplazar uno a uno los elementos del conjunto N por candidatos de M, eligiendo el que mejore la función objetivo (FO).
-4. FO: mide qué tan bien los N soportes "atraen" los mínimos históricos, penalizando distribución desigual entre soportes.
-5. Versión activa: `nuevo_optimizador_2` (la más reciente en X0).
+### Paso 1 — `calcular_distancias`
+Para cada vela `i`, busca la vela más cercana a la izquierda y derecha cuyo rango `[Low, High]` *contenga* el `Low` (o `High`) de la vela `i`. La distancia temporal entre ambas velas queda en `Low_left / Low_right / High_left / High_right`. Velas con distancias grandes en ambas direcciones son extremos aislados, candidatos naturales a soporte/resistencia.
+
+### Paso 2 — Scoring por vela (`obtener_df_extremos`)
+- `y` (aislamiento): `Low_left + High_left + K * (Low_right + High_right)`
+- `w` (recencia): `t^N_EXP`, donde `t ∈ [0,1]` normalizado; velas recientes pesan más.
+
+### Paso 3 — Función objetivo (`calcular_FO`)
+Se asigna cada vela al soporte más cercano del conjunto N. Luego:
+- `h_dist = 1 - dist²/dist_max` (proximidad normalizada al soporte asignado)
+- `z = y * w * h_dist`
+- `FO = mean(z) - LAMBDA * cv(H_n)`
+  - `mean(z)`: calidad promedio de asignación (aislamiento × recencia × proximidad)
+  - `cv(H_n)`: coeficiente de variación de las distancias entre soportes consecutivos — penaliza que los N soportes se concentren en una zona del rango
+
+### Paso 4 — Optimizador de búsqueda local (`nuevo_optimizador_2`)
+En cada iteración, para cada soporte `i` del conjunto N:
+1. Genera M precios candidatos equidistantes (linspace) entre los soportes vecinos `i-1` e `i+1`.
+2. Evalúa la FO para cada candidato.
+3. Si la curva FO(candidato) tiene forma de U invertida → ajuste cuadrático para hallar el máximo analítico exacto.
+4. Si no → toma el candidato con mayor FO.
+5. Acepta el cambio solo si la mejora relativa supera `DELTA_INICIAL`.
+
+Si ningún soporte mejora en la vuelta actual → expande a todos los soportes y reintenta. Si aún no hay mejora → convergencia.
+
+Versión activa: `nuevo_optimizador_2`.
 
 ---
 
@@ -112,8 +133,11 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [ ] Config: mover parámetros a un archivo de configuración separado (`config.py`)
 
 ### Infraestructura
+- [x] Rama `base_v0` → estado original (notebooks, estructura Windows)
+- [x] Rama `dev` → trabajo activo. Push inicial: migración X0 + X1 a .py
+- [ ] Próximo push a `dev`: después de mejoras X0 (paralelización, velocidad)
+- [ ] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable)
 - [ ] Crear skill/comando `/push` para git push a rama desde Claude Code
-- [ ] Definir estrategia de ramas (main productivo, feature branches) — revisar pronto
 
 ### Backlog
 - [ ] **BIG PICTURE**: Mauricio tiene que explicar la visión completa del proyecto — hacia dónde va, qué quiere lograr con esta base, qué es realmente Alginvesting a largo plazo. Hacer esto antes de tomar decisiones de arquitectura mayores.
@@ -126,3 +150,11 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ## Referencia base
 
 `Alginvesting_base/` contiene la versión anterior (Windows, notebooks). Solo lectura. No modificar.
+
+---
+
+## Última actualización
+
+**2026-06-06** — Paralelizar búsqueda de soportes por (valor, N)
+
+`n_sizes` en `Transversal.py` pasa de un único N por activo a una lista de N candidatos (grid search: 50 a 120). `buscar_soportes` en `X0_data_supports.py` ahora arma todos los pares `(valor, N)` y los procesa en paralelo con `ProcessPoolExecutor` vía `_procesar_valor_N`. `promover_a_productivo` itera sobre cada N de la lista.

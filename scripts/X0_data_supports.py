@@ -12,6 +12,7 @@ Uso:
 """
 
 import argparse
+import concurrent.futures
 import datetime
 import os
 import pickle
@@ -454,72 +455,80 @@ def descargar_datos(valores: list, carpeta_data: Path):
 
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
+def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
+    """Worker para ProcessPoolExecutor: procesa un único par (valor, N)."""
+    print(f'\n{"="*55}\nProcesando {valor} N={N}')
+
+    csv_path = carpeta_data / f'{valor}.csv'
+    if not csv_path.exists():
+        print(f'  CSV no encontrado: {csv_path}, skip')
+        return
+
+    df = pd.read_csv(csv_path)
+    df = df.sort_values('DateTime').reset_index(drop=True)
+    df['DateTime'] = pd.to_datetime(df['DateTime'])
+    df = df[df['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
+
+    if len(df) == 0:
+        print(f'  Sin datos desde {FECHA_INICIAL}, skip')
+        return
+
+    print(f'  Rango: {df["DateTime"].iloc[0]} → {df["DateTime"].iloc[-1]} ({len(df)} velas)')
+    print(f'  Último cierre: {df["Close"].iloc[-1]:.2f}')
+
+    dt_min = df['DateTime'].min()
+    df['t'] = (df['DateTime'] - dt_min).dt.total_seconds() / 3600
+    df['t'] = df['t'] / df['t'].max()
+
+    beta_path = carpeta_n2 / f'{valor}_{N}_beta'
+    conjunto_N_prev = set()
+    if Path(f'{beta_path}.pkl').exists():
+        conjunto_N_prev = pickle_act(str(beta_path))
+        print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde pickle')
+
+    print('  Calculando distancias...')
+    df_extremos, conjunto_N = obtener_df_extremos(df, K, N_EXP, N, conjunto_N_prev)
+
+    FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
+    print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
+
+    conjunto_N, df_extremos, df_FO = nuevo_optimizador_2(
+        N, df_extremos, conjunto_N, LAMBDA,
+        ordenes_activas=[], M=M, max_iters=MAX_ITERS,
+    )
+
+    graficar_df_extremos(df_extremos, graficar=GRAFICAR_EXTREMOS)
+    graficar_performance_FO(df_FO, graficar=GRAFICAR_FO)
+    graficar_soportes_all(df, conjunto_N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
+
+    pickle_act(str(beta_path), conjunto_N, 'save')
+    print(f'  Guardado: {beta_path}.pkl')
+
+
 def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path):
-    # Procesar primero los activos con datos más desactualizados
-    mods = []
+    # Construir todas las tuplas (valor, N) y ordenar por antigüedad del beta
+    tuplas = []
     for valor in valores:
-        beta_path = carpeta_n2 / f'{valor}_{n_sizes[valor]}_beta.pkl'
-        fecha = (datetime.datetime.fromtimestamp(beta_path.stat().st_mtime)
-                 if beta_path.exists() else datetime.datetime(2000, 1, 1))
-        mods.append((valor, fecha))
+        for N in n_sizes[valor]:
+            beta_path = carpeta_n2 / f'{valor}_{N}_beta.pkl'
+            fecha = (datetime.datetime.fromtimestamp(beta_path.stat().st_mtime)
+                     if beta_path.exists() else datetime.datetime(2000, 1, 1))
+            tuplas.append((valor, N, fecha))
 
-    valores_ordenados = [v for v, _ in sorted(mods, key=lambda x: x[1])]
-    print('Orden de procesamiento:', valores_ordenados)
+    tuplas_ordenadas = [(v, n) for v, n, _ in sorted(tuplas, key=lambda x: x[2])]
+    print('Orden de procesamiento:', tuplas_ordenadas)
 
-    for valor in valores_ordenados:
-        print(f'\n{"="*55}\nProcesando {valor}')
-        N = n_sizes[valor]
-
-        # Leer CSV y filtrar desde FECHA_INICIAL
-        csv_path = carpeta_data / f'{valor}.csv'
-        if not csv_path.exists():
-            print(f'  CSV no encontrado: {csv_path}, skip')
-            continue
-
-        df = pd.read_csv(csv_path)
-        df = df.sort_values('DateTime').reset_index(drop=True)
-        df['DateTime'] = pd.to_datetime(df['DateTime'])
-        df = df[df['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
-
-        if len(df) == 0:
-            print(f'  Sin datos desde {FECHA_INICIAL}, skip')
-            continue
-
-        print(f'  Rango: {df["DateTime"].iloc[0]} → {df["DateTime"].iloc[-1]} ({len(df)} velas)')
-        print(f'  Último cierre: {df["Close"].iloc[-1]:.2f}')
-
-        # Tiempo normalizado entre 0 y 1 (en horas desde la primera vela del período)
-        dt_min = df['DateTime'].min()
-        df['t'] = (df['DateTime'] - dt_min).dt.total_seconds() / 3600
-        df['t'] = df['t'] / df['t'].max()
-
-        # Cargar conjunto previo si existe (warm start)
-        beta_path = carpeta_n2 / f'{valor}_{N}_beta'
-        conjunto_N_prev = set()
-        if Path(f'{beta_path}.pkl').exists():
-            conjunto_N_prev = pickle_act(str(beta_path))
-            print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde pickle')
-
-        # Calcular extremos y preparar conjunto_N inicial
-        print('  Calculando distancias...')
-        df_extremos, conjunto_N = obtener_df_extremos(df, K, N_EXP, N, conjunto_N_prev)
-
-        # FO de referencia con la solución actual
-        FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
-        print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
-
-        # Optimización
-        conjunto_N, df_extremos, df_FO = nuevo_optimizador_2(
-            N, df_extremos, conjunto_N, LAMBDA,
-            ordenes_activas=[], M=M, max_iters=MAX_ITERS,
-        )
-
-        graficar_df_extremos(df_extremos, graficar=GRAFICAR_EXTREMOS)
-        graficar_performance_FO(df_FO, graficar=GRAFICAR_FO)
-        graficar_soportes_all(df, conjunto_N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
-
-        pickle_act(str(beta_path), conjunto_N, 'save')
-        print(f'  Guardado: {beta_path}.pkl')
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        futures = {
+            executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n2): (v, n)
+            for v, n in tuplas_ordenadas
+        }
+        for future in concurrent.futures.as_completed(futures):
+            valor, N = futures[future]
+            try:
+                future.result()
+            except Exception as exc:
+                print(f'Error en ({valor}, N={N}): {exc}')
 
 
 def promover_a_productivo(valores: list, n_sizes: dict, carpeta_n2: Path):
@@ -529,20 +538,20 @@ def promover_a_productivo(valores: list, n_sizes: dict, carpeta_n2: Path):
     """
     print('\nPromoviendo resultados a productivo...')
     for valor in valores:
-        N = n_sizes[valor]
-        beta_path = carpeta_n2 / f'{valor}_{N}_beta.pkl'
-        prod_path = carpeta_n2 / f'{valor}_{N}.pkl'
+        for N in n_sizes[valor]:
+            beta_path = carpeta_n2 / f'{valor}_{N}_beta.pkl'
+            prod_path = carpeta_n2 / f'{valor}_{N}.pkl'
 
-        if not beta_path.exists():
-            print(f'  {valor}: no existe _beta.pkl, skip')
-            continue
+            if not beta_path.exists():
+                print(f'  {valor} N={N}: no existe _beta.pkl, skip')
+                continue
 
-        if prod_path.exists():
-            prod_path.unlink()
+            if prod_path.exists():
+                prod_path.unlink()
 
-        beta_path.rename(prod_path)
-        shutil.copy(prod_path, beta_path)
-        print(f'  {valor}: {prod_path.name} actualizado')
+            beta_path.rename(prod_path)
+            shutil.copy(prod_path, beta_path)
+            print(f'  {valor} N={N}: {prod_path.name} actualizado')
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

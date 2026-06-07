@@ -1,0 +1,29 @@
+ 1.Alginvesting es un nuevo proyecto que quiero desarrollar con claude. 
+  Dentro de ese directorio hay uno que se llama Alginvesting_base, que es todo lo que tengo hasta ahora (consideralo como 
+  solo lectura, esto debe ser parte del gitignore, ya que lo nuevo debe estar desarrollado en "Alginvesting"
+  Todo lo prinicipal en lo que estoy trabajando esta en la carpeta scripts, los codigos que empiezan con X0 y X1
+  Revisa el proyecto para que creemos el claude.md y el readme
+  Como siempre, preguntame todo lo que sea necesario para entender el proyecto, que es lo primero que quiero que hagas 
+
+
+
+  [2.] 
+  
+  Respondo
+  1. Están en desarrollo, funcionan y han mejorado, pero ambos siguen con oportunidad de mejorado
+  2. Migremos a .py, creo que es mejor. Solo en algunos casos específicos de construcción de módulos que contemplen una componente visual importante, me gustaría quizás partir con ipynb
+  3. Por ahora, no lo consideres parte de la base
+  4. Este proyecto lo acabo de "migrar de windows a mac". Lo desarrollé en windows, hice un git push y, en el mac hice un git clone (en windows no tengo claude)
+     La idea sería ir haciendo ese ir y venir (desarrollar en mac y ejecutar en windows). Ese repo, está dentro de la carpeta Alginvesting_base (todo el repo excepto el gitignore que quedó fuera)
+  5. Es un proyecto personal (al menos por ahora)
+    6. Los archivos de la carpeta Data/, se actualizan desde el código X0 (al comienzo. Primera etapa). La segunda etapa del código X0 es encontrar soportes y resistencias
+  
+  PD: Esto debiese estar en las bases de tu funcionamiento, pero quiero que libremente en cualquier momento, actualices el archivo de contexto (y que este incluya los to dos),
+  el claude.md y/o algún otro que sea relevante. 
+
+  Además, me gustaría crear alguna skill para hacer push a alguna rama
+  en github. Además, cuando se justifique, sugiere crear rama nueva o tambien sugiere en que rama
+  dejar los cambios (deja este punto en los to dos para que lo veamos pronto pero no ahora)
+
+  Además, en la metodología de trabajo, cuando planifique, quiero que sugieras 2 o máximo 3 propuestas con una recomendada
+  con trade-offs, pros y contras claros. En general, no escribas demasiado en los outputs cosas innecesarias
