@@ -88,6 +88,39 @@ Versión activa: `nuevo_optimizador_2`.
 
 ---
 
+## Parámetros del algoritmo — efecto de cada uno
+
+Definidos en `scripts/X0_data_supports.py:43-58`. Valores listados = los usados en producción (no los defaults de las funciones, que pueden diferir).
+
+### N — cantidad de soportes (`transversal.py`: 130 BTCUSD/ETHUSD, 120 el resto)
+- **↑ N**: más cobertura del rango de precios y entradas más finas, pero capital más fragmentado por posición y mayor costo computacional (`calcular_FO` se llama del orden de N×M veces por iteración del optimizador).
+- **↓ N**: posiciones más concentradas (mayor peso por entrada), optimización más rápida, cobertura más gruesa del rango.
+
+### K = 1 — peso del aislamiento futuro vs. pasado en `y = Low_left + High_left + K*(Low_right + High_right)`
+- **K = 1** (actual): el aislamiento hacia atrás (pasado) y hacia adelante (futuro respecto a la vela, no al presente) pesan igual.
+- **↑ K**: prioriza velas cuyo nivel permaneció "intacto" mucho tiempo después de formarse — favorece niveles ya validados por el tiempo transcurrido.
+- **↓ K**: prioriza el aislamiento previo a la formación de la vela — favorece el contexto que la originó por sobre su validación posterior.
+
+### N_EXP = 1.3 — exponente de recencia en `w = t^N_EXP`, con `t ∈ [0,1]`
+- **N_EXP = 1.3** (actual, convexo): los pesos crecen más que proporcionalmente con `t` — las velas recientes dominan la FO, las antiguas casi no influyen.
+- **↑ N_EXP**: acentúa esa concentración en lo reciente — más reactivo a cambios de régimen, menos memoria del historial.
+- **↓ N_EXP** (hacia 1, o cóncavo si <1): reparte el peso de forma más pareja entre todo el historial — más estable, menos sensible a movimientos recientes.
+
+### M = 30 — candidatos evaluados por soporte en cada paso del optimizador
+Genera M precios equidistantes (`linspace`) entre los soportes vecinos y evalúa la FO en cada uno.
+- **↑ M**: barrido más fino entre soportes vecinos → más probabilidad de hallar el óptimo local exacto (o una buena base para el ajuste cuadrático), pero cada paso cuesta M evaluaciones de `calcular_FO` adicionales.
+- **↓ M**: pasos más rápidos, pero candidatos más espaciados → más riesgo de saltarse el máximo real entre dos soportes vecinos.
+
+### LAMBDA = 1/500 — penalización por dispersión desigual: `FO = mean(z) - LAMBDA * cv(H_n)`
+- **↑ LAMBDA**: castiga con más fuerza que los soportes se amontonen en una zona del rango — empuja el conjunto N hacia una distribución más pareja en precio, aunque sacrifique algo de `mean(z)` (calidad de asignación).
+- **↓ LAMBDA**: la FO se guía casi solo por `mean(z)` — permite que los soportes se concentren donde hay más "evidencia" (velas aisladas y recientes), aunque dejen huecos grandes en otras zonas del rango.
+
+### DELTA_INICIAL = 1e-4 — mejora relativa mínima para aceptar un cambio: `(FO_iter - FO_base)/FO_base > DELTA_INICIAL`
+- **↑ DELTA_INICIAL**: exige mejoras más significativas para mover un soporte → converge más rápido (menos iteraciones), pero puede detenerse en un óptimo más alejado del ideal.
+- **↓ DELTA_INICIAL**: acepta mejoras más marginales → resultado más fino, pero más iteraciones y más riesgo de aceptar cambios por ruido numérico.
+
+---
+
 ## Activos operados
 
 ```python
@@ -127,8 +160,8 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ### Mejoras X0 (después de migrar X1)
 - [x] **Paralelización**: la búsqueda de soportes es independiente por cada par (valor, N) → paralelizar con `multiprocessing` o `concurrent.futures`. Ej: BTCUSD-130, ETHUSD-130, TSLA-120, etc. corriendo simultáneamente.
 - [x] Velocidad: `calcular_distancias` vectorizada con numpy por bloques (evita matriz n×n completa) — ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21213), resultados idénticos byte a byte
-- [ ] Velocidad: `calcular_FO` llama `asignar_soporte` con `apply` O(n×N) — evaluar `cdist` o broadcasting
-- [ ] Parámetros: documentar mejor el efecto de cada parámetro (N, LAMBDA, K, N_EXP, M, DELTA_INICIAL)
+- [x] Velocidad: `asignar_soporte` vectorizada con `np.searchsorted` (búsqueda binaria del soporte más cercano, O(n log N) en vez de O(n×N) con `apply`) — ~45-178x más rápido (0.26s → 0.0014s en BTCUSD, N=130), resultados idénticos byte a byte
+- [x] Parámetros: documentado el efecto de cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL) en la nueva sección "Parámetros del algoritmo — efecto de cada uno"
 - [ ] Storage: evaluar si pickle es lo mejor para `conjuntosN2/` o si conviene JSON/parquet
 - [ ] Config: mover parámetros a un archivo de configuración separado (`config.py`)
 
@@ -155,9 +188,9 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 ## Última actualización
 
-**2026-06-07** — Vectorizar calcular_distancias + setup skills record/guardar
+**2026-06-07** — Vectorizar calcular_distancias + asignar_soporte, setup skills record/guardar
 
-`calcular_distancias` en `X0_data_supports.py` reemplaza el doble loop O(n²) con `.loc` por `_vecino_mas_cercano`, vectorizado con numpy por bloques (`BLOQUE_DISTANCIAS`). Resultados idénticos byte a byte, ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21.213). `Data/` pasa a trackearse en git (revierte la decisión del 2026-06-03): MT5 solo entrega ~1000 velas por descarga, así que sin el CSV existente se pierde la historia previa a `FECHA_INICIAL=2024-01-01`. Se crearon las skills globales `record` y `guardar` (registro de sesiones en `docs/records.md` + commit/push encadenado).
+`calcular_distancias` en `X0_data_supports.py` reemplaza el doble loop O(n²) con `.loc` por `_vecino_mas_cercano`, vectorizado con numpy por bloques (`BLOQUE_DISTANCIAS`). Resultados idénticos byte a byte, ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21.213). `asignar_soporte` reemplaza el `apply` con `min(soportes, key=...)` (O(n×N)) por `np.searchsorted` (búsqueda binaria, O(n log N)) — ~45-178x más rápido (0.26s → 0.0014s en BTCUSD, N=130), mismos resultados byte a byte; relevante porque `calcular_FO` la invoca miles de veces por iteración del optimizador. Se agregó la sección "Parámetros del algoritmo — efecto de cada uno" documentando qué hace subir/bajar cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL). `Data/` pasa a trackearse en git (revierte la decisión del 2026-06-03): MT5 solo entrega ~1000 velas por descarga, así que sin el CSV existente se pierde la historia previa a `FECHA_INICIAL=2024-01-01`. Se crearon las skills globales `record` y `guardar` (registro de sesiones en `docs/records.md` + commit/push encadenado).
 
 **2026-06-06** — Paralelizar búsqueda de soportes por (valor, N)
 

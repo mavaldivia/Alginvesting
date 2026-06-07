@@ -193,7 +193,17 @@ def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
 
 def asignar_soporte(df: pd.DataFrame, soportes: set) -> pd.DataFrame:
     df = df.copy()
-    df['soporte'] = df['Low'].apply(lambda x: min(soportes, key=lambda s: abs(s - x)))
+    soportes_arr = np.sort(np.array(list(soportes), dtype=np.float64))
+    lows = df['Low'].to_numpy(dtype=np.float64)
+
+    # Para cada Low, el soporte más cercano está entre el vecino izquierdo y derecho
+    # en el array ordenado (búsqueda binaria en vez de comparar contra los N soportes)
+    idx = np.searchsorted(soportes_arr, lows)
+    idx_izq = np.clip(idx - 1, 0, len(soportes_arr) - 1)
+    idx_der = np.clip(idx, 0, len(soportes_arr) - 1)
+    izq, der = soportes_arr[idx_izq], soportes_arr[idx_der]
+
+    df['soporte'] = np.where(np.abs(lows - izq) <= np.abs(lows - der), izq, der)
     return df
 
 
