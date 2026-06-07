@@ -46,3 +46,10 @@
 **Decisión:** sacar `Data/` del `.gitignore` y trackear los CSVs de precios en git.
 **Razón:** `descargar_datos` solo trae las últimas 1000 velas H1 de MT5 (~41 días) y hace merge + `drop_duplicates` con el CSV existente. Si el CSV no existe (ej. checkout nuevo en Windows sin `Data/`), se pierde toda la historia previa a esa ventana — en este caso, ~2 años desde `FECHA_INICIAL=2024-01-01`. Versionar `Data/` en git asegura que esa historia viaje con el repo y no dependa de copiar carpetas a mano entre máquinas.
 **Costo aceptado:** ~14MB iniciales (10 activos) que crecerán con cada actualización — el repo va a pesar más con el tiempo.
+
+## 2026-06-07 — `conjuntosN2/` migra de pickle a JSON
+
+**Decisión:** reemplazar `pickle_act` por `json_act` en `X0_data_supports.py` y `X1_trading.py`. Los archivos pasan de `{valor}_{N}_beta.pkl` / `{valor}_{N}.pkl` a `.json`.
+**Razón:** `conjunto_N` es solo un `set` de ~50-130 floats (niveles de precio) — formato binario no aporta nada aquí. JSON permite abrir el archivo y revisar los soportes a simple vista, útil para validar resultados de X0 sin cargar Python. La conversión es trivial: `sorted(set)` al guardar, `set(list)` al cargar donde se necesita como set (X0); X1 ya consumía la lista directamente.
+**Descartado:** Parquet — formato columnar pensado para datasets tabulares grandes, sobredimensionado para una lista de ~100 floats.
+**Nota:** se quitó `*.pkl` de `.gitignore` (quedaba redundante; `conjuntosN2/` ya está ignorado como carpeta y pickle deja de usarse en el proyecto).

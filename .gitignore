@@ -4,7 +4,6 @@ Alginvesting_base/
 # Archivos generados en ejecución
 conjuntosN2/
 conjuntosN/
-*.pkl
 
 # Python
 __pycache__/

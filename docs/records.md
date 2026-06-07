@@ -43,3 +43,16 @@ Claude: Creó el archivo con un resumen de qué hace cada skill y cuándo se act
 Mauricio: Pidió que toda nueva skill se documente ahí también.
 Claude: Agregó esa regla a `instrucciones_globales.md`, sección "Actualización de archivos de contexto".
 (Cierre: 2026-06-07 00:46)
+
+## SECCIÓN 3
+Mauricio: Tras ver los próximos 3 TO DOs (Storage, Config, próximo push a dev), pidió avanzar con Storage y Config ("vamos con 1 y 2").
+Claude: Antes de tocar código, presentó dos preguntas: (1) pickle vs JSON para `conjuntosN2/` — descartando parquet por sobredimensionado, dado que `conjunto_N` es solo un set de ~50-130 floats; (2) alcance de `config.py` respecto a `transversal.py` y a los parámetros de X1.
+
+Mauricio: Eligió migrar a JSON y limitar `config.py` solo a parámetros de X0 (la opción recomendada).
+Claude: Migró `conjuntosN2/` de pickle a JSON: reemplazó `pickle_act` por `json_act` en `X0_data_supports.py` y `X1_trading.py` (`sorted(set)` al guardar, `set(list)`/`list` al cargar), renombró archivos `_beta.pkl`/`.pkl` → `.json` en todo el flujo (warm start, guardado, `promover_a_productivo`, `leer_lista_N`), quitó `*.pkl` de `.gitignore` (redundante, ya cubierto por `conjuntosN2/`), actualizó `CLAUDE.md` (tabla de scripts, directorios de datos, TO DO marcado como hecho) y agregó la entrada correspondiente a `docs/decisiones.md`. Verificó que ambos scripts compilan sin errores.
+
+Mauricio: Preguntó qué convenía hacer en GitHub considerando que agrupó varios cambios "macro" (mejoras X0) aún no probados en productivo — ¿solo un commit más en `dev`?
+Claude: Recomendó seguir comprometiendo directo a `dev` (ya es la rama de trabajo activo según el propio esquema del proyecto; el merge a `master` queda para cuando se valide en Windows, ítem ya pendiente en el TO DO). Sugirió opcionalmente un tag liviano (`git tag pre-test-mejoras-x0`) como punto de retorno antes de probar el lote completo.
+
+Nota: el ítem "Config: mover parámetros a `config.py`" quedó pendiente — la sesión cerró antes de implementarlo.
+(Cierre: 2026-06-07 00:56)

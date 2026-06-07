@@ -21,7 +21,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 - El código se desarrolla en Mac y se ejecuta en Windows donde está MT5.
 - `Alginvesting_base/` es el repo clonado de la versión Windows (solo lectura, referencia histórica).
-- `Data/` se trackea en git (ver `docs/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `conjuntosN2/` (pickles de soportes) sigue fuera de git, se regenera corriendo X0.
+- `Data/` se trackea en git (ver `docs/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `conjuntosN2/` (JSONs de soportes) sigue fuera de git, se regenera corriendo X0.
 
 ---
 
@@ -31,7 +31,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 | Archivo | Propósito |
 |---|---|
-| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5. **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntosN2/` como pickle. `--opcion 0/1/2` |
+| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5. **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntosN2/` como JSON. `--opcion 0/1/2` |
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. |
 | `transversal.py` | Parámetros globales: `n_sizes`, `n_sizes_ejecucion`. |
 
@@ -40,7 +40,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | Carpeta | Contenido |
 |---|---|
 | `Data/` | CSVs OHLCV por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, **trackeados en git** (historia desde 2024-01-01) |
-| `conjuntosN2/` | Pickles con N soportes óptimos por activo — `{VALOR}_{N}_beta.pkl` (en optimización) / `{VALOR}_{N}.pkl` (productivo) — generados, fuera de git |
+| `conjuntosN2/` | JSONs con N soportes óptimos por activo — `{VALOR}_{N}_beta.json` (en optimización) / `{VALOR}_{N}.json` (productivo) — generados, fuera de git |
 
 ---
 
@@ -162,7 +162,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Velocidad: `calcular_distancias` vectorizada con numpy por bloques (evita matriz n×n completa) — ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21213), resultados idénticos byte a byte
 - [x] Velocidad: `asignar_soporte` vectorizada con `np.searchsorted` (búsqueda binaria del soporte más cercano, O(n log N) en vez de O(n×N) con `apply`) — ~45-178x más rápido (0.26s → 0.0014s en BTCUSD, N=130), resultados idénticos byte a byte
 - [x] Parámetros: documentado el efecto de cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL) en la nueva sección "Parámetros del algoritmo — efecto de cada uno"
-- [ ] Storage: evaluar si pickle es lo mejor para `conjuntosN2/` o si conviene JSON/parquet
+- [x] Storage: migrado `conjuntosN2/` de pickle a JSON (`json_act` en X0 y X1) — `conjunto_N` es solo un set de ~50-130 floats, parquet quedaba descartado por sobredimensionado; JSON permite inspeccionar los soportes a simple vista
 - [ ] Config: mover parámetros a un archivo de configuración separado (`config.py`)
 
 ### Infraestructura
@@ -187,6 +187,10 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ---
 
 ## Última actualización
+
+**2026-06-07** — Migrar conjuntosN2 de pickle a JSON
+
+`conjunto_N` es solo un `set` de ~50-130 floats (niveles de precio) — pickle no aportaba nada frente a JSON, que además permite inspeccionar los soportes a simple vista (parquet quedó descartado por sobredimensionado para este tamaño). `pickle_act` se reemplazó por `json_act` en `X0_data_supports.py` y `X1_trading.py` (`sorted(set)` al guardar, `set(list)`/`list` al cargar), y los archivos pasan de `{valor}_{N}_beta.pkl` / `{valor}_{N}.pkl` a `.json` en todo el flujo (warm start, guardado, `promover_a_productivo`, `leer_lista_N`). Se quitó `*.pkl` de `.gitignore` (redundante, `conjuntosN2/` ya está ignorado como carpeta).
 
 **2026-06-07** — Vectorizar calcular_distancias + asignar_soporte, setup skills record/guardar
 

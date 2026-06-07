@@ -14,8 +14,8 @@ Uso:
 import argparse
 import concurrent.futures
 import datetime
+import json
 import os
-import pickle
 import random
 import shutil
 import sys
@@ -66,17 +66,17 @@ GRAFICAR_ZOOM = False
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
 
-def pickle_act(file_path: str, variable=None, mode: str = 'open'):
-    """Guarda (mode='save') o carga (mode='open') un objeto en disco como pickle."""
-    path = f'{file_path}.pkl'
+def json_act(file_path: str, variable=None, mode: str = 'open'):
+    """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON."""
+    path = f'{file_path}.json'
     try:
-        with open(path, 'wb' if mode == 'save' else 'rb') as f:
+        with open(path, 'w' if mode == 'save' else 'r') as f:
             if mode == 'save':
-                pickle.dump(variable, f)
+                json.dump(sorted(variable), f)
                 return None
-            return pickle.load(f)
+            return json.load(f)
     except Exception as e:
-        print(f'Error pickle_act ({mode}, {path}): {e}')
+        print(f'Error json_act ({mode}, {path}): {e}')
         sys.exit(1)
 
 
@@ -503,9 +503,9 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
 
     beta_path = carpeta_n2 / f'{valor}_{N}_beta'
     conjunto_N_prev = set()
-    if Path(f'{beta_path}.pkl').exists():
-        conjunto_N_prev = pickle_act(str(beta_path))
-        print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde pickle')
+    if Path(f'{beta_path}.json').exists():
+        conjunto_N_prev = set(json_act(str(beta_path)))
+        print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
 
     print('  Calculando distancias...')
     df_extremos, conjunto_N = obtener_df_extremos(df, K, N_EXP, N, conjunto_N_prev)
@@ -522,8 +522,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
     graficar_performance_FO(df_FO, graficar=GRAFICAR_FO)
     graficar_soportes_all(df, conjunto_N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
 
-    pickle_act(str(beta_path), conjunto_N, 'save')
-    print(f'  Guardado: {beta_path}.pkl')
+    json_act(str(beta_path), conjunto_N, 'save')
+    print(f'  Guardado: {beta_path}.json')
 
 
 def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path):
@@ -531,7 +531,7 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
     tuplas = []
     for valor in valores:
         for N in n_sizes[valor]:
-            beta_path = carpeta_n2 / f'{valor}_{N}_beta.pkl'
+            beta_path = carpeta_n2 / f'{valor}_{N}_beta.json'
             fecha = (datetime.datetime.fromtimestamp(beta_path.stat().st_mtime)
                      if beta_path.exists() else datetime.datetime(2000, 1, 1))
             tuplas.append((valor, N, fecha))
@@ -554,17 +554,17 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
 
 def promover_a_productivo(valores: list, n_sizes: dict, carpeta_n2: Path):
     """
-    Mueve _beta.pkl → {valor}_{N}.pkl y mantiene una copia en _beta.pkl.
+    Mueve _beta.json → {valor}_{N}.json y mantiene una copia en _beta.json.
     El archivo productivo (sin _beta) es el que lee X1 para operar.
     """
     print('\nPromoviendo resultados a productivo...')
     for valor in valores:
         for N in n_sizes[valor]:
-            beta_path = carpeta_n2 / f'{valor}_{N}_beta.pkl'
-            prod_path = carpeta_n2 / f'{valor}_{N}.pkl'
+            beta_path = carpeta_n2 / f'{valor}_{N}_beta.json'
+            prod_path = carpeta_n2 / f'{valor}_{N}.json'
 
             if not beta_path.exists():
-                print(f'  {valor} N={N}: no existe _beta.pkl, skip')
+                print(f'  {valor} N={N}: no existe _beta.json, skip')
                 continue
 
             if prod_path.exists():
