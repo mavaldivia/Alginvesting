@@ -49,13 +49,14 @@ FECHA_INICIAL = '2024-01-01'    # inicio del período considerado para calcular 
 K = 1       # peso de las distancias futuras vs. pasadas: y = dist_izq + K * dist_der
 N_EXP = 1.3 # exponente de ponderación temporal: w = t^N_EXP  (t=0 más antiguo, t=1 más reciente)
 
-# Factores activos en el producto z = y * w * h_dist * v (calcular_FO).
+# Factores activos en el producto z = y * w * h_dist * v * f (calcular_FO).
 # Permite activar/desactivar cada uno para experimentar con el scoring sin tocar el código.
 parametros_soportes = {
     'y': True,       # aislamiento: y = Low_left + High_left + K * (Low_right + High_right)
     'w': True,       # recencia: w = t^N_EXP
     'h_dist': True,  # proximidad al soporte asignado: h_dist = 1 - dist²/dist_max
     'v': True,       # volumen normalizado: v = Tick_Volume / Tick_Volume.max()  (proxy de actividad en ese nivel)
+    'f': True,       # fuerza del rechazo: f = 1 - |Close - Open| / (High - Low)  (proporción del rango que fue "mecha")
 }
 
 LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)

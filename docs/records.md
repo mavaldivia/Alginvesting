@@ -75,3 +75,11 @@ Claude: Revisó los 10 CSV de `Data/` — mismo esquema en todos (`Tick_Volume`,
 Mauricio: Pidió agregar `Tick_Volume` normalizado [0,1] como un cuarto factor `v` que multiplique a `y`, `w` y `h`, que `z` siempre sea un producto de "factores", y un diccionario en `config.py` (`parametros_soportes`) para activar/desactivar cada uno.
 Claude: Implementó `parametros_soportes = {'y': True, 'w': True, 'h_dist': True, 'v': True}` en `config.py`; calculó `v = Tick_Volume / Tick_Volume.max()` en `obtener_df_extremos`; reemplazó el producto fijo en `calcular_FO` por `df_extremos[factores].prod(axis=1)` sobre los factores activos; actualizó docstrings y la documentación del algoritmo en `CLAUDE.md` (Pasos 2 y 3, más entrada en "Última actualización"). Validó con datos reales de AMZN: `z` coincide byte a byte con `y*w*h_dist*v` (todos activos) y con `y*w*h_dist` al desactivar `v`.
 (Cierre: 2026-06-07 22:53)
+
+## SECCIÓN 5
+Mauricio: Retomó la segunda idea propuesta antes para mejorar el scoring de `calcular_FO` —"fuerza del rechazo" (`f`)— y preguntó cómo la definiría, con intención de explorar integrarla.
+Claude: Propuso `f = 1 - |Close - Open| / (High - Low)` (proporción del rango que fue "mecha" vs. cuerpo): direccional-agnóstica, cae naturalmente en `[0,1]` sin normalización extra, y consistente con cómo `y` ya combina aislamiento de `Low` y `High` en una sola señal por vela. Señaló el caso borde `High == Low` (división por cero), ya presente hoy en `h_dist`/`dist_max` y no resuelto.
+
+Mauricio: Le hizo sentido la definición y pidió agregarla al proceso, con su propio toggle `True/False` en `parametros_soportes`.
+Claude: Agregó `'f': True` al diccionario en `config.py`; calculó `f` en `obtener_df_extremos`; actualizó el docstring de `calcular_FO` (el cálculo de `z` ya era genérico vía `prod(axis=1)`, no requirió cambios); documentó `f` en `CLAUDE.md` (Paso 2 del algoritmo) y extendió la entrada de "Última actualización" del día para cubrir `v` y `f` juntos. Validó con datos reales de AMZN: `f` cae en `[0,1]`, y `z` coincide byte a byte con `y*w*h_dist*v*f` (todos activos) y con `y*w*h_dist*v` al desactivar `f`.
+(Cierre: 2026-06-07 23:01)

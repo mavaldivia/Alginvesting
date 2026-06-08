@@ -149,6 +149,9 @@ def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
     df_extremos['w'] = df_extremos['t'] ** n_exp
     df_extremos['v'] = df_extremos['Tick_Volume'] / df_extremos['Tick_Volume'].max()
 
+    rango = df_extremos['High'] - df_extremos['Low']
+    df_extremos['f'] = 1 - (df_extremos['Close'] - df_extremos['Open']).abs() / rango
+
     p_min = df_extremos['Low'].min()
     p_max = df_extremos['Low'].max()
 
@@ -193,6 +196,7 @@ def calcular_FO(df_extremos: pd.DataFrame, conjunto_N: set, lambda_ponderador: f
         w      → peso temporal (velas recientes pesan más)
         h_dist → qué tan cerca está la vela del soporte asignado (normalizado)
         v      → volumen normalizado (Tick_Volume / max), proxy de actividad en ese nivel
+        f      → fuerza del rechazo: proporción del rango que fue mecha (1 - |Close-Open|/(High-Low))
 
     cv(H_n) = std(H_n) / mean(H_n), donde H_n son las distancias entre soportes consecutivos.
     Penaliza conjuntos donde los soportes están muy concentrados en una zona del rango.

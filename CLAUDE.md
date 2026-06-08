@@ -66,13 +66,14 @@ Para cada vela `i`, busca la vela más cercana a la izquierda y derecha cuyo ran
 - `y` (aislamiento): `Low_left + High_left + K * (Low_right + High_right)`
 - `w` (recencia): `t^N_EXP`, donde `t ∈ [0,1]` normalizado; velas recientes pesan más.
 - `v` (volumen): `Tick_Volume / Tick_Volume.max()`, normalizado a `[0,1]`; proxy de actividad/participación en ese nivel de precio (`Real_Volume` viene vacío en los CSV de MT5, así que se usa `Tick_Volume`).
+- `f` (fuerza del rechazo): `1 - |Close - Open| / (High - Low)`, en `[0,1]`; proporción del rango de la vela que fue "mecha" en vez de cuerpo — una vela con cuerpo chico y rango grande indica que el precio visitó el extremo y fue rechazado con fuerza, señal de un nivel más respetado. Direccional-agnóstico (no distingue rechazo al alza/baja), consistente con cómo `y` ya combina aislamiento de `Low` y `High` en una sola señal.
 
 ### Paso 3 — Función objetivo (`calcular_FO`)
 Se asigna cada vela al soporte más cercano del conjunto N. Luego:
 - `h_dist = 1 - dist²/dist_max` (proximidad normalizada al soporte asignado)
-- `z = producto de los factores activos en `parametros_soportes` (config.py)`: por defecto `y * w * h_dist * v`. El diccionario permite activar/desactivar cada uno para experimentar con el scoring sin tocar el código.
+- `z = producto de los factores activos en `parametros_soportes` (config.py)`: por defecto `y * w * h_dist * v * f`. El diccionario permite activar/desactivar cada uno para experimentar con el scoring sin tocar el código.
 - `FO = mean(z) - LAMBDA * cv(H_n)`
-  - `mean(z)`: calidad promedio de asignación (combinación de los factores activos: aislamiento, recencia, proximidad, volumen)
+  - `mean(z)`: calidad promedio de asignación (combinación de los factores activos: aislamiento, recencia, proximidad, volumen, fuerza del rechazo)
   - `cv(H_n)`: coeficiente de variación de las distancias entre soportes consecutivos — penaliza que los N soportes se concentren en una zona del rango
 
 ### Paso 4 — Optimizador de búsqueda local (`nuevo_optimizador_2`)
@@ -194,9 +195,13 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 ## Última actualización
 
-**2026-06-07** — Agregar volumen (`v`) al scoring de soportes y hacer el cálculo de `z` configurable
+**2026-06-07** — Agregar volumen (`v`) y fuerza del rechazo (`f`) al scoring de soportes y hacer el cálculo de `z` configurable
 
-A partir de la revisión de la lógica de `calcular_FO` (TO DO "Revisar con Mauricio..."), se agregó un cuarto factor `v` (volumen normalizado: `Tick_Volume / Tick_Volume.max()`, en `[0,1]`) como proxy de actividad/participación en cada nivel de precio — se usa `Tick_Volume` porque `Real_Volume` viene vacío (0.0) en los 10 CSV de `Data/`, consistente entre todos los activos. `z` deja de ser un producto fijo (`y * w * h_dist`) y pasa a ser el producto de los factores activos en el nuevo diccionario `parametros_soportes` (`config.py`), que permite activar/desactivar cada uno (`y`, `w`, `h_dist`, `v`) para experimentar con el scoring sin tocar el código. Cambios en `obtener_df_extremos` (cálculo de `v`) y `calcular_FO` (`z = df_extremos[factores].prod(axis=1)`) en `X0_data_supports.py`.
+A partir de la revisión de la lógica de `calcular_FO` (TO DO "Revisar con Mauricio..."), se agregaron dos factores nuevos:
+- `v` (volumen normalizado: `Tick_Volume / Tick_Volume.max()`, en `[0,1]`) como proxy de actividad/participación en cada nivel de precio — se usa `Tick_Volume` porque `Real_Volume` viene vacío (0.0) en los 10 CSV de `Data/`, consistente entre todos los activos.
+- `f` (fuerza del rechazo: `1 - |Close - Open| / (High - Low)`, en `[0,1]`) — proporción del rango de la vela que fue "mecha" en vez de cuerpo; mide cuán abrupto fue el rebote del precio al tocar el extremo, de forma direccional-agnóstica (consistente con cómo `y` ya combina aislamiento de `Low` y `High`).
+
+`z` deja de ser un producto fijo (`y * w * h_dist`) y pasa a ser el producto de los factores activos en el nuevo diccionario `parametros_soportes` (`config.py`), que permite activar/desactivar cada uno (`y`, `w`, `h_dist`, `v`, `f`) para experimentar con el scoring sin tocar el código. Cambios en `obtener_df_extremos` (cálculo de `v` y `f`) y `calcular_FO` (`z = df_extremos[factores].prod(axis=1)`) en `X0_data_supports.py`.
 
 **2026-06-07** — Renombrar transversal.py a config.py y centralizar parámetros
 
