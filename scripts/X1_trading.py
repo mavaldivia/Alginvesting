@@ -19,7 +19,6 @@ import os
 import sys
 import time
 import warnings
-from pathlib import Path
 
 import pandas as pd
 
@@ -27,47 +26,12 @@ import MetaTrader5 as mt5
 
 warnings.filterwarnings('ignore')
 
-from transversal import n_sizes_ejecucion as n_sizes
-
-# ─── Rutas ────────────────────────────────────────────────────────────────────
-
-BASE_DIR = Path(__file__).parent.parent
-CARPETA_N2 = BASE_DIR / 'conjuntosN2'
-
-# ─── Parámetros ───────────────────────────────────────────────────────────────
-
-VALORES = ['BTCUSD', 'ETHUSD', 'GOOGL', 'TSLA', 'NVDA', 'AMZN']
-
-# a: ganancia mínima en USD para activar el primer SL ganador
-# b: distancia en USD (normalizada por L) que mantiene el SL bajo el precio actual
-A = 6
-B = 2
-
-TS = 0.5  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
-
-PERDIDA_MAX = 50  # USD — si la pérdida de una posición abierta supera este valor, se cierra
-
-PRUEBA_TRAILING_STOP = False  # True: solo prueba el trailing stop, no crea nuevas órdenes
-
-# Tamaño mínimo de lote por activo (granularidad del broker)
-LOTAJES = {
-    'BTCUSD': 0.01,
-    'ETHUSD': 0.1,
-    'TSLA':   0.01,
-    'GOOGL':  0.01,
-    'NVDA':   0.01,
-    'AMZN':   0.01,
-}
-
-# Unidades del activo por lote (multiplica la exposición en USD)
-UNITS = {
-    'BTCUSD': 1,
-    'ETHUSD': 1,
-    'TSLA':   100,
-    'GOOGL':  100,
-    'NVDA':   100,
-    'AMZN':   100,
-}
+from config import (
+    CARPETA_N2,
+    VALORES, A, B, TS, PERDIDA_MAX, PRUEBA_TRAILING_STOP,
+    LOTAJES, UNITS,
+    n_sizes_ejecucion as n_sizes,
+)
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────

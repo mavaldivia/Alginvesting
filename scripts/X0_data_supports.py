@@ -30,38 +30,14 @@ import tqdm
 
 warnings.filterwarnings('ignore')
 
-from transversal import n_sizes
-
-# ─── Rutas ────────────────────────────────────────────────────────────────────
-
-BASE_DIR = Path(__file__).parent.parent
-CARPETA_DATA = BASE_DIR / 'Data'
-CARPETA_N2 = BASE_DIR / 'conjuntosN2'
-
-# ─── Parámetros del algoritmo ─────────────────────────────────────────────────
-
-VALORES = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
-
-FECHA_INICIAL = '2024-01-01'    # inicio del período considerado para calcular soportes
-
-# Puntaje y (aislamiento de cada vela)
-K = 1       # peso de las distancias futuras vs. pasadas: y = dist_izq + K * dist_der
-N_EXP = 1.3 # exponente de ponderación temporal: w = t^N_EXP  (t=0 más antiguo, t=1 más reciente)
-
-# calcular_distancias: tamaño de bloque para vectorizar sin construir la matriz (n x n) completa
-BLOQUE_DISTANCIAS = 2000
-
-# Optimizador
-M = 30              # candidatos evaluados por soporte en cada paso (linspace entre vecinos)
-LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
-MAX_ITERS = 10000
-DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido)
-
-# Visualizaciones (desactivadas por defecto para ejecución sin cabeza en Windows)
-GRAFICAR_EXTREMOS = False
-GRAFICAR_FO = False
-GRAFICAR_SOPORTES = False
-GRAFICAR_ZOOM = False
+from config import (
+    CARPETA_DATA, CARPETA_N2,
+    VALORES, FECHA_INICIAL,
+    K, N_EXP, BLOQUE_DISTANCIAS,
+    M, LAMBDA, MAX_ITERS,
+    GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
+    n_sizes,
+)
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────

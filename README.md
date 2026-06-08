@@ -27,7 +27,7 @@ Requiere MetaTrader5 instalado (solo Windows) con cuenta de broker configurada.
 scripts/
   X0_data_supports.py    # Descarga precios + algoritmo de soportes
   X1_trading.py          # Loop de trading semi-automático
-  transversal.py         # Parámetros globales (n_sizes, rutas)
+  config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, X0/X1)
 Data/                    # CSVs OHLCV — generados por X0, no en git
 conjuntosN2/             # Pickles de soportes — generados por X0, no en git
 docs/

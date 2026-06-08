@@ -33,7 +33,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 |---|---|
 | `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5. **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntosN2/` como JSON. `--opcion 0/1/2` |
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. |
-| `transversal.py` | Parámetros globales: `n_sizes`, `n_sizes_ejecucion`. |
+| `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, y configuración de X0 (algoritmo) y X1 (trading). |
 
 ### Directorios de datos
 
@@ -90,9 +90,9 @@ Versión activa: `nuevo_optimizador_2`.
 
 ## Parámetros del algoritmo — efecto de cada uno
 
-Definidos en `scripts/X0_data_supports.py:43-58`. Valores listados = los usados en producción (no los defaults de las funciones, que pueden diferir).
+Definidos en `scripts/config.py:42-55`. Valores listados = los usados en producción (no los defaults de las funciones, que pueden diferir).
 
-### N — cantidad de soportes (`transversal.py`: 130 BTCUSD/ETHUSD, 120 el resto)
+### N — cantidad de soportes (`config.py`: 130 BTCUSD/ETHUSD, 120 el resto)
 - **↑ N**: más cobertura del rango de precios y entradas más finas, pero capital más fragmentado por posición y mayor costo computacional (`calcular_FO` se llama del orden de N×M veces por iteración del optimizador).
 - **↓ N**: posiciones más concentradas (mayor peso por entrada), optimización más rápida, cobertura más gruesa del rango.
 
@@ -142,9 +142,9 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 - `snake_case` para variables y funciones. `PascalCase` para clases.
 - Archivos `.py` en producción. `.ipynb` solo para exploración visual de nuevos módulos.
-- Parámetros clave centralizados en `transversal.py`.
+- Parámetros clave centralizados en `config.py`.
 - Pickles con sufijo `_beta` = versión en optimización (no productiva).
-- Sin hardcodear rutas fuera de `transversal.py`.
+- Sin hardcodear rutas fuera de `config.py`.
 - `docs/decisiones.md` registra decisiones técnicas relevantes.
 
 ---
@@ -163,20 +163,23 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Velocidad: `asignar_soporte` vectorizada con `np.searchsorted` (búsqueda binaria del soporte más cercano, O(n log N) en vez de O(n×N) con `apply`) — ~45-178x más rápido (0.26s → 0.0014s en BTCUSD, N=130), resultados idénticos byte a byte
 - [x] Parámetros: documentado el efecto de cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL) en la nueva sección "Parámetros del algoritmo — efecto de cada uno"
 - [x] Storage: migrado `conjuntosN2/` de pickle a JSON (`json_act` en X0 y X1) — `conjunto_N` es solo un set de ~50-130 floats, parquet quedaba descartado por sobredimensionado; JSON permite inspeccionar los soportes a simple vista
-- [ ] Config: mover parámetros a un archivo de configuración separado (`config.py`)
+- [x] Config: mover parámetros a un archivo de configuración separado (`config.py`)
+- [ ] Reorganizar `config.py` en grupos temáticos (ej. velocidad del modelo, performance/calidad del modelo, visualizaciones, etc.) en vez del agrupamiento actual por script (X0/X1)
+- [ ] Velocidad lógica del optimizador: explorar `DELTA_INICIAL` adaptativo — partir con un umbral más alto y, si ningún soporte/resistencia logra superarlo, bajarlo progresivamente (en vez de un valor fijo)
+- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` (qué hace que un punto sea buen soporte/resistencia) — discutir si vale la pena agregar algo al cálculo actual de `y`, `w`, `h_dist`
 
 ### Infraestructura
 - [x] Rama `base_v0` → estado original (notebooks, estructura Windows)
 - [x] Rama `dev` → trabajo activo. Push inicial: migración X0 + X1 a .py
-- [ ] Próximo push a `dev`: después de mejoras X0 (paralelización, velocidad)
-- [ ] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable)
+- [x] Próximo push a `dev`: después de mejoras X0 (paralelización, velocidad) — ya estaba en `origin/dev` (commits hasta `c92a8f0`)
 - [ ] Crear skill/comando `/push` para git push a rama desde Claude Code
+- [ ] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable)
 
 ### Backlog
+- [ ] Separar descarga de datos en módulo independiente (hoy está en X0)
+- [ ] Evaluar incorporar X2_Intravela al scope
 - [ ] **BIG PICTURE**: Mauricio tiene que explicar la visión completa del proyecto — hacia dónde va, qué quiere lograr con esta base, qué es realmente Alginvesting a largo plazo. Hacer esto antes de tomar decisiones de arquitectura mayores.
 - [ ] Backtesting histórico: simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta)
-- [ ] Evaluar incorporar X2_Intravela al scope
-- [ ] Separar descarga de datos en módulo independiente (hoy está en X0)
 
 ---
 
@@ -187,6 +190,10 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ---
 
 ## Última actualización
+
+**2026-06-07** — Renombrar transversal.py a config.py y centralizar parámetros
+
+`Transversal.py` pasa a llamarse `config.py` y concentra ahora todos los parámetros del proyecto: lo que ya tenía (`n_sizes`, `n_sizes_ejecucion`) más rutas (`BASE_DIR`, `CARPETA_DATA`, `CARPETA_N2`), `VALORES`, y los parámetros que estaban hardcodeados directamente en `X0_data_supports.py` (`FECHA_INICIAL`, `K`, `N_EXP`, `BLOQUE_DISTANCIAS`, `M`, `LAMBDA`, `MAX_ITERS`, `DELTA_INICIAL`, flags `GRAFICAR_*`) y en `X1_trading.py` (`A`, `B`, `TS`, `PERDIDA_MAX`, `PRUEBA_TRAILING_STOP`, `LOTAJES`, `UNITS`). Ambos scripts ahora importan todo desde `config`. Se unificó el orden de `VALORES` (difería entre X0 y X1) al de X0. Ver `docs/decisiones.md` para el detalle de la decisión y por qué se optó por consolidar todo en un solo archivo en lugar de la opción acotada que había quedado registrada en `docs/records.md`.
 
 **2026-06-07** — Migrar conjuntosN2 de pickle a JSON
 

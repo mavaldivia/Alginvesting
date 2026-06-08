@@ -53,3 +53,10 @@
 **Razón:** `conjunto_N` es solo un `set` de ~50-130 floats (niveles de precio) — formato binario no aporta nada aquí. JSON permite abrir el archivo y revisar los soportes a simple vista, útil para validar resultados de X0 sin cargar Python. La conversión es trivial: `sorted(set)` al guardar, `set(list)` al cargar donde se necesita como set (X0); X1 ya consumía la lista directamente.
 **Descartado:** Parquet — formato columnar pensado para datasets tabulares grandes, sobredimensionado para una lista de ~100 floats.
 **Nota:** se quitó `*.pkl` de `.gitignore` (quedaba redundante; `conjuntosN2/` ya está ignorado como carpeta y pickle deja de usarse en el proyecto).
+
+## 2026-06-07 — `transversal.py` se renombra a `config.py` y centraliza todos los parámetros
+
+**Decisión:** renombrar `Transversal.py` → `config.py` y mover ahí los parámetros que estaban hardcodeados directamente en `X0_data_supports.py` (rutas, `VALORES`, `FECHA_INICIAL`, `K`, `N_EXP`, `BLOQUE_DISTANCIAS`, `M`, `LAMBDA`, `MAX_ITERS`, `DELTA_INICIAL`, flags `GRAFICAR_*`) y en `X1_trading.py` (rutas, `VALORES`, `A`, `B`, `TS`, `PERDIDA_MAX`, `PRUEBA_TRAILING_STOP`, `LOTAJES`, `UNITS`).
+**Razón:** la sesión anterior (ver `docs/records.md`, SECCIÓN 3) había quedado en limitar `config.py` solo a parámetros de X0, pero al retomar el TO DO Mauricio prefirió consolidar todo en un único archivo — más simple y consistente con la convención ya declarada en `CLAUDE.md` ("parámetros clave centralizados").
+**Cambios:** `BASE_DIR`/`CARPETA_DATA`/`CARPETA_N2` ahora se calculan solo en `config.py` (X0 y X1 los importan ya resueltos); se quitó el import `from pathlib import Path` de `X1_trading.py` por quedar sin uso. `VALORES` tenía orden distinto entre X0 (`..., TSLA, GOOGL, ...`) y X1 (`..., GOOGL, TSLA, ...`) — se unificó al orden de X0 (el orden no afecta el resultado, solo la secuencia de iteración).
+**Nota:** `DELTA_INICIAL` se trasladó tal cual mantenía el código previo, pero sigue sin conectarse a `nuevo_optimizador_2` (la función usa su propio default `delta_inicial=1e-4`, que coincide en valor) — comportamiento preexistente, no se modificó como parte de este cambio.
