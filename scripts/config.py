@@ -40,7 +40,7 @@ n_sizes_ejecucion = {
 
 # ─── Datos históricos ─────────────────────────────────────────────────────────
 
-FECHA_INICIAL = '2024-01-01'    # inicio del período considerado para calcular soportes
+FECHA_INICIAL = '2022-01-01'    # inicio del período considerado para calcular soportes
 
 # ─── Calidad del algoritmo de búsqueda de soportes ────────────────────────────
 # Ver CLAUDE.md "Parámetros del algoritmo — efecto de cada uno" para el detalle
@@ -61,7 +61,8 @@ parametros_soportes = {
 
 LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
 M = 30              # candidatos evaluados por soporte en cada paso (linspace entre vecinos)
-DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido)
+DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido); semilla para la primera corrida de cada (valor, N)
+LAMBDA_DELTA = 0.9    # factor de presión entre corridas: delta_actual = LAMBDA_DELTA * delta_previo (con warm start, se exige cada vez más precisión)
 
 # ─── Velocidad / cómputo ──────────────────────────────────────────────────────
 

@@ -34,7 +34,7 @@ from config import (
     CARPETA_DATA, CARPETA_N2,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
-    M, LAMBDA, MAX_ITERS,
+    M, LAMBDA, MAX_ITERS, DELTA_INICIAL, LAMBDA_DELTA,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes,
 )
@@ -491,6 +491,15 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
         conjunto_N_prev = set(json_act(str(beta_path)))
         print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
 
+    delta_path = carpeta_n2 / f'{valor}_{N}_delta.json'
+    if delta_path.exists():
+        with open(delta_path) as f:
+            delta_actual = LAMBDA_DELTA * json.load(f)['delta_inicial']
+        print(f'  delta_inicial presionado: {notacion_cientifica(delta_actual)}')
+    else:
+        delta_actual = DELTA_INICIAL
+        print(f'  delta_inicial semilla (sin estado previo): {notacion_cientifica(delta_actual)}')
+
     print('  Calculando distancias...')
     df_extremos, conjunto_N = obtener_df_extremos(df, K, N_EXP, N, conjunto_N_prev)
 
@@ -499,7 +508,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
 
     conjunto_N, df_extremos, df_FO = nuevo_optimizador_2(
         N, df_extremos, conjunto_N, LAMBDA,
-        ordenes_activas=[], M=M, max_iters=MAX_ITERS,
+        ordenes_activas=[], M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
     )
 
     graficar_df_extremos(df_extremos, graficar=GRAFICAR_EXTREMOS)
@@ -508,6 +517,10 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
 
     json_act(str(beta_path), conjunto_N, 'save')
     print(f'  Guardado: {beta_path}.json')
+
+    with open(delta_path, 'w') as f:
+        json.dump({'delta_inicial': delta_actual}, f)
+    print(f'  Guardado: {delta_path.name} (delta_inicial={notacion_cientifica(delta_actual)})')
 
 
 def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path):

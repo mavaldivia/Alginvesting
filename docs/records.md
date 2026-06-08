@@ -83,3 +83,21 @@ Claude: Propuso `f = 1 - |Close - Open| / (High - Low)` (proporción del rango q
 Mauricio: Le hizo sentido la definición y pidió agregarla al proceso, con su propio toggle `True/False` en `parametros_soportes`.
 Claude: Agregó `'f': True` al diccionario en `config.py`; calculó `f` en `obtener_df_extremos`; actualizó el docstring de `calcular_FO` (el cálculo de `z` ya era genérico vía `prod(axis=1)`, no requirió cambios); documentó `f` en `CLAUDE.md` (Paso 2 del algoritmo) y extendió la entrada de "Última actualización" del día para cubrir `v` y `f` juntos. Validó con datos reales de AMZN: `f` cae en `[0,1]`, y `z` coincide byte a byte con `y*w*h_dist*v*f` (todos activos) y con `y*w*h_dist*v` al desactivar `f`.
 (Cierre: 2026-06-07 23:01)
+
+## SECCIÓN 6
+Mauricio: Tras revisar el TO DO, preguntó si el ítem "revisar scoring de `calcular_FO`" seguía pendiente y pidió más propuestas. Luego decidió despriorizarlo ("ya corregí lo de mayor impacto") y, en una segunda pasada, bajarlo aún más — dejarlo último de toda la lista.
+Claude: Confirmó que seguía pendiente (no marcado `[x]`) y propuso 3 ideas adicionales: conteo de retests/toques históricos del nivel, normalizar `h_dist` por volatilidad local (ATR) en vez de `dist_max` global, y separar el scoring direccional (soporte vs. resistencia). Bajó el score del ítem en dos pasos: primero de `I:7 C:2 H:7 → 3.50` a `I:4 C:2 H:5 → 2.24` (refleja que `v`/`f` ya cubrieron lo de mayor impacto), y luego a `I:2 C:3 H:2 → 0.67`, moviéndolo al final de "Pendientes".
+
+Mauricio: Confirmó avanzar con el ítem "Definir cuándo y cómo mergear `dev` → `master`".
+Claude: Comparó `dev` vs `master` (`git log`/`diff`): `dev` tiene 8 commits con migración completa de notebooks a `.py`, paralelización, vectorización y storage en JSON — `master` sigue en `091ed25` (2026-06-02), sin tocar. Preguntó por `AskUserQuestion` el criterio de "cuándo" y "cómo": Mauricio eligió validar `dev` corriendo X0+X1 en Windows con MT5 real (sin errores, durante un período de prueba) como condición de entrada, y merge commit normal (sin squash) para preservar el historial. Claude registró la decisión en `docs/decisiones.md` (2026-06-07, "Criterio para mergear dev → master") y marcó el ítem como resuelto `[x]` en el TO DO.
+(Cierre: 2026-06-07 23:11)
+
+## SECCIÓN 7
+Mauricio: Pidió avanzar con el TO DO "DELTA_INICIAL adaptativo", explicando una idea propia: si un combo (valor, N) ya tiene un warm start con soportes óptimos guardados, el optimizador converge más rápido y por lo tanto `DELTA_INICIAL` puede "presionarse" a valores cada vez menores (siempre `>= 0`). Propuso el mecanismo concreto: `delta_actual = lambda * delta_previo` (lambda ≈ 0.9), correr hasta converger, y reajustar en cada ejecución futura.
+Claude: Confirmó entender la lógica y, ante la pregunta de cómo persistir `delta_inicial` entre corridas (hoy `DELTA_INICIAL` es una constante global y de hecho no estaba conectada al optimizador), presentó dos opciones — (a) guardarlo junto a `conjunto_N` en el mismo JSON, o (b) un archivo de estado separado por combo — recomendando (b) por menor radio de impacto sobre el flujo productivo de X1. Mauricio eligió (b).
+
+Claude: Implementó el mecanismo: agregó `LAMBDA_DELTA = 0.9` en `config.py`; en `_procesar_valor_N` (`X0_data_supports.py`) carga `{valor}_{N}_delta.json` si existe (`delta_actual = LAMBDA_DELTA * delta_previo`) o usa `DELTA_INICIAL` como semilla en cold start, lo pasa a `nuevo_optimizador_2` (que antes usaba su propio default sin conectarse a `config`), y persiste el valor usado al converger. Documentó la decisión en `docs/decisiones.md` (incluye lo descartado: JSON combinado y archivo único consolidado, este último por riesgo de carrera con `ProcessPoolExecutor`), y dejó nota de que el ítem original del TO DO (schedule decreciente *dentro* de una corrida) sigue abierto — lo implementado es complementario, a nivel de corridas sucesivas.
+
+Mauricio: Pidió agregar como "Prioridad 0" del TO DO revisar los mensajes "SEGUIR EXPLICACION" pendientes en el archivo `prompts` (explicaciones inconclusas sobre la lógica de `X2_Intravela`).
+Claude: Agregó la sección "Prioridad 0" en `CLAUDE.md`, antes de "Pendientes (por score)" — al ser prioridad 0 queda fuera del ranking por score.
+(Cierre: 2026-06-07 23:32)

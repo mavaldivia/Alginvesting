@@ -155,15 +155,18 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 **Convención de priorización**: cada ítem pendiente lleva `(I:x C:y H:z → score)` — Impacto, Complejidad de desarrollo, Habilitación, escala 1–10. `score = √(I × H) / C`. La sección "Pendientes" se ordena de mayor a menor score (prioriza alto impacto y habilitación, baja complejidad).
 
+### Prioridad 0
+- [ ] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
+
 ### Pendientes (por score)
-- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` (qué hace que un punto sea buen soporte/resistencia) — discutir si vale la pena agregar algo al cálculo actual de `y`, `w`, `h_dist` (I:7 C:2 H:7 → 3.50)
-- [ ] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) (I:5 C:2 H:7 → 2.96)
-- [ ] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73)
+- [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)
+- [x] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73) — cubierto por la skill global `/update-push` (commit + push a la rama actual, con actualización de CLAUDE.md/README.md)
+- [ ] Velocidad lógica del optimizador: explorar `DELTA_INICIAL` adaptativo — partir con un umbral más alto y, si ningún soporte/resistencia logra superarlo, bajarlo progresivamente (en vez de un valor fijo) (I:6 C:5 H:3 → 0.85)
+- [ ] Evaluar incorporar X2_Intravela al scope (I:6 C:7 H:5 → 0.78)
 - [ ] **BIG PICTURE**: Mauricio tiene que explicar la visión completa del proyecto — hacia dónde va, qué quiere lograr con esta base, qué es realmente Alginvesting a largo plazo. Hacer esto antes de tomar decisiones de arquitectura mayores (I:9 C:8 H:9 → 1.13)
 - [ ] Backtesting histórico: simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta) (I:8 C:8 H:7 → 0.94)
-- [ ] Velocidad lógica del optimizador: explorar `DELTA_INICIAL` adaptativo — partir con un umbral más alto y, si ningún soporte/resistencia logra superarlo, bajarlo progresivamente (en vez de un valor fijo) (I:6 C:5 H:3 → 0.85)
 - [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
-- [ ] Evaluar incorporar X2_Intravela al scope (I:6 C:7 H:5 → 0.78)
+- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
 
 ### Inmediato
 - [x] Migrar X0 (notebook) a `scripts/X0_data_supports.py`
@@ -194,6 +197,12 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ---
 
 ## Última actualización
+
+**2026-06-07** — `DELTA_INICIAL` adaptativo entre corridas
+
+Se conectó `DELTA_INICIAL` a `nuevo_optimizador_2` (hasta ahora no estaba enlazado — el optimizador usaba su propio default) y se hizo adaptativo *entre* corridas sucesivas de cada combo (valor, N): si existe estado previo en `conjuntosN2/{valor}_{N}_delta.json`, se usa `delta_actual = LAMBDA_DELTA * delta_previo` (`LAMBDA_DELTA = 0.9` en `config.py`); si no existe (cold start), se usa `DELTA_INICIAL` como semilla. La lógica: con warm start cercano al óptimo, exigir mejoras relativas cada vez más finas no dispara un costo proporcional en iteraciones, así que se puede "presionar" la precisión sin pagar el precio de un cold start. El estado se persiste en un archivo separado por combo (no junto a `conjunto_N`, para no tocar el formato que consume X1, y para evitar carreras con `ProcessPoolExecutor`). Detalle y alternativas descartadas en `docs/decisiones.md` 2026-06-07.
+
+Además se agregó la sección "Prioridad 0" en el TO DO: revisar los mensajes "SEGUIR EXPLICACION" pendientes en `prompts` (explicaciones inconclusas sobre `X2_Intravela`).
 
 **2026-06-07** — Agregar volumen (`v`) y fuerza del rechazo (`f`) al scoring de soportes y hacer el cálculo de `z` configurable
 

@@ -33,3 +33,34 @@
   visto). Esto es porque, como se ve en X0.py, cuando se actualizan los csv, hay un limite de registros en mt5, por lo tanto, eso
   se concatena con el archivo ya existente, y despues de un drop duplicates, eso va actualizando los datos (creo que tengo cerca de
   40 días sin actualizar nada para no tener vacíos). Si empiezo esos archivos de nuevo, perderé toda la historia 
+
+
+## Contextos
+
+i)
+
+  [ ] Evaluar incorporar X2_Intravela al scope (I:6 C:7 H:5 → 0.78)
+
+  Quiero complementar este punto con la siguiente lógica.
+  Si hago un backtesting de una configuración específica, me puedo encontrar con el siguiente caso borde
+  (es poco probable, pero puede pasar)
+
+  Como solo se ve el bloque de una hora, imaginemos una vela OCHL = (90, 80, 95, 85)
+  Si el precio abre en 90, baja a 80 (justo hay un soporte), sube a 95 (activando el trailing stop)
+  baja a 85 (en algun momento se cierra la orden con SL).
+  Entonces, se abrió y se cerró una orden dentro de la misma vela, y no hay como saberlo a priori (salvo que OCHL cumplan condiciones que lo hagan imposible).
+  En la prácica, esto es una orden cerrada que debería quedar registrada.
+
+  El uso de X2, yo lo pensé de la siguiente manera.
+  0. Si una vela horaria, cumple con que es imposible abrir y cerrar una orden dentro de ella, continua con normalidad
+  1. Si no:
+     (SEGUIR EXPLICACION, ME LA SE [CONTINUAR 1])
+
+
+  Preguntame si tienes dudas
+
+  ii) SEGIR EXPLICACION: Además, la tupla valor-N, debería tener una fecha maxima
+  Esto es porque, logicamente, se espera que en un punto del tiempo t, la estimación de soportes y resistencias se haya hecho con velas que lleguen máximo, hasta t, no después
+  En la práctica, la busqueda de mejores soportes /resistencias de valor-N, debería ser un continuo, actualizando delta_inicial, para que la solución quede presionada no solo a estar mas actualizada, si no que a ser mejor
+
+  
