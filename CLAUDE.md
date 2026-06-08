@@ -65,13 +65,14 @@ Para cada vela `i`, busca la vela más cercana a la izquierda y derecha cuyo ran
 ### Paso 2 — Scoring por vela (`obtener_df_extremos`)
 - `y` (aislamiento): `Low_left + High_left + K * (Low_right + High_right)`
 - `w` (recencia): `t^N_EXP`, donde `t ∈ [0,1]` normalizado; velas recientes pesan más.
+- `v` (volumen): `Tick_Volume / Tick_Volume.max()`, normalizado a `[0,1]`; proxy de actividad/participación en ese nivel de precio (`Real_Volume` viene vacío en los CSV de MT5, así que se usa `Tick_Volume`).
 
 ### Paso 3 — Función objetivo (`calcular_FO`)
 Se asigna cada vela al soporte más cercano del conjunto N. Luego:
 - `h_dist = 1 - dist²/dist_max` (proximidad normalizada al soporte asignado)
-- `z = y * w * h_dist`
+- `z = producto de los factores activos en `parametros_soportes` (config.py)`: por defecto `y * w * h_dist * v`. El diccionario permite activar/desactivar cada uno para experimentar con el scoring sin tocar el código.
 - `FO = mean(z) - LAMBDA * cv(H_n)`
-  - `mean(z)`: calidad promedio de asignación (aislamiento × recencia × proximidad)
+  - `mean(z)`: calidad promedio de asignación (combinación de los factores activos: aislamiento, recencia, proximidad, volumen)
   - `cv(H_n)`: coeficiente de variación de las distancias entre soportes consecutivos — penaliza que los N soportes se concentren en una zona del rango
 
 ### Paso 4 — Optimizador de búsqueda local (`nuevo_optimizador_2`)
@@ -151,6 +152,18 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 ## TO DO
 
+**Convención de priorización**: cada ítem pendiente lleva `(I:x C:y H:z → score)` — Impacto, Complejidad de desarrollo, Habilitación, escala 1–10. `score = √(I × H) / C`. La sección "Pendientes" se ordena de mayor a menor score (prioriza alto impacto y habilitación, baja complejidad).
+
+### Pendientes (por score)
+- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` (qué hace que un punto sea buen soporte/resistencia) — discutir si vale la pena agregar algo al cálculo actual de `y`, `w`, `h_dist` (I:7 C:2 H:7 → 3.50)
+- [ ] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) (I:5 C:2 H:7 → 2.96)
+- [ ] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73)
+- [ ] **BIG PICTURE**: Mauricio tiene que explicar la visión completa del proyecto — hacia dónde va, qué quiere lograr con esta base, qué es realmente Alginvesting a largo plazo. Hacer esto antes de tomar decisiones de arquitectura mayores (I:9 C:8 H:9 → 1.13)
+- [ ] Backtesting histórico: simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta) (I:8 C:8 H:7 → 0.94)
+- [ ] Velocidad lógica del optimizador: explorar `DELTA_INICIAL` adaptativo — partir con un umbral más alto y, si ningún soporte/resistencia logra superarlo, bajarlo progresivamente (en vez de un valor fijo) (I:6 C:5 H:3 → 0.85)
+- [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
+- [ ] Evaluar incorporar X2_Intravela al scope (I:6 C:7 H:5 → 0.78)
+
 ### Inmediato
 - [x] Migrar X0 (notebook) a `scripts/X0_data_supports.py`
 - [x] Migrar X1 (notebook) a `scripts/X1_trading.py`
@@ -164,22 +177,12 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Parámetros: documentado el efecto de cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL) en la nueva sección "Parámetros del algoritmo — efecto de cada uno"
 - [x] Storage: migrado `conjuntosN2/` de pickle a JSON (`json_act` en X0 y X1) — `conjunto_N` es solo un set de ~50-130 floats, parquet quedaba descartado por sobredimensionado; JSON permite inspeccionar los soportes a simple vista
 - [x] Config: mover parámetros a un archivo de configuración separado (`config.py`)
-- [ ] Reorganizar `config.py` en grupos temáticos (ej. velocidad del modelo, performance/calidad del modelo, visualizaciones, etc.) en vez del agrupamiento actual por script (X0/X1)
-- [ ] Velocidad lógica del optimizador: explorar `DELTA_INICIAL` adaptativo — partir con un umbral más alto y, si ningún soporte/resistencia logra superarlo, bajarlo progresivamente (en vez de un valor fijo)
-- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` (qué hace que un punto sea buen soporte/resistencia) — discutir si vale la pena agregar algo al cálculo actual de `y`, `w`, `h_dist`
+- [x] Reorganizar `config.py` en grupos temáticos (rutas, activos, datos históricos, calidad del algoritmo, velocidad/cómputo, visualizaciones, trading) en vez del agrupamiento por script (X0/X1)
 
 ### Infraestructura
 - [x] Rama `base_v0` → estado original (notebooks, estructura Windows)
 - [x] Rama `dev` → trabajo activo. Push inicial: migración X0 + X1 a .py
 - [x] Próximo push a `dev`: después de mejoras X0 (paralelización, velocidad) — ya estaba en `origin/dev` (commits hasta `c92a8f0`)
-- [ ] Crear skill/comando `/push` para git push a rama desde Claude Code
-- [ ] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable)
-
-### Backlog
-- [ ] Separar descarga de datos en módulo independiente (hoy está en X0)
-- [ ] Evaluar incorporar X2_Intravela al scope
-- [ ] **BIG PICTURE**: Mauricio tiene que explicar la visión completa del proyecto — hacia dónde va, qué quiere lograr con esta base, qué es realmente Alginvesting a largo plazo. Hacer esto antes de tomar decisiones de arquitectura mayores.
-- [ ] Backtesting histórico: simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta)
 
 ---
 
@@ -190,6 +193,10 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ---
 
 ## Última actualización
+
+**2026-06-07** — Agregar volumen (`v`) al scoring de soportes y hacer el cálculo de `z` configurable
+
+A partir de la revisión de la lógica de `calcular_FO` (TO DO "Revisar con Mauricio..."), se agregó un cuarto factor `v` (volumen normalizado: `Tick_Volume / Tick_Volume.max()`, en `[0,1]`) como proxy de actividad/participación en cada nivel de precio — se usa `Tick_Volume` porque `Real_Volume` viene vacío (0.0) en los 10 CSV de `Data/`, consistente entre todos los activos. `z` deja de ser un producto fijo (`y * w * h_dist`) y pasa a ser el producto de los factores activos en el nuevo diccionario `parametros_soportes` (`config.py`), que permite activar/desactivar cada uno (`y`, `w`, `h_dist`, `v`) para experimentar con el scoring sin tocar el código. Cambios en `obtener_df_extremos` (cálculo de `v`) y `calcular_FO` (`z = df_extremos[factores].prod(axis=1)`) en `X0_data_supports.py`.
 
 **2026-06-07** — Renombrar transversal.py a config.py y centralizar parámetros
 

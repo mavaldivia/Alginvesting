@@ -56,3 +56,22 @@ Claude: Recomendó seguir comprometiendo directo a `dev` (ya es la rama de traba
 
 Nota: el ítem "Config: mover parámetros a `config.py`" quedó pendiente — la sesión cerró antes de implementarlo.
 (Cierre: 2026-06-07 00:56)
+
+## SECCIÓN 4
+Mauricio: Tras ver los próximos 3 TO DOs, pidió avanzar con el primero ("vamos con 1"): reorganizar `config.py`.
+Claude: Confirmó el ítem y reorganizó `config.py` en 7 grupos temáticos (rutas, activos y universo, datos históricos, calidad del algoritmo, velocidad/cómputo, visualizaciones, trading) en vez del agrupamiento por script (X0/X1) — sin tocar valores, solo reordenó y reagrupó comentarios. Marcó el ítem como hecho.
+
+Mauricio: Pidió agregar tres KPIs a los TO DOs (impacto, complejidad de desarrollo, habilitación, escala 0-10) para priorizar alto impacto/habilitación y baja complejidad.
+Claude: Preguntó alcance (retrofit a los pendientes actuales o solo a futuro) y la fórmula de ranking. Mauricio eligió retrofit ahora y dio su propio criterio: `score = √(impacto × habilitación) / complejidad`, con escala 1-10 (no 0-10, para no tener conflictos de multiplicación/división por cero).
+
+Claude: Propuso puntajes y una tabla rankeada para los 8 TO DOs pendientes. Mauricio ajustó "BIG PICTURE" a complejidad 8 ("altamente complejo... prefiero mejorar lo que tengo ahora primero"), bajándolo del primer al cuarto lugar. Con el visto bueno, Claude reescribió el TO DO de `CLAUDE.md`: agregó la convención + fórmula, creó una sección única "Pendientes (por score)" con los 8 ítems rankeados y sus KPIs `(I:x C:y H:z → score)`, y eliminó las categorías que quedaron sin pendientes (Backlog quedó vacía).
+
+Mauricio: Vio los nuevos próximos 3 TO DOs y pidió avanzar con el primero ("sigamos con 1"): revisar la lógica de scoring de `calcular_FO`.
+Claude: Confirmó el ítem, repasó `obtener_df_extremos`/`calcular_FO` y notó que el scoring actual (`y`=aislamiento, `w`=recencia, `h_dist`=proximidad) no usa volumen pese a que el CSV lo trae. Propuso dos ideas para discutir: volumen como proxy de "memoria de mercado" y "fuerza del rechazo" (mecha vs. cuerpo de la vela).
+
+Mauricio: Le gustó la idea del volumen, pero preguntó si todos los activos tienen ese dato disponible y cómo se llaman los campos.
+Claude: Revisó los 10 CSV de `Data/` — mismo esquema en todos (`Tick_Volume`, `Spread`, `Real_Volume`); confirmó que `Real_Volume` viene en 0.0 en los 10 (típico de brokers MT5 vía CFD/forex/crypto) y que `Tick_Volume` sí está poblado de forma consistente, por lo que es el proxy viable.
+
+Mauricio: Pidió agregar `Tick_Volume` normalizado [0,1] como un cuarto factor `v` que multiplique a `y`, `w` y `h`, que `z` siempre sea un producto de "factores", y un diccionario en `config.py` (`parametros_soportes`) para activar/desactivar cada uno.
+Claude: Implementó `parametros_soportes = {'y': True, 'w': True, 'h_dist': True, 'v': True}` en `config.py`; calculó `v = Tick_Volume / Tick_Volume.max()` en `obtener_df_extremos`; reemplazó el producto fijo en `calcular_FO` por `df_extremos[factores].prod(axis=1)` sobre los factores activos; actualizó docstrings y la documentación del algoritmo en `CLAUDE.md` (Pasos 2 y 3, más entrada en "Última actualización"). Validó con datos reales de AMZN: `z` coincide byte a byte con `y*w*h_dist*v` (todos activos) y con `y*w*h_dist` al desactivar `v`.
+(Cierre: 2026-06-07 22:53)

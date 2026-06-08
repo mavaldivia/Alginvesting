@@ -33,7 +33,7 @@ warnings.filterwarnings('ignore')
 from config import (
     CARPETA_DATA, CARPETA_N2,
     VALORES, FECHA_INICIAL,
-    K, N_EXP, BLOQUE_DISTANCIAS,
+    K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, LAMBDA, MAX_ITERS,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes,
@@ -147,6 +147,7 @@ def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
         df_extremos['y'] = df_extremos['Low_left'] + k * df_extremos['Low_right']
 
     df_extremos['w'] = df_extremos['t'] ** n_exp
+    df_extremos['v'] = df_extremos['Tick_Volume'] / df_extremos['Tick_Volume'].max()
 
     p_min = df_extremos['Low'].min()
     p_max = df_extremos['Low'].max()
@@ -187,10 +188,11 @@ def calcular_FO(df_extremos: pd.DataFrame, conjunto_N: set, lambda_ponderador: f
     """
     FO = mean(z) - lambda * cv(H_n)
 
-    z = y * w * h_dist
+    z = producto de los factores activos en `parametros_soportes` (config.py):
         y      → cuán aislada es la vela (candidato a soporte/resistencia)
         w      → peso temporal (velas recientes pesan más)
         h_dist → qué tan cerca está la vela del soporte asignado (normalizado)
+        v      → volumen normalizado (Tick_Volume / max), proxy de actividad en ese nivel
 
     cv(H_n) = std(H_n) / mean(H_n), donde H_n son las distancias entre soportes consecutivos.
     Penaliza conjuntos donde los soportes están muy concentrados en una zona del rango.
@@ -199,7 +201,9 @@ def calcular_FO(df_extremos: pd.DataFrame, conjunto_N: set, lambda_ponderador: f
     df_extremos['dist'] = (df_extremos['soporte'] - df_extremos['Low']) ** 2
     dist_max = df_extremos['dist'].max()
     df_extremos['h_dist'] = 1 - df_extremos['dist'] / dist_max
-    df_extremos['z'] = df_extremos['y'] * df_extremos['w'] * df_extremos['h_dist']
+
+    factores = [nombre for nombre, activo in parametros_soportes.items() if activo]
+    df_extremos['z'] = df_extremos[factores].prod(axis=1)
 
     L_n = sorted(list(conjunto_N))
     H_n = [L_n[i] - L_n[i - 1] for i in range(1, len(L_n))]

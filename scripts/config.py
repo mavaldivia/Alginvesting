@@ -1,8 +1,9 @@
 """
 config.py
 
-Parámetros centralizados del proyecto: rutas, activos y configuración de
-los algoritmos de X0 (búsqueda de soportes) y X1 (trading).
+Parámetros centralizados del proyecto, agrupados por tema (rutas, activos,
+datos históricos, calidad del algoritmo, velocidad, visualizaciones, trading)
+en vez de por script (X0/X1) — varios temas son usados por ambos.
 """
 
 from pathlib import Path
@@ -13,7 +14,7 @@ BASE_DIR = Path(__file__).parent.parent
 CARPETA_DATA = BASE_DIR / 'Data'
 CARPETA_N2 = BASE_DIR / 'conjuntosN2'
 
-# ─── Activos ──────────────────────────────────────────────────────────────────
+# ─── Activos y universo de soportes ───────────────────────────────────────────
 
 VALORES = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
@@ -37,30 +38,46 @@ n_sizes_ejecucion = {
     'AMZN': 120,
 }
 
-# ─── X0: búsqueda de soportes ─────────────────────────────────────────────────
+# ─── Datos históricos ─────────────────────────────────────────────────────────
 
 FECHA_INICIAL = '2024-01-01'    # inicio del período considerado para calcular soportes
 
-# Puntaje y (aislamiento de cada vela)
+# ─── Calidad del algoritmo de búsqueda de soportes ────────────────────────────
+# Ver CLAUDE.md "Parámetros del algoritmo — efecto de cada uno" para el detalle
+# de cómo cada uno afecta el resultado de la optimización.
+
 K = 1       # peso de las distancias futuras vs. pasadas: y = dist_izq + K * dist_der
 N_EXP = 1.3 # exponente de ponderación temporal: w = t^N_EXP  (t=0 más antiguo, t=1 más reciente)
+
+# Factores activos en el producto z = y * w * h_dist * v (calcular_FO).
+# Permite activar/desactivar cada uno para experimentar con el scoring sin tocar el código.
+parametros_soportes = {
+    'y': True,       # aislamiento: y = Low_left + High_left + K * (Low_right + High_right)
+    'w': True,       # recencia: w = t^N_EXP
+    'h_dist': True,  # proximidad al soporte asignado: h_dist = 1 - dist²/dist_max
+    'v': True,       # volumen normalizado: v = Tick_Volume / Tick_Volume.max()  (proxy de actividad en ese nivel)
+}
+
+LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
+M = 30              # candidatos evaluados por soporte en cada paso (linspace entre vecinos)
+DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido)
+
+# ─── Velocidad / cómputo ──────────────────────────────────────────────────────
 
 # calcular_distancias: tamaño de bloque para vectorizar sin construir la matriz (n x n) completa
 BLOQUE_DISTANCIAS = 2000
 
-# Optimizador
-M = 30              # candidatos evaluados por soporte en cada paso (linspace entre vecinos)
-LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
-MAX_ITERS = 10000
-DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido)
+MAX_ITERS = 10000  # tope de iteraciones del optimizador (cota del tiempo de ejecución)
 
-# Visualizaciones (desactivadas por defecto para ejecución sin cabeza en Windows)
+# ─── Visualizaciones ──────────────────────────────────────────────────────────
+# Desactivadas por defecto para ejecución sin cabeza en Windows.
+
 GRAFICAR_EXTREMOS = False
 GRAFICAR_FO = False
 GRAFICAR_SOPORTES = False
 GRAFICAR_ZOOM = False
 
-# ─── X1: trading ──────────────────────────────────────────────────────────────
+# ─── Trading: ejecución y gestión de riesgo (X1) ──────────────────────────────
 
 # a: ganancia mínima en USD para activar el primer SL ganador
 # b: distancia en USD (normalizada por L) que mantiene el SL bajo el precio actual
