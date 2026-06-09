@@ -101,3 +101,13 @@ Claude: Implementó el mecanismo: agregó `LAMBDA_DELTA = 0.9` en `config.py`; e
 Mauricio: Pidió agregar como "Prioridad 0" del TO DO revisar los mensajes "SEGUIR EXPLICACION" pendientes en el archivo `prompts` (explicaciones inconclusas sobre la lógica de `X2_Intravela`).
 Claude: Agregó la sección "Prioridad 0" en `CLAUDE.md`, antes de "Pendientes (por score)" — al ser prioridad 0 queda fuera del ranking por score.
 (Cierre: 2026-06-07 23:32)
+
+## SECCIÓN 8
+Mauricio: Pidió avanzar con el TO DO "DELTA_INICIAL adaptativo" (ítem 1 del listado). Proveyó contexto adicional desde el archivo `prompts`: (1) el delta debe decrecer solo cuando el optimizador converge — no en cada corrida — usando un factor ≈ 0.7, y el estado (delta + si convergió) debe persistirse en JSON; (2) las órdenes activas en MT5 deben ser soportes fijos en el optimizador (no movibles). Preguntó dónde persistir el delta por combo.
+Claude: Clarificó que la implementación anterior (`LAMBDA_DELTA * delta_previo` en cada corrida) difería de lo pedido: el trigger correcto es la convergencia, no la ejecución. Propuso persistir en `{valor}_{N}_delta.json` (ya existe) con `{'delta_inicial', 'convergio'}` para tener visibilidad histórica. Mauricio aprobó.
+
+Claude: Implementó tres cambios en `X0_data_supports.py` y `config.py`: (1) renombró `LAMBDA_DELTA = 0.9` → `FACTOR_DELTA = 0.7`; (2) hizo que `nuevo_optimizador_2` retorne `convergio: bool` (True solo cuando sale por el break real, no por max_iters); (3) en `_procesar_valor_N`, lee el delta sin reducirlo, y solo aplica `* FACTOR_DELTA` si `convergio=True` — persiste `{'delta_inicial': delta_next, 'convergio': convergio}`.
+
+Mauricio: Pidió también implementar las órdenes activas de MT5 como soportes fijos.
+Claude: Añadió `obtener_ordenes_activas_mt5(valores)` — usa `positions_get` (solo posiciones ejecutadas, no pendientes), hace su propio init/shutdown de MT5, y falla gracefully en Mac retornando `{v: []}`. Actualizó `_procesar_valor_N` para recibir `ordenes_activas: list` y pasarlo al optimizador (que ya los manejaba como fijos desde antes). Actualizó `buscar_soportes` para recibir el dict y distribuirlo a cada worker. En `__main__`, llama a `obtener_ordenes_activas_mt5` antes de `buscar_soportes`. Marcó el ítem del TO DO como `[x]` en `CLAUDE.md`, incluyendo ambas sub-tareas en la descripción.
+(Cierre: 2026-06-08 23:20)

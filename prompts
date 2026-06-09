@@ -54,13 +54,25 @@ i)
   El uso de X2, yo lo pensé de la siguiente manera.
   0. Si una vela horaria, cumple con que es imposible abrir y cerrar una orden dentro de ella, continua con normalidad
   1. Si no:
-     (SEGUIR EXPLICACION, ME LA SE [CONTINUAR 1])
-
+     1a. Tomar un intervalo aleatorio del dataframe del valor por minuto (como se genera, en el código X2. Esto en verdad es lo que se puede rescatar del código) de 60 registros (desde i hasta i +60, donde i es aleatorio)
+     1b. Ajustarlo para que, cumpla con el OHCL de la vela horaria: 
+     Literalmente, sería como simular el comportamiento minuto a minuto, dentro de una vela horaria cuando es requerido
+     Con esto, se podría determinar el comportamiento con mucha más precisión
 
   Preguntame si tienes dudas
 
-  ii) SEGIR EXPLICACION: Además, la tupla valor-N, debería tener una fecha maxima
+  ii) Además, la tupla valor-N, debería tener una fecha maxima
   Esto es porque, logicamente, se espera que en un punto del tiempo t, la estimación de soportes y resistencias se haya hecho con velas que lleguen máximo, hasta t, no después
   En la práctica, la busqueda de mejores soportes /resistencias de valor-N, debería ser un continuo, actualizando delta_inicial, para que la solución quede presionada no solo a estar mas actualizada, si no que a ser mejor
 
-  
+  Considerar ademas que cambié FECHA_INICIAL al 2022-01-01
+
+iii) para DELTA_INICIAL. 
+1. Considerar que el delta_inicial en un valor-N puede comenzar alto e ir decreciendo a medida que un delta_fijo, obtiene solución optima (pasa por todas las iteraciones sin mejorar)
+Si esto ocurre, el delta puede multiplicarse por un número como 0.7 y guardarse en un json.
+Así, cada vez que vuelva a ejecutarse valor-N, se debe leer la mejor ultima solución + delta asociado
+
+2. En general, si un par valor-N encuentra que reemplazando un soporte/resistencia (llamar sopres), por otro, mejora la función objetivo
+Entonces esa solución debe guardarse por defecto (si el proceso empieza nuevamente, esa sería la solución inicial)
+Esta solución que se va guardando al mejorar, puede ser automáticamente tambien la que entra a mt5. Se reemplaza el sopres por otro si es que es posible
+Notar que, cuando se buscan sopres, hay un argumento en la función que nunca ocupé que son las ordenes actualmente activas (es decir, las que están activas en mt5). Estas deben ser parte de sopres FIJOS al momento de ejecutar el algorítmo: Tienen que ir si o si y no pueden moverse

@@ -62,7 +62,7 @@ parametros_soportes = {
 LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
 M = 30              # candidatos evaluados por soporte en cada paso (linspace entre vecinos)
 DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido); semilla para la primera corrida de cada (valor, N)
-LAMBDA_DELTA = 0.9    # factor de presión entre corridas: delta_actual = LAMBDA_DELTA * delta_previo (con warm start, se exige cada vez más precisión)
+FACTOR_DELTA = 0.7    # factor de presión al converger: si el optimizador convergió, delta_next = FACTOR_DELTA * delta_actual
 
 # ─── Velocidad / cómputo ──────────────────────────────────────────────────────
 

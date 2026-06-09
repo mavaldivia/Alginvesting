@@ -34,7 +34,7 @@ from config import (
     CARPETA_DATA, CARPETA_N2,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
-    M, LAMBDA, MAX_ITERS, DELTA_INICIAL, LAMBDA_DELTA,
+    M, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes,
 )
@@ -256,6 +256,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     prueba_cercanos: si True, prioriza vecinos del soporte cambiado en la siguiente iteración.
     """
     print(f'Iniciando optimizador | max_iters={max_iters} | N={N} | M={M}')
+    convergio = False
 
     # Inicializar conjunto_N respetando las ordenes activas
     delta = N - len(ordenes_activas) - len(conjunto_N)
@@ -340,6 +341,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
 
         if not mejora:
             if len(casos_moviles) == len(dic_N):
+                convergio = True
                 break  # ya se probaron todos los soportes sin mejora → convergencia
             print('Sin mejora en casos actuales → ampliando a todos los soportes')
             casos_moviles = list(dic_N.keys())
@@ -364,7 +366,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             'ratio': [particion_FO[0] / particion_FO[1]],
         })])
 
-    return conjunto_N, df_extremos, df_FO
+    return conjunto_N, df_extremos, df_FO, convergio
 
 
 # ─── Visualizaciones ──────────────────────────────────────────────────────────
@@ -416,6 +418,29 @@ def graficar_soportes_all(df_0: pd.DataFrame, conjunto_N: set,
 
 # ─── Etapa 1: Descarga de datos desde MT5 ────────────────────────────────────
 
+def obtener_ordenes_activas_mt5(valores: list) -> dict:
+    """
+    Retorna {valor: [precios de posiciones abiertas]} desde MT5.
+    Solo incluye posiciones ejecutadas (OA), no órdenes pendientes (OE).
+    Si MT5 no está disponible (Mac, error), retorna listas vacías sin abortar.
+    """
+    try:
+        import MetaTrader5 as mt5
+        if not mt5.initialize():
+            print('MT5 no disponible — ordenes_activas vacías para todos los activos')
+            return {v: [] for v in valores}
+        result = {}
+        for valor in valores:
+            positions = mt5.positions_get(symbol=valor) or []
+            result[valor] = [p.price_open for p in positions]
+            if result[valor]:
+                print(f'  {valor}: {len(result[valor])} posición(es) activa(s) → fija(s) en optimizador')
+        mt5.shutdown()
+        return result
+    except ImportError:
+        return {v: [] for v in valores}
+
+
 def descargar_datos(valores: list, carpeta_data: Path):
     import MetaTrader5 as mt5
 
@@ -460,7 +485,8 @@ def descargar_datos(valores: list, carpeta_data: Path):
 
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
-def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
+def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
+                      ordenes_activas: list = []):
     """Worker para ProcessPoolExecutor: procesa un único par (valor, N)."""
     print(f'\n{"="*55}\nProcesando {valor} N={N}')
 
@@ -494,8 +520,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
     delta_path = carpeta_n2 / f'{valor}_{N}_delta.json'
     if delta_path.exists():
         with open(delta_path) as f:
-            delta_actual = LAMBDA_DELTA * json.load(f)['delta_inicial']
-        print(f'  delta_inicial presionado: {notacion_cientifica(delta_actual)}')
+            delta_actual = json.load(f)['delta_inicial']
+        print(f'  delta_inicial cargado: {notacion_cientifica(delta_actual)}')
     else:
         delta_actual = DELTA_INICIAL
         print(f'  delta_inicial semilla (sin estado previo): {notacion_cientifica(delta_actual)}')
@@ -506,9 +532,11 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
     FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
     print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
 
-    conjunto_N, df_extremos, df_FO = nuevo_optimizador_2(
+    if ordenes_activas:
+        print(f'  Órdenes activas fijas: {[round(p, 2) for p in ordenes_activas]}')
+    conjunto_N, df_extremos, df_FO, convergio = nuevo_optimizador_2(
         N, df_extremos, conjunto_N, LAMBDA,
-        ordenes_activas=[], M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
+        ordenes_activas=ordenes_activas, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
     )
 
     graficar_df_extremos(df_extremos, graficar=GRAFICAR_EXTREMOS)
@@ -518,12 +546,19 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path):
     json_act(str(beta_path), conjunto_N, 'save')
     print(f'  Guardado: {beta_path}.json')
 
+    delta_next = delta_actual * FACTOR_DELTA if convergio else delta_actual
+    estado_delta = f'convergió → {notacion_cientifica(delta_actual)} → {notacion_cientifica(delta_next)}' if convergio else f'no convergió → delta sin cambio ({notacion_cientifica(delta_actual)})'
+    print(f'  Delta: {estado_delta}')
     with open(delta_path, 'w') as f:
-        json.dump({'delta_inicial': delta_actual}, f)
-    print(f'  Guardado: {delta_path.name} (delta_inicial={notacion_cientifica(delta_actual)})')
+        json.dump({'delta_inicial': delta_next, 'convergio': convergio}, f)
+    print(f'  Guardado: {delta_path.name}')
 
 
-def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path):
+def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path,
+                    ordenes_activas_mt5: dict = None):
+    if ordenes_activas_mt5 is None:
+        ordenes_activas_mt5 = {v: [] for v in valores}
+
     # Construir todas las tuplas (valor, N) y ordenar por antigüedad del beta
     tuplas = []
     for valor in valores:
@@ -538,7 +573,8 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = {
-            executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n2): (v, n)
+            executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n2,
+                            ordenes_activas_mt5.get(v, [])): (v, n)
             for v, n in tuplas_ordenadas
         }
         for future in concurrent.futures.as_completed(futures):
@@ -590,5 +626,7 @@ if __name__ == '__main__':
 
     if args.opcion in (1, 2):
         print('\n── Etapa 2: Búsqueda de soportes ───────────────────────')
-        buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N2)
+        print('Consultando posiciones activas en MT5...')
+        ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
+        buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N2, ordenes_activas_mt5)
         promover_a_productivo(VALORES, n_sizes, CARPETA_N2)

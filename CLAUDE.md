@@ -156,12 +156,12 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 **Convención de priorización**: cada ítem pendiente lleva `(I:x C:y H:z → score)` — Impacto, Complejidad de desarrollo, Habilitación, escala 1–10. `score = √(I × H) / C`. La sección "Pendientes" se ordena de mayor a menor score (prioriza alto impacto y habilitación, baja complejidad).
 
 ### Prioridad 0
-- [ ] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
+- [x] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
 
 ### Pendientes (por score)
 - [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)
 - [x] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73) — cubierto por la skill global `/update-push` (commit + push a la rama actual, con actualización de CLAUDE.md/README.md)
-- [ ] Velocidad lógica del optimizador: explorar `DELTA_INICIAL` adaptativo — partir con un umbral más alto y, si ningún soporte/resistencia logra superarlo, bajarlo progresivamente (en vez de un valor fijo) (I:6 C:5 H:3 → 0.85)
+- [x] Velocidad lógica del optimizador: `DELTA_INICIAL` adaptativo — delta se reduce (`* FACTOR_DELTA = 0.7`) solo cuando el optimizador converge; si no converge, el delta se mantiene. Estado persistido en `{valor}_{N}_delta.json` con `{'delta_inicial', 'convergio'}`. Órdenes activas de MT5 (`positions_get`) se pasan como soportes fijos al optimizador vía `obtener_ordenes_activas_mt5` (falla gracefully si MT5 no disponible). (I:6 C:5 H:3 → 0.85)
 - [ ] Evaluar incorporar X2_Intravela al scope (I:6 C:7 H:5 → 0.78)
 - [ ] **BIG PICTURE**: Mauricio tiene que explicar la visión completa del proyecto — hacia dónde va, qué quiere lograr con esta base, qué es realmente Alginvesting a largo plazo. Hacer esto antes de tomar decisiones de arquitectura mayores (I:9 C:8 H:9 → 1.13)
 - [ ] Backtesting histórico: simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta) (I:8 C:8 H:7 → 0.94)
@@ -197,6 +197,12 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ---
 
 ## Última actualización
+
+**2026-06-08** — DELTA_INICIAL adaptativo + órdenes activas fijas en optimizador
+
+Se refinó la lógica de `DELTA_INICIAL` adaptativo: el delta ahora solo se reduce (`* FACTOR_DELTA = 0.7`, antes `LAMBDA_DELTA = 0.9` en cada corrida) cuando el optimizador realmente converge — es decir, cuando sale por el break de "ningún soporte mejoró tras recorrer todos" y no por `max_iters`. `nuevo_optimizador_2` retorna `convergio: bool`; `_procesar_valor_N` aplica el factor solo si `convergio=True` y persiste `{'delta_inicial', 'convergio'}` en `{valor}_{N}_delta.json`.
+
+Además, se implementó la integración de órdenes activas de MT5 como soportes fijos en el optimizador: `obtener_ordenes_activas_mt5(valores)` consulta `positions_get` (posiciones ejecutadas, no pendientes), hace su propio init/shutdown de MT5, y falla gracefully en Mac. El dict resultante se pasa a `buscar_soportes` → cada worker → `nuevo_optimizador_2` vía `ordenes_activas` (parámetro que ya existía pero siempre recibía `[]`).
 
 **2026-06-07** — `DELTA_INICIAL` adaptativo entre corridas
 
