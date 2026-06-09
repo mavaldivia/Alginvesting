@@ -158,6 +158,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 ### Prioridad 0
 - [x] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
+- [ ] **Fecha máxima por tupla (valor, N) en X4**: la estimación de soportes en un tiempo `t` solo debe usar velas hasta `t` (sin look-ahead). La búsqueda debe ser un continuo temporal — en cada punto `t` del backtester se corre el optimizador con los datos disponibles hasta `t`, actualizando `delta_inicial` progresivamente para presionar la solución a ser más actualizada y mejor. Definir cómo integrar esto con `_procesar_valor_N` y el estado `{valor}_{N}_delta.json`. (I:10 C:5 H:8 → 1.26)
 
 ### Pendientes (por score)
 - [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)
@@ -165,12 +166,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Velocidad lógica del optimizador: `DELTA_INICIAL` adaptativo — delta se reduce (`* FACTOR_DELTA = 0.7`) solo cuando el optimizador converge; si no converge, el delta se mantiene. Estado persistido en `{valor}_{N}_delta.json` con `{'delta_inicial', 'convergio'}`. Órdenes activas de MT5 (`positions_get`) se pasan como soportes fijos al optimizador vía `obtener_ordenes_activas_mt5` (falla gracefully si MT5 no disponible). (I:6 C:5 H:3 → 0.85)
 - [x] **BIG PICTURE**: Mauricio explicó la visión completa — ver `docs/vision.md`. Arquitectura X0→X6 definida, orden de construcción declarado, decisiones de diseño registradas. (I:9 C:8 H:9 → 1.13)
 - [x] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78) — decisión: no es un script separado, la lógica va embebida en X4 como subrutina de simulación intra-vela. Ver `docs/decisiones.md` 2026-06-08.
--Para X4, el backtester
-  Además, la tupla valor-N, debería tener una fecha maxima
-  Esto es porque, logicamente, se espera que en un punto del tiempo t, la estimación de soportes y resistencias se haya hecho con velas que lleguen máximo, hasta t, no después
-  En la práctica, la busqueda de mejores soportes /resistencias de valor-N, debería ser un continuo, actualizando delta_inicial, para que la solución quede presionada no solo a estar mas actualizada, si no que a ser mejor (I:10, C:5,H:8)
 
-- [ ] Backtesting histórico (X4): simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta) (I:8 C:8 H:7 → 0.94)
 - [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
 
@@ -233,6 +229,10 @@ Items propios de la rama de visión (X2→X6). Se gestionan separados del TO DO 
 ---
 
 ## Última actualización
+
+**2026-06-09** — TO DO: fecha máxima por tupla valor-N en X4 (Prioridad 0)
+
+Nuevo ítem en Prioridad 0: la estimación de soportes en el tiempo `t` debe usar solo velas hasta `t` (sin look-ahead), y la búsqueda debe ser un continuo temporal que actualiza `delta_inicial` progresivamente. Pendiente integrar con `_procesar_valor_N` y `{valor}_{N}_delta.json`. Se limpió texto suelto que había quedado en la sección Pendientes. Se eliminó el ítem "Backtesting histórico (X4)" del TO DO Principal (ya cubierto en TO DO Visión bajo X4_backtester).
 
 **2026-06-08** — Diseño simulación intra-vela para X4_backtester
 
