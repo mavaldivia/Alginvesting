@@ -39,7 +39,8 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 | Carpeta | Contenido |
 |---|---|
-| `Data/` | CSVs OHLCV por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, **trackeados en git** (historia desde 2024-01-01) |
+| `Data/` | CSVs OHLCV H1 por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, **trackeados en git** (historia desde 2024-01-01) |
+| `Data_minuto/` | CSVs OHLCV M1 por activo — usados por X4 para simulación intra-vela; se alimentan incrementalmente igual que `Data/`. Fuera de git (regenerables). |
 | `conjuntosN2/` | JSONs con N soportes óptimos por activo — `{VALOR}_{N}_beta.json` (en optimización) / `{VALOR}_{N}.json` (productivo) — generados, fuera de git |
 
 ---
@@ -163,8 +164,13 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73) — cubierto por la skill global `/update-push` (commit + push a la rama actual, con actualización de CLAUDE.md/README.md)
 - [x] Velocidad lógica del optimizador: `DELTA_INICIAL` adaptativo — delta se reduce (`* FACTOR_DELTA = 0.7`) solo cuando el optimizador converge; si no converge, el delta se mantiene. Estado persistido en `{valor}_{N}_delta.json` con `{'delta_inicial', 'convergio'}`. Órdenes activas de MT5 (`positions_get`) se pasan como soportes fijos al optimizador vía `obtener_ordenes_activas_mt5` (falla gracefully si MT5 no disponible). (I:6 C:5 H:3 → 0.85)
 - [x] **BIG PICTURE**: Mauricio explicó la visión completa — ver `docs/vision.md`. Arquitectura X0→X6 definida, orden de construcción declarado, decisiones de diseño registradas. (I:9 C:8 H:9 → 1.13)
-- [ ] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78)
-- [ ] Backtesting histórico: simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta) (I:8 C:8 H:7 → 0.94)
+- [x] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78) — decisión: no es un script separado, la lógica va embebida en X4 como subrutina de simulación intra-vela. Ver `docs/decisiones.md` 2026-06-08.
+-Para X4, el backtester
+  Además, la tupla valor-N, debería tener una fecha maxima
+  Esto es porque, logicamente, se espera que en un punto del tiempo t, la estimación de soportes y resistencias se haya hecho con velas que lleguen máximo, hasta t, no después
+  En la práctica, la busqueda de mejores soportes /resistencias de valor-N, debería ser un continuo, actualizando delta_inicial, para que la solución quede presionada no solo a estar mas actualizada, si no que a ser mejor (I:10, C:5,H:8)
+
+- [ ] Backtesting histórico (X4): simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta) (I:8 C:8 H:7 → 0.94)
 - [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
 
@@ -217,7 +223,6 @@ Items propios de la rama de visión (X2→X6). Se gestionan separados del TO DO 
 ### Infraestructura / transversal
 
 - [ ] Evaluar compatibilidad de librería MT5 en macOS — si se resuelve, simplifica mucho el flujo Mac↔Windows.
-- [ ] Evaluar X1.5_intravela al scope (ver TO DO general).
 
 ---
 
@@ -228,6 +233,10 @@ Items propios de la rama de visión (X2→X6). Se gestionan separados del TO DO 
 ---
 
 ## Última actualización
+
+**2026-06-08** — Diseño simulación intra-vela para X4_backtester
+
+X1.5_intravela como script separado descartado. La lógica de simulación intra-vela se embebe en X4 como subrutina. Se agrega `Data_minuto/` al proyecto (CSVs M1, fuera de git, alimentados incrementalmente). Diseño del trigger: `hay_soporte_en_rango = Low <= max(soportes_activos)` AND (`H-L > A/(lot*units)` OR `H-L > PERDIDA_MAX/(lot*units)`). Escalado intra-vela: bloque aleatorio de 60 registros M1 escalado linealmente para calzar el OHLC de la vela horaria. Ver `docs/decisiones.md` 2026-06-08.
 
 **2026-06-08** — Visión: arquitectura X0→X6 + TO DO Visión en CLAUDE.md
 

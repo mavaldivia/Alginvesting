@@ -67,6 +67,22 @@
 **Razón:** `dev` reemplazó casi toda la estructura de `master` (migración de notebooks a `.py`, paralelización, vectorización, JSON) — el código se desarrolla en Mac pero corre en Windows con MT5, que no está disponible en Mac. La validación funcional real solo puede hacerse ahí, así que es la condición de entrada más confiable para llamar a esta versión "estable".
 **Descartado:** mergear ahora ("ya está lista") o condicionar el merge a resolver otro ítem del TO DO primero (ej. revisión de FO, backtesting) — ninguno de los dos prueba que el pipeline funciona end-to-end en el entorno real de ejecución. Tampoco hacer squash de los commits de `dev`: se prefiere conservar el historial detallado de la migración.
 
+## 2026-06-08 — Simulación intra-vela para X4: diseño y descarte de X1.5 como módulo separado
+
+**Decisión:** la lógica de simulación intra-vela (antes llamada X2_Intravela / X1.5_intravela) no se implementa como script independiente, sino como subrutina embebida en X4_backtester.py.
+**Razón:** el único caso de uso es el backtesting — no tiene sentido separarlo. El archivo X2_Intravela original no se reutiliza; solo se rescata la idea de datos por minuto.
+
+**Nuevo directorio:** `Data_minuto/` — CSVs OHLCV M1 por activo, descargados desde MT5 e incrementados igual que `Data/`. Fuera de git (regenerables desde MT5).
+
+**Trigger — cuándo simular intra-vela (en orden de evaluación):**
+1. `hay_soporte_en_rango = Low <= max(soportes_activos)` — si el precio no bajó hasta ningún soporte, no abre ninguna orden → sin edge case.
+2. `puede_activar_ts = (High - Low) > A / (LOTAJES[valor] * UNITS[valor])` — rango mínimo para que el trailing stop se active dentro de la vela.
+3. `puede_activar_perdida_max = (High - Low) > PERDIDA_MAX / (LOTAJES[valor] * UNITS[valor])` — rango mínimo para que la pérdida máxima se active dentro de la vela.
+→ Se simula intra-vela si `hay_soporte_en_rango and (puede_activar_ts or puede_activar_perdida_max)`.
+
+**Método de escalado:** tomar 60 registros M1 consecutivos aleatorios de `Data_minuto/` (aunque existan datos reales para esa hora, siempre se toman aleatorios) y aplicar escalado lineal para que el OHLC resultante calce con el de la vela horaria.
+**Descartado:** usar los datos M1 reales de esa hora específica — implica alinear timestamps M1 con H1, mayor complejidad, y no aporta validez estadística sobre una muestra aleatoria dado el propósito (simular la forma del movimiento, no reproducirlo exactamente).
+
 ## 2026-06-07 — `DELTA_INICIAL` adaptativo entre corridas, presionado vía `LAMBDA_DELTA`
 
 **Decisión:** conectar `DELTA_INICIAL` (hasta ahora sin uso real — ver nota en la decisión "renombra a config.py") a `nuevo_optimizador_2`, y hacerlo adaptativo *entre* corridas sucesivas de cada combo (valor, N): si existe un estado previo en `{valor}_{N}_delta.json`, se usa `delta_actual = LAMBDA_DELTA * delta_previo` (con `LAMBDA_DELTA = 0.9`); si no existe (primera corrida, cold start), se usa `DELTA_INICIAL` de `config.py` como semilla sin presionar. El valor usado en cada corrida se persiste al converger en un archivo de estado separado por combo (`{valor}_{N}_delta.json`, formato `{"delta_inicial": valor}` vía `json.dump`/`json.load` directo — no `json_act`, que asume listas/sets de soportes y aplica `sorted()`).

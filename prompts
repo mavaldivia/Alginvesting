@@ -61,7 +61,8 @@ i)
 
   Preguntame si tienes dudas
 
-  ii) Además, la tupla valor-N, debería tener una fecha maxima
+  ii) Para X4, el backtester
+  Además, la tupla valor-N, debería tener una fecha maxima
   Esto es porque, logicamente, se espera que en un punto del tiempo t, la estimación de soportes y resistencias se haya hecho con velas que lleguen máximo, hasta t, no después
   En la práctica, la busqueda de mejores soportes /resistencias de valor-N, debería ser un continuo, actualizando delta_inicial, para que la solución quede presionada no solo a estar mas actualizada, si no que a ser mejor
 
