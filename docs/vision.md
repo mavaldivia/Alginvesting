@@ -257,17 +257,21 @@ X0_data_supports.py
 X1_trading.py
 → ejecución real
 
+X1.5_intravela.py
+→ lógica intra-vela (abrir y cerrar orden dentro de la misma vela horaria)
+→ numeración 1.5 para no desplazar la visión; scope aún por evaluar
+
 X2_fundamentals.py
-→ score fundamental
+→ score fundamental por activo
 
 X3_technical_features.py
-→ indicadores técnicos
+→ indicadores técnicos y features de contexto operativo
 
 X4_backtester.py
-→ simulación histórica
+→ simulación histórica; fuente primaria de training data
 
 X5_model_training.py
-→ entrenamiento
+→ entrenamiento supervisado (retorno esperado, prob. pérdida, drawdown, duración)
 
 X6_macro_brain.py
 → recomendación dinámica de parámetros
@@ -295,6 +299,29 @@ capaz de aprender:
 - con qué parámetros operarlos
 
 utilizando fundamentales, técnicos, contexto operativo y resultados históricos.
+
+---
+
+# Decisiones de diseño (2026-06-08)
+
+Respuestas a preguntas de arquitectura que condicionan el plan de visión.
+
+## X1.5 Intravela
+La lógica intra-vela (caso borde de abrir y cerrar orden dentro de la misma vela horaria) se nombra X1.5 para no desplazar la numeración del resto de la visión. Su scope está pendiente de evaluación — ver TO DO Visión en CLAUDE.md.
+
+## Dónde corre X6 (Cerebro Macro)
+X6 corre en Windows por ahora, donde vive MT5. Idealmente compatible con Mac en el futuro (MT5 tiene librería Python que actualmente no funciona en macOS). La frecuencia de ejecución está por definir — ver TO DO Visión.
+
+## Datos de entrenamiento
+El training data proviene de todo lo disponible:
+- `Data/` (CSVs OHLCV desde 2024-01-01, trackeados en git)
+- Fuentes externas: yfinance, MT5, investing.com y cualquier otra librería o API razonable
+- El backtester (X4) será la fuente principal de ejemplos de trades históricos
+
+No hay registros recuperables de la cuenta real de enero (pérdida total, sin logs). El histórico empieza desde cero con simulaciones.
+
+## Orden de construcción
+X2_fundamentals → X3_technical_features → X4_backtester → X5_model_training → X6_macro_brain
 
 ---
 

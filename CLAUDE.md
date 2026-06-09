@@ -162,8 +162,8 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)
 - [x] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73) — cubierto por la skill global `/update-push` (commit + push a la rama actual, con actualización de CLAUDE.md/README.md)
 - [x] Velocidad lógica del optimizador: `DELTA_INICIAL` adaptativo — delta se reduce (`* FACTOR_DELTA = 0.7`) solo cuando el optimizador converge; si no converge, el delta se mantiene. Estado persistido en `{valor}_{N}_delta.json` con `{'delta_inicial', 'convergio'}`. Órdenes activas de MT5 (`positions_get`) se pasan como soportes fijos al optimizador vía `obtener_ordenes_activas_mt5` (falla gracefully si MT5 no disponible). (I:6 C:5 H:3 → 0.85)
-- [ ] Evaluar incorporar X2_Intravela al scope (I:6 C:7 H:5 → 0.78)
-- [ ] **BIG PICTURE**: Mauricio tiene que explicar la visión completa del proyecto — hacia dónde va, qué quiere lograr con esta base, qué es realmente Alginvesting a largo plazo. Hacer esto antes de tomar decisiones de arquitectura mayores (I:9 C:8 H:9 → 1.13)
+- [x] **BIG PICTURE**: Mauricio explicó la visión completa — ver `docs/vision.md`. Arquitectura X0→X6 definida, orden de construcción declarado, decisiones de diseño registradas. (I:9 C:8 H:9 → 1.13)
+- [ ] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78)
 - [ ] Backtesting histórico: simular desde enero 2026 con parámetros dinámicos (búsqueda de nuevos soportes, cierre de operaciones, tracking de cuenta) (I:8 C:8 H:7 → 0.94)
 - [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
@@ -190,6 +190,37 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 ---
 
+## TO DO Visión
+
+Items propios de la rama de visión (X2→X6). Se gestionan separados del TO DO general porque abren subtareas complejas y tienen su propio ritmo de avance.
+
+**Convención**: misma escala I/C/H que el TO DO general. Orden = secuencia de construcción declarada.
+
+### Fase 1 — Datos y features
+
+- [ ] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1].
+- [ ] Definir y evaluar fuentes de datos para X2: yfinance, MT5, investing.com, CoinGecko, Glassnode u otras. Qué cubre cada una, qué tan confiable y actualizable es.
+- [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes).
+
+### Fase 2 — Backtesting
+
+- [ ] **X4_backtester.py**: simulación histórica desde 2024-01-01 con parámetros dinámicos (búsqueda de nuevos soportes cada N días, cierre de operaciones por trailing stop o pérdida máxima, tracking de cuenta). Es la fuente primaria de training data para X5.
+- [ ] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre).
+
+### Fase 3 — Modelo y cerebro
+
+- [ ] **X5_model_training.py**: modelos supervisados sobre el store de trades. Predicciones: retorno esperado, probabilidad de pérdida, drawdown esperado, duración esperada. Evaluar overfitting (cross-val temporal, no aleatoria). Registrar qué modelos se probaron y por qué se eligió cada uno.
+- [ ] **X6_macro_brain.py**: recomendación dinámica de parámetros. Lee features de X2/X3 y predicciones de X5. Output: `config/active_parameters.json` consumido por X0 y X1. Corre en Windows por ahora; idealmente compatible con Mac en el futuro.
+- [ ] Definir frecuencia de ejecución de X6: ¿diario? ¿antes de cada corrida de X0? ¿en el loop de X1? Requiere discusión.
+- [ ] Definir schema de `config/active_parameters.json`: qué parámetros escribe X6 (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL, a, b, PERDIDA_MAX), con qué granularidad (por activo, global, o mixto).
+
+### Infraestructura / transversal
+
+- [ ] Evaluar compatibilidad de librería MT5 en macOS — si se resuelve, simplifica mucho el flujo Mac↔Windows.
+- [ ] Evaluar X1.5_intravela al scope (ver TO DO general).
+
+---
+
 ## Referencia base
 
 `Alginvesting_base/` contiene la versión anterior (Windows, notebooks). Solo lectura. No modificar.
@@ -197,6 +228,10 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 ---
 
 ## Última actualización
+
+**2026-06-08** — Visión: arquitectura X0→X6 + TO DO Visión en CLAUDE.md
+
+Se explicitó la visión completa del proyecto en `docs/vision.md`: arquitectura X0→X6 con X1.5_intravela en posición intermedia, decisiones de diseño (dónde corre X6, fuentes de training data, orden de construcción X2→X3→X4→X5→X6). Se creó el capítulo "TO DO Visión" en CLAUDE.md con 11 ítems organizados en 3 fases (Datos/features, Backtesting, Modelo/cerebro) más infraestructura transversal. BIG PICTURE marcado como completado.
 
 **2026-06-08** — DELTA_INICIAL adaptativo + órdenes activas fijas en optimizador
 

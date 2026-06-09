@@ -111,3 +111,11 @@ Claude: Implementó tres cambios en `X0_data_supports.py` y `config.py`: (1) ren
 Mauricio: Pidió también implementar las órdenes activas de MT5 como soportes fijos.
 Claude: Añadió `obtener_ordenes_activas_mt5(valores)` — usa `positions_get` (solo posiciones ejecutadas, no pendientes), hace su propio init/shutdown de MT5, y falla gracefully en Mac retornando `{v: []}`. Actualizó `_procesar_valor_N` para recibir `ordenes_activas: list` y pasarlo al optimizador (que ya los manejaba como fijos desde antes). Actualizó `buscar_soportes` para recibir el dict y distribuirlo a cada worker. En `__main__`, llama a `obtener_ordenes_activas_mt5` antes de `buscar_soportes`. Marcó el ítem del TO DO como `[x]` en `CLAUDE.md`, incluyendo ambas sub-tareas en la descripción.
 (Cierre: 2026-06-08 23:20)
+
+## SECCIÓN 9
+Mauricio: Invocó `/todos` al inicio de sesión. Pidió avanzar con el ítem 1 de prioridad: BIG PICTURE — explicar la visión completa del proyecto. Para eso había dejado un archivo `docs/vision.md` con todo el contexto. Autorizó a Claude a modificar ese MD en cualquier momento según lo que se construya.
+Claude: Leyó `docs/vision.md` completo. Antes de generar el plan, hizo 4 preguntas de arquitectura: (1) conflicto de naming X2_Intravela vs X2_fundamentals, (2) dónde y cuándo corre X6, (3) origen del training data inicial, (4) por dónde empezar.
+
+Mauricio: Respondió las 4 preguntas y pidió solo registrar el contexto, sin ejecutar nada aún: (1) la lógica intra-vela pasa a ser X1.5 para no desplazar la numeración; (2) X6 corre en Windows por ahora, idealmente Mac en el futuro, frecuencia por definir; (3) training data = todo lo que hay en `Data/` más fuentes externas (yfinance, MT5, investing, etc.); (4) orden de construcción: X2 → X3 → X4 → X5 → X6. Además pidió crear un capítulo separado "TO DO Visión" en CLAUDE.md para esta rama del proyecto.
+Claude: Actualizó `docs/vision.md`: corrigió arquitectura (X1.5 en lugar de X2_Intravela, notas en cada módulo) y agregó sección "Decisiones de diseño (2026-06-08)" con las 4 respuestas. Actualizó `CLAUDE.md`: marcó BIG PICTURE como `[x]`, actualizó el ítem de Intravela a X1.5, y agregó capítulo "TO DO Visión" con 11 ítems organizados en 3 fases (Datos/features → Backtesting → Modelo/cerebro) más infraestructura transversal.
+(Cierre: 2026-06-08 23:39)
