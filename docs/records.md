@@ -139,3 +139,32 @@ Claude: Respondió que sí se justifica para backtesting (cache histórica reuti
 
 Claude: Implementó `_bt_warm_start` y `_bt_guardar` en `X0_data_supports.py`. Agregó parámetro `fecha_hora_max=None` a `_procesar_valor_N`: cuando es `None`, comportamiento idéntico al actual (producción); cuando se pasa un datetime, modo bt — filtra datos hasta ese datetime, warm start desde `_bt.json`, delta desde `{valor}_{N}_bt_delta.json`, upsert en bt, sin graficado, sin órdenes activas. La clave guardada en bt es `df['DateTime'].iloc[-1]` (último dato real usado). Marcó el ítem Prioridad 0 como `[x]` en CLAUDE.md.
 (Cierre: 2026-06-09 23:34)
+
+## SECCIÓN 13
+Mauricio: Configuró un small batch en `config.py` (solo BTCUSD y ETHUSD, N=[70,100]) y pidió ejecutar X0 con `--opcion 1`.
+Claude: Ejecutó y encontró `KeyError: 'TSLA'` — `buscar_soportes` iteraba sobre `VALORES` completo pero `n_sizes` solo tenía BTC y ETH. Fix: `continue` si `valor not in n_sizes`. Re-ejecutó exitosamente; los 4 combos convergieron y guardaron JSON.
+
+Mauricio: Preguntó cómo ver los gráficos de soportes.
+Claude: Indicó activar `GRAFICAR_SOPORTES = True` en `config.py` y re-ejecutar.
+
+Mauricio: Pidió agregar títulos a todos los gráficos en formato "NOMBRE GRAFICO + VALOR + N".
+Claude: Agregó parámetros `valor` y `N` a las tres funciones de visualización (`graficar_df_extremos`, `graficar_performance_FO`, `graficar_soportes_all`) y actualizó sus call sites en `_procesar_valor_N`.
+
+Mauricio: Pidió un contador de cambios aceptados por (valor, N) que se muestre al terminar.
+Claude: Agregó variable `cambios` en `nuevo_optimizador_2`, incrementada en cada mejora aceptada; retornada y mostrada en `_procesar_valor_N`.
+
+Mauricio: Observó que con el contador, los cambios siempre dan 0 sin importar cuántas veces se ejecute.
+Claude: Diagnosticó el bug: la FO es negativa, por lo que `(FO_iter - FO_base) / FO_base` devuelve un valor negativo cuando hay mejora (denominador negativo invierte el signo), bloqueando siempre la condición. Nunca se había aceptado ningún cambio. Fix: `/ abs(FO_base)`.
+
+Mauricio: Solicitó reemplazar los prints paralelos caóticos por una tabla de progreso en vivo — una línea por (valor, N) que se actualice cada segundo mostrando cambios, iter (max posiciones recorridas en el inner loop antes de aceptar un cambio) y FO.
+Claude: Implementó `multiprocessing.Manager().dict()` compartido entre workers + hilo monitor (`_monitor_tabla`) que redibuja la tabla cada segundo con ANSI. Workers corren con `verbose=False` (sin prints ni tqdm). Propagó `verbose` por toda la cadena: `_procesar_valor_N` → `nuevo_optimizador_2` → `calcular_distancias` → `_vecino_mas_cercano`. Redefinió `iter` como `max_pasos` (máximo 1-indexado de posición en el inner loop donde se aceptó un cambio). Info inicial por combo (rango, cierre, warm start, delta) se imprime secuencialmente antes del executor.
+
+Mauricio: Apareció error `cannot convert the series to <class 'float'>` en algunos combos.
+Claude: Diagnosticó: `df_plot` se construye con `pd.concat` acumulando filas con índice 0; `df_plot.loc[idxmax(), 'caso']` retornaba una Serie entera en vez de un escalar. Fix: `argmax()` + `iloc`.
+
+Mauricio: Pidió guardar plots en `plots/` con subcarpetas por tipo en vez de `plt.show()`.
+Claude: Agregó `CARPETA_PLOTS` a `config.py`, creó helper `_guardar_plot(subcarpeta, nombre)` y reemplazó los tres `plt.show()` por `savefig` en `plots/{Extremos,FO,Soportes,Zoom}/{valor}_{N}.png`.
+
+Mauricio: Pidió agregar los ítems de la sesión al TO DO en CLAUDE.md y marcarlos como completados.
+Claude: Agregó 6 ítems nuevos en "Mejoras X0" (fix bug FO, fix idxmax, monitor en vivo, títulos gráficos, plots en disco, info previa secuencial) y entrada en "Última actualización".
+(Cierre: 2026-06-10 12:33)

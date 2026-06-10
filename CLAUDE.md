@@ -184,6 +184,12 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Storage: migrado `conjuntos_N/` de pickle a JSON (`json_act` en X0 y X1) — `conjunto_N` es solo un set de ~50-130 floats, parquet quedaba descartado por sobredimensionado; JSON permite inspeccionar los soportes a simple vista
 - [x] Config: mover parámetros a un archivo de configuración separado (`config.py`)
 - [x] Reorganizar `config.py` en grupos temáticos (rutas, activos, datos históricos, calidad del algoritmo, velocidad/cómputo, visualizaciones, trading) en vez del agrupamiento por script (X0/X1)
+- [x] **Fix bug crítico en el optimizador**: condición de mejora `(FO_iter - FO_base) / FO_base > delta` era siempre falsa porque la FO es negativa — denominador negativo invertía el signo. Corregido a `/ abs(FO_base)`. El optimizador nunca había aceptado ningún cambio desde que la FO pasó a ser negativa.
+- [x] **Fix bug `idxmax` con índices duplicados**: `df_plot` se construía con `pd.concat` acumulando filas con índice 0; `df_plot.loc[idxmax(), 'caso']` devolvía una Serie en vez de un escalar. Corregido con `argmax()` + `iloc`.
+- [x] **Monitor de progreso en vivo**: `buscar_soportes` usa `multiprocessing.Manager().dict()` compartido entre workers + hilo monitor que redibuja una tabla cada segundo. Muestra por cada (valor, N): cambios aceptados, `max_pasos` (máximo de posiciones recorridas en el inner loop antes de aceptar un cambio), y FO actual. Workers corren con `verbose=False` (sin prints ni tqdm).
+- [x] **Títulos en gráficos**: todas las funciones de visualización reciben `valor` y `N` y muestran título `"Tipo — VALOR N=N"`.
+- [x] **Guardar plots en disco**: `plt.show()` reemplazado por `plt.savefig()` en `plots/{Extremos,FO,Soportes,Zoom}/{valor}_{N}.png`. Carpetas se crean automáticamente; archivos se sobreescriben.
+- [x] **Info previa secuencial**: antes de lanzar el executor, `buscar_soportes` imprime en orden (sin mezcla) el rango de fechas, último cierre, warm start y delta para cada (valor, N).
 
 ### Infraestructura
 - [x] Rama `base_v0` → estado original (notebooks, estructura Windows)
@@ -229,6 +235,10 @@ Items propios de la rama de visión (X2→X6). Se gestionan separados del TO DO 
 ---
 
 ## Última actualización
+
+**2026-06-10** — Fixes al optimizador + monitor de progreso en vivo + mejoras de visualización
+
+Fix crítico: condición de mejora en `nuevo_optimizador_2` usaba `FO_base` (negativo) en el denominador — el optimizador nunca había aceptado cambios. Corregido con `abs(FO_base)`. Fix secundario: `df_plot.loc[idxmax()]` fallaba con índices duplicados tras `pd.concat`; corregido con `argmax()` + `iloc`. Implementado monitor de progreso en vivo: `multiprocessing.Manager().dict()` compartido entre workers + hilo monitor que redibuja tabla cada segundo (cambios, max_pasos, FO, estado). Workers con `verbose=False` suprimen tqdm y prints. Info previa por combo (rango, cierre, warm start, delta) se imprime secuencialmente antes del executor. Plots guardados en `plots/{Extremos,FO,Soportes,Zoom}/{valor}_{N}.png` en vez de `plt.show()`. Títulos con `"Tipo — VALOR N=N"` en todos los gráficos. `buscar_soportes` omite activos ausentes en `n_sizes`.
 
 **2026-06-09** — conjuntos_N + sin _beta + bt cache para backtesting
 

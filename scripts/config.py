@@ -13,12 +13,14 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.parent
 CARPETA_DATA = BASE_DIR / 'Data'
 CARPETA_N2 = BASE_DIR / 'conjuntos_N'
+CARPETA_PLOTS = BASE_DIR / 'plots'
 
 # ─── Activos y universo de soportes ───────────────────────────────────────────
 
 VALORES = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 # Cantidad de soportes evaluados por activo en el grid search de X0
+"""
 n_sizes = {
     'BTCUSD': [50, 60, 70, 80, 90, 100, 110, 120],
     'ETHUSD': [50, 60, 70, 80, 90, 100, 110, 120],
@@ -26,6 +28,12 @@ n_sizes = {
     'GOOGL':  [50, 60, 70, 80, 90, 100, 110, 120],
     'NVDA':   [50, 60, 70, 80, 90, 100, 110, 120],
     'AMZN':   [50, 60, 70, 80, 90, 100, 110, 120],
+}
+"""
+
+n_sizes = {
+    'BTCUSD': [70, 100],
+    'ETHUSD': [70, 100],
 }
 
 # Cantidad de soportes activos en producción, usada por X1
@@ -75,8 +83,8 @@ MAX_ITERS = 10000  # tope de iteraciones del optimizador (cota del tiempo de eje
 # Desactivadas por defecto para ejecución sin cabeza en Windows.
 
 GRAFICAR_EXTREMOS = False
-GRAFICAR_FO = False
-GRAFICAR_SOPORTES = False
+GRAFICAR_FO = True
+GRAFICAR_SOPORTES = True
 GRAFICAR_ZOOM = False
 
 # ─── Trading: ejecución y gestión de riesgo (X1) ──────────────────────────────

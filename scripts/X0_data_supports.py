@@ -15,9 +15,12 @@ import argparse
 import concurrent.futures
 import datetime
 import json
+import multiprocessing
 import os
 import random
 import sys
+import threading
+import time
 import warnings
 from pathlib import Path
 
@@ -30,7 +33,7 @@ import tqdm
 warnings.filterwarnings('ignore')
 
 from config import (
-    CARPETA_DATA, CARPETA_N2,
+    CARPETA_DATA, CARPETA_N2, CARPETA_PLOTS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
@@ -66,7 +69,8 @@ def notacion_cientifica(numero: float, decimales: int = 2) -> str:
 # ─── Funciones del algoritmo ──────────────────────────────────────────────────
 
 def _vecino_mas_cercano(valores: np.ndarray, low: np.ndarray, high: np.ndarray,
-                        t: np.ndarray, block_size: int = BLOQUE_DISTANCIAS) -> tuple:
+                        t: np.ndarray, block_size: int = BLOQUE_DISTANCIAS,
+                        verbose: bool = True) -> tuple:
     """
     Para cada i, busca el j más cercano a la izquierda y a la derecha (en índice)
     cuyo rango [low[j], high[j]] contiene valores[i]. Devuelve las distancias
@@ -80,7 +84,7 @@ def _vecino_mas_cercano(valores: np.ndarray, low: np.ndarray, high: np.ndarray,
     dist_izq = np.full(n, np.nan)
     dist_der = np.full(n, np.nan)
 
-    for inicio in tqdm.tqdm(range(0, n, block_size)):
+    for inicio in tqdm.tqdm(range(0, n, block_size), disable=not verbose):
         fin = min(inicio + block_size, n)
         filas = np.arange(inicio, fin)
         v = valores[inicio:fin][:, None]
@@ -99,7 +103,8 @@ def _vecino_mas_cercano(valores: np.ndarray, low: np.ndarray, high: np.ndarray,
     return dist_izq, dist_der
 
 
-def calcular_distancias(df: pd.DataFrame, find_low: bool = True, find_high: bool = True) -> pd.DataFrame:
+def calcular_distancias(df: pd.DataFrame, find_low: bool = True, find_high: bool = True,
+                        verbose: bool = True) -> pd.DataFrame:
     """
     Para cada vela i, busca la vela más cercana (izquierda y derecha en tiempo)
     cuyo rango [Low, High] contenga el Low (o High) de la vela i.
@@ -115,9 +120,9 @@ def calcular_distancias(df: pd.DataFrame, find_low: bool = True, find_high: bool
     max_t = t.max()
 
     if find_low:
-        df['Low_left'], df['Low_right'] = _vecino_mas_cercano(low, low, high, t)
+        df['Low_left'], df['Low_right'] = _vecino_mas_cercano(low, low, high, t, verbose=verbose)
     if find_high:
-        df['High_left'], df['High_right'] = _vecino_mas_cercano(high, low, high, t)
+        df['High_left'], df['High_right'] = _vecino_mas_cercano(high, low, high, t, verbose=verbose)
 
     # Velas sin vecino (extremos del dataset): distancia hasta el borde del período
     if find_low:
@@ -131,13 +136,13 @@ def calcular_distancias(df: pd.DataFrame, find_low: bool = True, find_high: bool
 
 
 def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
-                         conjunto_N: set = set(), ocp: int = 0) -> tuple:
+                         conjunto_N: set = set(), ocp: int = 0, verbose: bool = True) -> tuple:
     """
     Calcula las columnas y (aislamiento) y w (recencia) usadas por la FO.
     Inicializa conjunto_N con puntos aleatorios si viene vacío o incompleto.
     ocp: órdenes de compra ya planificadas en la plataforma (fijas, no se optimizan).
     """
-    df_extremos = calcular_distancias(df_0)
+    df_extremos = calcular_distancias(df_0, verbose=verbose)
 
     if 'High_left' in df_extremos.columns:
         df_extremos['y'] = (df_extremos['High_left'] + df_extremos['Low_left']
@@ -238,7 +243,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                          lambda_ponderador: float, ordenes_activas: list = [],
                          M: int = 100, max_iters: int = 1000,
                          prueba_cercanos: bool = False,
-                         delta_inicial: float = 1e-4) -> tuple:
+                         delta_inicial: float = 1e-4,
+                         estado_compartido=None, llave: str = '',
+                         verbose: bool = True) -> tuple:
     """
     Optimizador de búsqueda local sobre el conjunto N de soportes.
 
@@ -254,8 +261,11 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     ordenes_activas: precios fijos (ya están ejecutados en la plataforma, no se mueven).
     prueba_cercanos: si True, prioriza vecinos del soporte cambiado en la siguiente iteración.
     """
-    print(f'Iniciando optimizador | max_iters={max_iters} | N={N} | M={M}')
+    if verbose:
+        print(f'Iniciando optimizador | max_iters={max_iters} | N={N} | M={M}')
     convergio = False
+    cambios = 0
+    max_pasos = 0  # máx. posición alcanzada en el inner loop antes de aceptar un cambio
 
     # Inicializar conjunto_N respetando las ordenes activas
     delta = N - len(ordenes_activas) - len(conjunto_N)
@@ -266,7 +276,8 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
 
     p_min = df_extremos['Low'].min()
     p_max = df_extremos['Low'].max()
-    print(f'Rango de precios: [{p_min:.2f}, {p_max:.2f}]')
+    if verbose:
+        print(f'Rango de precios: [{p_min:.2f}, {p_max:.2f}]')
 
     if delta >= 0:
         conjunto_N = conjunto_N.union(set(np.random.uniform(p_min, p_max, delta).tolist()))
@@ -293,7 +304,10 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
         mejora = False
 
-        for i in tqdm.tqdm(casos_moviles):
+        if estado_compartido is not None and llave:
+            estado_compartido[llave] = (cambios, max_pasos, FO_base, 'corriendo')
+
+        for pos, i in enumerate(tqdm.tqdm(casos_moviles, disable=not verbose)):
             cota_inf = dic_N[i - 1] if (i - 1) in dic_N else p_min
             cota_sup = dic_N[i + 1] if (i + 1) in dic_N else p_max
 
@@ -323,12 +337,18 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 lista_iter.append(caso)
                 FO_iter, df_ext_iter, part_iter = calcular_FO(df_extremos, set(lista_iter), lambda_ponderador)
             else:
-                caso = float(df_plot.loc[df_plot['FO_iter'].idxmax(), 'caso'])
-                FO_iter = float(df_plot['FO_iter'].max())
+                idx_max = int(df_plot['FO_iter'].argmax())
+                caso = float(df_plot['caso'].iloc[idx_max])
+                FO_iter = float(df_plot['FO_iter'].iloc[idx_max])
 
-            if (FO_iter - FO_base) / FO_base > delta_inicial:
-                print(f'  Mejora {(FO_iter - FO_base) / FO_base:.6f} en soporte i={i}, nuevo={caso:.2f}')
+            if (FO_iter - FO_base) / abs(FO_base) > delta_inicial:
+                if verbose:
+                    print(f'  Mejora {(FO_iter - FO_base) / abs(FO_base):.6f} en soporte i={i}, nuevo={caso:.2f}')
                 mejora = True
+                cambios += 1
+                max_pasos = max(max_pasos, pos + 1)
+                if estado_compartido is not None and llave:
+                    estado_compartido[llave] = (cambios, max_pasos, FO_iter, 'corriendo')
                 FO_base = FO_iter
                 i_change = i
                 nuevo_value = caso
@@ -342,12 +362,14 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             if len(casos_moviles) == len(dic_N):
                 convergio = True
                 break  # ya se probaron todos los soportes sin mejora → convergencia
-            print('Sin mejora en casos actuales → ampliando a todos los soportes')
+            if verbose:
+                print('Sin mejora en casos actuales → ampliando a todos los soportes')
             casos_moviles = list(dic_N.keys())
         else:
             dic_N[i_change] = nuevo_value
-            print(f'FO {j}: {notacion_cientifica(FO_base, 4)} | '
-                  f'[{notacion_cientifica(particion_FO[0], 4)}, {notacion_cientifica(particion_FO[1], 4)}]')
+            if verbose:
+                print(f'FO {j}: {notacion_cientifica(FO_base, 4)} | '
+                      f'[{notacion_cientifica(particion_FO[0], 4)}, {notacion_cientifica(particion_FO[1], 4)}]')
 
             if prueba_cercanos:
                 vecinos = [i_change - 1, i_change + 1, i_change]
@@ -365,15 +387,24 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             'ratio': [particion_FO[0] / particion_FO[1]],
         })])
 
-    return conjunto_N, df_extremos, df_FO, convergio
+    return conjunto_N, df_extremos, df_FO, convergio, cambios, max_pasos
 
 
 # ─── Visualizaciones ──────────────────────────────────────────────────────────
 
-def graficar_df_extremos(df_extremos: pd.DataFrame, graficar: bool = False):
+def _guardar_plot(nombre_subcarpeta: str, nombre_archivo: str):
+    carpeta = CARPETA_PLOTS / nombre_subcarpeta
+    carpeta.mkdir(parents=True, exist_ok=True)
+    plt.savefig(carpeta / f'{nombre_archivo}.png', bbox_inches='tight')
+    plt.close()
+
+
+def graficar_df_extremos(df_extremos: pd.DataFrame, valor: str = '', N: int = 0,
+                          graficar: bool = False):
     if not graficar:
         return
     fig, axes = plt.subplots(2, 2, figsize=(21, 10))
+    fig.suptitle(f'Extremos — {valor} N={N}', fontsize=14)
     for ax, col, color, titulo in zip(
         axes.flat,
         ['y', 'w', 'h_dist', 'z'],
@@ -384,27 +415,30 @@ def graficar_df_extremos(df_extremos: pd.DataFrame, graficar: bool = False):
         ax.set_title(titulo)
         ax.grid()
     plt.tight_layout()
-    plt.show()
+    _guardar_plot('Extremos', f'{valor}_{N}')
 
 
-def graficar_performance_FO(df_FO: pd.DataFrame, graficar: bool = False):
+def graficar_performance_FO(df_FO: pd.DataFrame, valor: str = '', N: int = 0,
+                             graficar: bool = False):
     if not graficar or len(df_FO) <= 1:
         return
     _, ax1 = plt.subplots(figsize=(21, 7))
     ax1.plot(df_FO['Iteracion'], df_FO['FO'], color='b', label='FO')
     ax1.set_ylabel('FO')
     ax1.grid()
-    plt.title('Evolución FO por iteración')
-    plt.show()
+    plt.title(f'Evolución FO por iteración — {valor} N={N}')
+    _guardar_plot('FO', f'{valor}_{N}')
 
 
-def graficar_soportes_all(df_0: pd.DataFrame, conjunto_N: set,
+def graficar_soportes_all(df_0: pd.DataFrame, conjunto_N: set, valor: str = '', N: int = 0,
                            graficar: bool = False, zoom: bool = False):
     if not graficar and not zoom:
         return
     df_plot = df_0.tail(100) if zoom else df_0
     p_min, p_max = df_plot['Low'].min(), df_plot['High'].max()
+    sufijo = ' (zoom)' if zoom else ''
     plt.figure(figsize=(21, 7))
+    plt.title(f'Soportes{sufijo} — {valor} N={N}')
     plt.plot(df_plot['DateTime'], df_plot['Low'], color='b', label='Low')
     plt.plot(df_plot['DateTime'], df_plot['High'], color='g', label='High')
     for s in sorted(conjunto_N):
@@ -412,7 +446,8 @@ def graficar_soportes_all(df_0: pd.DataFrame, conjunto_N: set,
             plt.axhline(y=s, color='r', linestyle='--', alpha=0.5)
     plt.grid()
     plt.legend()
-    plt.show()
+    subcarpeta = 'Zoom' if zoom else 'Soportes'
+    _guardar_plot(subcarpeta, f'{valor}_{N}')
 
 
 # ─── Etapa 1: Descarga de datos desde MT5 ────────────────────────────────────
@@ -511,18 +546,26 @@ def _bt_guardar(carpeta_n2: Path, valor: str, N: int, fecha_hora_clave, conjunto
 
 
 def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
-                      ordenes_activas: list = [], fecha_hora_max=None):
+                      ordenes_activas: list = [], fecha_hora_max=None,
+                      estado_compartido=None, verbose: bool = True):
     """Worker para ProcessPoolExecutor: procesa un único par (valor, N).
 
     fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
                    esa fecha/hora y usa/actualiza el cache _bt.json en lugar de producción.
     """
     es_bt = fecha_hora_max is not None
-    print(f'\n{"="*55}\nProcesando {valor} N={N}' + (f' [bt hasta {fecha_hora_max}]' if es_bt else ''))
+    llave = f'{valor}_{N}'
+    if verbose:
+        print(f'\n{"="*55}\nProcesando {valor} N={N}' + (f' [bt hasta {fecha_hora_max}]' if es_bt else ''))
+    if estado_compartido is not None:
+        estado_compartido[llave] = (0, 0, 0.0, 'preparando')
 
     csv_path = carpeta_data / f'{valor}.csv'
     if not csv_path.exists():
-        print(f'  CSV no encontrado: {csv_path}, skip')
+        if verbose:
+            print(f'  CSV no encontrado: {csv_path}, skip')
+        if estado_compartido is not None:
+            estado_compartido[llave] = (0, 0, 0.0, 'sin CSV')
         return
 
     df = pd.read_csv(csv_path)
@@ -533,13 +576,17 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
         df = df[df['DateTime'] <= fecha_hora_max].reset_index(drop=True)
 
     if len(df) == 0:
-        print(f'  Sin datos para el rango solicitado, skip')
+        if verbose:
+            print(f'  Sin datos para el rango solicitado, skip')
+        if estado_compartido is not None:
+            estado_compartido[llave] = (0, 0, 0.0, 'sin datos')
         return
 
     fecha_hora_clave = df['DateTime'].iloc[-1]
-    print(f'  Rango: {df["DateTime"].iloc[0]} → {fecha_hora_clave} ({len(df)} velas)')
-    if not es_bt:
-        print(f'  Último cierre: {df["Close"].iloc[-1]:.2f}')
+    if verbose:
+        print(f'  Rango: {df["DateTime"].iloc[0]} → {fecha_hora_clave} ({len(df)} velas)')
+        if not es_bt:
+            print(f'  Último cierre: {df["Close"].iloc[-1]:.2f}')
 
     dt_min = df['DateTime'].min()
     df['t'] = (df['DateTime'] - dt_min).dt.total_seconds() / 3600
@@ -548,60 +595,102 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
     # Warm start
     if es_bt:
         conjunto_N_prev = _bt_warm_start(carpeta_n2, valor, N, fecha_hora_max)
-        print(f'  Warm start bt: {len(conjunto_N_prev)} soportes' if conjunto_N_prev
-              else '  Warm start bt: cold start')
+        if verbose:
+            print(f'  Warm start bt: {len(conjunto_N_prev)} soportes' if conjunto_N_prev
+                  else '  Warm start bt: cold start')
     else:
         json_path = carpeta_n2 / f'{valor}_{N}'
         conjunto_N_prev = set()
         if Path(f'{json_path}.json').exists():
             conjunto_N_prev = set(json_act(str(json_path)))
-            print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
+            if verbose:
+                print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
 
     # Delta
     delta_path = carpeta_n2 / (f'{valor}_{N}_bt_delta.json' if es_bt else f'{valor}_{N}_delta.json')
     if delta_path.exists():
         with open(delta_path) as f:
             delta_actual = json.load(f)['delta_inicial']
-        print(f'  delta_inicial cargado: {notacion_cientifica(delta_actual)}')
+        if verbose:
+            print(f'  delta_inicial cargado: {notacion_cientifica(delta_actual)}')
     else:
         delta_actual = DELTA_INICIAL
-        print(f'  delta_inicial semilla (sin estado previo): {notacion_cientifica(delta_actual)}')
+        if verbose:
+            print(f'  delta_inicial semilla (sin estado previo): {notacion_cientifica(delta_actual)}')
 
-    print('  Calculando distancias...')
-    df_extremos, conjunto_N = obtener_df_extremos(df, K, N_EXP, N, conjunto_N_prev)
+    if verbose:
+        print('  Calculando distancias...')
+    if estado_compartido is not None:
+        estado_compartido[llave] = (0, 0, 0.0, 'calc. distancias')
+    df_extremos, conjunto_N = obtener_df_extremos(df, K, N_EXP, N, conjunto_N_prev, verbose=verbose)
 
     FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
-    print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
+    if verbose:
+        print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
 
     oa = [] if es_bt else ordenes_activas
-    if oa:
+    if oa and verbose:
         print(f'  Órdenes activas fijas: {[round(p, 2) for p in oa]}')
-    conjunto_N, df_extremos, df_FO, convergio = nuevo_optimizador_2(
+    conjunto_N, df_extremos, df_FO, convergio, cambios, max_pasos = nuevo_optimizador_2(
         N, df_extremos, conjunto_N, LAMBDA,
         ordenes_activas=oa, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
+        estado_compartido=estado_compartido, llave=llave, verbose=verbose,
     )
+    if verbose:
+        print(f'  Cambios aceptados {valor} {N}: {cambios}')
 
     if not es_bt:
-        graficar_df_extremos(df_extremos, graficar=GRAFICAR_EXTREMOS)
-        graficar_performance_FO(df_FO, graficar=GRAFICAR_FO)
-        graficar_soportes_all(df, conjunto_N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
+        graficar_df_extremos(df_extremos, valor=valor, N=N, graficar=GRAFICAR_EXTREMOS)
+        graficar_performance_FO(df_FO, valor=valor, N=N, graficar=GRAFICAR_FO)
+        graficar_soportes_all(df, conjunto_N, valor=valor, N=N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
 
     # Guardar soportes
     if es_bt:
         _bt_guardar(carpeta_n2, valor, N, fecha_hora_clave, conjunto_N)
-        print(f'  Guardado bt: {valor}_{N}_bt.json [{fecha_hora_clave}]')
+        if verbose:
+            print(f'  Guardado bt: {valor}_{N}_bt.json [{fecha_hora_clave}]')
     else:
         json_act(str(json_path), conjunto_N, 'save')
-        print(f'  Guardado: {json_path}.json')
+        if verbose:
+            print(f'  Guardado: {json_path}.json')
 
     # Guardar delta
     delta_next = delta_actual * FACTOR_DELTA if convergio else delta_actual
     estado_delta = (f'convergió → {notacion_cientifica(delta_actual)} → {notacion_cientifica(delta_next)}'
                     if convergio else f'no convergió → delta sin cambio ({notacion_cientifica(delta_actual)})')
-    print(f'  Delta: {estado_delta}')
+    if verbose:
+        print(f'  Delta: {estado_delta}')
     with open(delta_path, 'w') as f:
         json.dump({'delta_inicial': delta_next, 'convergio': convergio}, f)
-    print(f'  Guardado: {delta_path.name}')
+    if verbose:
+        print(f'  Guardado: {delta_path.name}')
+
+    FO_final, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
+    if estado_compartido is not None:
+        estado_compartido[llave] = (cambios, -1, FO_final, 'listo')
+
+
+def _monitor_tabla(estado, tuplas, stop_event):
+    n = len(tuplas)
+    for _ in range(n):
+        sys.stdout.write('\n')
+    sys.stdout.flush()
+
+    def redraw():
+        sys.stdout.write(f'\033[{n}A')
+        for v, N in tuplas:
+            llave = f'{v}_{N}'
+            cambios, iters, FO, estado_str = estado.get(llave, (0, 0, 0.0, 'esperando'))
+            fo_str = f'{FO:.4e}' if FO != 0.0 else '---'
+            iter_str = str(iters) if iters >= 0 else 'conv.'
+            line = f'{v} {N}: cambios={cambios:<6} iter={iter_str:<8} FO={fo_str:<14} [{estado_str}]'
+            sys.stdout.write(f'\r{line:<75}\n')
+        sys.stdout.flush()
+
+    while not stop_event.is_set():
+        redraw()
+        time.sleep(1)
+    redraw()
 
 
 def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path,
@@ -612,6 +701,8 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
     # Construir todas las tuplas (valor, N) y ordenar por antigüedad del JSON
     tuplas = []
     for valor in valores:
+        if valor not in n_sizes:
+            continue
         for N in n_sizes[valor]:
             json_path = carpeta_n2 / f'{valor}_{N}.json'
             fecha = (datetime.datetime.fromtimestamp(json_path.stat().st_mtime)
@@ -621,18 +712,59 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
     tuplas_ordenadas = [(v, n) for v, n, _ in sorted(tuplas, key=lambda x: x[2])]
     print('Orden de procesamiento:', tuplas_ordenadas)
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = {
-            executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n2,
-                            ordenes_activas_mt5.get(v, [])): (v, n)
-            for v, n in tuplas_ordenadas
-        }
-        for future in concurrent.futures.as_completed(futures):
-            valor, N = futures[future]
-            try:
-                future.result()
-            except Exception as exc:
-                print(f'Error en ({valor}, N={N}): {exc}')
+    # Info previa por combo (secuencial, antes del monitor)
+    for v, n in tuplas_ordenadas:
+        csv_path = carpeta_data / f'{v}.csv'
+        print(f'\n{"="*55}\nProcesando {v} N={n}')
+        if not csv_path.exists():
+            print(f'  CSV no encontrado: {csv_path}')
+            continue
+        df_info = pd.read_csv(csv_path, usecols=['DateTime', 'Close'])
+        df_info['DateTime'] = pd.to_datetime(df_info['DateTime'])
+        df_info = df_info[df_info['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
+        if len(df_info):
+            print(f'  Rango: {df_info["DateTime"].iloc[0]} → {df_info["DateTime"].iloc[-1]} ({len(df_info)} velas)')
+            print(f'  Último cierre: {df_info["Close"].iloc[-1]:.2f}')
+        json_path = carpeta_n2 / f'{v}_{n}'
+        if Path(f'{json_path}.json').exists():
+            prev = set(json_act(str(json_path)))
+            print(f'  Warm start: {len(prev)} soportes')
+        else:
+            print('  Warm start: cold start')
+        delta_path = carpeta_n2 / f'{v}_{n}_delta.json'
+        if delta_path.exists():
+            with open(delta_path) as f:
+                delta_val = json.load(f)['delta_inicial']
+            print(f'  delta_inicial: {notacion_cientifica(delta_val)}')
+        else:
+            print(f'  delta_inicial: {notacion_cientifica(DELTA_INICIAL)} (semilla)')
+
+    with multiprocessing.Manager() as manager:
+        estado = manager.dict()
+        for v, n in tuplas_ordenadas:
+            estado[f'{v}_{n}'] = (0, 0, 0.0, 'esperando')
+
+        stop_event = threading.Event()
+        monitor = threading.Thread(target=_monitor_tabla, args=(estado, tuplas_ordenadas, stop_event), daemon=True)
+        monitor.start()
+
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            futures = {
+                executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n2,
+                                ordenes_activas_mt5.get(v, []), None, estado, False): (v, n)
+                for v, n in tuplas_ordenadas
+            }
+            for future in concurrent.futures.as_completed(futures):
+                valor, N = futures[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    prev = estado.get(f'{valor}_{N}', (0, 0, 0.0, 'ERROR'))
+                    estado[f'{valor}_{N}'] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
+                    print(f'\nError en ({valor}, N={N}): {exc}')
+
+        stop_event.set()
+        monitor.join()
 
 
 
