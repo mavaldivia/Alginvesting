@@ -9,7 +9,7 @@ Sistema de trading algorítmico personal. Detecta soportes y resistencias óptim
 ## Flujo principal
 
 ```
-X0: Actualizar precios → Buscar soportes óptimos → Guardar en conjuntosN2/
+X0: Actualizar precios → Buscar soportes óptimos → Guardar en conjuntos_N/
 X1: Leer soportes → Conectar MT5 → Gestionar órdenes (buy limit + trailing stop)
 ```
 

@@ -3,7 +3,7 @@ X0_data_supports.py
 
 Etapa 1 (--opcion 0 o 2): Descarga velas OHLCV H1 desde MetaTrader5 y actualiza los CSVs en Data/.
 Etapa 2 (--opcion 1 o 2): Busca N soportes/resistencias óptimos por activo usando un optimizador
-                           de búsqueda local y guarda los resultados en conjuntosN2/.
+                           de búsqueda local y guarda los resultados en conjuntos_N/.
 
 Uso:
     python X0_data_supports.py               # opcion=2: ambas etapas
@@ -17,7 +17,6 @@ import datetime
 import json
 import os
 import random
-import shutil
 import sys
 import warnings
 from pathlib import Path
@@ -485,10 +484,41 @@ def descargar_datos(valores: list, carpeta_data: Path):
 
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
+def _bt_warm_start(carpeta_n2: Path, valor: str, N: int, fecha_hora_max) -> set:
+    """Retorna el conjunto_N del cache bt más reciente con timestamp <= fecha_hora_max."""
+    bt_path = carpeta_n2 / f'{valor}_{N}_bt.json'
+    if not bt_path.exists():
+        return set()
+    with open(bt_path) as f:
+        cache = json.load(f)
+    candidatos = {k: v for k, v in cache.items() if pd.to_datetime(k) <= fecha_hora_max}
+    if not candidatos:
+        return set()
+    mejor_t = max(candidatos, key=lambda k: pd.to_datetime(k))
+    return set(candidatos[mejor_t])
+
+
+def _bt_guardar(carpeta_n2: Path, valor: str, N: int, fecha_hora_clave, conjunto_N: set):
+    """Upsert de conjunto_N en el cache bt con clave = último datetime de los datos usados."""
+    bt_path = carpeta_n2 / f'{valor}_{N}_bt.json'
+    cache = {}
+    if bt_path.exists():
+        with open(bt_path) as f:
+            cache = json.load(f)
+    cache[str(fecha_hora_clave)] = sorted(conjunto_N)
+    with open(bt_path, 'w') as f:
+        json.dump(cache, f)
+
+
 def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
-                      ordenes_activas: list = []):
-    """Worker para ProcessPoolExecutor: procesa un único par (valor, N)."""
-    print(f'\n{"="*55}\nProcesando {valor} N={N}')
+                      ordenes_activas: list = [], fecha_hora_max=None):
+    """Worker para ProcessPoolExecutor: procesa un único par (valor, N).
+
+    fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
+                   esa fecha/hora y usa/actualiza el cache _bt.json en lugar de producción.
+    """
+    es_bt = fecha_hora_max is not None
+    print(f'\n{"="*55}\nProcesando {valor} N={N}' + (f' [bt hasta {fecha_hora_max}]' if es_bt else ''))
 
     csv_path = carpeta_data / f'{valor}.csv'
     if not csv_path.exists():
@@ -499,25 +529,36 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
     df = df.sort_values('DateTime').reset_index(drop=True)
     df['DateTime'] = pd.to_datetime(df['DateTime'])
     df = df[df['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
+    if es_bt:
+        df = df[df['DateTime'] <= fecha_hora_max].reset_index(drop=True)
 
     if len(df) == 0:
-        print(f'  Sin datos desde {FECHA_INICIAL}, skip')
+        print(f'  Sin datos para el rango solicitado, skip')
         return
 
-    print(f'  Rango: {df["DateTime"].iloc[0]} → {df["DateTime"].iloc[-1]} ({len(df)} velas)')
-    print(f'  Último cierre: {df["Close"].iloc[-1]:.2f}')
+    fecha_hora_clave = df['DateTime'].iloc[-1]
+    print(f'  Rango: {df["DateTime"].iloc[0]} → {fecha_hora_clave} ({len(df)} velas)')
+    if not es_bt:
+        print(f'  Último cierre: {df["Close"].iloc[-1]:.2f}')
 
     dt_min = df['DateTime'].min()
     df['t'] = (df['DateTime'] - dt_min).dt.total_seconds() / 3600
     df['t'] = df['t'] / df['t'].max()
 
-    beta_path = carpeta_n2 / f'{valor}_{N}_beta'
-    conjunto_N_prev = set()
-    if Path(f'{beta_path}.json').exists():
-        conjunto_N_prev = set(json_act(str(beta_path)))
-        print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
+    # Warm start
+    if es_bt:
+        conjunto_N_prev = _bt_warm_start(carpeta_n2, valor, N, fecha_hora_max)
+        print(f'  Warm start bt: {len(conjunto_N_prev)} soportes' if conjunto_N_prev
+              else '  Warm start bt: cold start')
+    else:
+        json_path = carpeta_n2 / f'{valor}_{N}'
+        conjunto_N_prev = set()
+        if Path(f'{json_path}.json').exists():
+            conjunto_N_prev = set(json_act(str(json_path)))
+            print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
 
-    delta_path = carpeta_n2 / f'{valor}_{N}_delta.json'
+    # Delta
+    delta_path = carpeta_n2 / (f'{valor}_{N}_bt_delta.json' if es_bt else f'{valor}_{N}_delta.json')
     if delta_path.exists():
         with open(delta_path) as f:
             delta_actual = json.load(f)['delta_inicial']
@@ -532,22 +573,31 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
     FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
     print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
 
-    if ordenes_activas:
-        print(f'  Órdenes activas fijas: {[round(p, 2) for p in ordenes_activas]}')
+    oa = [] if es_bt else ordenes_activas
+    if oa:
+        print(f'  Órdenes activas fijas: {[round(p, 2) for p in oa]}')
     conjunto_N, df_extremos, df_FO, convergio = nuevo_optimizador_2(
         N, df_extremos, conjunto_N, LAMBDA,
-        ordenes_activas=ordenes_activas, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
+        ordenes_activas=oa, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
     )
 
-    graficar_df_extremos(df_extremos, graficar=GRAFICAR_EXTREMOS)
-    graficar_performance_FO(df_FO, graficar=GRAFICAR_FO)
-    graficar_soportes_all(df, conjunto_N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
+    if not es_bt:
+        graficar_df_extremos(df_extremos, graficar=GRAFICAR_EXTREMOS)
+        graficar_performance_FO(df_FO, graficar=GRAFICAR_FO)
+        graficar_soportes_all(df, conjunto_N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
 
-    json_act(str(beta_path), conjunto_N, 'save')
-    print(f'  Guardado: {beta_path}.json')
+    # Guardar soportes
+    if es_bt:
+        _bt_guardar(carpeta_n2, valor, N, fecha_hora_clave, conjunto_N)
+        print(f'  Guardado bt: {valor}_{N}_bt.json [{fecha_hora_clave}]')
+    else:
+        json_act(str(json_path), conjunto_N, 'save')
+        print(f'  Guardado: {json_path}.json')
 
+    # Guardar delta
     delta_next = delta_actual * FACTOR_DELTA if convergio else delta_actual
-    estado_delta = f'convergió → {notacion_cientifica(delta_actual)} → {notacion_cientifica(delta_next)}' if convergio else f'no convergió → delta sin cambio ({notacion_cientifica(delta_actual)})'
+    estado_delta = (f'convergió → {notacion_cientifica(delta_actual)} → {notacion_cientifica(delta_next)}'
+                    if convergio else f'no convergió → delta sin cambio ({notacion_cientifica(delta_actual)})')
     print(f'  Delta: {estado_delta}')
     with open(delta_path, 'w') as f:
         json.dump({'delta_inicial': delta_next, 'convergio': convergio}, f)
@@ -559,13 +609,13 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
     if ordenes_activas_mt5 is None:
         ordenes_activas_mt5 = {v: [] for v in valores}
 
-    # Construir todas las tuplas (valor, N) y ordenar por antigüedad del beta
+    # Construir todas las tuplas (valor, N) y ordenar por antigüedad del JSON
     tuplas = []
     for valor in valores:
         for N in n_sizes[valor]:
-            beta_path = carpeta_n2 / f'{valor}_{N}_beta.json'
-            fecha = (datetime.datetime.fromtimestamp(beta_path.stat().st_mtime)
-                     if beta_path.exists() else datetime.datetime(2000, 1, 1))
+            json_path = carpeta_n2 / f'{valor}_{N}.json'
+            fecha = (datetime.datetime.fromtimestamp(json_path.stat().st_mtime)
+                     if json_path.exists() else datetime.datetime(2000, 1, 1))
             tuplas.append((valor, N, fecha))
 
     tuplas_ordenadas = [(v, n) for v, n, _ in sorted(tuplas, key=lambda x: x[2])]
@@ -584,28 +634,6 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
             except Exception as exc:
                 print(f'Error en ({valor}, N={N}): {exc}')
 
-
-def promover_a_productivo(valores: list, n_sizes: dict, carpeta_n2: Path):
-    """
-    Mueve _beta.json → {valor}_{N}.json y mantiene una copia en _beta.json.
-    El archivo productivo (sin _beta) es el que lee X1 para operar.
-    """
-    print('\nPromoviendo resultados a productivo...')
-    for valor in valores:
-        for N in n_sizes[valor]:
-            beta_path = carpeta_n2 / f'{valor}_{N}_beta.json'
-            prod_path = carpeta_n2 / f'{valor}_{N}.json'
-
-            if not beta_path.exists():
-                print(f'  {valor} N={N}: no existe _beta.json, skip')
-                continue
-
-            if prod_path.exists():
-                prod_path.unlink()
-
-            beta_path.rename(prod_path)
-            shutil.copy(prod_path, beta_path)
-            print(f'  {valor} N={N}: {prod_path.name} actualizado')
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
@@ -629,4 +657,3 @@ if __name__ == '__main__':
         print('Consultando posiciones activas en MT5...')
         ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
         buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N2, ordenes_activas_mt5)
-        promover_a_productivo(VALORES, n_sizes, CARPETA_N2)

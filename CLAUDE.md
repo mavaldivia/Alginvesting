@@ -21,7 +21,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 - El código se desarrolla en Mac y se ejecuta en Windows donde está MT5.
 - `Alginvesting_base/` es el repo clonado de la versión Windows (solo lectura, referencia histórica).
-- `Data/` se trackea en git (ver `docs/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `conjuntosN2/` (JSONs de soportes) sigue fuera de git, se regenera corriendo X0.
+- `Data/` se trackea en git (ver `docs/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `conjuntos_N/` (JSONs de soportes) sigue fuera de git, se regenera corriendo X0.
 
 ---
 
@@ -31,7 +31,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 | Archivo | Propósito |
 |---|---|
-| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5. **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntosN2/` como JSON. `--opcion 0/1/2` |
+| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5. **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntos_N/` como JSON. `--opcion 0/1/2` |
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. |
 | `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, y configuración de X0 (algoritmo) y X1 (trading). |
 
@@ -41,7 +41,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 |---|---|
 | `Data/` | CSVs OHLCV H1 por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, **trackeados en git** (historia desde 2024-01-01) |
 | `Data_minuto/` | CSVs OHLCV M1 por activo — usados por X4 para simulación intra-vela; se alimentan incrementalmente igual que `Data/`. Fuera de git (regenerables). |
-| `conjuntosN2/` | JSONs con N soportes óptimos por activo — `{VALOR}_{N}_beta.json` (en optimización) / `{VALOR}_{N}.json` (productivo) — generados, fuera de git |
+| `conjuntos_N/` | JSONs por activo — `{VALOR}_{N}.json` (soportes producción, leído por X1), `{VALOR}_{N}_delta.json` (delta adaptativo producción), `{VALOR}_{N}_bt.json` (cache bt: `{datetime: [soportes], ...}`), `{VALOR}_{N}_bt_delta.json` (delta adaptativo bt) — generados, fuera de git |
 
 ---
 
@@ -146,7 +146,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - `snake_case` para variables y funciones. `PascalCase` para clases.
 - Archivos `.py` en producción. `.ipynb` solo para exploración visual de nuevos módulos.
 - Parámetros clave centralizados en `config.py`.
-- Pickles con sufijo `_beta` = versión en optimización (no productiva).
+- Archivos en `conjuntos_N/`: `{VALOR}_{N}.json` es el único archivo de soportes (X0 escribe, X1 lee).
 - Sin hardcodear rutas fuera de `config.py`.
 - `docs/decisiones.md` registra decisiones técnicas relevantes.
 
@@ -158,7 +158,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 ### Prioridad 0
 - [x] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
-- [ ] **Fecha máxima por tupla (valor, N) en X4**: la estimación de soportes en un tiempo `t` solo debe usar velas hasta `t` (sin look-ahead). La búsqueda debe ser un continuo temporal — en cada punto `t` del backtester se corre el optimizador con los datos disponibles hasta `t`, actualizando `delta_inicial` progresivamente para presionar la solución a ser más actualizada y mejor. Definir cómo integrar esto con `_procesar_valor_N` y el estado `{valor}_{N}_delta.json`. (I:10 C:5 H:8 → 1.26)
+- [x] **Fecha/hora máxima por tupla (valor, N) para backtesting**: `_procesar_valor_N` acepta `fecha_hora_max` opcional — filtra datos hasta ese datetime, usa warm start desde `{valor}_{N}_bt.json` (cache `{datetime: [soportes]}`), delta desde `{valor}_{N}_bt_delta.json`. Sin look-ahead: la clave guardada es `df['DateTime'].iloc[-1]` (último dato realmente usado). Lookup: `max(t1 <= t0)`. X4 llama esta función directamente con `fecha_hora_max=t`. X0 producción sin cambios. (I:10 C:5 H:8 → 1.26)
 
 ### Pendientes (por score)
 - [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)
@@ -181,7 +181,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - [x] Velocidad: `calcular_distancias` vectorizada con numpy por bloques (evita matriz n×n completa) — ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21213), resultados idénticos byte a byte
 - [x] Velocidad: `asignar_soporte` vectorizada con `np.searchsorted` (búsqueda binaria del soporte más cercano, O(n log N) en vez de O(n×N) con `apply`) — ~45-178x más rápido (0.26s → 0.0014s en BTCUSD, N=130), resultados idénticos byte a byte
 - [x] Parámetros: documentado el efecto de cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL) en la nueva sección "Parámetros del algoritmo — efecto de cada uno"
-- [x] Storage: migrado `conjuntosN2/` de pickle a JSON (`json_act` en X0 y X1) — `conjunto_N` es solo un set de ~50-130 floats, parquet quedaba descartado por sobredimensionado; JSON permite inspeccionar los soportes a simple vista
+- [x] Storage: migrado `conjuntos_N/` de pickle a JSON (`json_act` en X0 y X1) — `conjunto_N` es solo un set de ~50-130 floats, parquet quedaba descartado por sobredimensionado; JSON permite inspeccionar los soportes a simple vista
 - [x] Config: mover parámetros a un archivo de configuración separado (`config.py`)
 - [x] Reorganizar `config.py` en grupos temáticos (rutas, activos, datos históricos, calidad del algoritmo, velocidad/cómputo, visualizaciones, trading) en vez del agrupamiento por script (X0/X1)
 
@@ -230,6 +230,10 @@ Items propios de la rama de visión (X2→X6). Se gestionan separados del TO DO 
 
 ## Última actualización
 
+**2026-06-09** — conjuntos_N + sin _beta + bt cache para backtesting
+
+Renombrada carpeta `conjuntosN2/` → `conjuntos_N/`. Eliminado sufijo `_beta`: X0 escribe directo a `{VALOR}_{N}.json`, X1 lee directo desde ahí; eliminada `promover_a_productivo` y su import `shutil`. Implementado cache de backtesting: `_bt_warm_start` y `_bt_guardar` en `X0_data_supports.py`; parámetro `fecha_hora_max=None` en `_procesar_valor_N` — cuando se pasa un datetime activa modo bt (filtra datos, warm start desde `_bt.json`, delta desde `_bt_delta.json`, upsert con clave = último datetime real usado). Prioridad 0 del TO DO marcada como completada.
+
 **2026-06-09** — TO DO: fecha máxima por tupla valor-N en X4 (Prioridad 0)
 
 Nuevo ítem en Prioridad 0: la estimación de soportes en el tiempo `t` debe usar solo velas hasta `t` (sin look-ahead), y la búsqueda debe ser un continuo temporal que actualiza `delta_inicial` progresivamente. Pendiente integrar con `_procesar_valor_N` y `{valor}_{N}_delta.json`. Se limpió texto suelto que había quedado en la sección Pendientes. Se eliminó el ítem "Backtesting histórico (X4)" del TO DO Principal (ya cubierto en TO DO Visión bajo X4_backtester).
@@ -250,7 +254,7 @@ Además, se implementó la integración de órdenes activas de MT5 como soportes
 
 **2026-06-07** — `DELTA_INICIAL` adaptativo entre corridas
 
-Se conectó `DELTA_INICIAL` a `nuevo_optimizador_2` (hasta ahora no estaba enlazado — el optimizador usaba su propio default) y se hizo adaptativo *entre* corridas sucesivas de cada combo (valor, N): si existe estado previo en `conjuntosN2/{valor}_{N}_delta.json`, se usa `delta_actual = LAMBDA_DELTA * delta_previo` (`LAMBDA_DELTA = 0.9` en `config.py`); si no existe (cold start), se usa `DELTA_INICIAL` como semilla. La lógica: con warm start cercano al óptimo, exigir mejoras relativas cada vez más finas no dispara un costo proporcional en iteraciones, así que se puede "presionar" la precisión sin pagar el precio de un cold start. El estado se persiste en un archivo separado por combo (no junto a `conjunto_N`, para no tocar el formato que consume X1, y para evitar carreras con `ProcessPoolExecutor`). Detalle y alternativas descartadas en `docs/decisiones.md` 2026-06-07.
+Se conectó `DELTA_INICIAL` a `nuevo_optimizador_2` (hasta ahora no estaba enlazado — el optimizador usaba su propio default) y se hizo adaptativo *entre* corridas sucesivas de cada combo (valor, N): si existe estado previo en `conjuntos_N/{valor}_{N}_delta.json`, se usa `delta_actual = LAMBDA_DELTA * delta_previo` (`LAMBDA_DELTA = 0.9` en `config.py`); si no existe (cold start), se usa `DELTA_INICIAL` como semilla. La lógica: con warm start cercano al óptimo, exigir mejoras relativas cada vez más finas no dispara un costo proporcional en iteraciones, así que se puede "presionar" la precisión sin pagar el precio de un cold start. El estado se persiste en un archivo separado por combo (no junto a `conjunto_N`, para no tocar el formato que consume X1, y para evitar carreras con `ProcessPoolExecutor`). Detalle y alternativas descartadas en `docs/decisiones.md` 2026-06-07.
 
 Además se agregó la sección "Prioridad 0" en el TO DO: revisar los mensajes "SEGUIR EXPLICACION" pendientes en `prompts` (explicaciones inconclusas sobre `X2_Intravela`).
 
@@ -268,7 +272,7 @@ A partir de la revisión de la lógica de `calcular_FO` (TO DO "Revisar con Maur
 
 **2026-06-07** — Migrar conjuntosN2 de pickle a JSON
 
-`conjunto_N` es solo un `set` de ~50-130 floats (niveles de precio) — pickle no aportaba nada frente a JSON, que además permite inspeccionar los soportes a simple vista (parquet quedó descartado por sobredimensionado para este tamaño). `pickle_act` se reemplazó por `json_act` en `X0_data_supports.py` y `X1_trading.py` (`sorted(set)` al guardar, `set(list)`/`list` al cargar), y los archivos pasan de `{valor}_{N}_beta.pkl` / `{valor}_{N}.pkl` a `.json` en todo el flujo (warm start, guardado, `promover_a_productivo`, `leer_lista_N`). Se quitó `*.pkl` de `.gitignore` (redundante, `conjuntosN2/` ya está ignorado como carpeta).
+`conjunto_N` es solo un `set` de ~50-130 floats (niveles de precio) — pickle no aportaba nada frente a JSON, que además permite inspeccionar los soportes a simple vista (parquet quedó descartado por sobredimensionado para este tamaño). `pickle_act` se reemplazó por `json_act` en `X0_data_supports.py` y `X1_trading.py` (`sorted(set)` al guardar, `set(list)`/`list` al cargar), y los archivos pasan de `{valor}_{N}_beta.pkl` / `{valor}_{N}.pkl` a `.json` en todo el flujo (warm start, guardado, `promover_a_productivo`, `leer_lista_N`). Se quitó `*.pkl` de `.gitignore` (redundante, `conjuntos_N/` ya está ignorado como carpeta).
 
 **2026-06-07** — Vectorizar calcular_distancias + asignar_soporte, setup skills record/guardar
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
 CARPETA_DATA = BASE_DIR / 'Data'
-CARPETA_N2 = BASE_DIR / 'conjuntosN2'
+CARPETA_N2 = BASE_DIR / 'conjuntos_N'
 
 # ─── Activos y universo de soportes ───────────────────────────────────────────
 
