@@ -350,3 +350,75 @@ que se puede medir por separado.
   y `ProcessPoolExecutor` no repite combos, así que no hay escrituras concurrentes al mismo archivo.
 
 ---
+
+## [2026-06-11] N_MAX_MODELS + loop continuo
+
+### Qué se implementó
+
+Dos funcionalidades nuevas en `X0_data_supports.py` + `config.py`:
+
+1. **Selección inteligente de combos por ciclo** (`N_MAX_MODELS`): en lugar de correr todos los
+   pares `(valor, N)` en cada ejecución, se puede configurar un tope de cuántos correr por ciclo.
+   El criterio de selección es `delta_inicial` actual: los combos con mayor delta son los que
+   tienen más "terreno que ganar" en la siguiente corrida (porque su delta de convergencia aún
+   no se ha afinado). Tie-break aleatorio para rotar equitativamente.
+
+2. **Loop continuo** (`--loop`): nuevo flag de línea de comandos que envuelve el ciclo completo
+   (descarga de datos + búsqueda de soportes) en un `while True`. Al terminar todos los combos
+   del ciclo, reinicia inmediatamente desde el principio. Ctrl+C sale limpiamente.
+
+### Cambios en el código
+
+**`config.py`**:
+```python
+N_MAX_MODELS = None  # None = todos los combos; entero = solo los N más prometedores por ciclo
+```
+
+**`X0_data_supports.py`**:
+
+- Nueva función `_seleccionar_combos(valores, n_sizes, carpeta_n2, n_max)`:
+  - Lee `delta_inicial` de `{valor}_{N}_delta.json` por cada combo. Si no existe, usa `DELTA_INICIAL`.
+  - Si `n_max` es None o >= total combos: retorna todos en orden por antigüedad del JSON (sin cambio).
+  - Si `n_max` < total: shuffle para tie-break → sort desc por delta → toma los primeros `n_max` →
+    los reordena por antigüedad del JSON dentro del subconjunto seleccionado.
+
+- `buscar_soportes`: acepta parámetro `n_max=None`, delega en `_seleccionar_combos` en lugar de
+  construir la lista inline. Muestra `"X/Y (top delta)"` en el print cuando hay filtro activo.
+
+- `__main__`: reemplazado el bloque directo por `while True` + `try/except KeyboardInterrupt`.
+  Nuevo argumento `--loop` (action='store_true'): cuando está activo, el loop continúa; si no,
+  hace `break` tras la primera iteración (comportamiento idéntico al anterior). En cada ciclo
+  imprime el número de ciclo y si corre todos o los top N combos.
+
+### Uso
+
+```bash
+# Comportamiento original (sin cambios): corre una vez y sale
+python X0_data_supports.py
+
+# Loop continuo, todos los combos en cada ciclo
+python X0_data_supports.py --loop
+
+# Loop continuo, solo los top N_MAX_MODELS combos más prometedores (configurado en config.py)
+# Ejemplo: N_MAX_MODELS = 4 → solo los 4 con mayor delta_inicial corren por ciclo
+python X0_data_supports.py --loop
+
+# Solo soportes en loop (sin descarga de datos)
+python X0_data_supports.py --opcion 1 --loop
+```
+
+### Decisión de diseño: delta_inicial como proxy de "prometedor"
+
+`delta_inicial` es el umbral mínimo de mejora relativa que acepta el optimizador. Se reduce con
+`FACTOR_DELTA` cada vez que el optimizador converge. Un combo con `delta_inicial` alto significa
+que nunca ha convergido (o hace pocas corridas), por lo que la diferencia entre el estado actual
+y el óptimo es potencialmente grande. Un combo con `delta_inicial` muy pequeño ya ha convergido
+muchas veces y las ganancias de correrlo de nuevo son marginales.
+
+Por eso "mayor delta = más prometedor" es una heurística razonable para priorizar cómputo.
+
+Alternativa descartada: priorizar por antigüedad del JSON (qué combo lleva más tiempo sin
+actualizarse). Esta lógica ya existía en el orden de procesamiento original pero no captura
+la "calidad de convergencia" del combo.
+
+---

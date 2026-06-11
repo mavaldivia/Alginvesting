@@ -38,7 +38,7 @@ from config import (
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
-    n_sizes,
+    n_sizes, N_MAX_MODELS,
 )
 
 
@@ -744,24 +744,55 @@ def _monitor_tabla(estado, tuplas, stop_event):
     redraw()
 
 
-def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path,
-                    ordenes_activas_mt5: dict = None):
-    if ordenes_activas_mt5 is None:
-        ordenes_activas_mt5 = {v: [] for v in valores}
+def _seleccionar_combos(valores: list, n_sizes: dict, carpeta_n2: Path, n_max=None) -> list:
+    """
+    Retorna la lista de tuplas (valor, N) a procesar en el próximo ciclo.
 
-    # Construir todas las tuplas (valor, N) y ordenar por antigüedad del JSON
+    Si n_max es None o >= total de combos: retorna todos, ordenados por antigüedad del JSON
+    (misma lógica que antes).
+    Si n_max < total: selecciona los n_max con mayor delta_inicial (más prometedores,
+    es decir, los que tienen más terreno que ganar en la próxima corrida), con tie-break
+    aleatorio. Dentro de los seleccionados, mantiene el orden por antigüedad del JSON.
+    """
     tuplas = []
     for valor in valores:
         if valor not in n_sizes:
             continue
         for N in n_sizes[valor]:
             json_path = carpeta_n2 / f'{valor}_{N}.json'
-            fecha = (datetime.datetime.fromtimestamp(json_path.stat().st_mtime)
-                     if json_path.exists() else datetime.datetime(2000, 1, 1))
-            tuplas.append((valor, N, fecha))
+            delta_path = carpeta_n2 / f'{valor}_{N}_delta.json'
 
-    tuplas_ordenadas = [(v, n) for v, n, _ in sorted(tuplas, key=lambda x: x[2])]
-    print('Orden de procesamiento:', tuplas_ordenadas)
+            if delta_path.exists():
+                with open(delta_path) as f:
+                    delta = json.load(f)['delta_inicial']
+            else:
+                delta = DELTA_INICIAL
+
+            fecha_mtime = (datetime.datetime.fromtimestamp(json_path.stat().st_mtime)
+                           if json_path.exists() else datetime.datetime(2000, 1, 1))
+            tuplas.append((valor, N, delta, fecha_mtime))
+
+    if not tuplas:
+        return []
+
+    if n_max is None or n_max <= 0 or n_max >= len(tuplas):
+        return [(v, n) for v, n, _, _ in sorted(tuplas, key=lambda x: x[3])]
+
+    # Shuffle para tie-break aleatorio antes de ordenar por delta desc (sort estable)
+    random.shuffle(tuplas)
+    seleccionados = sorted(tuplas, key=lambda x: -x[2])[:n_max]
+    return [(v, n) for v, n, _, _ in sorted(seleccionados, key=lambda x: x[3])]
+
+
+def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path,
+                    ordenes_activas_mt5: dict = None, n_max=None):
+    if ordenes_activas_mt5 is None:
+        ordenes_activas_mt5 = {v: [] for v in valores}
+
+    tuplas_ordenadas = _seleccionar_combos(valores, n_sizes, carpeta_n2, n_max)
+    total_combos = sum(len(ns) for ns in n_sizes.values())
+    filtrado = f'{len(tuplas_ordenadas)}/{total_combos} (top delta)' if (n_max and n_max < total_combos) else str(len(tuplas_ordenadas))
+    print(f'Combos a procesar ({filtrado}):', tuplas_ordenadas)
 
     # Info previa por combo (secuencial, antes del monitor)
     for v, n in tuplas_ordenadas:
@@ -826,17 +857,37 @@ if __name__ == '__main__':
     parser.add_argument('--opcion', type=int, default=2,
                         choices=[0, 1, 2],
                         help='0=solo datos, 1=solo soportes, 2=ambos (default)')
+    parser.add_argument('--loop', action='store_true',
+                        help='Ejecutar en bucle continuo (while True). '
+                             'Al terminar cada ciclo reinicia desde el principio. '
+                             'Usa N_MAX_MODELS de config.py para seleccionar combos por ciclo.')
     args = parser.parse_args()
 
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
     CARPETA_N2.mkdir(parents=True, exist_ok=True)
 
-    if args.opcion in (0, 2):
-        print('\n── Etapa 1: Descarga de datos ──────────────────────────')
-        descargar_datos(VALORES, CARPETA_DATA)
+    ciclo = 0
+    try:
+        while True:
+            ciclo += 1
+            if args.loop:
+                print(f'\n{"═"*55}\n CICLO {ciclo}'
+                      + (f' — top {N_MAX_MODELS} combos' if N_MAX_MODELS else ' — todos los combos')
+                      + f'\n{"═"*55}')
 
-    if args.opcion in (1, 2):
-        print('\n── Etapa 2: Búsqueda de soportes ───────────────────────')
-        print('Consultando posiciones activas en MT5...')
-        ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
-        buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N2, ordenes_activas_mt5)
+            if args.opcion in (0, 2):
+                print('\n── Etapa 1: Descarga de datos ──────────────────────────')
+                descargar_datos(VALORES, CARPETA_DATA)
+
+            if args.opcion in (1, 2):
+                print('\n── Etapa 2: Búsqueda de soportes ───────────────────────')
+                print('Consultando posiciones activas en MT5...')
+                ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
+                buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N2, ordenes_activas_mt5,
+                                n_max=N_MAX_MODELS)
+
+            if not args.loop:
+                break
+
+    except KeyboardInterrupt:
+        print(f'\nDetenido por el usuario tras {ciclo} ciclo(s).')

@@ -80,6 +80,11 @@ BLOQUE_DISTANCIAS = 2000
 
 MAX_ITERS = 10000  # tope de iteraciones del optimizador (cota del tiempo de ejecución)
 
+# Combos a ejecutar por ciclo en modo --loop.
+# None = todos los combos en cada ciclo (comportamiento original).
+# Entero = selecciona los N pares (valor, N) con mayor delta_inicial actual (más prometedores).
+N_MAX_MODELS = None
+
 # ─── Visualizaciones ──────────────────────────────────────────────────────────
 # Desactivadas por defecto para ejecución sin cabeza en Windows.
 

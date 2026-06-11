@@ -166,7 +166,7 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 
 - [ ] **X0_aux.py — testear mejoras de convergencia (fase 2)**: crear script auxiliar `scripts/X0_aux.py` para probar las sugerencias del análisis de convergencia (documentadas en `docs/documentacion_V0.md`) de forma aislada y medible. Baseline: corrida de referencia de un (valor, N) con el optimizador actual. Medir impacto de cada mejora en velocidad y calidad (FO final, iteraciones, cambios) antes de migrar a producción. (I:6 C:3 H:7 → 2.16)
 - [x] **Logs de convergencia**: al converger cada combo (valor, N) — o (valor, N, max_datetime) en modo bt — guardar JSON en `docs/X0/logs/` con: clave de la tupla, t_inicio, t_fin, duración, iteraciones, FO final, delta_final, convergio (I:5 C:4 H:6 → 1.37)
-- [ ] **N_MAX_MODELS + loop continuo**: parámetro `N_MAX_MODELS` en `config.py` — selecciona los N pares (valor, N) con mayor `delta_inicial` actual (tie-break aleatorio), los ejecuta en paralelo, y al terminar el último reinicia el ciclo completo (incluyendo descarga MT5 si opción 1 activa) en un `while True` (I:8 C:6 H:7 → 1.25)
+- [x] **N_MAX_MODELS + loop continuo**: parámetro `N_MAX_MODELS` en `config.py` — selecciona los N pares (valor, N) con mayor `delta_inicial` actual (tie-break aleatorio), los ejecuta en paralelo, y al terminar el último reinicia el ciclo completo (incluyendo descarga MT5 si opción 1 activa) en un `while True` (I:8 C:6 H:7 → 1.25)
 - [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
 - [ ] **Formato de outputs en paralelo (baja prioridad)**: cuando converge un par (valor, N), mostrar el tiempo en minutos que tardó en converger — solo al converger, no en cada iteración (I:2 C:3 H:2 → 0.67)
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
@@ -242,6 +242,10 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 ---
 
 ## Última actualización
+
+**2026-06-11** — N_MAX_MODELS + loop continuo en X0_data_supports.py
+
+`N_MAX_MODELS = None` en `config.py` (None = todos los combos, entero = top N por delta). Nuevo helper `_seleccionar_combos`: lee `delta_inicial` de cada `_delta.json`, ordena desc por delta (tie-break random), retorna los top N_MAX_MODELS. `buscar_soportes` acepta `n_max` y delega en el helper. `--loop` flag en argparse: activa `while True` que reinicia el ciclo completo (descarga + soportes) al terminar. Sin `--loop`, comportamiento idéntico al anterior. Ctrl+C sale limpiamente mostrando cuántos ciclos corrieron.
 
 **2026-06-11** — Logs de convergencia implementados en X0_data_supports.py
 

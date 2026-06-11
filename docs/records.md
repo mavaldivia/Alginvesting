@@ -184,3 +184,7 @@ Claude: Analizó en profundidad `nuevo_optimizador_2` y `calcular_FO` para ident
 ## SECCIÓN 16
 Claude: Implementó los logs de convergencia (Tarea 2 del plan autónomo). Agregó `CARPETA_LOGS = BASE_DIR / 'docs' / 'X0' / 'logs'` a `config.py`. En `X0_data_supports.py`: nueva función `_guardar_log_convergencia` que guarda una entrada JSON acumulativa por combo al terminar `_procesar_valor_N` — campos: clave, t_inicio, t_fin, duracion_s, iteraciones, cambios, FO_inicial, FO_final, delta_final, convergio. Archivos separados para producción (`{valor}_{N}.json`) y bt (`{valor}_{N}_bt.json`). Marcó "Logs de convergencia" como [x] en CLAUDE.md y documentó el diseño en `docs/documentacion_V0.md`.
 (Cierre: 2026-06-11 00:19)
+
+## SECCIÓN 17
+Claude: Implementó N_MAX_MODELS + loop continuo (Tarea 3 del plan autónomo). Agregó `N_MAX_MODELS = None` a `config.py`. Nueva función `_seleccionar_combos` en `X0_data_supports.py`: lee `delta_inicial` de cada `_delta.json`, ordena desc por delta con tie-break aleatorio, retorna los top N_MAX_MODELS ordenados por antigüedad del JSON. `buscar_soportes` acepta `n_max` y delega en el helper. `__main__` envuelto en `while True` + `try/except KeyboardInterrupt`; nuevo flag `--loop` activa el loop continuo (sin él, comportamiento idéntico al anterior). Cada ciclo imprime número y cuántos combos se procesan. Marcó el ítem como [x] en CLAUDE.md, actualizó "Última actualización" y documentó el diseño con ejemplos de uso y decisión de diseño en `docs/documentacion_V0.md`.
+(Cierre: 2026-06-11 00:22)
