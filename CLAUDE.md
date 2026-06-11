@@ -165,7 +165,7 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 ### X0 — X0_data_supports.py
 
 - [ ] **X0_aux.py — testear mejoras de convergencia (fase 2)**: crear script auxiliar `scripts/X0_aux.py` para probar las sugerencias del análisis de convergencia (documentadas en `docs/documentacion_V0.md`) de forma aislada y medible. Baseline: corrida de referencia de un (valor, N) con el optimizador actual. Medir impacto de cada mejora en velocidad y calidad (FO final, iteraciones, cambios) antes de migrar a producción. (I:6 C:3 H:7 → 2.16)
-- [ ] **Logs de convergencia**: al converger cada combo (valor, N) — o (valor, N, max_datetime) en modo bt — guardar JSON en `docs/X0/logs/` con: clave de la tupla, t_inicio, t_fin, duración, iteraciones, FO final, delta_final, convergio (I:5 C:4 H:6 → 1.37)
+- [x] **Logs de convergencia**: al converger cada combo (valor, N) — o (valor, N, max_datetime) en modo bt — guardar JSON en `docs/X0/logs/` con: clave de la tupla, t_inicio, t_fin, duración, iteraciones, FO final, delta_final, convergio (I:5 C:4 H:6 → 1.37)
 - [ ] **N_MAX_MODELS + loop continuo**: parámetro `N_MAX_MODELS` en `config.py` — selecciona los N pares (valor, N) con mayor `delta_inicial` actual (tie-break aleatorio), los ejecuta en paralelo, y al terminar el último reinicia el ciclo completo (incluyendo descarga MT5 si opción 1 activa) en un `while True` (I:8 C:6 H:7 → 1.25)
 - [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
 - [ ] **Formato de outputs en paralelo (baja prioridad)**: cuando converge un par (valor, N), mostrar el tiempo en minutos que tardó en converger — solo al converger, no en cada iteración (I:2 C:3 H:2 → 0.67)
@@ -242,6 +242,10 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 ---
 
 ## Última actualización
+
+**2026-06-11** — Logs de convergencia implementados en X0_data_supports.py
+
+`_guardar_log_convergencia` en `X0_data_supports.py`: al terminar cada `_procesar_valor_N`, guarda entrada JSON en `docs/X0/logs/{valor}_{N}.json` (producción) o `{valor}_{N}_bt.json` (bt). Campos: `clave`, `t_inicio`, `t_fin`, `duracion_s`, `iteraciones`, `cambios`, `FO_inicial`, `FO_final`, `delta_final`, `convergio`. Cada archivo es una lista que se acumula entre corridas. `t_inicio` capturado al inicio de la función (incluye carga de datos + distancias + optimizador). `CARPETA_LOGS` agregado a `config.py`.
 
 **2026-06-11** — Análisis de convergencia de `nuevo_optimizador_2` + X0_aux al TO DO
 

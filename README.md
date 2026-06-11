@@ -136,6 +136,7 @@ python scripts/X1_trading.py
 
 ## Changelog
 
+- **2026-06-11** — Logs de convergencia por combo: `_guardar_log_convergencia` + `CARPETA_LOGS` en config
 - **2026-06-11** — Análisis de convergencia de `nuevo_optimizador_2` + docs/documentacion_V0.md + X0_aux al TO DO
 - **2026-06-10** — TO DO: nuevos ítems X0/X4 + skill /todos completada
 - **2026-06-10** — Fixes al optimizador + monitor de progreso en vivo + mejoras de visualización

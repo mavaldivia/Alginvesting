@@ -280,3 +280,73 @@ en `X0_aux.py` para tener una línea base de comparación, y luego atacar la Sug
 (la de mayor impacto pero más invasiva) con los tests ya establecidos como referencia.
 
 ---
+
+## [2026-06-11] Logs de convergencia por combo (valor, N)
+
+### Qué se implementó
+
+Al terminar cada ejecución de `_procesar_valor_N` (en `X0_data_supports.py`), se guarda
+automáticamente una entrada de log en `docs/X0/logs/`. El objetivo es tener historial de
+cuánto tarda cada combo en converger, cuántas iteraciones hace, y si convergió o no — útil
+para diagnosticar regresiones, comparar el efecto de cambios en parámetros, y como input
+para el análisis de convergencia (ver sección anterior).
+
+### Estructura de los archivos de log
+
+Un archivo JSON por combo, acumulativo entre corridas:
+
+- Producción: `docs/X0/logs/{valor}_{N}.json`
+- Backtesting: `docs/X0/logs/{valor}_{N}_bt.json`
+
+Cada archivo es una lista de objetos, uno por corrida:
+
+```json
+[
+  {
+    "clave": "BTCUSD_100",
+    "t_inicio": "2026-06-11T10:00:00.123456",
+    "t_fin": "2026-06-11T10:08:42.456789",
+    "duracion_s": 522.33,
+    "iteraciones": 1847,
+    "cambios": 63,
+    "FO_inicial": -0.00123456,
+    "FO_final": -0.00089123,
+    "delta_final": 7e-05,
+    "convergio": true
+  },
+  ...
+]
+```
+
+En modo bt, `clave` incluye el datetime de corte: `"BTCUSD_100_2024-06-15 12:00:00"`.
+
+### Qué mide `t_inicio` / `t_fin`
+
+El timer arranca al inicio de `_procesar_valor_N` (antes de leer el CSV) y termina justo
+después de la última llamada a `calcular_FO`. Esto captura el tiempo total de la función,
+incluyendo carga de datos, `calcular_distancias` (costoso: ~1.8s por activo), y el optimizador.
+Si se desea aislar el tiempo del optimizador, se puede restar el costo de `calcular_distancias`
+que se puede medir por separado.
+
+### Cambios en el código
+
+- `config.py`: agregado `CARPETA_LOGS = BASE_DIR / 'docs' / 'X0' / 'logs'`
+- `X0_data_supports.py`:
+  - Import: `CARPETA_LOGS` añadido al bloque de imports desde `config`
+  - Nueva función `_guardar_log_convergencia(...)` (línea ~548): crea la carpeta si no existe,
+    carga el JSON existente (o lista vacía), agrega la nueva entrada, guarda.
+  - `_procesar_valor_N`: `t_inicio = time.time()` al inicio; `t_fin = time.time()` después de
+    `calcular_FO`; llamada a `_guardar_log_convergencia` con todos los campos; print del resumen
+    `(Xm Ys | iters=N | convergio=True/False)` si `verbose=True`.
+
+### Notas de diseño
+
+- **Lista acumulativa vs. un archivo por corrida**: se eligió lista en un único JSON por combo
+  para facilitar análisis histórico — se puede cargar el archivo entero y comparar runs en pandas
+  sin necesidad de glob ni concatenaciones.
+- **Los logs quedan trackeados en git** (bajo `docs/`): permite revisarlos desde Mac después de
+  correr en Windows. Si el volumen crece demasiado en el futuro, se puede mover a `.gitignore`.
+- **Sin race condition**: cada proceso worker escribe en su propio archivo `{valor}_{N}.json`,
+  y `ProcessPoolExecutor` no repite combos, así que no hay escrituras concurrentes al mismo archivo.
+
+---

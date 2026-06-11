@@ -33,7 +33,7 @@ import tqdm
 warnings.filterwarnings('ignore')
 
 from config import (
-    CARPETA_DATA, CARPETA_N2, CARPETA_PLOTS,
+    CARPETA_DATA, CARPETA_N2, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
@@ -545,6 +545,39 @@ def _bt_guardar(carpeta_n2: Path, valor: str, N: int, fecha_hora_clave, conjunto
         json.dump(cache, f)
 
 
+def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
+                              t_inicio: float, t_fin: float,
+                              iteraciones: int, cambios: int,
+                              FO_inicial: float, FO_final: float,
+                              delta_final: float, convergio: bool):
+    """Agrega una entrada al log de convergencia de un combo (valor, N) en docs/X0/logs/."""
+    CARPETA_LOGS.mkdir(parents=True, exist_ok=True)
+    sufijo = '_bt' if es_bt else ''
+    log_path = CARPETA_LOGS / f'{valor}_{N}{sufijo}.json'
+
+    clave = f'{valor}_{N}_{clave_bt}' if (es_bt and clave_bt) else f'{valor}_{N}'
+    entrada = {
+        'clave': clave,
+        't_inicio': datetime.datetime.fromtimestamp(t_inicio).isoformat(),
+        't_fin': datetime.datetime.fromtimestamp(t_fin).isoformat(),
+        'duracion_s': round(t_fin - t_inicio, 2),
+        'iteraciones': iteraciones,
+        'cambios': cambios,
+        'FO_inicial': round(FO_inicial, 8),
+        'FO_final': round(FO_final, 8),
+        'delta_final': delta_final,
+        'convergio': convergio,
+    }
+
+    historial = []
+    if log_path.exists():
+        with open(log_path) as f:
+            historial = json.load(f)
+    historial.append(entrada)
+    with open(log_path, 'w') as f:
+        json.dump(historial, f, indent=2)
+
+
 def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
                       ordenes_activas: list = [], fecha_hora_max=None,
                       estado_compartido=None, verbose: bool = True):
@@ -553,6 +586,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
     fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
                    esa fecha/hora y usa/actualiza el cache _bt.json en lugar de producción.
     """
+    t_inicio = time.time()
     es_bt = fecha_hora_max is not None
     llave = f'{valor}_{N}'
     if verbose:
@@ -666,6 +700,23 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
         print(f'  Guardado: {delta_path.name}')
 
     FO_final, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
+    t_fin = time.time()
+
+    clave_bt = str(fecha_hora_clave) if es_bt else ''
+    _guardar_log_convergencia(
+        valor, N, es_bt, clave_bt,
+        t_inicio, t_fin,
+        len(df_FO), cambios,
+        FO_ref, FO_final,
+        delta_next, convergio,
+    )
+    if verbose:
+        duracion = t_fin - t_inicio
+        mins = int(duracion // 60)
+        segs = duracion % 60
+        print(f'  Log guardado: {valor}_{N}{"_bt" if es_bt else ""}.json '
+              f'({mins}m {segs:.1f}s | iters={len(df_FO)} | convergio={convergio})')
+
     if estado_compartido is not None:
         estado_compartido[llave] = (cambios, -1, FO_final, 'listo')
 

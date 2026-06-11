@@ -14,6 +14,7 @@ BASE_DIR = Path(__file__).parent.parent
 CARPETA_DATA = BASE_DIR / 'Data'
 CARPETA_N2 = BASE_DIR / 'conjuntos_N'
 CARPETA_PLOTS = BASE_DIR / 'plots'
+CARPETA_LOGS = BASE_DIR / 'docs' / 'X0' / 'logs'
 
 # ─── Activos y universo de soportes ───────────────────────────────────────────
 
