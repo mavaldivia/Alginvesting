@@ -77,3 +77,57 @@ Así, cada vez que vuelva a ejecutarse valor-N, se debe leer la mejor ultima sol
 Entonces esa solución debe guardarse por defecto (si el proceso empieza nuevamente, esa sería la solución inicial)
 Esta solución que se va guardando al mejorar, puede ser automáticamente tambien la que entra a mt5. Se reemplaza el sopres por otro si es que es posible
 Notar que, cuando se buscan sopres, hay un argumento en la función que nunca ocupé que son las ordenes actualmente activas (es decir, las que están activas en mt5). Estas deben ser parte de sopres FIJOS al momento de ejecutar el algorítmo: Tienen que ir si o si y no pueden moverse
+
+-------------------------------------
+
+2026-06-10
+
+[declarados]
+
+1. X0
+Preguntarle a claude si tiene alguna sugerencia para que el algorítmo de búsqueda de
+sopres, converja más rapido
+
+2. X0
+Crear un parametro en config que se llame N_MAX_MODELS = 3 o 4, por ejemplo
+Máxima cantidad de pares valor-N que pueden ejecutarse en paralelo en X0.
+Para elegir cuales son, la lógica debe buscar los [N_MAX_MODELS] pares valor-N, con mayor
+delta_inicial actual (ver config y X0). Si compiten varias opciones por el último puesto (N_MAX_MODELS), elegir random
+X0 debe ser un continuo finalmente. Cuando se acaben los N_MAX_MODELS (todos ellos, es decir el último),
+el ciclo se debe volver a repetir (incluido extracción de data desde mt5 si opción 1 está marcada).
+Repetir continuamente (while True).
+
+3. X0
+Logs de los registros: Cuando una combinación valor-N converge en X0 (valor-N-max_datetime, para el caso de backtesting)
+eso debe registrarse en docs/X0/logs: Esto debe incluir (puede ser un json) con la base de la tupla:
+valor-N-(+ max_datetime para backtesting) + info (t inicio ejecución, t fin ejecución, iteraciones (conteo), duración: t fin - t inicio, otros que puedan ser relevantes)
+
+4. Cambia la skill /todos y que cuando me pregunte que grupo/seccion quiero elegir, me muestre el nombre del grupo y la cantidad de items pendientes + el kpi de prioridad (score) del item mas prioritario en cada uno
+Si un grupo no tiene pendientes, no mostrar 
+
+---------------
+5. X4: Para backtester, necesito una sección en config.py, en la que pueda declarar inputs
+Por ejemplo
+
+version = 'V1' (un str, cualquiera: La versión que quieor ejecutar)
+
+fechas_version = {'V1': ['2023-01-01', 'F']}
+
+Esto significa que el backtesting V1, inicia el 2023-01-01 y termina en 'F'
+F significa, hasta el final, es decir, hasta la ultima vela detectada
+El segundo elemento de la lista puede ser una fecha con el mismo formato de la fecha de inicio, o bien, una 'F'
+
+Por ejemplo, si fechas_version = {'V1': ['2023-01-01', 'F']}
+donde F = '2026-06-10' (hoy, en verdad, el día que promptee esto)
+Si ejecuto 'V1', entonces 'V1' comenzará el 1 de enero del 2023 y, supongamos que ejecuta hasta agosto 2023,
+cuando el código es detenido. Si reinicio el codigo, entonces el sistema tomará todo su snapshot de registro para seguir procesando desde agosto 2023 (desde donde quedó)
+
+Se aclara igual que las ordenes de compra ejecutadas (buy limit), abiertas y cerradas, son en base a los precios reales,
+pero se gatillan de manera ficticia (solo ocupando registros y midiento)
+
+6. X4: DELTA_INICIAL (actualizado) como parametro en el backtesting
+Solo debería depender de valor-N-version de backtesting. En ningun caso de max_datetime (confirmame)
+Se ajusta con factor_delta cada vez que el algoritmo de busqueda converja
+
+7. X0: (Baja prioridad) Revisar bien el formato de los outputs cuando se ejecuta en paralelo
+Cuando converje un par valor-N, mostrar el tiempo en minutos que le tomó converger (solo que aparezca el tiempo cuando converje) 

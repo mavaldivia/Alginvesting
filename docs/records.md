@@ -168,3 +168,8 @@ Claude: Agregó `CARPETA_PLOTS` a `config.py`, creó helper `_guardar_plot(subca
 Mauricio: Pidió agregar los ítems de la sesión al TO DO en CLAUDE.md y marcarlos como completados.
 Claude: Agregó 6 ítems nuevos en "Mejoras X0" (fix bug FO, fix idxmax, monitor en vivo, títulos gráficos, plots en disco, info previa secuencial) y entrada en "Última actualización".
 (Cierre: 2026-06-10 12:33)
+
+## SECCIÓN 14
+Mauricio: Pidió agregar al TO DO de CLAUDE.md los puntos declarados en el archivo `prompts` (sección 2026-06-10, ítems 1–7). Preguntó si el punto 4 (modificar skill `/todos`) ya estaba implementado.
+Claude: Verificó que los ítems 1, 2 y 3 ya existían en el TO DO. Agregó los 4 nuevos: "Formato outputs en paralelo" (X0), "Config versiones backtesting" (X4), "DELTA_INICIAL por (valor, N, version)" (X4), y "Modificar skill /todos" (Transversal). Confirmó que la skill `/todos` ya implementaba exactamente lo pedido en el punto 4 — la marcó como completada. Confirmó también la lógica del punto 6: DELTA en backtesting depende solo de (valor, N, version), no de max_datetime.
+(Cierre: 2026-06-10 23:31)
