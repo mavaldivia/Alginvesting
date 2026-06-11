@@ -131,3 +131,15 @@ Se ajusta con factor_delta cada vez que el algoritmo de busqueda converja
 
 7. X0: (Baja prioridad) Revisar bien el formato de los outputs cuando se ejecuta en paralelo
 Cuando converje un par valor-N, mostrar el tiempo en minutos que le tomó converger (solo que aparezca el tiempo cuando converje) 
+
+## Posible skill de procesamiento secuencial
+
+❯ me iré a dormir, entonces quiero que trabajes en los 3, de manera secuencial e independiente
+  Esta será la lógica
+  Trabaja en la primera prioridad
+  Documentala en docs/documentacion_V0.md (explica, con un buen nivel de detalle lo que se hizo)
+  Ejecuta la skill /guardar
+  Ejecuta /clear
+
+  Repite para prioridades 2 y 3 exactamente lo mismo
+  Necesito 100% autonomia de tu parte, por lo tanto

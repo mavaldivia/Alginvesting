@@ -160,16 +160,17 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sección correcta.
 
-- [ ] **Tiempo de ejecución al final de cada script**: al terminar `X0_data_supports.py`, `X1_trading.py` y cualquier script Python del proyecto, imprimir el tiempo total transcurrido (formato `HH:MM:SS` o segundos si < 60 s). Implementar con `time.time()` en el `if __name__ == '__main__'` de cada script.
+- [ ] **Tiempo de ejecución al final de cada script**: al terminar `X0_data_supports.py`, `X1_trading.py` y cualquier script Python del proyecto, imprimir el tiempo total transcurrido (formato `HH:MM:SS` o segundos si < 60 s). Implementar con `time.time()` en el `if __name__ == '__main__'` de cada script. (I:3 C:1 H:2 → 2.45)
 
 ### X0 — X0_data_supports.py
 
-- [ ] **Sugerencias de convergencia**: consultar con Claude qué mejoras algorítmicas permitirían que `nuevo_optimizador_2` converja más rápido (ej. orden de exploración de soportes, criterio de parada, búsqueda adaptativa de M) (I:6 C:3 H:5 → 1.83)
+- [ ] **X0_aux.py — testear mejoras de convergencia (fase 2)**: crear script auxiliar `scripts/X0_aux.py` para probar las sugerencias del análisis de convergencia (documentadas en `docs/documentacion_V0.md`) de forma aislada y medible. Baseline: corrida de referencia de un (valor, N) con el optimizador actual. Medir impacto de cada mejora en velocidad y calidad (FO final, iteraciones, cambios) antes de migrar a producción. (I:6 C:3 H:7 → 2.16)
 - [ ] **Logs de convergencia**: al converger cada combo (valor, N) — o (valor, N, max_datetime) en modo bt — guardar JSON en `docs/X0/logs/` con: clave de la tupla, t_inicio, t_fin, duración, iteraciones, FO final, delta_final, convergio (I:5 C:4 H:6 → 1.37)
 - [ ] **N_MAX_MODELS + loop continuo**: parámetro `N_MAX_MODELS` en `config.py` — selecciona los N pares (valor, N) con mayor `delta_inicial` actual (tie-break aleatorio), los ejecuta en paralelo, y al terminar el último reinicia el ciclo completo (incluyendo descarga MT5 si opción 1 activa) en un `while True` (I:8 C:6 H:7 → 1.25)
 - [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
 - [ ] **Formato de outputs en paralelo (baja prioridad)**: cuando converge un par (valor, N), mostrar el tiempo en minutos que tardó en converger — solo al converger, no en cada iteración (I:2 C:3 H:2 → 0.67)
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
+- [x] **Sugerencias de convergencia**: 7 mejoras algorítmicas documentadas en `docs/documentacion_V0.md` — FO incremental, inicialización inteligente, M adaptativo, priorización por historial, prueba_cercanos, vectorización loop M, criterio parada por tasa. Ordenadas por impacto/complejidad.
 - [x] Migrar X0 (notebook) a `scripts/X0_data_supports.py`
 - [x] **Paralelización**: la búsqueda de soportes es independiente por cada par (valor, N) → paralelizar con `multiprocessing` o `concurrent.futures`. Ej: BTCUSD-130, ETHUSD-130, TSLA-120, etc. corriendo simultáneamente.
 - [x] Velocidad: `calcular_distancias` vectorizada con numpy por bloques (evita matriz n×n completa) — ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21213), resultados idénticos byte a byte
@@ -194,37 +195,37 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 
 ### X2 — X2_fundamentals.py
 
-- [ ] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1].
-- [ ] Definir y evaluar fuentes de datos para X2: yfinance, MT5, investing.com, CoinGecko, Glassnode u otras. Qué cubre cada una, qué tan confiable y actualizable es.
+- [ ] Definir y evaluar fuentes de datos para X2: yfinance, MT5, investing.com, CoinGecko, Glassnode u otras. Qué cubre cada una, qué tan confiable y actualizable es. (I:5 C:2 H:8 → 3.16)
+- [ ] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)
 
 ### X3 — X3_technical_features.py
 
-- [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes).
+- [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes). (I:7 C:5 H:7 → 1.40)
 
 ### X4 — X4_backtester.py
 
+- [ ] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre). (I:5 C:2 H:9 → 3.35)
 - [ ] **DELTA_INICIAL por (valor, N, version)**: en backtesting, `delta_inicial` depende solo del trío `(valor, N, version)`, no de `max_datetime`. Se ajusta con `FACTOR_DELTA` cada vez que el optimizador converge para ese trio, al igual que en producción. Archivo de estado: `{valor}_{N}_{version}_bt_delta.json` (I:7 C:3 H:8 → 2.49)
 - [ ] **Config de versiones para backtesting**: sección en `config.py` con `version = 'V1'` (str activo) y `fechas_version = {'V1': ['2023-01-01', 'F']}`. `'F'` = hasta la última vela disponible. Al reiniciar con la misma versión, el sistema retoma desde el último snapshot guardado. Las órdenes simuladas se gatillan de forma ficticia sobre precios reales (I:8 C:5 H:8 → 1.60)
-- [ ] **X4_backtester.py**: simulación histórica desde 2024-01-01 con parámetros dinámicos (búsqueda de nuevos soportes cada N días, cierre de operaciones por trailing stop o pérdida máxima, tracking de cuenta). Es la fuente primaria de training data para X5.
-- [ ] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre).
+- [ ] **X4_backtester.py**: simulación histórica desde 2024-01-01 con parámetros dinámicos (búsqueda de nuevos soportes cada N días, cierre de operaciones por trailing stop o pérdida máxima, tracking de cuenta). Es la fuente primaria de training data para X5. (I:9 C:8 H:9 → 1.13)
 - [x] **Fecha/hora máxima por tupla (valor, N) para backtesting**: `_procesar_valor_N` acepta `fecha_hora_max` opcional — filtra datos hasta ese datetime, usa warm start desde `{valor}_{N}_bt.json` (cache `{datetime: [soportes]}`), delta desde `{valor}_{N}_bt_delta.json`. Sin look-ahead: la clave guardada es `df['DateTime'].iloc[-1]` (último dato realmente usado). Lookup: `max(t1 <= t0)`. X4 llama esta función directamente con `fecha_hora_max=t`. X0 producción sin cambios. (I:10 C:5 H:8 → 1.26)
 - [x] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78) — decisión: no es un script separado, la lógica va embebida en X4 como subrutina de simulación intra-vela. Ver `docs/decisiones.md` 2026-06-08.
 - [x] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
 
 ### X5 — X5_model_training.py
 
-- [ ] **X5_model_training.py**: modelos supervisados sobre el store de trades. Predicciones: retorno esperado, probabilidad de pérdida, drawdown esperado, duración esperada. Evaluar overfitting (cross-val temporal, no aleatoria). Registrar qué modelos se probaron y por qué se eligió cada uno.
+- [ ] **X5_model_training.py**: modelos supervisados sobre el store de trades. Predicciones: retorno esperado, probabilidad de pérdida, drawdown esperado, duración esperada. Evaluar overfitting (cross-val temporal, no aleatoria). Registrar qué modelos se probaron y por qué se eligió cada uno. (I:8 C:7 H:8 → 1.14)
 
 ### X6 — X6_macro_brain.py
 
-- [ ] **X6_macro_brain.py**: recomendación dinámica de parámetros. Lee features de X2/X3 y predicciones de X5. Output: `config/active_parameters.json` consumido por X0 y X1. Corre en Windows por ahora; idealmente compatible con Mac en el futuro.
-- [ ] Definir frecuencia de ejecución de X6: ¿diario? ¿antes de cada corrida de X0? ¿en el loop de X1? Requiere discusión.
-- [ ] Definir schema de `config/active_parameters.json`: qué parámetros escribe X6 (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL, a, b, PERDIDA_MAX), con qué granularidad (por activo, global, o mixto).
+- [ ] Definir schema de `config/active_parameters.json`: qué parámetros escribe X6 (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL, a, b, PERDIDA_MAX), con qué granularidad (por activo, global, o mixto). (I:5 C:2 H:7 → 2.96)
+- [ ] Definir frecuencia de ejecución de X6: ¿diario? ¿antes de cada corrida de X0? ¿en el loop de X1? Requiere discusión. (I:4 C:2 H:5 → 2.24)
+- [ ] **X6_macro_brain.py**: recomendación dinámica de parámetros. Lee features de X2/X3 y predicciones de X5. Output: `config/active_parameters.json` consumido por X0 y X1. Corre en Windows por ahora; idealmente compatible con Mac en el futuro. (I:9 C:8 H:5 → 0.84)
 
 ### Transversal
 
 - [x] **Modificar skill `/todos`**: al preguntar qué sección elegir, mostrar nombre del grupo + cantidad de ítems pendientes + score del ítem más prioritario del grupo. Omitir grupos sin pendientes.
-- [ ] Evaluar compatibilidad de librería MT5 en macOS — si se resuelve, simplifica mucho el flujo Mac↔Windows.
+- [ ] Evaluar compatibilidad de librería MT5 en macOS — si se resuelve, simplifica mucho el flujo Mac↔Windows. (I:6 C:3 H:5 → 1.83)
 - [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)
 - [x] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73) — cubierto por la skill global `/update-push` (commit + push a la rama actual, con actualización de CLAUDE.md/README.md)
 - [x] **BIG PICTURE**: Mauricio explicó la visión completa — ver `docs/vision.md`. Arquitectura X0→X6 definida, orden de construcción declarado, decisiones de diseño registradas. (I:9 C:8 H:9 → 1.13)
@@ -241,6 +242,10 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 ---
 
 ## Última actualización
+
+**2026-06-11** — Análisis de convergencia de `nuevo_optimizador_2` + X0_aux al TO DO
+
+7 sugerencias de mejora documentadas en `docs/documentacion_V0.md`: FO incremental (~30-35x en eval FO), inicialización inteligente (60-80% menos iters en cold start), M adaptativo coarse-to-fine (~58% menos evaluaciones), priorización por historial, activar `prueba_cercanos`, vectorización del loop M, y criterio de parada por tasa. Agregado ítem `X0_aux.py` al TO DO de X0 (I:6 C:3 H:7 → 2.16) como fase 2 de esta etapa. Sin cambios de código en producción.
 
 **2026-06-10** — TO DO: nuevos ítems X0/X4 + skill /todos completada
 
