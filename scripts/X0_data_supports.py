@@ -1037,8 +1037,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         FO_ref, FO_final,
         delta_next, convergio,
     )
+    duracion = t_fin - t_inicio
     if verbose:
-        duracion = t_fin - t_inicio
         mins = int(duracion // 60)
         segs = duracion % 60
         print(f'  Log guardado: {valor}_{N}{"_bt" if es_bt else ""}.json '
@@ -1046,6 +1046,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
 
     if estado_compartido is not None:
         estado_compartido[llave] = (cambios, -1, FO_final, 'listo')
+
+    return round(duracion, 1), convergio
 
 
 def _monitor_tabla(estado, tuplas, stop_event):
@@ -1158,6 +1160,7 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
         monitor = threading.Thread(target=_monitor_tabla, args=(estado, tuplas_ordenadas, stop_event), daemon=True)
         monitor.start()
 
+        resultados_tiempo = {}
         with concurrent.futures.ProcessPoolExecutor() as executor:
             futures = {
                 executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n_prod, carpeta_n_bt,
@@ -1167,7 +1170,8 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
             for future in concurrent.futures.as_completed(futures):
                 valor, N = futures[future]
                 try:
-                    future.result()
+                    duracion, convergio_flag = future.result()
+                    resultados_tiempo[f'{valor}_{N}'] = (duracion, convergio_flag)
                 except Exception as exc:
                     prev = estado.get(f'{valor}_{N}', (0, 0, None, 'ERROR'))
                     estado[f'{valor}_{N}'] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
@@ -1175,6 +1179,18 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
 
         stop_event.set()
         monitor.join()
+
+        print()
+        for v, n in tuplas_ordenadas:
+            res = resultados_tiempo.get(f'{v}_{n}')
+            if res is None:
+                continue
+            dur, conv = res
+            mins = int(dur // 60)
+            segs = dur % 60
+            tiempo_str = f'{mins}m {segs:.1f}s' if mins > 0 else f'{segs:.1f}s'
+            conv_str = 'convergió' if conv else 'no convergió'
+            print(f'  {v} N={n}: {tiempo_str} | {conv_str}')
 
 
 

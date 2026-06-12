@@ -10,11 +10,11 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 
 ### X0 — X0_data_supports.py
 
-- [ ] **Formato de outputs en paralelo (baja prioridad)**: cuando converge un par (valor, N), mostrar el tiempo en minutos que tardó en converger — solo al converger, no en cada iteración (I:2 C:3 H:2 → 0.67)
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
 
 ### X2 — X2_fundamentals.py
 
+- [ ] **Leer plan en `docs/x2_plan.md` y confirmar implementación**: revisar diseño de fuentes, score y arquitectura propuestos; aprobar o ajustar antes de codificar. (I:3 C:1 H:9 → 5.20)
 - [ ] Definir y evaluar fuentes de datos para X2: yfinance, MT5, investing.com, CoinGecko, Glassnode u otras. Qué cubre cada una, qué tan confiable y actualizable es. (I:5 C:2 H:8 → 3.16)
 - [ ] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)
 

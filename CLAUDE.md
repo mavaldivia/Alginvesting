@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-12** — X2: investigación fuentes + plan docs/x2_plan.md + ítem TO DO
+
+Experimentación real con yfinance (acciones y crypto), CoinGecko free API y alternative.me (Fear & Greed). Diseño del score `[0,1]` con funciones separadas para stocks (`_score_stock`) y crypto (`_score_crypto`). Plan completo documentado en `docs/x2_plan.md`. Ítem de revisión agregado al tope de la sección X2 en `docs/todos.md` (I:3 C:1 H:9 → 5.20). También: "Formato outputs en paralelo" completado en X0 (tiempos de convergencia por par al final de `buscar_soportes`).
+
 **2026-06-12** — Correcciones X0 260612 + sep rutas prod vs backtesting
 
 `CARPETA_N2` reemplazada por `CARPETA_N_PROD` (`conjuntos_N/prod/`) y `CARPETA_N_BT` (`conjuntos_N/bt/`) en `config.py`, `X0_data_supports.py` y `X1_trading.py`. Firmas actualizadas: `_bt_warm_start`, `_bt_guardar`, `_procesar_valor_N`, `_seleccionar_combos`, `buscar_soportes`. `__main__` crea ambas carpetas. Skill `/todos` actualizada: al completar un ítem, eliminarlo de `todos.md` y moverlo a `docs/done.md`.

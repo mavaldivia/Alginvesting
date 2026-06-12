@@ -8,6 +8,7 @@
 
 ### X0 — X0_data_supports.py
 
+- [x] **Formato de outputs en paralelo**: al terminar cada par (valor, N) en modo paralelo, imprimir una línea con el tiempo que tardó en converger y si convergió o no. El resumen se imprime después de que el monitor para (sin interferir con el redibujado). `_procesar_valor_N` retorna `(duracion_s, convergio)`; el loop `as_completed` acumula en `resultados_tiempo` y se imprime tras `monitor.join()`.
 - [x] **Separar `conjuntos_N/` en productivo vs backtesting**: reorganizar en `conjuntos_N/prod/{VALOR}_{N}.json`, `conjuntos_N/prod/{VALOR}_{N}_delta.json`, `conjuntos_N/bt/{VALOR}_{N}_bt.json`, `conjuntos_N/bt/{VALOR}_{N}_bt_delta.json`. Actualizar rutas en `config.py`, X0 y X1. Evita mezclar archivos de producción con cache de bt y facilita limpiar uno sin afectar el otro. (I:7 C:2 H:8 → 3.74)
 - [x] **FO no decrece en el monitor de progreso**: el output en vivo muestra la FO de la iteración actual, que puede bajar. Debe mostrar solo la mejor FO encontrada hasta el momento (monotónicamente no decreciente). Requiere mantener `fo_mejor` por combo en el estado compartido del monitor y actualizar solo si `FO_actual > fo_mejor`. (I:5 C:1 H:7 → 5.92)
 - [x] **Cambios reportados en el output son demasiado altos**: el contador ya solo suma cambios aceptados (`mejora_rel > delta_inicial`); el número alto era consecuencia del cycling. Resuelto al corregir la detección de convergencia. (I:6 C:2 H:8 → 3.46)

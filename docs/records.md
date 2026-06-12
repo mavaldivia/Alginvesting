@@ -260,3 +260,15 @@ Claude: Actualizó la nota final de `~/.claude/skills/todos/SKILL.md`: al comple
 Mauricio: Invocó `/todos` nuevamente, eligió X0 y pidió avanzar el ítem 1 — separar `conjuntos_N/` en `prod/` y `bt/`.
 Claude: Leyó `config.py`, `X0_data_supports.py` y `X1_trading.py`. Reemplazó `CARPETA_N2` por `CARPETA_N_PROD` y `CARPETA_N_BT` en `config.py`, actualizó el import y todas las referencias internas en X0 (firmas de `_bt_warm_start`, `_bt_guardar`, `_procesar_valor_N`, `_seleccionar_combos`, `buscar_soportes`, `__main__`) y X1 (`leer_lista_N`). Sin referencias residuales a `CARPETA_N2`. Ítem movido de `docs/todos.md` a `docs/done.md`.
 (Cierre: 2026-06-12 17:13)
+
+## SECCIÓN 31
+Mauricio: Invocó `/todos`, eligió X0 y pidió avanzar el ítem 1 — "Formato de outputs en paralelo": mostrar el tiempo que tardó en converger cada par (valor, N), solo al converger, no en cada iteración.
+Claude: Modificó `_procesar_valor_N` para retornar `(duracion_s, convergio)`. En el loop `as_completed` de `buscar_soportes`, acumula los resultados en `resultados_tiempo`. Tras `monitor.join()` (para no interferir con el redibujado del monitor), imprime una línea por par con el tiempo formateado y si convergió. Movió el ítem a `docs/done.md`.
+(Cierre: 2026-06-12 17:20)
+
+## SECCIÓN 32
+Mauricio: Invocó `/todos`, eligió la sección X2 y pidió investigar/experimentar con las dos fuentes de datos pendientes, y dejar todo en un plan en `docs/x2_plan.md`.
+Claude: Experimentó en vivo con las cuatro fuentes relevantes usando el entorno `revenAI` (`/opt/anaconda3/envs/revenAI/bin/python`): yfinance para acciones (24–25 métricas disponibles: P/E, ROE, FCF, crecimiento, deuda, márgenes, analistas, earnings), yfinance para crypto (market cap, volumen, supply, hash rate), CoinGecko free API (cambios %, dominancia BTC, datos developer) y alternative.me (Fear & Greed diario 0–100). Descartó Glassnode/CryptoQuant (pago) y MT5 (sin fundamentales). Diseñó el score `[0,1]` con dos funciones separadas: `_score_stock` (calidad + crecimiento + valorización + riesgo + analistas) y `_score_crypto` (hash rate + liquidez + supply + momentum + Fear & Greed). Documentó arquitectura, output (`fundamentals/scores.json`), pesos configurables en `config.py`, frecuencia diaria y riesgos en `docs/x2_plan.md`.
+Mauricio: Pidió dejar el plan como ítem pendiente en el TO DO (leer y confirmar antes de implementar).
+Claude: Agregó ítem al tope de la sección X2 en `docs/todos.md`: "Leer plan en `docs/x2_plan.md` y confirmar implementación" (I:3 C:1 H:9 → 5.20).
+(Cierre: 2026-06-12 17:46)
