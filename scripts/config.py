@@ -69,7 +69,8 @@ parametros_soportes = {
 }
 
 LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
-M = 30              # candidatos evaluados por soporte en cada paso (linspace entre vecinos)
+M = 30              # candidatos evaluados por soporte en fase fine (linspace entre vecinos)
+M_COARSE = 5        # candidatos en fase coarse (exploración barata antes del refinamiento fino)
 DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido); semilla para la primera corrida de cada (valor, N)
 FACTOR_DELTA = 0.7    # factor de presión al converger: si el optimizador convergió, delta_next = FACTOR_DELTA * delta_actual
 
@@ -83,7 +84,7 @@ MAX_ITERS = 10000  # tope de iteraciones del optimizador (cota del tiempo de eje
 # Combos a ejecutar por ciclo en modo --loop.
 # None = todos los combos en cada ciclo (comportamiento original).
 # Entero = selecciona los N pares (valor, N) con mayor delta_inicial actual (más prometedores).
-N_MAX_MODELS = None
+N_MAX_MODELS = 4
 
 # ─── Visualizaciones ──────────────────────────────────────────────────────────
 # Desactivadas por defecto para ejecución sin cabeza en Windows.

@@ -164,10 +164,14 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 
 ### X0 — X0_data_supports.py
 
-- [ ] **X0_aux.py — testear mejoras de convergencia (fase 2)**: crear script auxiliar `scripts/X0_aux.py` para probar las sugerencias del análisis de convergencia (documentadas en `docs/documentacion_V0.md`) de forma aislada y medible. Baseline: corrida de referencia de un (valor, N) con el optimizador actual. Medir impacto de cada mejora en velocidad y calidad (FO final, iteraciones, cambios) antes de migrar a producción. (I:6 C:3 H:7 → 2.16)
+- [x] **S5 — `prueba_cercanos=True` por defecto**: cambiar `prueba_cercanos: bool = False` a `True` en `nuevo_optimizador_2` — tras aceptar un cambio en soporte `i`, sus vecinos `i-1` e `i+1` pasan al frente de `casos_moviles` antes del shuffle. Lógicamente correcto porque sus cotas vecinas cambiaron. Ya implementado en el código, solo falta activar el default. Validar con logs de convergencia. (I:4 C:1 H:3 → 3.46)
+- [x] **S3 — M adaptativo coarse-to-fine**: correr `nuevo_optimizador_2` en dos fases: **fase 1** con M=5 hasta convergencia (exploración barata), **fase 2** con M=30 tomando el resultado de fase 1 como warm start (refinamiento fino). Estimación: ~58% menos evaluaciones de FO vs. M=30 fijo. Implementar directamente en `X0_data_supports.py`. (I:7 C:2 H:6 → 3.24)
+- [x] **S4 — Priorización de soportes por historial de mejoras**: en `nuevo_optimizador_2`, mantener `mejora_acumulada[i]` (EMA de mejoras aceptadas por soporte) y al reconstruir `casos_moviles`, ordenar desc por este historial en lugar de shuffle aleatorio. Estimación: 15-25% menos llamadas a `calcular_FO` en iteraciones tardías cuando la mayoría de soportes ya convergió. (I:5 C:2 H:4 → 2.24)
+- [x] **S2 — Inicialización inteligente del conjunto N**: en cold start (sin JSON previo), inicializar `conjunto_N` con los N precios de mayor score `y × w` de `df_extremos` (aislamiento × recencia), con diversidad espacial por quantiles del rango, en lugar de `np.random.uniform`. Estimación: 60-80% menos iteraciones en cold start. Crítico para X4 backtesting, que genera muchos cold starts. (I:6 C:3 H:7 → 2.16)
+- [x] **S6 — Vectorización del loop interno de candidatos M**: reemplazar el for-loop Python de M candidatos en `nuevo_optimizador_2` por evaluación matricial `(M, N)` con numpy — construir todos los M conjuntos de soportes como matriz y pasar a versión vectorizada de `asignar_soporte`. Complementario con S1. Estimación: 2-4x speedup en inner loop; más impactante si M sube con S3 fase fine. (I:6 C:5 H:6 → 1.20)
+- [x] **S1 — Evaluación incremental de la FO**: refactorizar `calcular_FO` para que al mover soporte `i`, solo recompute las ~3n/N filas afectadas (asignadas a `i-1`, `i`, `i+1`) y los 2 gaps del `cv(H_n)` que cambian. Requiere precalcular `asignaciones[i]` al inicio de cada iteración y mantenerlo actualizado tras cada cambio. Estimación: 30-35x speedup en la evaluación de FO — convierte ~20 min a ~35-40 seg en BTCUSD N=100. Habilita X4 backtesting práctico. (I:9 C:8 H:9 → 1.13)
 - [x] **Logs de convergencia**: al converger cada combo (valor, N) — o (valor, N, max_datetime) en modo bt — guardar JSON en `docs/X0/logs/` con: clave de la tupla, t_inicio, t_fin, duración, iteraciones, FO final, delta_final, convergio (I:5 C:4 H:6 → 1.37)
 - [x] **N_MAX_MODELS + loop continuo**: parámetro `N_MAX_MODELS` en `config.py` — selecciona los N pares (valor, N) con mayor `delta_inicial` actual (tie-break aleatorio), los ejecuta en paralelo, y al terminar el último reinicia el ciclo completo (incluyendo descarga MT5 si opción 1 activa) en un `while True` (I:8 C:6 H:7 → 1.25)
-- [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
 - [ ] **Formato de outputs en paralelo (baja prioridad)**: cuando converge un par (valor, N), mostrar el tiempo en minutos que tardó en converger — solo al converger, no en cada iteración (I:2 C:3 H:2 → 0.67)
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
 - [x] **Sugerencias de convergencia**: 7 mejoras algorítmicas documentadas en `docs/documentacion_V0.md` — FO incremental, inicialización inteligente, M adaptativo, priorización por historial, prueba_cercanos, vectorización loop M, criterio parada por tasa. Ordenadas por impacto/complejidad.
@@ -233,6 +237,13 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 - [x] Rama `dev` → trabajo activo. Push inicial: migración X0 + X1 a .py
 - [x] Próximo push a `dev`: después de mejoras X0 (paralelización, velocidad) — ya estaba en `origin/dev` (commits hasta `c92a8f0`)
 
+### Definir si hacer
+
+Ítems válidos técnicamente pero cuyo valor real no está claro. Antes de implementarlos hay que decidir si efectivamente tienen sentido.
+
+- [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
+- [ ] **S7 — Criterio de parada por tasa de mejora**: agregar criterio adicional en `nuevo_optimizador_2` — si el promedio de las últimas `VENTANA_MEJORAS=10` mejoras aceptadas < `EPSILON_TASA=1e-6`, declarar convergencia aunque queden soportes sin evaluar. Complementa (no reemplaza) el criterio binario actual. Impacto principalmente cuando `delta_inicial` es muy pequeño. (I:1 C:2 H:1 → 0.50)
+
 ---
 
 ## Referencia base
@@ -242,6 +253,22 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 ---
 
 ## Última actualización
+
+**2026-06-11** — S1: Evaluación incremental de la FO
+
+Tres nuevas funciones en `X0_data_supports.py`: `_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`. El estado incremental precomputa `asignaciones[j]` (soporte más cercano por fila), `fixed_z` (y×w×v×f sin h_dist), `z_sum`, `H_n`, `H_sum`, `H_sq_sum` y `dist_max_global` (fijado al inicio — válido para búsqueda local). `_fo_incremental_batch` reemplaza `calcular_FO_batch` en el hot path: para cada candidato al soporte `i`, solo recalcula las ~3n/N filas asignadas a `i-1`, `i`, `i+1` y los 2 gaps del `cv(H_n)` que cambian. `_actualizar_estado` mantiene el estado tras cada cambio aceptado (O(3n/N)) y actualiza `df_extremos` in-place. `nuevo_optimizador_2` pasa de N llamadas O(M×n) por iteración outer a O(3×M×n) total — medido en BTCUSD N=130, M=30, n=38730: 1518 ms → 45 ms por iteración outer (33.5x). `calcular_FO` se llama una sola vez antes del loop (en vez de una vez por iteración). El ajuste cuadrático clipa el resultado a `(cota_inf, cota_sup)` para garantizar H_n positivos.
+
+**2026-06-11** — S6: Vectorización del loop interno de candidatos M
+
+Nueva función `calcular_FO_batch` en `X0_data_supports.py`. Reemplaza el for-loop Python de M llamadas a `calcular_FO` por una sola pasada vectorizada con numpy. Enfoque: precalcula `nearest_base` y `dist_base` una vez para los N-1 soportes base, luego usa broadcasting `(M_eff, n)` para comparar distancias de todos los candidatos simultáneamente. El loop Python restante es solo para `cv(H_n)`: O(M×N) operaciones numpy, trivial. En `nuevo_optimizador_2`: M llamadas a `calcular_FO` → 1 llamada a `calcular_FO_batch` + 0-1 llamadas a `calcular_FO` (solo si el cambio es aceptado o cumplen_logica). Además corrige bug del notebook original: en `cumplen_logica=False`, `df_extremos` se actualizaba con el estado del último candidato evaluado en lugar del mejor; ahora llama `calcular_FO` una vez para el candidato aceptado.
+
+**2026-06-11** — S2: Inicialización inteligente del conjunto N
+
+`_inicializar_conjunto_smart(df_extremos, n)` reemplaza `np.random.uniform` en cold start. Divide el rango de `Low` en n cuantiles ordenados por precio y selecciona el `Low` con mayor `y × w` (aislamiento × recencia) en cada uno. Reemplazado en `obtener_df_extremos` (ruta principal) y en `nuevo_optimizador_2` (ajuste por `ordenes_activas`). Fallback a uniform solo si faltan columnas o hay duplicados de precio entre cuantiles.
+
+**2026-06-11** — S4: Priorización de soportes por historial de mejoras
+
+`nuevo_optimizador_2` ahora mantiene `mejora_acumulada[i]` (EMA con alpha=0.3 de las mejoras relativas aceptadas por soporte). Al reconstruir `casos_moviles` — tanto tras aceptar un cambio como al expandir al conjunto completo — los soportes se ordenan desc por `mejora_acumulada` en lugar de shuffle aleatorio. Con `prueba_cercanos=True`, los vecinos siguen al frente; el resto se ordena por historial. Objetivo: 15-25% menos evaluaciones de `calcular_FO` en iteraciones tardías cuando la mayoría de soportes ya convergió.
 
 **2026-06-11** — N_MAX_MODELS + loop continuo en X0_data_supports.py
 

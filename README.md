@@ -136,6 +136,7 @@ python scripts/X1_trading.py
 
 ## Changelog
 
+- **2026-06-11** — S1: evaluación incremental de la FO (33.5x speedup)
 - **2026-06-11** — N_MAX_MODELS + loop continuo: `_seleccionar_combos` + `--loop` flag en X0
 - **2026-06-11** — Logs de convergencia por combo: `_guardar_log_convergencia` + `CARPETA_LOGS` en config
 - **2026-06-11** — Análisis de convergencia de `nuevo_optimizador_2` + docs/documentacion_V0.md + X0_aux al TO DO

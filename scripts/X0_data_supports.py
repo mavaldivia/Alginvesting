@@ -36,7 +36,7 @@ from config import (
     CARPETA_DATA, CARPETA_N2, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
-    M, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
+    M, M_COARSE, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes, N_MAX_MODELS,
 )
@@ -64,6 +64,38 @@ def notacion_cientifica(numero: float, decimales: int = 2) -> str:
     exp = int(np.floor(np.log10(abs(numero))))
     base = numero / (10 ** exp)
     return f'{base:.{decimales}f} x E{exp}'
+
+
+def _inicializar_conjunto_smart(df_extremos: pd.DataFrame, n: int) -> set:
+    """
+    Selecciona n precios de df_extremos con alta score y*w y diversidad espacial.
+    Divide el rango de Low en n cuantiles y elige el Low con mayor y*w en cada uno.
+    Fallback a uniform si faltan columnas (nunca debería ocurrir en producción).
+    """
+    if n <= 0:
+        return set()
+    if not {'y', 'w', 'Low'}.issubset(df_extremos.columns):
+        p_min, p_max = df_extremos['Low'].min(), df_extremos['Low'].max()
+        return set(np.random.uniform(p_min, p_max, n).tolist())
+
+    df = df_extremos[['Low', 'y', 'w']].copy()
+    df['score'] = df['y'] * df['w']
+    df = df.sort_values('Low').reset_index(drop=True)
+
+    result = set()
+    for chunk_idx in np.array_split(np.arange(len(df)), n):
+        if len(chunk_idx) == 0:
+            continue
+        chunk = df.iloc[chunk_idx]
+        result.add(float(chunk['Low'].iloc[int(chunk['score'].argmax())]))
+
+    # Completar si hay duplicados (precio repetido en dos cuantiles distintos)
+    if len(result) < n:
+        p_min, p_max = df_extremos['Low'].min(), df_extremos['Low'].max()
+        while len(result) < n:
+            result.add(float(np.random.uniform(p_min, p_max)))
+
+    return result
 
 
 # ─── Funciones del algoritmo ──────────────────────────────────────────────────
@@ -164,7 +196,7 @@ def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
 
     if L < ordenes_en_espera:
         delta = ordenes_en_espera - L
-        conjunto_N = conjunto_N.union(set(np.random.uniform(p_min, p_max, delta).tolist()))
+        conjunto_N = conjunto_N.union(_inicializar_conjunto_smart(df_extremos, delta))
     elif L > ordenes_en_espera:
         elementos_a_remover = set(random.sample(list(conjunto_N), L - ordenes_en_espera))
         conjunto_N = conjunto_N.difference(elementos_a_remover)
@@ -222,6 +254,273 @@ def calcular_FO(df_extremos: pd.DataFrame, conjunto_N: set, lambda_ponderador: f
     return FO, df_extremos, particion
 
 
+def calcular_FO_batch(df_extremos: pd.DataFrame, lista_N: list, idx_soporte: int,
+                       candidatos: np.ndarray, lambda_ponderador: float) -> np.ndarray:
+    """
+    Evalúa la FO para todos los candidatos a soporte idx_soporte en una sola pasada vectorizada.
+    Reemplaza el for-loop de M llamadas a calcular_FO en nuevo_optimizador_2.
+
+    Para cada Low l_j, la distancia al soporte más cercano del conjunto {base ∪ c_k} es
+    min(dist_base[j], |l_j - c_k|): se precomputa nearest_base una vez y se compara con
+    los M candidatos via broadcasting (M_eff, n) sin iterar en Python.
+
+    Returns: FO_values array (M_eff,)
+    """
+    if len(candidatos) == 0:
+        return np.array([], dtype=np.float64)
+
+    lows = df_extremos['Low'].to_numpy(dtype=np.float64)
+    M_eff = len(candidatos)
+
+    # Base: soportes con idx_soporte removido (ya ordenados)
+    base_soportes = np.array(lista_N[:idx_soporte] + lista_N[idx_soporte + 1:], dtype=np.float64)
+
+    # Nearest support en base para cada Low (se computa una sola vez)
+    idx_b = np.searchsorted(base_soportes, lows)
+    idx_izq = np.clip(idx_b - 1, 0, len(base_soportes) - 1)
+    idx_der = np.clip(idx_b, 0, len(base_soportes) - 1)
+    izq_b, der_b = base_soportes[idx_izq], base_soportes[idx_der]
+    nearest_base = np.where(np.abs(lows - izq_b) <= np.abs(lows - der_b), izq_b, der_b)
+    dist_base_abs = np.abs(lows - nearest_base)  # shape (n,)
+
+    # Para los M candidatos: nearest en {base ∪ c_k} = min(nearest_base, c_k) por distancia
+    dist_to_cands = np.abs(lows[None, :] - candidatos[:, None])  # shape (M_eff, n)
+    nearest_all = np.where(
+        dist_to_cands < dist_base_abs[None, :],
+        candidatos[:, None],
+        nearest_base[None, :],
+    )  # shape (M_eff, n)
+
+    dist_sq = (nearest_all - lows[None, :]) ** 2
+    dist_max = dist_sq.max(axis=1)
+    dist_max = np.where(dist_max == 0, 1.0, dist_max)
+    h_dist = 1.0 - dist_sq / dist_max[:, None]  # shape (M_eff, n)
+
+    factores = [nombre for nombre, activo in parametros_soportes.items() if activo]
+    cols_fijos = [f for f in factores if f != 'h_dist']
+    fixed = df_extremos[cols_fijos].prod(axis=1).to_numpy() if cols_fijos else np.ones(len(lows))
+    z = (fixed[None, :] * h_dist) if 'h_dist' in factores else np.tile(fixed, (M_eff, 1))
+
+    FO_means = z.mean(axis=1)  # shape (M_eff,)
+
+    # cv(H_n): insertar c_k en base y calcular std/mean de gaps (loop O(M*N), trivial)
+    insert_pos = np.searchsorted(base_soportes, candidatos)
+    cv_Hn = np.empty(M_eff, dtype=np.float64)
+    for k in range(M_eff):
+        s_full = np.insert(base_soportes, insert_pos[k], candidatos[k])
+        H_n = np.diff(s_full)
+        mean_H = H_n.mean()
+        cv_Hn[k] = H_n.std() / mean_H if mean_H != 0 else 0.0
+
+    return FO_means - lambda_ponderador * cv_Hn
+
+
+# ─── Estado incremental para S1 ──────────────────────────────────────────────
+
+def _init_estado_incremental(df_extremos: pd.DataFrame, lista_N_arr: np.ndarray,
+                              lambda_ponderador: float) -> dict:
+    """
+    Precomputa el estado para evaluación incremental O(3n/N) en nuevo_optimizador_2.
+    dist_max_global se fija al inicializar — válido para búsqueda local donde los
+    soportes se desplazan pequeñas distancias entre iteraciones.
+    """
+    factores = [name for name, active in parametros_soportes.items() if active]
+    lows = df_extremos['Low'].to_numpy(dtype=np.float64)
+    n = len(lows)
+    N = len(lista_N_arr)
+
+    idx_b = np.searchsorted(lista_N_arr, lows)
+    idx_izq = np.clip(idx_b - 1, 0, N - 1)
+    idx_der = np.clip(idx_b, 0, N - 1)
+    dist_izq = np.abs(lows - lista_N_arr[idx_izq])
+    dist_der = np.abs(lows - lista_N_arr[idx_der])
+    asignaciones = np.where(dist_izq <= dist_der, idx_izq, idx_der)
+
+    dist_sq = (lista_N_arr[asignaciones] - lows) ** 2
+    dist_max_global = float(dist_sq.max()) if dist_sq.max() > 0 else 1.0
+
+    cols_fijos = [f for f in factores if f != 'h_dist']
+    fixed_z = (df_extremos[cols_fijos].prod(axis=1).to_numpy()
+               if cols_fijos else np.ones(n, dtype=np.float64))
+
+    h_dist = 1.0 - dist_sq / dist_max_global
+    z = (fixed_z * h_dist if 'h_dist' in factores else fixed_z.copy()).astype(np.float64)
+    z_sum = float(z.sum())
+
+    H_n = np.diff(lista_N_arr).copy()
+    N_gaps = len(H_n)
+    H_sum = float(H_n.sum())
+    H_sq_sum = float((H_n ** 2).sum())
+    H_mean = H_sum / N_gaps if N_gaps > 0 else 0.0
+    H_var = max(0.0, H_sq_sum / N_gaps - H_mean ** 2) if N_gaps > 0 else 0.0
+    cv_Hn = float(np.sqrt(H_var) / H_mean) if H_mean != 0 else 0.0
+
+    return {
+        'lows': lows, 'n': n,
+        'asignaciones': asignaciones,
+        'dist_max_global': dist_max_global,
+        'fixed_z': fixed_z, 'z': z, 'z_sum': z_sum,
+        'H_n': H_n, 'H_sum': H_sum, 'H_sq_sum': H_sq_sum,
+        'factores': factores,
+        'mean_z': z_sum / n, 'cv_Hn': cv_Hn,
+        'FO': z_sum / n - lambda_ponderador * cv_Hn,
+    }
+
+
+def _fo_incremental_batch(estado: dict, lista_N_arr: np.ndarray, i: int,
+                           candidatos: np.ndarray, lambda_ponderador: float) -> np.ndarray:
+    """
+    Evalúa FO para M candidatos al soporte i en O(M × 3n/N).
+    Solo recalcula filas asignadas a i-1, i, i+1; los demás aportan z_sum fijo.
+    """
+    M_eff = len(candidatos)
+    if M_eff == 0:
+        return np.array([], dtype=np.float64)
+
+    lows = estado['lows']
+    n = estado['n']
+    asignaciones = estado['asignaciones']
+    dist_max = estado['dist_max_global']
+    fixed_z = estado['fixed_z']
+    z = estado['z']
+    z_sum = estado['z_sum']
+    H_n = estado['H_n']
+    H_sum = estado['H_sum']
+    H_sq_sum = estado['H_sq_sum']
+    factores = estado['factores']
+    N = len(lista_N_arr)
+    N_gaps = N - 1
+
+    mask = asignaciones == i
+    if i > 0:
+        mask = mask | (asignaciones == i - 1)
+    if i < N - 1:
+        mask = mask | (asignaciones == i + 1)
+    idx_aff = np.where(mask)[0]
+
+    s_left = lista_N_arr[i - 1] if i > 0 else -np.inf
+    s_right = lista_N_arr[i + 1] if i < N - 1 else np.inf
+
+    # cv(H_n) incremental: solo cambian los 2 gaps adyacentes a i
+    old_left = float(H_n[i - 1]) if i > 0 else 0.0
+    old_right = float(H_n[i]) if i < N - 1 else 0.0
+    new_left = (candidatos - lista_N_arr[i - 1]) if i > 0 else np.zeros(M_eff)
+    new_right = (lista_N_arr[i + 1] - candidatos) if i < N - 1 else np.zeros(M_eff)
+
+    H_sum_c = H_sum - old_left - old_right + new_left + new_right
+    H_sq_c = H_sq_sum - old_left ** 2 - old_right ** 2 + new_left ** 2 + new_right ** 2
+    H_mean_c = H_sum_c / N_gaps if N_gaps > 0 else np.zeros(M_eff)
+    H_var_c = np.maximum(H_sq_c / N_gaps - H_mean_c ** 2, 0.0) if N_gaps > 0 else np.zeros(M_eff)
+    cv_Hn_c = np.where(H_mean_c != 0, np.sqrt(H_var_c) / H_mean_c, 0.0)
+
+    if len(idx_aff) == 0:
+        return estado['mean_z'] - lambda_ponderador * cv_Hn_c
+
+    lows_aff = lows[idx_aff]
+    z_aff_old_sum = float(z[idx_aff].sum())
+
+    d_left = np.abs(lows_aff - s_left)
+    d_right = np.abs(lows_aff - s_right)
+    d_cand = np.abs(lows_aff[None, :] - candidatos[:, None])  # (M_eff, |aff|)
+
+    d_left_b = np.broadcast_to(d_left, (M_eff, len(idx_aff)))
+    d_right_b = np.broadcast_to(d_right, (M_eff, len(idx_aff)))
+    nearest_idx = np.argmin(np.stack([d_left_b, d_cand, d_right_b], axis=2), axis=2)
+
+    nearest_val = np.where(
+        nearest_idx == 0, s_left,
+        np.where(nearest_idx == 1, candidatos[:, None], s_right),
+    )
+    dist_sq_aff = (nearest_val - lows_aff[None, :]) ** 2
+    h_dist_aff = 1.0 - dist_sq_aff / dist_max
+
+    z_aff_new = (fixed_z[idx_aff][None, :] * h_dist_aff
+                 if 'h_dist' in factores
+                 else np.broadcast_to(fixed_z[idx_aff], (M_eff, len(idx_aff))))
+
+    z_sum_new = z_sum - z_aff_old_sum + z_aff_new.sum(axis=1)
+    mean_z_new = z_sum_new / n
+
+    return mean_z_new - lambda_ponderador * cv_Hn_c
+
+
+def _actualizar_estado(estado: dict, lista_N_arr: np.ndarray, i: int,
+                        nuevo_valor: float, lambda_ponderador: float,
+                        df_extremos: pd.DataFrame):
+    """
+    Actualiza estado incremental y df_extremos in-place tras aceptar soporte i → nuevo_valor.
+    lista_N_arr se modifica in-place en el índice i.
+    """
+    lows = estado['lows']
+    n = estado['n']
+    asignaciones = estado['asignaciones']
+    dist_max = estado['dist_max_global']
+    fixed_z = estado['fixed_z']
+    z = estado['z']
+    H_n = estado['H_n']
+    factores = estado['factores']
+    N = len(lista_N_arr)
+
+    mask = asignaciones == i
+    if i > 0:
+        mask = mask | (asignaciones == i - 1)
+    if i < N - 1:
+        mask = mask | (asignaciones == i + 1)
+    idx_aff = np.where(mask)[0]
+
+    s_left = lista_N_arr[i - 1] if i > 0 else -np.inf
+    s_right = lista_N_arr[i + 1] if i < N - 1 else np.inf
+
+    # H_n: calcular nuevos gaps antes de modificar lista_N_arr
+    old_left = float(H_n[i - 1]) if i > 0 else 0.0
+    old_right = float(H_n[i]) if i < N - 1 else 0.0
+    new_left_val = float(nuevo_valor - lista_N_arr[i - 1]) if i > 0 else 0.0
+    new_right_val = float(lista_N_arr[i + 1] - nuevo_valor) if i < N - 1 else 0.0
+
+    estado['H_sum'] += -old_left - old_right + new_left_val + new_right_val
+    estado['H_sq_sum'] += -old_left ** 2 - old_right ** 2 + new_left_val ** 2 + new_right_val ** 2
+    if i > 0:
+        H_n[i - 1] = new_left_val
+    if i < N - 1:
+        H_n[i] = new_right_val
+
+    lista_N_arr[i] = nuevo_valor
+
+    if len(idx_aff) > 0:
+        lows_aff = lows[idx_aff]
+        d_left = np.abs(lows_aff - s_left)
+        d_cand = np.abs(lows_aff - nuevo_valor)
+        d_right = np.abs(lows_aff - s_right)
+        nearest_idx = np.argmin(np.stack([d_left, d_cand, d_right], axis=1), axis=1)
+        new_assign = np.where(nearest_idx == 0, i - 1, np.where(nearest_idx == 1, i, i + 1))
+        asignaciones[idx_aff] = new_assign
+
+        nearest_val = np.where(nearest_idx == 0, s_left,
+                               np.where(nearest_idx == 1, nuevo_valor, s_right))
+        dist_sq_aff = (nearest_val - lows_aff) ** 2
+        h_dist_aff = 1.0 - dist_sq_aff / dist_max
+        z_aff_new = (fixed_z[idx_aff] * h_dist_aff if 'h_dist' in factores
+                     else fixed_z[idx_aff].copy())
+
+        estado['z_sum'] += float(z_aff_new.sum() - z[idx_aff].sum())
+        z[idx_aff] = z_aff_new
+
+        if 'soporte' in df_extremos.columns:
+            df_extremos.loc[idx_aff, 'soporte'] = nearest_val
+            df_extremos.loc[idx_aff, 'dist'] = dist_sq_aff
+            df_extremos.loc[idx_aff, 'h_dist'] = h_dist_aff
+            df_extremos.loc[idx_aff, 'z'] = z_aff_new
+
+    N_gaps = N - 1
+    H_mean = estado['H_sum'] / N_gaps if N_gaps > 0 else 0.0
+    H_var = max(0.0, estado['H_sq_sum'] / N_gaps - H_mean ** 2) if N_gaps > 0 else 0.0
+    cv_Hn = float(np.sqrt(H_var) / H_mean) if H_mean != 0 else 0.0
+    mean_z = estado['z_sum'] / n
+    estado['mean_z'] = mean_z
+    estado['cv_Hn'] = cv_Hn
+    estado['FO'] = mean_z - lambda_ponderador * cv_Hn
+
+
 def evaluar_crecimiento_decrecimiento(df_plot: pd.DataFrame, metrica: str = 'y') -> bool:
     """
     True si la serie crece monotónicamente y luego decrece (forma de U invertida).
@@ -242,7 +541,7 @@ def evaluar_crecimiento_decrecimiento(df_plot: pd.DataFrame, metrica: str = 'y')
 def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                          lambda_ponderador: float, ordenes_activas: list = [],
                          M: int = 100, max_iters: int = 1000,
-                         prueba_cercanos: bool = False,
+                         prueba_cercanos: bool = True,
                          delta_inicial: float = 1e-4,
                          estado_compartido=None, llave: str = '',
                          verbose: bool = True) -> tuple:
@@ -280,9 +579,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         print(f'Rango de precios: [{p_min:.2f}, {p_max:.2f}]')
 
     if delta >= 0:
-        conjunto_N = conjunto_N.union(set(np.random.uniform(p_min, p_max, delta).tolist()))
+        conjunto_N = conjunto_N.union(_inicializar_conjunto_smart(df_extremos, delta))
     elif delta2 > 0:
-        conjunto_N = set(np.random.uniform(p_min, p_max, delta2).tolist())
+        conjunto_N = _inicializar_conjunto_smart(df_extremos, delta2)
 
     conjunto_N = conjunto_N.union(set(ordenes_activas))
 
@@ -292,7 +591,15 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     lista_N = sorted(list(conjunto_N))
     dic_N = {i: val for i, val in enumerate(lista_N)}
     casos_moviles = list(dic_N.keys())
+    mejora_acumulada = {i: 0.0 for i in dic_N}
+    EMA_ALPHA = 0.3
     df_FO = pd.DataFrame()
+
+    # Pre-init: una sola llamada a calcular_FO para inicializar df_extremos (soporte, dist, h_dist, z)
+    # y luego construir el estado incremental que se mantiene actualizado en O(3n/N) por cambio.
+    lista_N_arr = np.array(lista_N, dtype=np.float64)
+    FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
+    _estado = _init_estado_incremental(df_extremos, lista_N_arr, lambda_ponderador)
 
     for j in range(max_iters):
         lista_N = list(dic_N.values())
@@ -301,7 +608,8 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         if len(conjunto_N) != N:
             sys.exit(f'Error en tamaño conjunto_N en iteración {j}: {len(conjunto_N)} != {N}')
 
-        FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
+        FO_base = _estado['FO']
+        particion_FO = [_estado['mean_z'], _estado['cv_Hn']]
         mejora = False
 
         if estado_compartido is not None and llave:
@@ -314,46 +622,38 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             # Candidatos equidistantes; se excluyen los extremos para evitar duplicar soportes vecinos
             casos_random = np.linspace(cota_inf, cota_sup, M)[1:-1]
 
-            # Evaluar todos los candidatos y guardar FO de cada uno
-            df_plot = pd.DataFrame()
-            df_ext_iter, part_iter = None, None
-            for caso in casos_random:
-                lista_iter = lista_N[:]
-                lista_iter.remove(dic_N[i])
-                lista_iter.append(caso)
-                FO_iter, df_ext_iter, part_iter = calcular_FO(df_extremos, set(lista_iter), lambda_ponderador)
-                df_plot = pd.concat([df_plot, pd.DataFrame({'caso': [caso], 'FO_iter': [FO_iter]})])
-            # Nota: al salir del loop, df_ext_iter y part_iter corresponden al ÚLTIMO caso evaluado.
-            # Si cumplen_logica=False, se usan estos valores (comportamiento del notebook original).
+            # Evaluación incremental: O(M × 3n/N) en vez de O(M × n)
+            FO_values = _fo_incremental_batch(_estado, lista_N_arr, i, casos_random, lambda_ponderador)
+            df_plot = pd.DataFrame({'caso': casos_random, 'FO_iter': FO_values})
 
             cumplen_logica = evaluar_crecimiento_decrecimiento(df_plot, 'FO_iter')
             if cumplen_logica:
-                # Ajuste cuadrático para encontrar el máximo analítico
+                # Ajuste cuadrático; se clipa al rango válido para garantizar H_n positivos
                 coef = np.polyfit(df_plot['caso'], df_plot['FO_iter'], 2)
                 a_c, b_c, _ = coef
-                caso = -b_c / (2 * a_c)
-                lista_iter = lista_N[:]
-                lista_iter.remove(dic_N[i])
-                lista_iter.append(caso)
-                FO_iter, df_ext_iter, part_iter = calcular_FO(df_extremos, set(lista_iter), lambda_ponderador)
+                caso = float(np.clip(-b_c / (2 * a_c), cota_inf + 1e-8, cota_sup - 1e-8))
+                FO_iter = float(_fo_incremental_batch(
+                    _estado, lista_N_arr, i, np.array([caso]), lambda_ponderador)[0])
             else:
                 idx_max = int(df_plot['FO_iter'].argmax())
                 caso = float(df_plot['caso'].iloc[idx_max])
                 FO_iter = float(df_plot['FO_iter'].iloc[idx_max])
 
-            if (FO_iter - FO_base) / abs(FO_base) > delta_inicial:
+            mejora_rel = (FO_iter - FO_base) / abs(FO_base)
+            if mejora_rel > delta_inicial:
+                _actualizar_estado(_estado, lista_N_arr, i, caso, lambda_ponderador, df_extremos)
                 if verbose:
-                    print(f'  Mejora {(FO_iter - FO_base) / abs(FO_base):.6f} en soporte i={i}, nuevo={caso:.2f}')
+                    print(f'  Mejora {mejora_rel:.6f} en soporte i={i}, nuevo={caso:.2f}')
+                mejora_acumulada[i] = EMA_ALPHA * mejora_rel + (1 - EMA_ALPHA) * mejora_acumulada[i]
                 mejora = True
                 cambios += 1
                 max_pasos = max(max_pasos, pos + 1)
                 if estado_compartido is not None and llave:
-                    estado_compartido[llave] = (cambios, max_pasos, FO_iter, 'corriendo')
-                FO_base = FO_iter
+                    estado_compartido[llave] = (cambios, max_pasos, _estado['FO'], 'corriendo')
+                FO_base = _estado['FO']
+                particion_FO = [_estado['mean_z'], _estado['cv_Hn']]
                 i_change = i
                 nuevo_value = caso
-                df_extremos = df_ext_iter.copy()
-                particion_FO = part_iter[:]
 
             if mejora:
                 break
@@ -364,7 +664,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 break  # ya se probaron todos los soportes sin mejora → convergencia
             if verbose:
                 print('Sin mejora en casos actuales → ampliando a todos los soportes')
-            casos_moviles = list(dic_N.keys())
+            casos_moviles = sorted(dic_N.keys(), key=lambda c: -mejora_acumulada[c])
         else:
             dic_N[i_change] = nuevo_value
             if verbose:
@@ -373,11 +673,13 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
 
             if prueba_cercanos:
                 vecinos = [i_change - 1, i_change + 1, i_change]
-                resto = [c for c in casos_moviles if c not in vecinos]
-                random.shuffle(resto)
+                resto = sorted(
+                    [c for c in casos_moviles if c not in vecinos],
+                    key=lambda c: -mejora_acumulada[c],
+                )
                 casos_moviles = vecinos + resto
             else:
-                random.shuffle(casos_moviles)
+                casos_moviles = sorted(casos_moviles, key=lambda c: -mejora_acumulada[c])
 
         casos_moviles = [c for c in casos_moviles if 0 <= c < len(dic_N)]
 
@@ -665,11 +967,22 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
     oa = [] if es_bt else ordenes_activas
     if oa and verbose:
         print(f'  Órdenes activas fijas: {[round(p, 2) for p in oa]}')
-    conjunto_N, df_extremos, df_FO, convergio, cambios, max_pasos = nuevo_optimizador_2(
+    # Fase 1: exploración barata con M_COARSE
+    conjunto_N, df_extremos, df_FO_1, _, cambios_1, max_pasos_1 = nuevo_optimizador_2(
+        N, df_extremos, conjunto_N, LAMBDA,
+        ordenes_activas=oa, M=M_COARSE, max_iters=MAX_ITERS, delta_inicial=delta_actual,
+        estado_compartido=estado_compartido, llave=llave, verbose=verbose,
+    )
+    # Fase 2: refinamiento fino con M (warm start desde resultado de fase 1)
+    conjunto_N, df_extremos, df_FO_2, convergio, cambios_2, max_pasos_2 = nuevo_optimizador_2(
         N, df_extremos, conjunto_N, LAMBDA,
         ordenes_activas=oa, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
         estado_compartido=estado_compartido, llave=llave, verbose=verbose,
     )
+    df_FO_2['Iteracion'] += len(df_FO_1)
+    df_FO = pd.concat([df_FO_1, df_FO_2], ignore_index=True)
+    cambios = cambios_1 + cambios_2
+    max_pasos = max(max_pasos_1, max_pasos_2)
     if verbose:
         print(f'  Cambios aceptados {valor} {N}: {cambios}')
 

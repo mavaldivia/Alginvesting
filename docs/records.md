@@ -188,3 +188,39 @@ Claude: Implementó los logs de convergencia (Tarea 2 del plan autónomo). Agreg
 ## SECCIÓN 17
 Claude: Implementó N_MAX_MODELS + loop continuo (Tarea 3 del plan autónomo). Agregó `N_MAX_MODELS = None` a `config.py`. Nueva función `_seleccionar_combos` en `X0_data_supports.py`: lee `delta_inicial` de cada `_delta.json`, ordena desc por delta con tie-break aleatorio, retorna los top N_MAX_MODELS ordenados por antigüedad del JSON. `buscar_soportes` acepta `n_max` y delega en el helper. `__main__` envuelto en `while True` + `try/except KeyboardInterrupt`; nuevo flag `--loop` activa el loop continuo (sin él, comportamiento idéntico al anterior). Cada ciclo imprime número y cuántos combos se procesan. Marcó el ítem como [x] en CLAUDE.md, actualizó "Última actualización" y documentó el diseño con ejemplos de uso y decisión de diseño en `docs/documentacion_V0.md`.
 (Cierre: 2026-06-11 00:22)
+
+## SECCIÓN 18
+Mauricio: Pidió llevar las 7 sugerencias de convergencia de `docs/documentacion_V0.md` al TO DO de CLAUDE.md como ítems individuales en el grupo X0, asignando a cada una su score según la fórmula del proyecto.
+Claude: Leyó `docs/documentacion_V0.md` y calculó los scores (I, C, H) para cada una de las 7 sugerencias. Agregó los 7 nuevos ítems al TO DO de X0 intercalados en el orden correcto por score: S5 prueba_cercanos (3.46), S3 M adaptativo (3.24), S7 criterio parada (3.00), S4 priorización historial (2.24), S2 inicialización inteligente (2.16), S6 vectorización loop M (1.20), S1 FO incremental (1.13). Las de mayor score son las de mínima complejidad (C:1) aunque de impacto moderado; S1 — la más impactante (30-35x speedup) — queda última por C:8, consistente con la recomendación del doc de atacarla al final.
+(Cierre: 2026-06-11 21:35)
+
+## SECCIÓN 19
+Mauricio: Aclaró que las 7 sugerencias de convergencia se implementarán directamente en `X0_data_supports.py`, no en `X0_aux.py`.
+Claude: Eliminó el ítem `X0_aux.py — testear mejoras de convergencia` del TO DO (ya no tiene sentido como prerequisito) y actualizó la descripción de S3 para indicar implementación directa en `X0_data_supports.py`.
+(Cierre: 2026-06-11 21:39)
+
+## SECCIÓN 20
+Mauricio: Invocó /todos al inicio de sesión, eligió trabajar en X0. Avanzó los ítems 1 y 2 de la sección: S5 (`prueba_cercanos=True` por defecto) y S3 (M adaptativo coarse-to-fine). Luego pidió deprioritizar S7 (criterio de parada por tasa de mejora) porque no le convencía.
+Claude: Activó `prueba_cercanos=True` como default en `nuevo_optimizador_2` (X0_data_supports.py:245). Implementó M adaptativo coarse-to-fine: agregó `M_COARSE=5` en config.py, lo importó en X0, y reemplazó la llamada única al optimizador por dos fases secuenciales (fase 1 con M_COARSE hasta convergencia, fase 2 con M=30 usando el resultado como warm start). `df_FO`, `cambios` y `max_pasos` se agregan entre fases; `convergio` viene de la fase 2. S7 movido al fondo del TO DO X0 con score rebajado a 0.50.
+(Cierre: 2026-06-11 21:45)
+
+## SECCIÓN 21
+Mauricio: Invocó /todos, eligió X0, pidió avanzar con S4 (priorización de soportes por historial de mejoras).
+Claude: Implementó S4 en `nuevo_optimizador_2`: inicializó `mejora_acumulada = {i: 0.0 for i in dic_N}` con EMA alpha=0.3. Al aceptar un cambio, actualiza `mejora_acumulada[i]` con la mejora relativa del soporte. Los tres puntos donde se reconstruía `casos_moviles` con shuffle aleatorio ahora usan `sorted(..., key=lambda c: -mejora_acumulada[c])`. Con `prueba_cercanos=True`, los vecinos siguen al frente y el resto se ordena por historial. Marcó S4 como [x] en CLAUDE.md y actualizó "Última actualización".
+(Cierre: 2026-06-11 21:50)
+
+## SECCIÓN 22
+Mauricio: Invocó /todos, eligió X0, pidió avanzar con S2 (inicialización inteligente del conjunto N).
+Claude: Implementó `_inicializar_conjunto_smart(df_extremos, n)` en `X0_data_supports.py`: divide el rango de `Low` en n cuantiles ordenados por precio y selecciona el `Low` con mayor `y × w` en cada uno. Reemplazó `np.random.uniform` en `obtener_df_extremos` (cold start principal) y en `nuevo_optimizador_2` (ajuste por órdenes activas). Fallback a uniform solo si faltan columnas o hay duplicados de precio entre cuantiles. Marcó S2 como [x] en CLAUDE.md y actualizó "Última actualización".
+(Cierre: 2026-06-11 22:00)
+
+## SECCIÓN 23
+Mauricio: Invocó /todos, eligió X0, confirmó avanzar con S6 — Vectorización del loop interno de candidatos M. Dijo "procedamos" ante la explicación del enfoque propuesto.
+Claude: Implementó `calcular_FO_batch` en `X0_data_supports.py`: evalúa la FO para todos los M candidatos en una sola pasada numpy, eliminando el for-loop de M llamadas a `calcular_FO`. Enfoque: precalcula `nearest_base` y `dist_base` una vez para los N-1 soportes base; usa broadcasting `(M_eff, n)` para comparar distancias de todos los candidatos simultáneamente. Loop Python restante solo para `cv(H_n)` (O(M×N), trivial). Modificó `nuevo_optimizador_2`: M llamadas a `calcular_FO` → 1 batch + 0-1 llamadas regulares (solo al aceptar un cambio). Además corrigió bug del notebook original: en `cumplen_logica=False`, `df_extremos` se actualizaba con el estado del último candidato evaluado en vez del mejor. S6 marcado como [x] en TO DO. CLAUDE.md actualizado.
+(Cierre: 2026-06-11 22:11)
+
+## SECCIÓN 24
+Mauricio: Abrió sesión con `/todos`, eligió sección X0 y pidió avanzar en S1 — Evaluación incremental de la FO.
+Claude: Presentó el plan en 5 puntos antes de implementar: tres funciones nuevas (`_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`), modificación del pre-loop y del inner loop de `nuevo_optimizador_2`. Mauricio aprobó sin cambios.
+Claude: Implementó las tres funciones y refactorizó `nuevo_optimizador_2`: `calcular_FO` baja de una llamada por iteración outer a una sola vez al inicio; `calcular_FO_batch` reemplazado por evaluación incremental que solo recalcula ~3n/N filas afectadas y 2 gaps del cv(H_n). Validación numérica: diffs 1e-19 (epsilon de máquina), mismo candidato ganador. Benchmark real BTCUSD N=130, M=30, n=38730: 1518 ms → 45 ms por iteración outer (33.5x speedup, exactamente lo estimado en el TO DO). S1 marcado como completado en CLAUDE.md.
+(Cierre: 2026-06-11 23:12)
