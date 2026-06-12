@@ -13,16 +13,19 @@ Objetivo: producir un `score_fundamental` por activo en `[0, 1]` que X6 usará p
 
 Campos confirmados disponibles (24–25 por activo):
 
-| Grupo | Campos |
-|---|---|
-| Valorización | `trailingPE`, `forwardPE`, `priceToBook`, `enterpriseToEbitda` |
-| Rentabilidad | `returnOnEquity`, `returnOnAssets`, `grossMargins`, `operatingMargins`, `profitMargins` |
-| Crecimiento | `revenueGrowth`, `earningsGrowth` |
-| Flujo de caja | `freeCashflow`, `operatingCashflow` |
-| Deuda / riesgo | `totalDebt`, `debtToEquity`, `currentRatio`, `quickRatio` |
-| Mercado | `marketCap`, `enterpriseValue`, `beta`, `shortPercentOfFloat` |
-| Earnings | `earnings_dates` (EPS estimate vs. actual, surprise%), `recommendations` (consensus analistas) |
-| Financieros históricos | `quarterly_financials`, `income_stmt` (anual) |
+| Grupo | Campos | Historia / periodicidad |
+|---|---|---|
+| Valorización | `trailingPE`, `forwardPE`, `priceToBook`, `enterpriseToEbitda` | Snapshot puntual, cache 24h. Refleja el último reporte disponible. |
+| Rentabilidad | `returnOnEquity`, `returnOnAssets`, `grossMargins`, `operatingMargins`, `profitMargins` | Snapshot puntual, cache 24h. |
+| Crecimiento | `revenueGrowth`, `earningsGrowth` | Snapshot puntual (YoY del último trimestre vs. año anterior). |
+| Flujo de caja | `freeCashflow`, `operatingCashflow` | Snapshot puntual (TTM — últimos 12 meses acumulados). |
+| Deuda / riesgo | `totalDebt`, `debtToEquity`, `currentRatio`, `quickRatio` | Snapshot puntual, del último balance disponible. |
+| Mercado | `marketCap`, `enterpriseValue`, `beta`, `shortPercentOfFloat` | Snapshot puntual, intradiario para marketCap. |
+| Earnings | `earnings_dates` (EPS estimate vs. actual, surprise%) | Trimestral. Historial ~3-4 años hacia atrás (NVDA: desde 2022-11). Incluye fechas futuras estimadas. |
+| Analistas | `recommendations` (strongBuy/buy/hold/sell/strongSell) | Rolling: solo 4 meses (mes actual + 3 anteriores). Sin historial más largo. |
+| Financieros históricos | `quarterly_financials`, `quarterly_cashflow`, `quarterly_balance_sheet` | Trimestral. Últimos **7 trimestres** (~21 meses). |
+| Financieros históricos | `income_stmt`, `balance_sheet`, `cashflow` (anual) | Anual. Últimos **5 años**. |
+| Precios históricos | `history(period='max')` | Diario/semanal/mensual. Desde **1999** para acciones US (NVDA: 27 años, 330 meses). |
 
 Valores confirmados (2026-06-12):
 - NVDA: forwardPE=16.1, ROE=114%, margen neto=63%, crecimiento ingresos=85%
@@ -30,7 +33,7 @@ Valores confirmados (2026-06-12):
 - AMZN: forwardPE=24.2, ROE=24%, margen neto=12%, D/E=53 (alto)
 - TSLA: forwardPE=162, ROE=5%, margen neto=4%, crecimiento ingresos=16%
 
-**Única limitación**: `priceToSalesTrailingTwelveMonths` viene nulo en todos. No es crítico.
+**Limitaciones confirmadas**: `priceToSalesTrailingTwelveMonths` viene nulo en todos (no crítico). `recommendations` tiene solo 4 meses de historia (no sirve para tendencia, solo para consenso actual).
 
 ---
 
@@ -38,13 +41,15 @@ Valores confirmados (2026-06-12):
 
 **Veredicto: suficiente para métricas básicas. Sin P/E ni FCF (esperado).**
 
-Campos útiles confirmados:
-- `marketCap`, `volume24Hr`, `circulatingSupply`, `maxSupply`, `totalSupply`
-- `fullyDilutedValue`, `volume24HrMarketCapPercent`
-- `fiftyDayAverage`, `twoHundredDayAverage`
-- `allTimeHigh`, `allTimeLow`
-- `blockReward`, `netHashesPerSecond` (solo BTC)
-- `blockNumber` (proxy de actividad de red)
+| Campos | Historia / periodicidad |
+|---|---|
+| `marketCap`, `volume24Hr`, `circulatingSupply`, `maxSupply`, `totalSupply` | Snapshot puntual, cache 24h. |
+| `fullyDilutedValue`, `volume24HrMarketCapPercent` | Snapshot puntual. |
+| `fiftyDayAverage`, `twoHundredDayAverage` | Calculados sobre precios diarios (50 y 200 días hacia atrás). |
+| `allTimeHigh`, `allTimeLow` | Histórico total desde inicio del activo. |
+| `blockReward`, `netHashesPerSecond` (solo BTC) | Snapshot puntual (dato en tiempo real de la red). |
+| `blockNumber` | Snapshot puntual. |
+| `history(period='max')` — precios | **BTC**: diario desde 2014-09-17 (~12 años, 4287 días). **ETH**: diario desde 2017-11-09 (~8.5 años, 3138 días). |
 
 ---
 
@@ -52,18 +57,14 @@ Campos útiles confirmados:
 
 **Veredicto: complemento ideal para crypto. Gratis, sin registro, ~10-30 req/min.**
 
-Endpoint `/coins/markets` retorna por activo:
-- Precio, market cap, volumen, ATH/ATL
-- Cambios porcentuales: `1h`, `24h`, `7d`, `30d`
-- `circulating_supply / max_supply` (presión de supply)
+| Endpoint | Datos | Historia / periodicidad |
+|---|---|---|
+| `/coins/markets` | Precio, market cap, volumen, ATH/ATL, cambios `1h`/`24h`/`7d`/`30d`, supply | Snapshot puntual. Actualizado cada pocos minutos. |
+| `/global` | Dominancia BTC, market cap total crypto, cambio 24h global | Snapshot puntual. |
+| `/coins/{id}` | `developer_data` (forks, stars, commits), cambios `14d`/`60d`/`200d`/`1y` | Snapshot puntual para datos de comunidad y developer. |
+| `/coins/{id}/market_chart` | Serie histórica de precio, market cap y volumen | **Limitado a 365 días** en el free tier (confirmado: `days>365` retorna error 401). Para historial mayor se necesita plan pago. |
 
-Endpoint `/global` retorna:
-- `market_cap_percentage['btc']` → dominancia BTC (indicador de "risk on/off" en crypto)
-- `market_cap_change_percentage_24h_usd` → momentum global del mercado crypto
-
-Endpoint `/coins/{id}` (detallado):
-- `developer_data`: forks, stars, commits recientes (proxy de salud del protocolo)
-- Cambios adicionales: `14d`, `60d`, `200d`, `1y`
+**Implicación para X2**: solo se usarán endpoints de snapshot (no histórico de CoinGecko). El historial de precios crypto se obtiene de yfinance cuando sea necesario.
 
 ---
 
@@ -72,9 +73,10 @@ Endpoint `/coins/{id}` (detallado):
 **Veredicto: señal macro de sentimiento crypto, gratis, sin API key.**
 
 - Score diario `[0, 100]`: 0–24 = Extreme Fear, 25–49 = Fear, 50–74 = Greed, 75–100 = Extreme Greed.
-- Confirmado funcionando. Histórico disponible.
-- URL: `https://api.alternative.me/fng/?limit=N`
-- Uso propuesto: normalizar a `[0, 1]` y usarlo como componente del score crypto.
+- **Historia**: diario desde **2018-01-31** (~8.5 años, 3050 puntos confirmados). Sin límite de consulta en el free tier.
+- **Periodicidad**: un dato por día. Se actualiza una vez al día.
+- URL: `https://api.alternative.me/fng/?limit=N` (`limit=0` devuelve todo el historial).
+- Uso propuesto: valor del día actual normalizado a `[0, 1]` como componente del score crypto.
 
 ---
 
@@ -171,17 +173,26 @@ Archivo `fundamentals/scores.json` (creado por X2, leído por X6):
 
 **Mapeo de tickers**: `BTCUSD` → `BTC-USD` (yfinance) / `bitcoin` (CoinGecko); `ETHUSD` → `ETH-USD` / `ethereum`.
 
-### 3.2 Frecuencia de actualización
+### 3.2 Frecuencia de actualización y control de ejecución
 
-- Correr X2 **una vez al día** (o antes de cada corrida de X0 en modo `--loop`).
-- Los fundamentales de acciones se actualizan diariamente en yfinance. Fear & Greed también es diario.
-- No tiene sentido correr por hora: el dato no cambia.
+- Correr X2 **una vez al día** como mínimo — los fundamentales de acciones y Fear & Greed se actualizan diariamente; no tiene sentido correr por hora.
+
+**Guard de día** (evitar re-ejecuciones innecesarias):
+- Al terminar una corrida exitosa, guardar `fundamentals/x2_last_run.json` con el campo `fecha` (solo la fecha, sin hora).
+- Al inicio de cada corrida, leer ese archivo. Si `fecha == hoy` → saltear y retornar el `scores.json` existente.
+- Evita re-ejecutar en cada ciclo del `while True` de X0 o en corridas manuales repetidas el mismo día.
+
+**Re-ejecución forzada diaria desde el loop de X0**:
+- En el `while True` de X0, cuando la hora del sistema alcance `X2_HORA_EJECUCION` (configurable en `config.py`, ej. `"21:00"`), forzar una nueva corrida de X2 aunque el guard indique que ya corrió hoy — actualizando el timestamp en `x2_last_run.json`.
+- Garantiza actualización diaria en sesiones de X0 que duren más de 24 horas seguidas.
 
 ### 3.3 Estructura del script
 
 ```python
 # X2_fundamentals.py
 
+def _ya_ejecutado_hoy() -> bool         # lee x2_last_run.json, compara con date.today()
+def _marcar_ejecutado()                 # escribe x2_last_run.json con fecha de hoy
 def _get_stock_data(ticker: str) -> dict       # yfinance raw
 def _get_crypto_data(coin_id: str) -> dict     # yfinance + CoinGecko + F&G
 def _score_stock(data: dict, universe: list) -> dict    # normaliza en universo
@@ -190,9 +201,13 @@ def calcular_scores(valores: list) -> dict     # orquesta todo
 def guardar_scores(scores: dict)               # → fundamentals/scores.json
 
 if __name__ == '__main__':
-    scores = calcular_scores(VALORES)
-    guardar_scores(scores)
-    # imprimir tabla resumen
+    if _ya_ejecutado_hoy():
+        # retorna scores.json existente sin re-ejecutar
+    else:
+        scores = calcular_scores(VALORES)
+        guardar_scores(scores)
+        _marcar_ejecutado()
+        # imprimir tabla resumen
 ```
 
 ### 3.4 Integración con config.py
@@ -200,8 +215,9 @@ if __name__ == '__main__':
 Agregar a `config.py`:
 ```python
 CARPETA_FUNDAMENTALS = BASE_DIR / 'fundamentals'
+X2_HORA_EJECUCION = '21:00'   # hora de re-ejecución forzada diaria desde el loop de X0
 
-# Pesos del score fundamental (stocks)
+# Pesos del score fundamental (stocks) — inicialización; X6 puede sobreescribir vía active_parameters.json
 PESOS_STOCK = {
     'roe': 0.20, 'margins': 0.15, 'fcf_yield': 0.10,
     'rev_growth': 0.15, 'earn_growth': 0.10,
@@ -209,13 +225,21 @@ PESOS_STOCK = {
     'debt_eq': 0.05, 'short_pct': 0.05, 'analyst': 0.05,
 }
 
-# Pesos del score fundamental (crypto)
+# Pesos del score fundamental (crypto) — inicialización; X6 puede sobreescribir vía active_parameters.json
 PESOS_CRYPTO = {
     'hash': 0.20, 'vol_mcap': 0.15, 'supply': 0.10,
     'mcap': 0.10, 'momentum_7d': 0.15, 'momentum_30d': 0.10,
     'fear_greed': 0.20,
 }
 ```
+
+### 2.4 Pesos como inicialización, no como valores permanentes
+
+Los pesos definidos en 2.2 y 2.3 (y en `PESOS_STOCK` / `PESOS_CRYPTO` de `config.py`) son **valores iniciales** — una hipótesis de partida razonable dado el dominio, no la configuración definitiva.
+
+**X6 debe ajustar estos pesos** en función del historial de trades (X4 → X5 → X6): qué componentes del score han correlacionado con retornos positivos, cuáles resultan ruido para este universo de activos. Los pesos actuales son la semilla del entrenamiento, no su resultado.
+
+Implicación de implementación: `PESOS_STOCK` y `PESOS_CRYPTO` deben ser sobreescribibles por X6 vía `config/active_parameters.json` (o equivalente), sin modificar `config.py` directamente. Al cargar los pesos, X2 comprueba primero si existen overrides en ese archivo; si no, usa los defaults de `config.py`.
 
 ---
 

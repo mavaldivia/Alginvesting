@@ -44,6 +44,12 @@
   - Mismas reglas que X0: solo lo estrictamente necesario, misma lógica
   - Agregada lógica: si pérdida > `PERDIDA_MAX` → cerrar la operación (`controlar_perdida_max`)
 
+### X2 — X2_fundamentals.py
+
+- [x] **[x2_plan cap.2] Los pesos iniciales del score son fijos por ahora, pero X6 DEBE incorporar lógica de aprendizaje sobre ellos**: los ponderadores del score compuesto (fundamentales + on-chain + sentimiento) deben ser parámetros entrenables que X6 ajuste según el historial de trades. Dejar los pesos actuales como inicialización, no como valores permanentes. (I:8 C:3 H:9 → 4.90)
+- [x] **[x2_plan paso 3] Marcar día ya ejecutado**: al correr X2 al inicio de X0, guardar en disco la fecha de la última ejecución (`fundamentals/x2_last_run.json` con campo `fecha`). Si ya se ejecutó hoy, saltear. Evita re-ejecutar en cada ciclo del `while True` o cada corrida manual de X0. (I:4 C:1 H:9 → 6.00)
+- [x] **[x2_plan paso 3] Ejecutar X2 al menos una vez al día en el loop de X0**: en el `while True` de X0, forzar ejecución de X2 a una hora determinada aunque ya se haya ejecutado al inicio del loop ese día — garantiza que el score se actualice diariamente en corridas de varios días seguidos. Hora configurable vía `X2_HORA_EJECUCION` en `config.py`. (I:5 C:2 H:8 → 3.16)
+
 ### X4 — X4_backtester.py
 
 - [x] **Fecha/hora máxima por tupla (valor, N) para backtesting**: `_procesar_valor_N` acepta `fecha_hora_max` opcional — filtra datos hasta ese datetime, usa warm start desde `{valor}_{N}_bt.json` (cache `{datetime: [soportes]}`), delta desde `{valor}_{N}_bt_delta.json`. Sin look-ahead: la clave guardada es `df['DateTime'].iloc[-1]` (último dato realmente usado). Lookup: `max(t1 <= t0)`. X4 llama esta función directamente con `fecha_hora_max=t`. X0 producción sin cambios. (I:10 C:5 H:8 → 1.26)

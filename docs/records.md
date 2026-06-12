@@ -266,9 +266,22 @@ Mauricio: Invocó `/todos`, eligió X0 y pidió avanzar el ítem 1 — "Formato 
 Claude: Modificó `_procesar_valor_N` para retornar `(duracion_s, convergio)`. En el loop `as_completed` de `buscar_soportes`, acumula los resultados en `resultados_tiempo`. Tras `monitor.join()` (para no interferir con el redibujado del monitor), imprime una línea por par con el tiempo formateado y si convergió. Movió el ítem a `docs/done.md`.
 (Cierre: 2026-06-12 17:20)
 
+## SECCIÓN 33
+Mauricio: Revisó el plan `docs/x2_plan.md` y entregó 4 decisiones de diseño para agregar como TODOs prioritarios en X2: (1) los pesos del score compuesto deben ser entrenables por X6; (2) al ejecutar X2 al inicio de X0, marcar el día como ya ejecutado para no repetir; (3) en el `while True` de X0, forzar al menos una ejecución diaria de X2 a hora fija; (4) guardar historial del score X2 para uso como feature en X5/X6.
+Claude: Agregó los 4 ítems al inicio de la sección X2 en `docs/todos.md`, ordenados por score sobre los existentes. Puntos clave: `x2_last_run.json` para marcar el día ejecutado, `X2_HORA_EJECUCION = 8` en `config.py` para la hora forzada, `x2_history.json` con sub-scores por fecha y activo para el historial.
+Mauricio: Confirmó `X2_HORA_EJECUCION = 8` como default.
+(Cierre: 2026-06-12 18:07)
+
 ## SECCIÓN 32
 Mauricio: Invocó `/todos`, eligió la sección X2 y pidió investigar/experimentar con las dos fuentes de datos pendientes, y dejar todo en un plan en `docs/x2_plan.md`.
 Claude: Experimentó en vivo con las cuatro fuentes relevantes usando el entorno `revenAI` (`/opt/anaconda3/envs/revenAI/bin/python`): yfinance para acciones (24–25 métricas disponibles: P/E, ROE, FCF, crecimiento, deuda, márgenes, analistas, earnings), yfinance para crypto (market cap, volumen, supply, hash rate), CoinGecko free API (cambios %, dominancia BTC, datos developer) y alternative.me (Fear & Greed diario 0–100). Descartó Glassnode/CryptoQuant (pago) y MT5 (sin fundamentales). Diseñó el score `[0,1]` con dos funciones separadas: `_score_stock` (calidad + crecimiento + valorización + riesgo + analistas) y `_score_crypto` (hash rate + liquidez + supply + momentum + Fear & Greed). Documentó arquitectura, output (`fundamentals/scores.json`), pesos configurables en `config.py`, frecuencia diaria y riesgos en `docs/x2_plan.md`.
 Mauricio: Pidió dejar el plan como ítem pendiente en el TO DO (leer y confirmar antes de implementar).
 Claude: Agregó ítem al tope de la sección X2 en `docs/todos.md`: "Leer plan en `docs/x2_plan.md` y confirmar implementación" (I:3 C:1 H:9 → 5.20).
 (Cierre: 2026-06-12 17:46)
+
+## SECCIÓN 33
+Mauricio: Invocó `/todos`, eligió la sección X2, y pidió trabajar en los ítems 1, 2 y 3 — pero solo editar el plan en `docs/x2_plan.md`, no implementar código.
+Claude: Leyó `docs/x2_plan.md` e identificó dónde encajaba cada ítem: (1) nueva sección `2.4` aclarando que los pesos de `PESOS_STOCK`/`PESOS_CRYPTO` son inicialización para X6, sobreescribibles vía `active_parameters.json`; (2) y (3) reescritura de `3.2` con guard de día (`fundamentals/x2_last_run.json`) y re-ejecución forzada a `X2_HORA_EJECUCION`, más `_ya_ejecutado_hoy()`/`_marcar_ejecutado()` en la estructura de `3.3` y la nueva constante en `3.4`.
+Mauricio: Confirmó y pidió marcar los 3 ítems como completados.
+Claude: Eliminó los 3 ítems de `docs/todos.md` y los movió a `docs/done.md` bajo la nueva sección `### X2 — X2_fundamentals.py`.
+(Cierre: 2026-06-12 18:13)

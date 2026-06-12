@@ -14,6 +14,7 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 
 ### X2 — X2_fundamentals.py
 
+- [ ] **[x2_plan punto 4] Guardar historial del score X2**: al calcular el score por activo, hacer upsert en un archivo histórico (ej. `conjuntos_N/x2_history.json` con entradas `{datetime, activo, score, sub_scores}`) para permitir análisis de evolución del sentimiento y uso como feature en X5/X6. (I:6 C:2 H:7 → 2.92)
 - [ ] **Leer plan en `docs/x2_plan.md` y confirmar implementación**: revisar diseño de fuentes, score y arquitectura propuestos; aprobar o ajustar antes de codificar. (I:3 C:1 H:9 → 5.20)
 - [ ] Definir y evaluar fuentes de datos para X2: yfinance, MT5, investing.com, CoinGecko, Glassnode u otras. Qué cubre cada una, qué tan confiable y actualizable es. (I:5 C:2 H:8 → 3.16)
 - [ ] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)

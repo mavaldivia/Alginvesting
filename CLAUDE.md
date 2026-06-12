@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-12** — X2: clarificar plan (pesos, guard de día, hora ejecución)
+
+Tres clarificaciones en `docs/x2_plan.md`: (1) nueva sección `2.4` — pesos `PESOS_STOCK`/`PESOS_CRYPTO` son inicialización para X6, sobreescribibles vía `active_parameters.json`; (2)+(3) sección `3.2` reescrita — guard de día con `fundamentals/x2_last_run.json` (si `fecha == hoy` → saltear) y re-ejecución forzada diaria desde el loop de X0 a `X2_HORA_EJECUCION` configurable en `config.py`. Funciones `_ya_ejecutado_hoy()`/`_marcar_ejecutado()` agregadas a estructura `3.3`. Tres ítems TO DO marcados como completados y movidos a `docs/done.md`.
+
 **2026-06-12** — X2: investigación fuentes + plan docs/x2_plan.md + ítem TO DO
 
 Experimentación real con yfinance (acciones y crypto), CoinGecko free API y alternative.me (Fear & Greed). Diseño del score `[0,1]` con funciones separadas para stocks (`_score_stock`) y crypto (`_score_crypto`). Plan completo documentado en `docs/x2_plan.md`. Ítem de revisión agregado al tope de la sección X2 en `docs/todos.md` (I:3 C:1 H:9 → 5.20). También: "Formato outputs en paralelo" completado en X0 (tiempos de convergencia por par al final de `buscar_soportes`).

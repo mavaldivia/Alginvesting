@@ -159,3 +159,16 @@ Reportó el mismo número de cambios (17.247).
 Mantuvo el mismo delta.
 Sin embargo, indicó que no convergió.
 Si la solución es idéntica a la versión anterior, entonces debería registrar 0 cambios, marcar que convergió y disminuir el delta.
+
+---------------
+
+X2
+
+  1. en el capitulo 2 (de docs/x2_plan.md), me parece bien que consideres pesos (ponderadores) iniciales, pero x6 tiene que darle lógica de aprendizaje a
+  esos pesos SI o SI
+  2. en el paso 3 (de docs/x2_plan.md), me parece perfecto mientras que se ejecute al comienzo de x0, sin embargo, deja marcado si un día t ya se ejecutó,
+  para no hacerlo de nuevo. Esto mientras sigo ejecutando manual y ya que X0 es lo que ejecuto con más frecuencia.
+  3. En el ciclo de X0, considera que la ejecución de X2 tiene que hacerse al menos una vez al día (a una hora determinada) en caso de
+  que quede el while True activado por varios días (que al final, es la lógica que busco (X6 debe ser el main al largo plazo, pero
+  por ahora es x0)
+  4. En el punto 4 (de docs/x2_plan.md), creo que ir guardando info historica si puede ser relevante. COnsideralo
