@@ -154,97 +154,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 ## TO DO
 
-**Convención de priorización**: cada ítem pendiente lleva `(I:x C:y H:z → score)` — Impacto, Complejidad de desarrollo, Habilitación, escala 1–10. `score = √(I × H) / C`. Dentro de cada sección los ítems se ordenan de mayor a menor score.
-
-### Prioridad_0
-
-Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sección correcta.
-
-- [ ] **Tiempo de ejecución al final de cada script**: al terminar `X0_data_supports.py`, `X1_trading.py` y cualquier script Python del proyecto, imprimir el tiempo total transcurrido (formato `HH:MM:SS` o segundos si < 60 s). Implementar con `time.time()` en el `if __name__ == '__main__'` de cada script. (I:3 C:1 H:2 → 2.45)
-
-### X0 — X0_data_supports.py
-
-- [x] **S5 — `prueba_cercanos=True` por defecto**: cambiar `prueba_cercanos: bool = False` a `True` en `nuevo_optimizador_2` — tras aceptar un cambio en soporte `i`, sus vecinos `i-1` e `i+1` pasan al frente de `casos_moviles` antes del shuffle. Lógicamente correcto porque sus cotas vecinas cambiaron. Ya implementado en el código, solo falta activar el default. Validar con logs de convergencia. (I:4 C:1 H:3 → 3.46)
-- [x] **S3 — M adaptativo coarse-to-fine**: correr `nuevo_optimizador_2` en dos fases: **fase 1** con M=5 hasta convergencia (exploración barata), **fase 2** con M=30 tomando el resultado de fase 1 como warm start (refinamiento fino). Estimación: ~58% menos evaluaciones de FO vs. M=30 fijo. Implementar directamente en `X0_data_supports.py`. (I:7 C:2 H:6 → 3.24)
-- [x] **S4 — Priorización de soportes por historial de mejoras**: en `nuevo_optimizador_2`, mantener `mejora_acumulada[i]` (EMA de mejoras aceptadas por soporte) y al reconstruir `casos_moviles`, ordenar desc por este historial en lugar de shuffle aleatorio. Estimación: 15-25% menos llamadas a `calcular_FO` en iteraciones tardías cuando la mayoría de soportes ya convergió. (I:5 C:2 H:4 → 2.24)
-- [x] **S2 — Inicialización inteligente del conjunto N**: en cold start (sin JSON previo), inicializar `conjunto_N` con los N precios de mayor score `y × w` de `df_extremos` (aislamiento × recencia), con diversidad espacial por quantiles del rango, en lugar de `np.random.uniform`. Estimación: 60-80% menos iteraciones en cold start. Crítico para X4 backtesting, que genera muchos cold starts. (I:6 C:3 H:7 → 2.16)
-- [x] **S6 — Vectorización del loop interno de candidatos M**: reemplazar el for-loop Python de M candidatos en `nuevo_optimizador_2` por evaluación matricial `(M, N)` con numpy — construir todos los M conjuntos de soportes como matriz y pasar a versión vectorizada de `asignar_soporte`. Complementario con S1. Estimación: 2-4x speedup en inner loop; más impactante si M sube con S3 fase fine. (I:6 C:5 H:6 → 1.20)
-- [x] **S1 — Evaluación incremental de la FO**: refactorizar `calcular_FO` para que al mover soporte `i`, solo recompute las ~3n/N filas afectadas (asignadas a `i-1`, `i`, `i+1`) y los 2 gaps del `cv(H_n)` que cambian. Requiere precalcular `asignaciones[i]` al inicio de cada iteración y mantenerlo actualizado tras cada cambio. Estimación: 30-35x speedup en la evaluación de FO — convierte ~20 min a ~35-40 seg en BTCUSD N=100. Habilita X4 backtesting práctico. (I:9 C:8 H:9 → 1.13)
-- [x] **Logs de convergencia**: al converger cada combo (valor, N) — o (valor, N, max_datetime) en modo bt — guardar JSON en `docs/X0/logs/` con: clave de la tupla, t_inicio, t_fin, duración, iteraciones, FO final, delta_final, convergio (I:5 C:4 H:6 → 1.37)
-- [x] **N_MAX_MODELS + loop continuo**: parámetro `N_MAX_MODELS` en `config.py` — selecciona los N pares (valor, N) con mayor `delta_inicial` actual (tie-break aleatorio), los ejecuta en paralelo, y al terminar el último reinicia el ciclo completo (incluyendo descarga MT5 si opción 1 activa) en un `while True` (I:8 C:6 H:7 → 1.25)
-- [ ] **Formato de outputs en paralelo (baja prioridad)**: cuando converge un par (valor, N), mostrar el tiempo en minutos que tardó en converger — solo al converger, no en cada iteración (I:2 C:3 H:2 → 0.67)
-- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
-- [x] **Sugerencias de convergencia**: 7 mejoras algorítmicas documentadas en `docs/documentacion_V0.md` — FO incremental, inicialización inteligente, M adaptativo, priorización por historial, prueba_cercanos, vectorización loop M, criterio parada por tasa. Ordenadas por impacto/complejidad.
-- [x] Migrar X0 (notebook) a `scripts/X0_data_supports.py`
-- [x] **Paralelización**: la búsqueda de soportes es independiente por cada par (valor, N) → paralelizar con `multiprocessing` o `concurrent.futures`. Ej: BTCUSD-130, ETHUSD-130, TSLA-120, etc. corriendo simultáneamente.
-- [x] Velocidad: `calcular_distancias` vectorizada con numpy por bloques (evita matriz n×n completa) — ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21213), resultados idénticos byte a byte
-- [x] Velocidad: `asignar_soporte` vectorizada con `np.searchsorted` (búsqueda binaria del soporte más cercano, O(n log N) en vez de O(n×N) con `apply`) — ~45-178x más rápido (0.26s → 0.0014s en BTCUSD, N=130), resultados idénticos byte a byte
-- [x] Parámetros: documentado el efecto de cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL) en la nueva sección "Parámetros del algoritmo — efecto de cada uno"
-- [x] Storage: migrado `conjuntos_N/` de pickle a JSON (`json_act` en X0 y X1) — `conjunto_N` es solo un set de ~50-130 floats, parquet quedaba descartado por sobredimensionado; JSON permite inspeccionar los soportes a simple vista
-- [x] Config: mover parámetros a un archivo de configuración separado (`config.py`)
-- [x] Reorganizar `config.py` en grupos temáticos (rutas, activos, datos históricos, calidad del algoritmo, velocidad/cómputo, visualizaciones, trading) en vez del agrupamiento por script (X0/X1)
-- [x] **Fix bug crítico en el optimizador**: condición de mejora `(FO_iter - FO_base) / FO_base > delta` era siempre falsa porque la FO es negativa — denominador negativo invertía el signo. Corregido a `/ abs(FO_base)`. El optimizador nunca había aceptado ningún cambio desde que la FO pasó a ser negativa.
-- [x] **Fix bug `idxmax` con índices duplicados**: `df_plot` se construía con `pd.concat` acumulando filas con índice 0; `df_plot.loc[idxmax(), 'caso']` devolvía una Serie en vez de un escalar. Corregido con `argmax()` + `iloc`.
-- [x] **Monitor de progreso en vivo**: `buscar_soportes` usa `multiprocessing.Manager().dict()` compartido entre workers + hilo monitor que redibuja una tabla cada segundo. Muestra por cada (valor, N): cambios aceptados, `max_pasos` (máximo de posiciones recorridas en el inner loop antes de aceptar un cambio), y FO actual. Workers corren con `verbose=False` (sin prints ni tqdm).
-- [x] **Títulos en gráficos**: todas las funciones de visualización reciben `valor` y `N` y muestran título `"Tipo — VALOR N=N"`.
-- [x] **Guardar plots en disco**: `plt.show()` reemplazado por `plt.savefig()` en `plots/{Extremos,FO,Soportes,Zoom}/{valor}_{N}.png`. Carpetas se crean automáticamente; archivos se sobreescriben.
-- [x] **Info previa secuencial**: antes de lanzar el executor, `buscar_soportes` imprime en orden (sin mezcla) el rango de fechas, último cierre, warm start y delta para cada (valor, N).
-- [x] Velocidad lógica del optimizador: `DELTA_INICIAL` adaptativo — delta se reduce (`* FACTOR_DELTA = 0.7`) solo cuando el optimizador converge; si no converge, el delta se mantiene. Estado persistido en `{valor}_{N}_delta.json` con `{'delta_inicial', 'convergio'}`. Órdenes activas de MT5 (`positions_get`) se pasan como soportes fijos al optimizador vía `obtener_ordenes_activas_mt5` (falla gracefully si MT5 no disponible). (I:6 C:5 H:3 → 0.85)
-
-### X1 — X1_trading.py
-
-- [x] Migrar X1 (notebook) a `scripts/X1_trading.py`
-  - Mismas reglas que X0: solo lo estrictamente necesario, misma lógica
-  - Agregada lógica: si pérdida > `PERDIDA_MAX` → cerrar la operación (`controlar_perdida_max`)
-
-### X2 — X2_fundamentals.py
-
-- [ ] Definir y evaluar fuentes de datos para X2: yfinance, MT5, investing.com, CoinGecko, Glassnode u otras. Qué cubre cada una, qué tan confiable y actualizable es. (I:5 C:2 H:8 → 3.16)
-- [ ] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)
-
-### X3 — X3_technical_features.py
-
-- [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes). (I:7 C:5 H:7 → 1.40)
-
-### X4 — X4_backtester.py
-
-- [ ] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre). (I:5 C:2 H:9 → 3.35)
-- [ ] **DELTA_INICIAL por (valor, N, version)**: en backtesting, `delta_inicial` depende solo del trío `(valor, N, version)`, no de `max_datetime`. Se ajusta con `FACTOR_DELTA` cada vez que el optimizador converge para ese trio, al igual que en producción. Archivo de estado: `{valor}_{N}_{version}_bt_delta.json` (I:7 C:3 H:8 → 2.49)
-- [ ] **Config de versiones para backtesting**: sección en `config.py` con `version = 'V1'` (str activo) y `fechas_version = {'V1': ['2023-01-01', 'F']}`. `'F'` = hasta la última vela disponible. Al reiniciar con la misma versión, el sistema retoma desde el último snapshot guardado. Las órdenes simuladas se gatillan de forma ficticia sobre precios reales (I:8 C:5 H:8 → 1.60)
-- [ ] **X4_backtester.py**: simulación histórica desde 2024-01-01 con parámetros dinámicos (búsqueda de nuevos soportes cada N días, cierre de operaciones por trailing stop o pérdida máxima, tracking de cuenta). Es la fuente primaria de training data para X5. (I:9 C:8 H:9 → 1.13)
-- [x] **Fecha/hora máxima por tupla (valor, N) para backtesting**: `_procesar_valor_N` acepta `fecha_hora_max` opcional — filtra datos hasta ese datetime, usa warm start desde `{valor}_{N}_bt.json` (cache `{datetime: [soportes]}`), delta desde `{valor}_{N}_bt_delta.json`. Sin look-ahead: la clave guardada es `df['DateTime'].iloc[-1]` (último dato realmente usado). Lookup: `max(t1 <= t0)`. X4 llama esta función directamente con `fecha_hora_max=t`. X0 producción sin cambios. (I:10 C:5 H:8 → 1.26)
-- [x] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78) — decisión: no es un script separado, la lógica va embebida en X4 como subrutina de simulación intra-vela. Ver `docs/decisiones.md` 2026-06-08.
-- [x] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
-
-### X5 — X5_model_training.py
-
-- [ ] **X5_model_training.py**: modelos supervisados sobre el store de trades. Predicciones: retorno esperado, probabilidad de pérdida, drawdown esperado, duración esperada. Evaluar overfitting (cross-val temporal, no aleatoria). Registrar qué modelos se probaron y por qué se eligió cada uno. (I:8 C:7 H:8 → 1.14)
-
-### X6 — X6_macro_brain.py
-
-- [ ] Definir schema de `config/active_parameters.json`: qué parámetros escribe X6 (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL, a, b, PERDIDA_MAX), con qué granularidad (por activo, global, o mixto). (I:5 C:2 H:7 → 2.96)
-- [ ] Definir frecuencia de ejecución de X6: ¿diario? ¿antes de cada corrida de X0? ¿en el loop de X1? Requiere discusión. (I:4 C:2 H:5 → 2.24)
-- [ ] **X6_macro_brain.py**: recomendación dinámica de parámetros. Lee features de X2/X3 y predicciones de X5. Output: `config/active_parameters.json` consumido por X0 y X1. Corre en Windows por ahora; idealmente compatible con Mac en el futuro. (I:9 C:8 H:5 → 0.84)
-
-### Transversal
-
-- [x] **Modificar skill `/todos`**: al preguntar qué sección elegir, mostrar nombre del grupo + cantidad de ítems pendientes + score del ítem más prioritario del grupo. Omitir grupos sin pendientes.
-- [ ] Evaluar compatibilidad de librería MT5 en macOS — si se resuelve, simplifica mucho el flujo Mac↔Windows. (I:6 C:3 H:5 → 1.83)
-- [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)
-- [x] Crear skill/comando `/push` para git push a rama desde Claude Code (I:3 C:2 H:4 → 1.73) — cubierto por la skill global `/update-push` (commit + push a la rama actual, con actualización de CLAUDE.md/README.md)
-- [x] **BIG PICTURE**: Mauricio explicó la visión completa — ver `docs/vision.md`. Arquitectura X0→X6 definida, orden de construcción declarado, decisiones de diseño registradas. (I:9 C:8 H:9 → 1.13)
-- [x] Rama `base_v0` → estado original (notebooks, estructura Windows)
-- [x] Rama `dev` → trabajo activo. Push inicial: migración X0 + X1 a .py
-- [x] Próximo push a `dev`: después de mejoras X0 (paralelización, velocidad) — ya estaba en `origin/dev` (commits hasta `c92a8f0`)
-
-### Definir si hacer
-
-Ítems válidos técnicamente pero cuyo valor real no está claro. Antes de implementarlos hay que decidir si efectivamente tienen sentido.
-
-- [ ] Separar descarga de datos en módulo independiente (hoy está en X0) (I:4 C:5 H:4 → 0.80)
-- [ ] **S7 — Criterio de parada por tasa de mejora**: agregar criterio adicional en `nuevo_optimizador_2` — si el promedio de las últimas `VENTANA_MEJORAS=10` mejoras aceptadas < `EPSILON_TASA=1e-6`, declarar convergencia aunque queden soportes sin evaluar. Complementa (no reemplaza) el criterio binario actual. Impacto principalmente cuando `delta_inicial` es muy pequeño. (I:1 C:2 H:1 → 0.50)
-
----
+Ver [`docs/todos.md`](docs/todos.md).
 
 ## Referencia base
 
@@ -253,6 +163,10 @@ Urgencias transversales. Una vez completadas (`[x]`), el ítem se mueve a su sec
 ---
 
 ## Última actualización
+
+**2026-06-12** — Correcciones X0 260612 + sep rutas prod vs backtesting
+
+`CARPETA_N2` reemplazada por `CARPETA_N_PROD` (`conjuntos_N/prod/`) y `CARPETA_N_BT` (`conjuntos_N/bt/`) en `config.py`, `X0_data_supports.py` y `X1_trading.py`. Firmas actualizadas: `_bt_warm_start`, `_bt_guardar`, `_procesar_valor_N`, `_seleccionar_combos`, `buscar_soportes`. `__main__` crea ambas carpetas. Skill `/todos` actualizada: al completar un ítem, eliminarlo de `todos.md` y moverlo a `docs/done.md`.
 
 **2026-06-11** — S1: Evaluación incremental de la FO
 

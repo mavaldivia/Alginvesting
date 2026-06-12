@@ -224,3 +224,39 @@ Mauricio: Abrió sesión con `/todos`, eligió sección X0 y pidió avanzar en S
 Claude: Presentó el plan en 5 puntos antes de implementar: tres funciones nuevas (`_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`), modificación del pre-loop y del inner loop de `nuevo_optimizador_2`. Mauricio aprobó sin cambios.
 Claude: Implementó las tres funciones y refactorizó `nuevo_optimizador_2`: `calcular_FO` baja de una llamada por iteración outer a una sola vez al inicio; `calcular_FO_batch` reemplazado por evaluación incremental que solo recalcula ~3n/N filas afectadas y 2 gaps del cv(H_n). Validación numérica: diffs 1e-19 (epsilon de máquina), mismo candidato ganador. Benchmark real BTCUSD N=130, M=30, n=38730: 1518 ms → 45 ms por iteración outer (33.5x speedup, exactamente lo estimado en el TO DO). S1 marcado como completado en CLAUDE.md.
 (Cierre: 2026-06-11 23:12)
+
+## SECCIÓN 25
+Mauricio: Abrió sesión con `/todos`, eligió Prioridad_0, pidió avanzar con el ítem 1 — loop continuo (`--loop`) no funciona correctamente. Aclaró que la idea es resolver N_MAX_MODELS combos en paralelo y cuando todos terminen, empezar de nuevo incluyendo la extracción de datos de MT5.
+Claude: Leyó `X0_data_supports.py` y `config.py`. Identificó dos bugs: (1) `descargar_datos` llama `sys.exit` en caso de fallo de MT5 — `SystemExit` no es capturado por `except KeyboardInterrupt`, matando el loop silenciosamente; (2) sin manejo de errores por ciclo, cualquier excepción en `buscar_soportes` también rompe el loop. Confirmó que `_seleccionar_combos` ya lee los `_delta.json` frescos desde disco en cada llamada — no había bug ahí. Aplicó dos cambios: cambió `sys.exit` por `raise RuntimeError` en `descargar_datos`; envolvió el cuerpo de cada ciclo en try-except que en modo `--loop` loguea el error y continúa, y en modo normal re-lanza. Marcó el ítem como [x] en CLAUDE.md.
+(Cierre: 2026-06-12 16:14)
+
+## SECCIÓN 26
+Mauricio: Abrió sesión con `/todos`, eligió X0, confirmó avanzar con el ítem 1 — "FO no decrece en el monitor de progreso".
+Claude: Leyó `X0_data_supports.py` para entender la estructura del monitor. Identificó la causa: el ciclo coarse→fine llama `nuevo_optimizador_2` dos veces; al iniciar la fase fine, `calcular_FO` recalcula la FO completa desde cero, lo que puede dar un valor marginalmente distinto al estado incremental acumulado en la fase coarse (floating-point), produciendo el dip en el monitor. Aplicó 5 cambios: reemplazó el centinela `0.0` por `None` en la inicialización del dict y en el handler de errores; actualizó el monitor para chequear `FO is not None`; en los dos puntos de escritura a `estado_compartido` en `nuevo_optimizador_2` aplicó `max(FO_actual, prev_fo)` para garantizar monotonicidad. Marcó el ítem como [x] en CLAUDE.md.
+(Cierre: 2026-06-12 16:25)
+
+## SECCIÓN 27
+Mauricio: Abrió sesión con `/todos`, eligió X0, y pidió avanzar conjuntamente con los ítems 2 y 3 — "cambios reportados inflados" e "inconsistencia entre convergencia reportada y `_delta.json`" — por estar relacionados.
+Claude: Leyó `X0_data_supports.py` y `config.py`. Diagnosticó que el root cause de ambos es el mismo: el inner loop del optimizador rompe al primer soporte que mejora (`break`), por lo que `casos_moviles` siempre es un subconjunto de vecinos y el scan completo (condición de `convergio=True`) nunca ocurre cuando hay micro-mejoras encadenadas. El optimizador puede aceptar 17,000+ cambios que ciclan sin ganar FO neta. Mauricio pidió explicación simplificada y la confirmó. Fix aplicado en `_procesar_valor_N`: `FO_final` se calcula antes de `delta_next`; si `|(FO_final - FO_ref) / FO_ref| < delta_actual`, se fuerza `convergio=True` → delta se reduce en la siguiente corrida, extinguiendo el cycling progresivamente. Ítems 2 y 3 marcados como [x] en CLAUDE.md.
+(Cierre: 2026-06-12 16:51)
+
+## SECCIÓN 28
+Mauricio: Abrió sesión con `/todos`, eligió la sección Transversal, y pidió implementar el ítem 1: mover los TO DOs de `CLAUDE.md` a un archivo separado `docs/todos.md` y actualizar la skill `update-push`. Además preguntó qué porcentaje de caracteres se eliminaría de `CLAUDE.md`.
+Claude: Midió que la sección `## TO DO` representaba el 38.9% de `CLAUDE.md` (16.4k de 41.6k chars). Creó `docs/todos.md` con el contenido completo del TO DO, reemplazó la sección en `CLAUDE.md` por un puntero de una línea (`Ver docs/todos.md`), actualizó la skill `update-push` para incluir `git add docs/todos.md` en el staging, y marcó el ítem como `[x]` en el nuevo archivo. Luego actualizó la skill `/todos` para detectar el puntero y leer/editar `docs/todos.md` en lugar de `CLAUDE.md`.
+(Cierre: 2026-06-12 17:00)
+
+## SECCIÓN 29
+Mauricio: Invocó `/todos` al inicio de sesión para ver los pendientes.
+Claude: Leyó `docs/todos.md`, detectó 9 secciones con pendientes y mostró la tabla priorizada (Prioridad_0 primero, luego por top score desc). X0 lidera con top 3.74, X4 tiene más ítems (4).
+
+Mauricio: Pidió separar `docs/todos.md` en dos archivos: uno solo con pendientes (`todos.md`) y otro solo con completados (`done.md`).
+Claude: Reescribió `docs/todos.md` conservando únicamente los `- [ ]` (20 ítems) y creó `docs/done.md` con todos los `- [x]` (32 ítems), manteniendo la estructura de secciones en ambos. El puntero en `CLAUDE.md` y la skill `/todos` no requirieron cambios.
+(Cierre: 2026-06-12 17:07)
+
+## SECCIÓN 30
+Mauricio: Pidió que la skill `/todos` incluya de forma natural el movimiento de ítems completados a `docs/done.md` al marcarlos como `[x]`.
+Claude: Actualizó la nota final de `~/.claude/skills/todos/SKILL.md`: al completar un ítem, eliminarlo del archivo de TO DO activo y moverlo a `docs/done.md` bajo la subsección equivalente, creando el archivo o la sección si no existen.
+
+Mauricio: Invocó `/todos` nuevamente, eligió X0 y pidió avanzar el ítem 1 — separar `conjuntos_N/` en `prod/` y `bt/`.
+Claude: Leyó `config.py`, `X0_data_supports.py` y `X1_trading.py`. Reemplazó `CARPETA_N2` por `CARPETA_N_PROD` y `CARPETA_N_BT` en `config.py`, actualizó el import y todas las referencias internas en X0 (firmas de `_bt_warm_start`, `_bt_guardar`, `_procesar_valor_N`, `_seleccionar_combos`, `buscar_soportes`, `__main__`) y X1 (`leer_lista_N`). Sin referencias residuales a `CARPETA_N2`. Ítem movido de `docs/todos.md` a `docs/done.md`.
+(Cierre: 2026-06-12 17:13)

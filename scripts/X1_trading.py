@@ -27,7 +27,7 @@ import MetaTrader5 as mt5
 warnings.filterwarnings('ignore')
 
 from config import (
-    CARPETA_N2,
+    CARPETA_N_PROD,
     VALORES, A, B, TS, PERDIDA_MAX, PRUEBA_TRAILING_STOP,
     LOTAJES, UNITS,
     n_sizes_ejecucion as n_sizes,
@@ -55,10 +55,10 @@ def leer_lista_N(valor: str, N: int) -> list:
     Lee el conjunto de N soportes desde el JSON generado por X0.
     Reintenta hasta 10 veces con pausa de 2s, por si X0 está escribiendo simultáneamente.
     """
-    json_path = CARPETA_N2 / f'{valor}_{N}.json'
+    json_path = CARPETA_N_PROD / f'{valor}_{N}.json'
     for _ in range(10):
         if json_path.exists():
-            lista_N = json_act(str(CARPETA_N2 / f'{valor}_{N}'))
+            lista_N = json_act(str(CARPETA_N_PROD / f'{valor}_{N}'))
             return [round(n, 2) for n in lista_N]
         time.sleep(2)
     sys.exit(f'No se encontró {json_path} después de 10 intentos')

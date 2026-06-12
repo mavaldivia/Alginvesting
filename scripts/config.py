@@ -12,7 +12,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
 CARPETA_DATA = BASE_DIR / 'Data'
-CARPETA_N2 = BASE_DIR / 'conjuntos_N'
+CARPETA_N_PROD = BASE_DIR / 'conjuntos_N' / 'prod'
+CARPETA_N_BT   = BASE_DIR / 'conjuntos_N' / 'bt'
 CARPETA_PLOTS = BASE_DIR / 'plots'
 CARPETA_LOGS = BASE_DIR / 'docs' / 'X0' / 'logs'
 

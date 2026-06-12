@@ -33,7 +33,7 @@ import tqdm
 warnings.filterwarnings('ignore')
 
 from config import (
-    CARPETA_DATA, CARPETA_N2, CARPETA_PLOTS, CARPETA_LOGS,
+    CARPETA_DATA, CARPETA_N_PROD, CARPETA_N_BT, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, M_COARSE, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
@@ -613,7 +613,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         mejora = False
 
         if estado_compartido is not None and llave:
-            estado_compartido[llave] = (cambios, max_pasos, FO_base, 'corriendo')
+            prev_fo = estado_compartido.get(llave, (0, 0, None, ''))[2]
+            fo_mostrar = FO_base if prev_fo is None else max(FO_base, prev_fo)
+            estado_compartido[llave] = (cambios, max_pasos, fo_mostrar, 'corriendo')
 
         for pos, i in enumerate(tqdm.tqdm(casos_moviles, disable=not verbose)):
             cota_inf = dic_N[i - 1] if (i - 1) in dic_N else p_min
@@ -649,7 +651,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 cambios += 1
                 max_pasos = max(max_pasos, pos + 1)
                 if estado_compartido is not None and llave:
-                    estado_compartido[llave] = (cambios, max_pasos, _estado['FO'], 'corriendo')
+                    prev_fo = estado_compartido.get(llave, (0, 0, None, ''))[2]
+                    fo_mostrar = _estado['FO'] if prev_fo is None else max(_estado['FO'], prev_fo)
+                    estado_compartido[llave] = (cambios, max_pasos, fo_mostrar, 'corriendo')
                 FO_base = _estado['FO']
                 particion_FO = [_estado['mean_z'], _estado['cv_Hn']]
                 i_change = i
@@ -781,7 +785,7 @@ def descargar_datos(valores: list, carpeta_data: Path):
     import MetaTrader5 as mt5
 
     if not mt5.initialize():
-        sys.exit(f'MT5 initialize() falló: {mt5.last_error()}')
+        raise RuntimeError(f'MT5 initialize() falló: {mt5.last_error()}')
 
     for valor in valores:
         print(f'\nDescargando {valor}...')
@@ -821,9 +825,9 @@ def descargar_datos(valores: list, carpeta_data: Path):
 
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
-def _bt_warm_start(carpeta_n2: Path, valor: str, N: int, fecha_hora_max) -> set:
+def _bt_warm_start(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> set:
     """Retorna el conjunto_N del cache bt más reciente con timestamp <= fecha_hora_max."""
-    bt_path = carpeta_n2 / f'{valor}_{N}_bt.json'
+    bt_path = carpeta_n_bt / f'{valor}_{N}_bt.json'
     if not bt_path.exists():
         return set()
     with open(bt_path) as f:
@@ -835,9 +839,9 @@ def _bt_warm_start(carpeta_n2: Path, valor: str, N: int, fecha_hora_max) -> set:
     return set(candidatos[mejor_t])
 
 
-def _bt_guardar(carpeta_n2: Path, valor: str, N: int, fecha_hora_clave, conjunto_N: set):
+def _bt_guardar(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_clave, conjunto_N: set):
     """Upsert de conjunto_N en el cache bt con clave = último datetime de los datos usados."""
-    bt_path = carpeta_n2 / f'{valor}_{N}_bt.json'
+    bt_path = carpeta_n_bt / f'{valor}_{N}_bt.json'
     cache = {}
     if bt_path.exists():
         with open(bt_path) as f:
@@ -880,7 +884,8 @@ def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
         json.dump(historial, f, indent=2)
 
 
-def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
+def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
+                      carpeta_n_prod: Path, carpeta_n_bt: Path,
                       ordenes_activas: list = [], fecha_hora_max=None,
                       estado_compartido=None, verbose: bool = True):
     """Worker para ProcessPoolExecutor: procesa un único par (valor, N).
@@ -930,12 +935,12 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
 
     # Warm start
     if es_bt:
-        conjunto_N_prev = _bt_warm_start(carpeta_n2, valor, N, fecha_hora_max)
+        conjunto_N_prev = _bt_warm_start(carpeta_n_bt, valor, N, fecha_hora_max)
         if verbose:
             print(f'  Warm start bt: {len(conjunto_N_prev)} soportes' if conjunto_N_prev
                   else '  Warm start bt: cold start')
     else:
-        json_path = carpeta_n2 / f'{valor}_{N}'
+        json_path = carpeta_n_prod / f'{valor}_{N}'
         conjunto_N_prev = set()
         if Path(f'{json_path}.json').exists():
             conjunto_N_prev = set(json_act(str(json_path)))
@@ -943,7 +948,9 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
                 print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
 
     # Delta
-    delta_path = carpeta_n2 / (f'{valor}_{N}_bt_delta.json' if es_bt else f'{valor}_{N}_delta.json')
+    delta_path = (carpeta_n_bt if es_bt else carpeta_n_prod) / (
+        f'{valor}_{N}_bt_delta.json' if es_bt else f'{valor}_{N}_delta.json'
+    )
     if delta_path.exists():
         with open(delta_path) as f:
             delta_actual = json.load(f)['delta_inicial']
@@ -993,13 +1000,22 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
 
     # Guardar soportes
     if es_bt:
-        _bt_guardar(carpeta_n2, valor, N, fecha_hora_clave, conjunto_N)
+        _bt_guardar(carpeta_n_bt, valor, N, fecha_hora_clave, conjunto_N)
         if verbose:
             print(f'  Guardado bt: {valor}_{N}_bt.json [{fecha_hora_clave}]')
     else:
         json_act(str(json_path), conjunto_N, 'save')
         if verbose:
             print(f'  Guardado: {json_path}.json')
+
+    FO_final, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
+
+    # Si la mejora neta es menor que delta_actual, el warm start era esencialmente óptimo:
+    # el optimizador cicló sin ganar terreno real (inner loop rompe al primer vecino mejorable,
+    # nunca completa el scan completo). Tratar como convergido para que delta se reduzca.
+    if not convergio and abs(FO_ref) > 0:
+        if abs((FO_final - FO_ref) / abs(FO_ref)) < delta_actual:
+            convergio = True
 
     # Guardar delta
     delta_next = delta_actual * FACTOR_DELTA if convergio else delta_actual
@@ -1011,8 +1027,6 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path, carpeta_n2: Path,
         json.dump({'delta_inicial': delta_next, 'convergio': convergio}, f)
     if verbose:
         print(f'  Guardado: {delta_path.name}')
-
-    FO_final, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
     t_fin = time.time()
 
     clave_bt = str(fecha_hora_clave) if es_bt else ''
@@ -1044,8 +1058,8 @@ def _monitor_tabla(estado, tuplas, stop_event):
         sys.stdout.write(f'\033[{n}A')
         for v, N in tuplas:
             llave = f'{v}_{N}'
-            cambios, iters, FO, estado_str = estado.get(llave, (0, 0, 0.0, 'esperando'))
-            fo_str = f'{FO:.4e}' if FO != 0.0 else '---'
+            cambios, iters, FO, estado_str = estado.get(llave, (0, 0, None, 'esperando'))
+            fo_str = f'{FO:.4e}' if FO is not None else '---'
             iter_str = str(iters) if iters >= 0 else 'conv.'
             line = f'{v} {N}: cambios={cambios:<6} iter={iter_str:<8} FO={fo_str:<14} [{estado_str}]'
             sys.stdout.write(f'\r{line:<75}\n')
@@ -1057,7 +1071,7 @@ def _monitor_tabla(estado, tuplas, stop_event):
     redraw()
 
 
-def _seleccionar_combos(valores: list, n_sizes: dict, carpeta_n2: Path, n_max=None) -> list:
+def _seleccionar_combos(valores: list, n_sizes: dict, carpeta_n_prod: Path, n_max=None) -> list:
     """
     Retorna la lista de tuplas (valor, N) a procesar en el próximo ciclo.
 
@@ -1072,8 +1086,8 @@ def _seleccionar_combos(valores: list, n_sizes: dict, carpeta_n2: Path, n_max=No
         if valor not in n_sizes:
             continue
         for N in n_sizes[valor]:
-            json_path = carpeta_n2 / f'{valor}_{N}.json'
-            delta_path = carpeta_n2 / f'{valor}_{N}_delta.json'
+            json_path = carpeta_n_prod / f'{valor}_{N}.json'
+            delta_path = carpeta_n_prod / f'{valor}_{N}_delta.json'
 
             if delta_path.exists():
                 with open(delta_path) as f:
@@ -1097,12 +1111,13 @@ def _seleccionar_combos(valores: list, n_sizes: dict, carpeta_n2: Path, n_max=No
     return [(v, n) for v, n, _, _ in sorted(seleccionados, key=lambda x: x[3])]
 
 
-def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2: Path,
+def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
+                    carpeta_n_prod: Path, carpeta_n_bt: Path,
                     ordenes_activas_mt5: dict = None, n_max=None):
     if ordenes_activas_mt5 is None:
         ordenes_activas_mt5 = {v: [] for v in valores}
 
-    tuplas_ordenadas = _seleccionar_combos(valores, n_sizes, carpeta_n2, n_max)
+    tuplas_ordenadas = _seleccionar_combos(valores, n_sizes, carpeta_n_prod, n_max)
     total_combos = sum(len(ns) for ns in n_sizes.values())
     filtrado = f'{len(tuplas_ordenadas)}/{total_combos} (top delta)' if (n_max and n_max < total_combos) else str(len(tuplas_ordenadas))
     print(f'Combos a procesar ({filtrado}):', tuplas_ordenadas)
@@ -1120,13 +1135,13 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
         if len(df_info):
             print(f'  Rango: {df_info["DateTime"].iloc[0]} → {df_info["DateTime"].iloc[-1]} ({len(df_info)} velas)')
             print(f'  Último cierre: {df_info["Close"].iloc[-1]:.2f}')
-        json_path = carpeta_n2 / f'{v}_{n}'
+        json_path = carpeta_n_prod / f'{v}_{n}'
         if Path(f'{json_path}.json').exists():
             prev = set(json_act(str(json_path)))
             print(f'  Warm start: {len(prev)} soportes')
         else:
             print('  Warm start: cold start')
-        delta_path = carpeta_n2 / f'{v}_{n}_delta.json'
+        delta_path = carpeta_n_prod / f'{v}_{n}_delta.json'
         if delta_path.exists():
             with open(delta_path) as f:
                 delta_val = json.load(f)['delta_inicial']
@@ -1137,7 +1152,7 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
     with multiprocessing.Manager() as manager:
         estado = manager.dict()
         for v, n in tuplas_ordenadas:
-            estado[f'{v}_{n}'] = (0, 0, 0.0, 'esperando')
+            estado[f'{v}_{n}'] = (0, 0, None, 'esperando')
 
         stop_event = threading.Event()
         monitor = threading.Thread(target=_monitor_tabla, args=(estado, tuplas_ordenadas, stop_event), daemon=True)
@@ -1145,7 +1160,7 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
 
         with concurrent.futures.ProcessPoolExecutor() as executor:
             futures = {
-                executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n2,
+                executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n_prod, carpeta_n_bt,
                                 ordenes_activas_mt5.get(v, []), None, estado, False): (v, n)
                 for v, n in tuplas_ordenadas
             }
@@ -1154,7 +1169,7 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path, carpeta_n2
                 try:
                     future.result()
                 except Exception as exc:
-                    prev = estado.get(f'{valor}_{N}', (0, 0, 0.0, 'ERROR'))
+                    prev = estado.get(f'{valor}_{N}', (0, 0, None, 'ERROR'))
                     estado[f'{valor}_{N}'] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
                     print(f'\nError en ({valor}, N={N}): {exc}')
 
@@ -1177,7 +1192,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
-    CARPETA_N2.mkdir(parents=True, exist_ok=True)
+    CARPETA_N_PROD.mkdir(parents=True, exist_ok=True)
+    CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
 
     ciclo = 0
     try:
@@ -1188,16 +1204,30 @@ if __name__ == '__main__':
                       + (f' — top {N_MAX_MODELS} combos' if N_MAX_MODELS else ' — todos los combos')
                       + f'\n{"═"*55}')
 
-            if args.opcion in (0, 2):
-                print('\n── Etapa 1: Descarga de datos ──────────────────────────')
-                descargar_datos(VALORES, CARPETA_DATA)
+            try:
+                if args.opcion in (0, 2):
+                    print('\n── Etapa 1: Descarga de datos ──────────────────────────')
+                    try:
+                        descargar_datos(VALORES, CARPETA_DATA)
+                    except Exception as e:
+                        if args.loop:
+                            print(f'  Advertencia: descarga de datos falló ({e}). '
+                                  f'Continuando con datos existentes.')
+                        else:
+                            raise
 
-            if args.opcion in (1, 2):
-                print('\n── Etapa 2: Búsqueda de soportes ───────────────────────')
-                print('Consultando posiciones activas en MT5...')
-                ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
-                buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N2, ordenes_activas_mt5,
-                                n_max=N_MAX_MODELS)
+                if args.opcion in (1, 2):
+                    print('\n── Etapa 2: Búsqueda de soportes ───────────────────────')
+                    print('Consultando posiciones activas en MT5...')
+                    ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
+                    buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N_PROD, CARPETA_N_BT, ordenes_activas_mt5,
+                                    n_max=N_MAX_MODELS)
+
+            except Exception as e:
+                if args.loop:
+                    print(f'\nError en ciclo {ciclo}: {e}. Reintentando en el próximo ciclo.')
+                else:
+                    raise
 
             if not args.loop:
                 break

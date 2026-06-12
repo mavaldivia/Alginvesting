@@ -143,3 +143,19 @@ Cuando converje un par valor-N, mostrar el tiempo en minutos que le tomó conver
 
   Repite para prioridades 2 y 3 exactamente lo mismo
   Necesito 100% autonomia de tu parte, por lo tanto
+
+
+  -----------------
+
+1. To dos realizados en otro archivo (para que no lea tanto contexto). Cambiar la skill del push (update-push?) para que haga bien esto.
+2. No se está resolviendo x0 como un while True continuo.
+3. Separar conjuntos_N en productivo vs backtesting. Cada una de ellas separarla en sobres y delta.
+4. En el output de x0, se muestra que la FO sube y baja. La idea es que ahí se muestre solo la mejor solución encontrada (que no decrezca).
+5. Eventualmente, una tupla como googl_90 indica en el output que convergió, pero al revisar su delta.json aparece que no. Revisar esa inconsistencia entre el estado reportado y el contenido del delta.
+6. Los cambios reportados en el output se ven demasiado altos.
+7. Ejemplo de inconsistencia detectado:
+Entre dos ejecuciones de googl_90, mostró la misma FO.
+Reportó el mismo número de cambios (17.247).
+Mantuvo el mismo delta.
+Sin embargo, indicó que no convergió.
+Si la solución es idéntica a la versión anterior, entonces debería registrar 0 cambios, marcar que convergió y disminuir el delta.
