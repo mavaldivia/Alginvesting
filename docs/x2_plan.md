@@ -233,6 +233,48 @@ PESOS_CRYPTO = {
 }
 ```
 
+### 3.5 Historial del score (x2_history.json)
+
+**Propósito**: registrar cada corrida exitosa de X2 en un archivo acumulativo. Sirve para:
+- Analizar evolución del sentimiento fundamental por activo a lo largo del tiempo.
+- Proveer feature temporal a X5/X6 (¿el score viene subiendo o bajando en los últimos días?).
+
+**Archivo**: `fundamentals/x2_history.json`  
+Formato: lista JSON donde cada entrada es un objeto con los campos:
+
+```json
+[
+  {
+    "datetime": "2026-06-12T21:00:00",
+    "activo": "NVDA",
+    "score": 0.91,
+    "components": {"roe": 0.95, "margins": 0.87, "fcf_yield": 0.83, ...}
+  },
+  ...
+]
+```
+
+**Escritura (upsert por día)**:
+- Clave de upsert: `(date(datetime), activo)` — una entrada por activo por día.
+- Si ya existe una entrada con la misma fecha y activo, se sobreescribe (permite re-ejecución forzada a las `X2_HORA_EJECUCION` sin duplicar).
+- El archivo se carga completo, se filtra la clave duplicada si existe, se agrega la nueva entrada, y se guarda.
+
+**Función en el script**:
+```python
+def guardar_historial(scores: dict)
+    # carga x2_history.json (o lista vacía si no existe)
+    # filtra entradas con (date == hoy, activo in scores)
+    # agrega una entrada por activo con datetime actual, score y components
+    # guarda lista actualizada en x2_history.json
+```
+
+Llamar en `__main__` después de `guardar_scores`.
+
+**Uso futuro en X5/X6**:  
+Calcular `score_delta_7d = score_hoy - score_hace_7_dias` por activo como feature de tendencia fundamental. Requiere al menos 7 días de historia acumulada.
+
+---
+
 ### 2.4 Pesos como inicialización, no como valores permanentes
 
 Los pesos definidos en 2.2 y 2.3 (y en `PESOS_STOCK` / `PESOS_CRYPTO` de `config.py`) son **valores iniciales** — una hipótesis de partida razonable dado el dominio, no la configuración definitiva.
@@ -270,8 +312,9 @@ Ambos son 0.20, pero en categorías distintas (calidad vs. sentimiento), y la ca
 3. Implementar `_get_stock_data` y `_get_crypto_data` (llamadas a API, manejo de nulos).
 4. Implementar `_score_stock` y `_score_crypto` con la normalización descrita.
 5. Implementar `calcular_scores` y `guardar_scores`.
-6. Testear con los 6 activos y verificar que los scores tienen sentido (NVDA debería estar alto hoy dado ROE=114%).
-7. Integrar llamada a X2 en el `if __name__ == '__main__'` de X0 (antes de buscar soportes), o como script independiente.
+6. Implementar `guardar_historial` (upsert en `fundamentals/x2_history.json`).
+7. Testear con los 6 activos y verificar que los scores tienen sentido (NVDA debería estar alto hoy dado ROE=114%).
+8. Integrar llamada a X2 en el `if __name__ == '__main__'` de X0 (antes de buscar soportes), o como script independiente.
 
 ---
 

@@ -46,6 +46,9 @@
 
 ### X2 — X2_fundamentals.py
 
+- [x] **[x2_plan punto 4] Guardar historial del score X2**: al calcular el score por activo, hacer upsert en un archivo histórico (`fundamentals/x2_history.json` con entradas `{datetime, activo, score, components}`) para permitir análisis de evolución del sentimiento y uso como feature en X5/X6. Diseño detallado en sección 3.5 de `docs/x2_plan.md`. (I:6 C:2 H:7 → 2.92)
+- [x] **Leer plan en `docs/x2_plan.md` y confirmar implementación**: revisar diseño de fuentes, score y arquitectura propuestos; aprobar o ajustar antes de codificar. (I:3 C:1 H:9 → 5.20)
+- [x] Definir y evaluar fuentes de datos para X2: yfinance, MT5, investing.com, CoinGecko, Glassnode u otras. Qué cubre cada una, qué tan confiable y actualizable es. (I:5 C:2 H:8 → 3.16)
 - [x] **[x2_plan cap.2] Los pesos iniciales del score son fijos por ahora, pero X6 DEBE incorporar lógica de aprendizaje sobre ellos**: los ponderadores del score compuesto (fundamentales + on-chain + sentimiento) deben ser parámetros entrenables que X6 ajuste según el historial de trades. Dejar los pesos actuales como inicialización, no como valores permanentes. (I:8 C:3 H:9 → 4.90)
 - [x] **[x2_plan paso 3] Marcar día ya ejecutado**: al correr X2 al inicio de X0, guardar en disco la fecha de la última ejecución (`fundamentals/x2_last_run.json` con campo `fecha`). Si ya se ejecutó hoy, saltear. Evita re-ejecutar en cada ciclo del `while True` o cada corrida manual de X0. (I:4 C:1 H:9 → 6.00)
 - [x] **[x2_plan paso 3] Ejecutar X2 al menos una vez al día en el loop de X0**: en el `while True` de X0, forzar ejecución de X2 a una hora determinada aunque ya se haya ejecutado al inicio del loop ese día — garantiza que el score se actualice diariamente en corridas de varios días seguidos. Hora configurable vía `X2_HORA_EJECUCION` en `config.py`. (I:5 C:2 H:8 → 3.16)

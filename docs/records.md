@@ -285,3 +285,8 @@ Claude: Leyó `docs/x2_plan.md` e identificó dónde encajaba cada ítem: (1) nu
 Mauricio: Confirmó y pidió marcar los 3 ítems como completados.
 Claude: Eliminó los 3 ítems de `docs/todos.md` y los movió a `docs/done.md` bajo la nueva sección `### X2 — X2_fundamentals.py`.
 (Cierre: 2026-06-12 18:13)
+
+## SECCIÓN 34
+Mauricio: Abrió sesión con `/todos`, eligió trabajar en X2. Marcó como completados los ítems "Leer plan en x2_plan.md y confirmar implementación" (5.20) y "Definir y evaluar fuentes de datos para X2" (3.16). Luego pidió agregar más detalle al plan sobre el ítem de historial del score X2 y marcarlo como ok también.
+Claude: Ejecutó `/todos` mostrando 9 secciones con pendientes. Movió los dos ítems de X2 a `docs/done.md`. Agregó sección 3.5 a `docs/x2_plan.md` con diseño completo del historial: schema de `fundamentals/x2_history.json`, lógica de upsert por día (clave `date × activo`), firma de `guardar_historial`, y uso futuro en X5/X6 vía `score_delta_7d`. Actualizó paso 6 en sección 5 del plan. Movió el ítem de historial a `docs/done.md`.
+(Cierre: 2026-06-12 18:45)

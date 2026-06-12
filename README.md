@@ -136,6 +136,7 @@ python scripts/X1_trading.py
 
 ## Changelog
 
+- **2026-06-12** — X2: historial del score — sección 3.5 en x2_plan.md + TO DO actualizados
 - **2026-06-12** — X2: investigación fuentes + plan docs/x2_plan.md + ítem TO DO
 - **2026-06-12** — Correcciones X0 260612 + sep rutas prod vs backtesting
 - **2026-06-11** — S1: evaluación incremental de la FO (33.5x speedup)
