@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-12** — docs: guía git Mac→Windows
+
+`docs/guia_git.md` creado: explica por qué `Data/` (trackeado en git) se sobreescribiría con `git pull` en Windows y cómo evitarlo con `git update-index --skip-worktree` por CSV. Incluye setup inicial, workflow diario, manejo de nuevos activos y caso de actualización forzada.
+
 **2026-06-12** — X2: historial del score — sección 3.5 en x2_plan.md + TO DO actualizados
 
 **2026-06-12** — X2: clarificar plan (pesos, guard de día, hora ejecución)

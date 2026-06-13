@@ -1,0 +1,86 @@
+[
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-12T21:16:58.631655",
+    "t_fin": "2026-06-12T21:17:10.676845",
+    "duracion_s": 12.05,
+    "iteraciones": 1152,
+    "cambios": 1152,
+    "FO_inicial": -0.00224375,
+    "FO_final": -0.00070921,
+    "delta_final": 7e-05,
+    "convergio": true
+  },
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-12T21:17:51.826956",
+    "t_fin": "2026-06-12T21:18:00.648937",
+    "duracion_s": 8.82,
+    "iteraciones": 352,
+    "cambios": 352,
+    "FO_inicial": -0.00070921,
+    "FO_final": -0.00066069,
+    "delta_final": 4.899999999999999e-05,
+    "convergio": true
+  },
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-12T21:18:02.267785",
+    "t_fin": "2026-06-12T21:18:12.099360",
+    "duracion_s": 9.83,
+    "iteraciones": 737,
+    "cambios": 737,
+    "FO_inicial": -0.00066069,
+    "FO_final": -0.00058908,
+    "delta_final": 3.4299999999999993e-05,
+    "convergio": true
+  },
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-12T21:18:14.321856",
+    "t_fin": "2026-06-12T21:18:31.818978",
+    "duracion_s": 17.5,
+    "iteraciones": 3371,
+    "cambios": 3371,
+    "FO_inicial": -0.00058908,
+    "FO_final": -0.00039671,
+    "delta_final": 2.4009999999999995e-05,
+    "convergio": true
+  },
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-12T21:18:34.609906",
+    "t_fin": "2026-06-12T21:19:31.173966",
+    "duracion_s": 56.56,
+    "iteraciones": 20000,
+    "cambios": 20000,
+    "FO_inicial": -0.00039671,
+    "FO_final": -5.464e-05,
+    "delta_final": 2.4009999999999995e-05,
+    "convergio": false
+  },
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-12T21:19:33.608001",
+    "t_fin": "2026-06-12T21:20:29.292808",
+    "duracion_s": 55.68,
+    "iteraciones": 20000,
+    "cambios": 20000,
+    "FO_inicial": -5.464e-05,
+    "FO_final": -9.25e-06,
+    "delta_final": 2.4009999999999995e-05,
+    "convergio": false
+  },
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-12T21:20:31.624639",
+    "t_fin": "2026-06-12T21:21:26.815675",
+    "duracion_s": 55.19,
+    "iteraciones": 20000,
+    "cambios": 20000,
+    "FO_inicial": -9.25e-06,
+    "FO_final": -4.3e-07,
+    "delta_final": 2.4009999999999995e-05,
+    "convergio": false
+  }
+]

@@ -290,3 +290,18 @@ Claude: Eliminó los 3 ítems de `docs/todos.md` y los movió a `docs/done.md` b
 Mauricio: Abrió sesión con `/todos`, eligió trabajar en X2. Marcó como completados los ítems "Leer plan en x2_plan.md y confirmar implementación" (5.20) y "Definir y evaluar fuentes de datos para X2" (3.16). Luego pidió agregar más detalle al plan sobre el ítem de historial del score X2 y marcarlo como ok también.
 Claude: Ejecutó `/todos` mostrando 9 secciones con pendientes. Movió los dos ítems de X2 a `docs/done.md`. Agregó sección 3.5 a `docs/x2_plan.md` con diseño completo del historial: schema de `fundamentals/x2_history.json`, lógica de upsert por día (clave `date × activo`), firma de `guardar_historial`, y uso futuro en X5/X6 vía `score_delta_7d`. Actualizó paso 6 en sección 5 del plan. Movió el ítem de historial a `docs/done.md`.
 (Cierre: 2026-06-12 18:45)
+
+## SECCIÓN 35
+Mauricio: Preguntó dónde estaba documentada la lógica de X1.5 intra-vela para backtesting, específicamente cuándo usar velas por minuto.
+Claude: Ubicó el diseño en `docs/decisiones.md:70-84` (entrada 2026-06-08). Resumió el trigger de tres condiciones (`hay_soporte_en_rango`, `puede_activar_ts`, `puede_activar_perdida_max`) y el método de escalado (60 registros M1 aleatorios escalados al OHLC H1). Aclaró que no existe código aún — todo es diseño documentado.
+Mauricio: Pidió agregar la lógica intra-vela al TO DO de X4 como uno o más ítems.
+Claude: Propuso dos ítems separados: (1) descarga incremental de `Data_minuto/` en X0 (I:6 C:3 H:8 → 2.31) y (2) subrutina intra-vela en X4 (I:7 C:5 H:7 → 1.40). Mauricio confirmó y los agregó a `docs/todos.md` en el lugar correcto por score dentro de la sección X4.
+Mauricio: Pidió agregar al TO DO de X4 la estructura de carpetas para backtesting: `x4_backtesting/config/` con un `config_[version].py` por versión, misma estructura que `config.py`.
+Claude: Agregó el ítem "Estructura de carpetas y configs por versión de backtesting" (I:5 C:2 H:8 → 3.16) entre el schema de trades y DELTA por versión en `docs/todos.md`.
+(Cierre: 2026-06-12 20:29)
+
+## SECCIÓN 36
+
+Mauricio: Preguntó cómo replicar el repo de Mac a Windows manteniendo intactas las carpetas `conjuntos_N/` y `Data/` en Windows. Pidió un documento paso a paso en `docs/guia_git.md`. Luego pidió aclaración sobre el bloque `git add` con archivos específicos que había quedado en la guía.
+Claude: Revisó `.gitignore` y estructura del repo — confirmó que `conjuntos_N/` ya está ignorado (sin problema) pero `Data/` sí está trackeado en git. Creó `docs/guia_git.md` con: explicación del problema, setup inicial en Windows usando `git update-index --skip-worktree` por cada CSV, workflow diario Mac→Windows, instrucciones para nuevos activos y para forzar actualización excepcional, y tabla resumen. Tras la consulta de aclaración, simplificó el bloque de Mac a `git add -A` (en Mac nunca se modifica `Data/` porque MT5 no corre ahí, así que no hay riesgo).
+(Cierre: 2026-06-12 21:27)

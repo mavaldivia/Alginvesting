@@ -986,7 +986,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         ordenes_activas=oa, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
         estado_compartido=estado_compartido, llave=llave, verbose=verbose,
     )
-    df_FO_2['Iteracion'] += len(df_FO_1)
+    if not df_FO_2.empty:
+        df_FO_2['Iteracion'] += len(df_FO_1)
     df_FO = pd.concat([df_FO_1, df_FO_2], ignore_index=True)
     cambios = cambios_1 + cambios_2
     max_pasos = max(max_pasos_1, max_pasos_2)

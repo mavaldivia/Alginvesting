@@ -31,10 +31,16 @@ n_sizes = {
     'NVDA':   [50, 60, 70, 80, 90, 100, 110, 120],
     'AMZN':   [50, 60, 70, 80, 90, 100, 110, 120],
 }
-"""
+
 
 n_sizes = {
     'BTCUSD': [70, 100],
+    'ETHUSD': [70, 100],
+}
+"""
+
+n_sizes = {
+    'GOOGL': [70, 80, 90, 100],
     'ETHUSD': [70, 100],
 }
 
@@ -85,7 +91,7 @@ MAX_ITERS = 10000  # tope de iteraciones del optimizador (cota del tiempo de eje
 # Combos a ejecutar por ciclo en modo --loop.
 # None = todos los combos en cada ciclo (comportamiento original).
 # Entero = selecciona los N pares (valor, N) con mayor delta_inicial actual (más prometedores).
-N_MAX_MODELS = 4
+N_MAX_MODELS = 6
 
 # ─── Visualizaciones ──────────────────────────────────────────────────────────
 # Desactivadas por defecto para ejecución sin cabeza en Windows.
