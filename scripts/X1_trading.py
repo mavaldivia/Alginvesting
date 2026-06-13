@@ -320,46 +320,59 @@ if __name__ == '__main__':
                 mt5.symbol_select(valor, True)
             print(f'OK: {info.name} (visible={info.visible})')
 
+    def _fmt_duracion(s):
+        s = int(s)
+        if s < 60:
+            return f'{s}s'
+        h, rem = divmod(s, 3600)
+        m, seg = divmod(rem, 60)
+        return f'{h:02d}:{m:02d}:{seg:02d}'
+
     print('\nInicio del loop de trading')
     t0 = time.time()
     dic_seguimiento = {}
     i = 0
 
-    while True:
-        time_sleep = True
+    try:
+        while True:
+            time_sleep = True
 
-        for valor in VALORES:
-            L = LOTAJES[valor] * UNITS[valor]
+            for valor in VALORES:
+                L = LOTAJES[valor] * UNITS[valor]
 
-            if not PRUEBA_TRAILING_STOP:
-                N = n_sizes[valor]
-                lista_N = leer_lista_N(valor, N)
+                if not PRUEBA_TRAILING_STOP:
+                    N = n_sizes[valor]
+                    lista_N = leer_lista_N(valor, N)
 
-            lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
+                lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
 
-            # A: Limpiar órdenes pendientes que ya no corresponden a soportes vigentes
-            if not PRUEBA_TRAILING_STOP and (i % int(5 / TS) == 0):
-                limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
+                # A: Limpiar órdenes pendientes que ya no corresponden a soportes vigentes
+                if not PRUEBA_TRAILING_STOP and (i % int(5 / TS) == 0):
+                    limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
 
-            # B: Crear órdenes de compra pendientes en soportes válidos
-            if not PRUEBA_TRAILING_STOP:
-                crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
+                # B: Crear órdenes de compra pendientes en soportes válidos
+                if not PRUEBA_TRAILING_STOP:
+                    crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
 
-            # C: Trailing stop en posiciones abiertas
-            trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)
+                # C: Trailing stop en posiciones abiertas
+                trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)
 
-            # D: Cierre por pérdida máxima
-            controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX)
+                # D: Cierre por pérdida máxima
+                controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX)
 
-        # Si alguna posición tiene trailing stop activo → no dormir (reaccionar rápido)
-        for c in dic_seguimiento:
-            if dic_seguimiento[c]:
-                time_sleep = False
+            # Si alguna posición tiene trailing stop activo → no dormir (reaccionar rápido)
+            for c in dic_seguimiento:
+                if dic_seguimiento[c]:
+                    time_sleep = False
 
-        if i % int(5000 / TS) == 0:
-            print(f'\nIteración {i} | Tiempo: {round((time.time() - t0) / 60, 1)} min')
-            informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
+            if i % int(5000 / TS) == 0:
+                print(f'\nIteración {i} | Tiempo: {round((time.time() - t0) / 60, 1)} min')
+                informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
 
-        i += 1
-        if time_sleep:
-            time.sleep(TS)
+            i += 1
+            if time_sleep:
+                time.sleep(TS)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print(f'\nTiempo total: {_fmt_duracion(time.time() - t0)}')

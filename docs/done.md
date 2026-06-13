@@ -6,12 +6,9 @@
 
 - [x] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)
 
-### Prioridad_0
-
-- [x] **X0: loop continuo (`--loop`) no funciona correctamente**: el ciclo `while True` no reinicia como se espera — verificar que tras converger todos los combos el loop vuelve a ejecutar descarga + soportes con los deltas actualizados, y que `_seleccionar_combos` refleja el estado real de cada `_delta.json` al inicio de cada vuelta. (I:9 C:2 H:9 → 4.50)
-
 ### X0 — X0_data_supports.py
 
+- [x] **X0: loop continuo (`--loop`) no funciona correctamente**: el ciclo `while True` no reinicia como se espera — verificar que tras converger todos los combos el loop vuelve a ejecutar descarga + soportes con los deltas actualizados, y que `_seleccionar_combos` refleja el estado real de cada `_delta.json` al inicio de cada vuelta. (I:9 C:2 H:9 → 4.50)
 - [x] **Formato de outputs en paralelo**: al terminar cada par (valor, N) en modo paralelo, imprimir una línea con el tiempo que tardó en converger y si convergió o no. El resumen se imprime después de que el monitor para (sin interferir con el redibujado). `_procesar_valor_N` retorna `(duracion_s, convergio)`; el loop `as_completed` acumula en `resultados_tiempo` y se imprime tras `monitor.join()`.
 - [x] **Separar `conjuntos_N/` en productivo vs backtesting**: reorganizar en `conjuntos_N/prod/{VALOR}_{N}.json`, `conjuntos_N/prod/{VALOR}_{N}_delta.json`, `conjuntos_N/bt/{VALOR}_{N}_bt.json`, `conjuntos_N/bt/{VALOR}_{N}_bt_delta.json`. Actualizar rutas en `config.py`, X0 y X1. Evita mezclar archivos de producción con cache de bt y facilita limpiar uno sin afectar el otro. (I:7 C:2 H:8 → 3.74)
 - [x] **FO no decrece en el monitor de progreso**: el output en vivo muestra la FO de la iteración actual, que puede bajar. Debe mostrar solo la mejor FO encontrada hasta el momento (monotónicamente no decreciente). Requiere mantener `fo_mejor` por combo en el estado compartido del monitor y actualizar solo si `FO_actual > fo_mejor`. (I:5 C:1 H:7 → 5.92)
@@ -65,6 +62,7 @@
 
 ### Transversal
 
+- [x] **Tiempo de ejecución al final de cada script**: al terminar `X0_data_supports.py`, `X1_trading.py` y cualquier script Python del proyecto, imprimir el tiempo total transcurrido (formato `HH:MM:SS` o segundos si < 60 s). Implementar con `time.time()` en el `if __name__ == '__main__'` de cada script. (I:3 C:1 H:2 → 2.45)
 - [x] **Modificar skill `/todos`**: al preguntar qué sección elegir, mostrar nombre del grupo + cantidad de ítems pendientes + score del ítem más prioritario del grupo. Omitir grupos sin pendientes.
 - [x] **TO DOs en archivo separado + actualizar skill `update-push`**: mover los ítems TO DO de `CLAUDE.md` a `docs/todos.md` para reducir el contexto que Claude carga en cada sesión. Adaptar la skill `update-push` para que incluya `docs/todos.md` en el staging y mantenga `CLAUDE.md` sin la sección TO DO (o con solo un puntero a `docs/todos.md`). (I:8 C:2 H:8 → 4.00)
 - [x] Definir cuándo y cómo mergear `dev` → `master` (primera versión estable) — ver `docs/decisiones.md` 2026-06-07: merge solo tras validar X0+X1 en Windows con MT5 real, vía merge commit normal (sin squash)

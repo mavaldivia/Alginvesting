@@ -6,12 +6,6 @@
 
 Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md` en su sección correcta.
 
-- [ ] **Tiempo de ejecución al final de cada script**: al terminar `X0_data_supports.py`, `X1_trading.py` y cualquier script Python del proyecto, imprimir el tiempo total transcurrido (formato `HH:MM:SS` o segundos si < 60 s). Implementar con `time.time()` en el `if __name__ == '__main__'` de cada script. (I:3 C:1 H:2 → 2.45)
-
-### X0 — X0_data_supports.py
-
-- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
-
 ### X3 — X3_technical_features.py
 
 - [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes). (I:7 C:5 H:7 → 1.40)
@@ -36,9 +30,10 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 - [ ] Definir frecuencia de ejecución de X6: ¿diario? ¿antes de cada corrida de X0? ¿en el loop de X1? Requiere discusión. (I:4 C:2 H:5 → 2.24)
 - [ ] **X6_macro_brain.py**: recomendación dinámica de parámetros. Lee features de X2/X3 y predicciones de X5. Output: `config/active_parameters.json` consumido por X0 y X1. Corre en Windows por ahora; idealmente compatible con Mac en el futuro. (I:9 C:8 H:5 → 0.84)
 
-### Transversal
+### Backlog
 
 - [ ] Evaluar compatibilidad de librería MT5 en macOS — si se resuelve, simplifica mucho el flujo Mac↔Windows. (I:6 C:3 H:5 → 1.83)
+- [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
 
 ### Definir si hacer
 

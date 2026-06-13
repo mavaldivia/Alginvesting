@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-13** — Prioridad_0: tiempo ejecución scripts + listo Xs en monitor
+
+X0: tabla de progreso muestra `[listo Xs]` en vez de `[listo]` al converger cada combo. `__main__` de X0 y X1 imprimen tiempo total al terminar (`HH:MM:SS` o segundos si < 60s), usando `_fmt_duracion` + `finally`. `done.md`: eliminada sección `Prioridad_0` — sus ítems reasignados a `X0` y `Transversal`. Skill `/todos` actualizada: al mover completados a `done.md`, usar `X(N)` o `Transversal` según contenido.
+
 **2026-06-12** — X2: score_tendencia + date en historial + validadores
 
 `score_tendencia` (longitudinal): compara raw values de hoy vs hace `DIAS_TENDENCIA=30` días en historial; delta_pct por campo normalizado con `_norm_sym`; campos invertidos negados; `fear_greed` excluido. Score final = `(1-W_TENDENCIA) × score_cross + W_TENDENCIA × score_tendencia` (0.5 neutral si <7 días de historia). `x2_history.json` ahora guarda campo `raw` (valores crudos pre-normalización) y usa `date` en vez de `datetime`. Staleness warning si se saltaron días. `_metadata.ultima_ejecucion` en `scores.json`. `W_TENDENCIA=0.20` y `DIAS_TENDENCIA=30` agregados a `config.py`.

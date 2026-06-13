@@ -327,3 +327,11 @@ Claude: Respondió con honestidad que `date` es suficiente: X2 corre una vez al 
 Mauricio: Preguntó si se están guardando los componentes crudos.
 Claude: Confirmó: cada entrada del historial guarda `components` (valores normalizados 0–1, útil para X5/X6) y `raw` (valores crudos de yfinance, útil para tendencia — el normalizado no sirve porque depende del universo del día).
 (Cierre: 2026-06-12 22:17)
+
+## SECCIÓN 39
+Mauricio: Invocó `/todos`. Eligió trabajar en Prioridad_0 (único ítem: tiempo de ejecución al final de cada script). Pidió implementarlo y además mostrar el tiempo en segundos junto al `[listo]` en la tabla de progreso de X0.
+Claude: Implementó tres cambios: (1) en `_procesar_valor_N`, el estado `'listo'` pasa a `f'listo {round(duracion)}s'`; (2) en X0 `__main__`, agregó `_fmt_duracion` + `t_inicio_script` + `finally: print(Tiempo total: ...)`; (3) en X1, envolvió el `while True` en `try/except KeyboardInterrupt/finally` con el mismo print. Verificó sintaxis con `py_compile`.
+
+Mauricio: Pidió que en `done.md` no exista el grupo `Prioridad_0` — los ítems completados deben ir a `X(algo)` o `Transversal` según corresponda.
+Claude: Movió los dos ítems de `Prioridad_0` en `done.md`: el del loop continuo de X0 → `### X0 — X0_data_supports.py`; el de tiempo de ejecución → `### Transversal`. Eliminó la sección `Prioridad_0` de `done.md`. Actualizó la skill `/todos` para que la regla quede explícita: al mover completados a `done.md`, usar `X(N)` o `Transversal` según contenido, nunca replicar el nombre de la sección origen.
+(Cierre: 2026-06-12 22:34)

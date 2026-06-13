@@ -1046,7 +1046,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
               f'({mins}m {segs:.1f}s | iters={len(df_FO)} | convergio={convergio})')
 
     if estado_compartido is not None:
-        estado_compartido[llave] = (cambios, -1, FO_final, 'listo')
+        estado_compartido[llave] = (cambios, -1, FO_final, f'listo {round(duracion)}s')
 
     return round(duracion, 1), convergio
 
@@ -1212,6 +1212,16 @@ if __name__ == '__main__':
     CARPETA_N_PROD.mkdir(parents=True, exist_ok=True)
     CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
 
+    t_inicio_script = time.time()
+
+    def _fmt_duracion(s):
+        s = int(s)
+        if s < 60:
+            return f'{s}s'
+        h, rem = divmod(s, 3600)
+        m, seg = divmod(rem, 60)
+        return f'{h:02d}:{m:02d}:{seg:02d}'
+
     ciclo = 0
     try:
         while True:
@@ -1251,3 +1261,5 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         print(f'\nDetenido por el usuario tras {ciclo} ciclo(s).')
+    finally:
+        print(f'Tiempo total: {_fmt_duracion(time.time() - t_inicio_script)}')
