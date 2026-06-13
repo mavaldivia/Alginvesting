@@ -2,6 +2,10 @@
 
 Ítems completados, organizados por sección.
 
+### X2 — X2_fundamentals.py
+
+- [x] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)
+
 ### Prioridad_0
 
 - [x] **X0: loop continuo (`--loop`) no funciona correctamente**: el ciclo `while True` no reinicia como se espera — verificar que tras converger todos los combos el loop vuelve a ejecutar descarga + soportes con los deltas actualizados, y que `_seleccionar_combos` refleja el estado real de cada `_delta.json` al inicio de cada vuelta. (I:9 C:2 H:9 → 4.50)

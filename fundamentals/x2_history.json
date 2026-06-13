@@ -1,0 +1,98 @@
+[
+  {
+    "datetime": "2026-06-12T22:03:47",
+    "activo": "TSLA",
+    "score": 0.037,
+    "components": {
+      "roe": 0.0,
+      "margins": 0.0,
+      "fcf_yield": 0.0,
+      "rev_growth": 0.0,
+      "earn_growth": 0.0,
+      "forward_pe": 0.0,
+      "ev_ebitda": 0.0,
+      "debt_eq": 0.7394,
+      "short_pct": 0.0,
+      "analyst": 0.0
+    }
+  },
+  {
+    "datetime": "2026-06-12T22:03:47",
+    "activo": "GOOGL",
+    "score": 0.5008,
+    "components": {
+      "roe": 0.3107,
+      "margins": 0.5756,
+      "fcf_yield": 0.4972,
+      "rev_growth": 0.0865,
+      "earn_growth": 0.3574,
+      "forward_pe": 0.9404,
+      "ev_ebitda": 0.9172,
+      "debt_eq": 0.7118,
+      "short_pct": 0.6471,
+      "analyst": 0.9199
+    }
+  },
+  {
+    "datetime": "2026-06-12T22:03:47",
+    "activo": "NVDA",
+    "score": 0.9843,
+    "components": {
+      "roe": 1.0,
+      "margins": 1.0,
+      "fcf_yield": 1.0,
+      "rev_growth": 1.0,
+      "earn_growth": 1.0,
+      "forward_pe": 1.0,
+      "ev_ebitda": 0.8924,
+      "debt_eq": 1.0,
+      "short_pct": 0.7941,
+      "analyst": 1.0
+    }
+  },
+  {
+    "datetime": "2026-06-12T22:03:47",
+    "activo": "AMZN",
+    "score": 0.3405,
+    "components": {
+      "roe": 0.1772,
+      "margins": 0.1403,
+      "fcf_yield": 0.0648,
+      "rev_growth": 0.0115,
+      "earn_growth": 0.3225,
+      "forward_pe": 0.9448,
+      "ev_ebitda": 1.0,
+      "debt_eq": 0.0,
+      "short_pct": 1.0,
+      "analyst": 0.9814
+    }
+  },
+  {
+    "datetime": "2026-06-12T22:03:47",
+    "activo": "BTCUSD",
+    "score": 0.4882,
+    "components": {
+      "hash": 1.0,
+      "vol_mcap": 0.0,
+      "supply": 0.5,
+      "mcap": 1.0,
+      "momentum_7d": 0.5407,
+      "momentum_30d": 0.3112,
+      "fear_greed": 0.13
+    }
+  },
+  {
+    "datetime": "2026-06-12T22:03:47",
+    "activo": "ETHUSD",
+    "score": 0.3344,
+    "components": {
+      "hash": 0.0,
+      "vol_mcap": 1.0,
+      "supply": 0.5,
+      "mcap": 0.0,
+      "momentum_7d": 0.5495,
+      "momentum_30d": 0.2596,
+      "fear_greed": 0.13
+    }
+  }
+]

@@ -12,10 +12,6 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 
 - [ ] Revisar con Mauricio la lógica de scoring de `calcular_FO` — ya se agregaron `v` y `f` (lo de mayor impacto); queda pendiente discutir ajustes menores (ej. `h_dist` por volatilidad, conteo de retests) (I:2 C:3 H:2 → 0.67)
 
-### X2 — X2_fundamentals.py
-
-- [ ] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)
-
 ### X3 — X3_technical_features.py
 
 - [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes). (I:7 C:5 H:7 → 1.40)

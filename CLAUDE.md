@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-12** — X2: implementar X2_fundamentals.py + validadores
+
+`scripts/X2_fundamentals.py` creado: score fundamental por activo `[0, 1]`. Acciones vía yfinance (ROE, márgenes, FCF, crecimiento, valorización, deuda, analistas); crypto vía yfinance + CoinGecko `/coins/markets` (7d/30d) + Fear & Greed (alternative.me). Normalización min-max dentro del universo. Guard de día (`fundamentals/x2_last_run.json`), flag `--forzar`. Historial acumulativo en `fundamentals/x2_history.json` (upsert por fecha+activo). Override de pesos desde `config/active_parameters.json` para X6. Validadores: check de campos nulos, warning de score extremo con componentes en límite, tabla de datos crudos pre-normalización. `config.py` actualizado: `CARPETA_FUNDAMENTALS`, `X2_HORA_EJECUCION`, `PESOS_STOCK`, `PESOS_CRYPTO`.
+
 **2026-06-12** — docs: guía git Mac→Windows
 
 `docs/guia_git.md` creado: explica por qué `Data/` (trackeado en git) se sobreescribiría con `git pull` en Windows y cómo evitarlo con `git update-index --skip-worktree` por CSV. Incluye setup inicial, workflow diario, manejo de nuevos activos y caso de actualización forzada.

@@ -16,6 +16,7 @@ CARPETA_N_PROD = BASE_DIR / 'conjuntos_N' / 'prod'
 CARPETA_N_BT   = BASE_DIR / 'conjuntos_N' / 'bt'
 CARPETA_PLOTS = BASE_DIR / 'plots'
 CARPETA_LOGS = BASE_DIR / 'docs' / 'X0' / 'logs'
+CARPETA_FUNDAMENTALS = BASE_DIR / 'fundamentals'
 
 # ─── Activos y universo de soportes ───────────────────────────────────────────
 
@@ -100,6 +101,24 @@ GRAFICAR_EXTREMOS = False
 GRAFICAR_FO = True
 GRAFICAR_SOPORTES = True
 GRAFICAR_ZOOM = False
+
+# ─── X2: score fundamental ────────────────────────────────────────────────────
+
+X2_HORA_EJECUCION = '21:00'   # re-ejecución forzada diaria desde el loop de X0
+
+# Pesos iniciales del score fundamental — X6 puede sobreescribir vía config/active_parameters.json
+PESOS_STOCK = {
+    'roe': 0.20, 'margins': 0.15, 'fcf_yield': 0.10,
+    'rev_growth': 0.15, 'earn_growth': 0.10,
+    'forward_pe': 0.10, 'ev_ebitda': 0.05,
+    'debt_eq': 0.05, 'short_pct': 0.05, 'analyst': 0.05,
+}
+
+PESOS_CRYPTO = {
+    'hash': 0.20, 'vol_mcap': 0.15, 'supply': 0.10,
+    'mcap': 0.10, 'momentum_7d': 0.15, 'momentum_30d': 0.10,
+    'fear_greed': 0.20,
+}
 
 # ─── Trading: ejecución y gestión de riesgo (X1) ──────────────────────────────
 
