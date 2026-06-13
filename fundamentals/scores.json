@@ -1,6 +1,11 @@
 {
+  "_metadata": {
+    "ultima_ejecucion": "2026-06-12"
+  },
   "TSLA": {
-    "score": 0.037,
+    "score": 0.1296,
+    "score_cross": 0.037,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 0.0,
       "margins": 0.0,
@@ -13,10 +18,12 @@
       "short_pct": 0.0,
       "analyst": 0.0
     },
-    "ts": "2026-06-12T22:03:47"
+    "ts": "2026-06-12T22:14:45"
   },
   "GOOGL": {
-    "score": 0.5008,
+    "score": 0.5006,
+    "score_cross": 0.5008,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 0.3107,
       "margins": 0.5756,
@@ -29,10 +36,12 @@
       "short_pct": 0.6471,
       "analyst": 0.9199
     },
-    "ts": "2026-06-12T22:03:47"
+    "ts": "2026-06-12T22:14:45"
   },
   "NVDA": {
-    "score": 0.9843,
+    "score": 0.8874,
+    "score_cross": 0.9843,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 1.0,
       "margins": 1.0,
@@ -45,10 +54,12 @@
       "short_pct": 0.7941,
       "analyst": 1.0
     },
-    "ts": "2026-06-12T22:03:47"
+    "ts": "2026-06-12T22:14:45"
   },
   "AMZN": {
-    "score": 0.3405,
+    "score": 0.3724,
+    "score_cross": 0.3405,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 0.1772,
       "margins": 0.1403,
@@ -61,32 +72,36 @@
       "short_pct": 1.0,
       "analyst": 0.9814
     },
-    "ts": "2026-06-12T22:03:47"
+    "ts": "2026-06-12T22:14:45"
   },
   "BTCUSD": {
-    "score": 0.4882,
+    "score": 0.4906,
+    "score_cross": 0.4882,
+    "score_tendencia": 0.5,
     "components": {
       "hash": 1.0,
       "vol_mcap": 0.0,
       "supply": 0.5,
       "mcap": 1.0,
-      "momentum_7d": 0.5407,
-      "momentum_30d": 0.3112,
+      "momentum_7d": 0.5404,
+      "momentum_30d": 0.3111,
       "fear_greed": 0.13
     },
-    "ts": "2026-06-12T22:03:47"
+    "ts": "2026-06-12T22:14:45"
   },
   "ETHUSD": {
-    "score": 0.3344,
+    "score": 0.3674,
+    "score_cross": 0.3343,
+    "score_tendencia": 0.5,
     "components": {
       "hash": 0.0,
       "vol_mcap": 1.0,
       "supply": 0.5,
       "mcap": 0.0,
-      "momentum_7d": 0.5495,
-      "momentum_30d": 0.2596,
+      "momentum_7d": 0.5489,
+      "momentum_30d": 0.2592,
       "fear_greed": 0.13
     },
-    "ts": "2026-06-12T22:03:47"
+    "ts": "2026-06-12T22:14:45"
   }
 }

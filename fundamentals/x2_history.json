@@ -1,8 +1,10 @@
 [
   {
-    "datetime": "2026-06-12T22:03:47",
+    "date": "2026-06-12",
     "activo": "TSLA",
-    "score": 0.037,
+    "score": 0.1296,
+    "score_cross": 0.037,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 0.0,
       "margins": 0.0,
@@ -14,12 +16,26 @@
       "debt_eq": 0.7394,
       "short_pct": 0.0,
       "analyst": 0.0
+    },
+    "raw": {
+      "roe": 0.04901,
+      "margins": 0.03946,
+      "fcf_yield": 0.0034406880044520758,
+      "rev_growth": 0.158,
+      "earn_growth": 0.083,
+      "forward_pe": 162.44528,
+      "ev_ebitda": 135.052,
+      "debt_eq": 18.738,
+      "short_pct": 0.023,
+      "analyst": 0.4791666666666667
     }
   },
   {
-    "datetime": "2026-06-12T22:03:47",
+    "date": "2026-06-12",
     "activo": "GOOGL",
-    "score": 0.5008,
+    "score": 0.5006,
+    "score_cross": 0.5008,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 0.3107,
       "margins": 0.5756,
@@ -31,12 +47,26 @@
       "debt_eq": 0.7118,
       "short_pct": 0.6471,
       "analyst": 0.9199
+    },
+    "raw": {
+      "roe": 0.38884997,
+      "margins": 0.37919,
+      "fcf_yield": 0.006365710184004502,
+      "rev_growth": 0.218,
+      "earn_growth": 0.82,
+      "forward_pe": 24.838732,
+      "ev_ebitda": 26.823,
+      "debt_eq": 20.026,
+      "short_pct": 0.014199999,
+      "analyst": 0.9130434782608695
     }
   },
   {
-    "datetime": "2026-06-12T22:03:47",
+    "date": "2026-06-12",
     "activo": "NVDA",
-    "score": 0.9843,
+    "score": 0.8874,
+    "score_cross": 0.9843,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 1.0,
       "margins": 1.0,
@@ -48,12 +78,26 @@
       "debt_eq": 1.0,
       "short_pct": 0.7941,
       "analyst": 1.0
+    },
+    "raw": {
+      "roe": 1.14288,
+      "margins": 0.62966,
+      "fcf_yield": 0.009323288060778461,
+      "rev_growth": 0.852,
+      "earn_growth": 2.145,
+      "forward_pe": 16.122227,
+      "ev_ebitda": 29.751,
+      "debt_eq": 6.555,
+      "short_pct": 0.012200001,
+      "analyst": 0.9508196721311475
     }
   },
   {
-    "datetime": "2026-06-12T22:03:47",
+    "date": "2026-06-12",
     "activo": "AMZN",
-    "score": 0.3405,
+    "score": 0.3724,
+    "score_cross": 0.3405,
+    "score_tendencia": 0.5,
     "components": {
       "roe": 0.1772,
       "margins": 0.1403,
@@ -65,34 +109,68 @@
       "debt_eq": 0.0,
       "short_pct": 1.0,
       "analyst": 0.9814
+    },
+    "raw": {
+      "roe": 0.24285,
+      "margins": 0.12224,
+      "fcf_yield": 0.00382159399978159,
+      "rev_growth": 0.166,
+      "earn_growth": 0.748,
+      "forward_pe": 24.193811,
+      "ev_ebitda": 17.057,
+      "debt_eq": 53.3,
+      "short_pct": 0.0094,
+      "analyst": 0.9420289855072463
     }
   },
   {
-    "datetime": "2026-06-12T22:03:47",
+    "date": "2026-06-12",
     "activo": "BTCUSD",
-    "score": 0.4882,
+    "score": 0.4906,
+    "score_cross": 0.4882,
+    "score_tendencia": 0.5,
     "components": {
       "hash": 1.0,
       "vol_mcap": 0.0,
       "supply": 0.5,
       "mcap": 1.0,
-      "momentum_7d": 0.5407,
-      "momentum_30d": 0.3112,
+      "momentum_7d": 0.5404,
+      "momentum_30d": 0.3111,
       "fear_greed": 0.13
+    },
+    "raw": {
+      "hash": "244051282584378770000",
+      "vol_mcap": 0.020226654161368922,
+      "supply_ratio": 0.9543822857142857,
+      "mcap": 1277567827968,
+      "momentum_7d": 4.050546980788703,
+      "momentum_30d": -19.87887643203204,
+      "fear_greed": 13
     }
   },
   {
-    "datetime": "2026-06-12T22:03:47",
+    "date": "2026-06-12",
     "activo": "ETHUSD",
-    "score": 0.3344,
+    "score": 0.3674,
+    "score_cross": 0.3343,
+    "score_tendencia": 0.5,
     "components": {
       "hash": 0.0,
       "vol_mcap": 1.0,
       "supply": 0.5,
       "mcap": 0.0,
-      "momentum_7d": 0.5495,
-      "momentum_30d": 0.2596,
+      "momentum_7d": 0.5489,
+      "momentum_30d": 0.2592,
       "fear_greed": 0.13
+    },
+    "raw": {
+      "hash": "587053830136465",
+      "vol_mcap": 0.048172919146353604,
+      "supply_ratio": null,
+      "mcap": 201714925568,
+      "momentum_7d": 4.905924158958993,
+      "momentum_30d": -26.24779860565269,
+      "fear_greed": 13
     }
   }
 ]

@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-12** — X2: score_tendencia + date en historial + validadores
+
+`score_tendencia` (longitudinal): compara raw values de hoy vs hace `DIAS_TENDENCIA=30` días en historial; delta_pct por campo normalizado con `_norm_sym`; campos invertidos negados; `fear_greed` excluido. Score final = `(1-W_TENDENCIA) × score_cross + W_TENDENCIA × score_tendencia` (0.5 neutral si <7 días de historia). `x2_history.json` ahora guarda campo `raw` (valores crudos pre-normalización) y usa `date` en vez de `datetime`. Staleness warning si se saltaron días. `_metadata.ultima_ejecucion` en `scores.json`. `W_TENDENCIA=0.20` y `DIAS_TENDENCIA=30` agregados a `config.py`.
+
 **2026-06-12** — X2: implementar X2_fundamentals.py + validadores
 
 `scripts/X2_fundamentals.py` creado: score fundamental por activo `[0, 1]`. Acciones vía yfinance (ROE, márgenes, FCF, crecimiento, valorización, deuda, analistas); crypto vía yfinance + CoinGecko `/coins/markets` (7d/30d) + Fear & Greed (alternative.me). Normalización min-max dentro del universo. Guard de día (`fundamentals/x2_last_run.json`), flag `--forzar`. Historial acumulativo en `fundamentals/x2_history.json` (upsert por fecha+activo). Override de pesos desde `config/active_parameters.json` para X6. Validadores: check de campos nulos, warning de score extremo con componentes en límite, tabla de datos crudos pre-normalización. `config.py` actualizado: `CARPETA_FUNDAMENTALS`, `X2_HORA_EJECUCION`, `PESOS_STOCK`, `PESOS_CRYPTO`.

@@ -105,6 +105,8 @@ GRAFICAR_ZOOM = False
 # ─── X2: score fundamental ────────────────────────────────────────────────────
 
 X2_HORA_EJECUCION = '21:00'   # re-ejecución forzada diaria desde el loop de X0
+W_TENDENCIA   = 0.20  # peso del score_tendencia en el score final (0 = solo cross-sectional)
+DIAS_TENDENCIA = 30   # ventana de días hacia atrás para comparar el activo consigo mismo
 
 # Pesos iniciales del score fundamental — X6 puede sobreescribir vía config/active_parameters.json
 PESOS_STOCK = {

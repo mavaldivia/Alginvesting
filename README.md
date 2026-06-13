@@ -136,6 +136,7 @@ python scripts/X1_trading.py
 
 ## Changelog
 
+- **2026-06-12** — X2: score_tendencia + date en historial + validadores
 - **2026-06-12** — X2: implementar X2_fundamentals.py + validadores
 - **2026-06-12** — docs: guía git Mac→Windows
 - **2026-06-12** — X2: historial del score — sección 3.5 en x2_plan.md + TO DO actualizados

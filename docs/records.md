@@ -313,3 +313,17 @@ Claude: Leyó `docs/x2_plan.md` como contexto completo y `scripts/config.py` par
 Mauricio: Pidió ejecutarlo directamente para debuggear en vivo.
 Claude: Corrió `python X2_fundamentals.py --forzar`. Primer error: `TypeError: must be real number, not str` — yfinance devolvía un string en algún campo de crypto. Fix: agregar `_to_float()` en `_minmax` para convertir cualquier valor antes de operar. Segunda corrida exitosa en 6.8s. Scores resultantes: NVDA=0.98, GOOGL=0.50, BTCUSD=0.49, ETHUSD=0.34, AMZN=0.34, TSLA=0.04 — coherentes con los fundamentales reales del universo. Nota: ETH retorna `netHashesPerSecond=0` (no None), así que queda en el mínimo del campo hash vs BTC. Mauricio lo dejó así por ahora. Ítem movido de `todos.md` a `done.md`.
 (Cierre: 2026-06-12 22:00)
+
+## SECCIÓN 38
+Mauricio: Notó que TSLA tiene casi todos los componentes en 0 en x2_history y preguntó por qué. Luego pidió agregar validadores de consistencia a X2_fundamentals.py.
+Claude: Explicó que es matemáticamente correcto: TSLA es genuinamente el peor del universo en casi todas las dimensiones (ROE=5% vs NVDA=114%, márgenes=4% vs 63%, forwardPE=162 vs 16). Agregó tres validadores: check de campos nulos post-fetch, warning de score extremo con lista de componentes en límite, y tabla de datos crudos pre-normalización siempre visible.
+
+Mauricio: Pidió dos mejoras adicionales: (1) considerar días sin ejecución (puede que algún día no corra) y (2) agregar dimensión longitudinal — cómo evoluciona cada activo respecto a sí mismo, no solo vs el universo.
+Claude: Para (1): agregó `_dias_desde_ultima_ejecucion` con aviso si se saltaron días, y campo `_metadata.ultima_ejecucion` en scores.json para que X6 pueda verificar antigüedad. Para (2): implementó `score_tendencia` — compara los raw values de hoy vs hace `DIAS_TENDENCIA=30` días (la entrada más cercana en historial), calcula `delta_pct` por campo, normaliza con `_norm_sym`, promedia. Campos invertidos (forward_pe, debt_eq, etc.) tienen el delta negado. `fear_greed` excluido (señal macro). Score final = `0.8 × score_cross + 0.2 × score_tendencia`. Muestra `0.5(n/d)` mientras haya menos de 7 días de historia. Para que tendencia funcione necesita raw values en el historial — se agregó campo `raw` a cada entrada de x2_history.json. `W_TENDENCIA=0.20` y `DIAS_TENDENCIA=30` agregados a config.py.
+
+Mauricio: Preguntó si `datetime` en x2_history es más útil que solo `date`. Confirmó cambiarlo.
+Claude: Respondió con honestidad que `date` es suficiente: X2 corre una vez al día, todas las operaciones de tendencia trabajan con resolución diaria, el tiempo dentro del día nunca es clave de nada. Cambió `datetime` → `date` en el script y migró las 6 entradas existentes del JSON.
+
+Mauricio: Preguntó si se están guardando los componentes crudos.
+Claude: Confirmó: cada entrada del historial guarda `components` (valores normalizados 0–1, útil para X5/X6) y `raw` (valores crudos de yfinance, útil para tendencia — el normalizado no sirve porque depende del universo del día).
+(Cierre: 2026-06-12 22:17)
