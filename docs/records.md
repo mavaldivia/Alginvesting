@@ -365,3 +365,14 @@ Claude: Actualizó el plan: corrigió la descripción del supuesto, amplió el t
 Mauricio: Pidió agregar referencia al plan en el primer ítem de X4 en todos.md.
 Claude: Agregó línea `> Plan de implementación: docs/x4_plan.md` al inicio de la sección X4 en todos.md.
 (Cierre: 2026-06-14 01:12)
+
+## SECCIÓN 42
+Mauricio: Pidió actualizar el README.md del proyecto, que estaba desactualizado respecto a lo construido.
+Claude: Reescribió el README completo: actualizó el estado de X2 a "Operativo", agregó su sección propia (score_cross, score_tendencia, historial, guard de día), actualizó la estructura de carpetas (conjuntos_N/prod/, conjuntos_N/bt/, fundamentals/, docs/X0/logs/, nuevos docs), amplió la tabla de parámetros con FACTOR_DELTA/N_MAX_MODELS/W_TENDENCIA/DIAS_TENDENCIA, documentó las 5 optimizaciones del optimizador, agregó comandos --loop y X2 a la sección de ejecución, y condensó el changelog.
+
+Mauricio: Pidió agregar al plan de X4 (docs/x4_plan.md) el registro de 5 tipos de eventos de órdenes: OE eliminada, OE puesta, OE ejecutada, cambio de SL, cierre de posición. Preguntó si valía agregar algo más y mencionó un registro de valor de cuenta hora a hora. También pidió aclarar que antes de iniciar el backtesting hay que ejecutar soportes si no existen (cold start).
+Claude: Reescribió x4_plan.md completo incorporando: nueva sección 9 con events.json (5 tipos de evento con schema JSON por cada uno) y equity_global.csv. Agregó cold start explícito en sección 5. Respondió "sí" al registro hora a hora e incluyó equity_global.csv como parte del plan.
+
+Mauricio: Pidió además un registro por hora de GC (ganancia cerrada acumulada), GA (ganancia abierta) y GT=GC+GA por cada activo (tupla activo-hora), en archivos separados del equity global.
+Claude: Agregó equity_activos.csv al plan con schema (ts, activo, GC, GA, GT). GC se acumula en estado['por_activo'][activo]['GC'] al cerrar posiciones; GA se calcula al vuelo con candle.Close; GT = suma. Actualizó paso G del flujo de trading, funciones (_calcular_GA, firma de _append_equity), fase 6 de implementación, y estructura de carpetas en sección 3.
+(Cierre: 2026-06-14 01:27)

@@ -36,6 +36,9 @@ x4_backtesting/
   output/
     V1/
       trades.json         # store acumulativo de trades cerrados
+      events.json         # log de eventos de órdenes (ver sección 9)
+      equity_global.csv   # capital total de la cuenta hora a hora (ver sección 9)
+      equity_activos.csv  # GC / GA / GT por (activo, hora) (ver sección 9)
       checkpoint.json     # estado de la simulación (para reanudar)
   logs/
     V1/
@@ -94,7 +97,9 @@ CARPETA_N_BT         = BASE_DIR / 'conjuntos_N' / 'bt'
 
 El recálculo usa exactamente las mismas funciones de `X0_data_supports.py` (importadas), con `fecha_hora_max = timestamp_candle_actual`. Se corre en paralelo por `(valor, N)` vía `ProcessPoolExecutor`.
 
-**Cuándo recalcular**:
+**Cold start**: si al iniciar el backtest no existen soportes en `conjuntos_N/bt/` para algún `(activo, N, version)`, se ejecuta un recálculo completo con `fecha_hora_max = fecha_inicio` **antes de entrar al loop principal**. Sin soportes, no hay órdenes posibles. Este paso puede ser lento (cold start del optimizador) — se loguea explícitamente.
+
+**Cuándo recalcular durante el loop**:
 
 ```python
 horas_desde_recalculo = (ts_actual - ts_ultimo_recalculo).total_seconds() / 3600
@@ -107,7 +112,7 @@ else:
     disparar = horas_desde_recalculo >= umbral_horas
 ```
 
-Cuando se recalcula: **la vela actual queda congelada** (no se procesa trading en ella). La simulación avanza a la siguiente vela con los nuevos soportes ya cargados.
+Cuando se recalcula: **la vela actual queda congelada** (no se procesa trading en ella). La simulación avanza a la siguiente vela con los nuevos soportes ya cargados. Las OE que quedaron en soportes eliminados se limpian en el paso A de esa siguiente vela (con evento `OE_eliminada` registrado).
 
 **Delta adaptativo** (igual que producción):
 - Archivo: `conjuntos_N/bt/{valor}_{N}_{version}_bt_delta.json`
@@ -131,6 +136,7 @@ estado = {
             'OE': {},              # ordenes en espera: {precio: {lote, ts_creacion}}
             'OA': {},              # posiciones abiertas: {precio_apertura: {lote, sl, ts_apertura,
                                    #                       ganancia_max, drawdown_max, usa_intravela}}
+            'GC': 0.0,             # ganancia/pérdida cerrada acumulada para este activo (USD)
         },
         ...
     },
@@ -144,27 +150,37 @@ estado = {
 Orden de operaciones:
 
 **A. Limpiar OE no válidas** — cancela órdenes espera cuyo precio ya no está en `soportes`.
+→ Registra evento `OE_eliminada` por cada una.
 
 **B. Verificar ejecuciones de OE** — una OE en precio `Pi` se ejecuta si `candle.Low <= Pi`:
 - La posición entra a `OA` con `sl=0`.
 - La OE se elimina (no se repone; la reposición ocurre después del trailing stop si corresponde).
+→ Registra evento `OE_ejecutada`.
 
 **C. Trailing stop** — para cada posición en `OA`:
 - `L = lote * UNITS[activo]`
 - Usando `candle.High` como precio más alto alcanzado en la vela:
   - Si `sl == 0` y `(candle.High - Pi) * L >= A` → activa SL: `sl = candle.High - B/L`, repone OE en `Pi`.
   - Si `sl > 0` y `candle.High - B/L > sl` → mueve SL al alza.
+→ Registra evento `SL_cambiado` cuando el SL se activa o sube.
 
 **D. Controlar PERDIDA_MAX** — para cada posición en `OA`:
 - `perdida = (Pi - candle.Low) * L`
 - Si `perdida > PERDIDA_MAX_BT` → cerrar posición en `candle.Low`, registrar trade.
+→ Registra evento `posicion_cerrada` (motivo: `perdida_max`).
 
 **E. Cierre por SL tocado** — para cada posición con `sl > 0`:
 - Si `candle.Low <= sl` → cerrar posición en `sl`, registrar trade (motivo: `trailing_stop`).
+→ Registra evento `posicion_cerrada` (motivo: `trailing_stop`).
 
 **F. Crear nuevas OE** — usando `candle.Close` como precio de referencia:
 - Para cada soporte `Pi` en `soportes` no presente en OA ni OE:
   - Si `(candle.Close - Pi) * L >= A` → crear OE en `Pi`.
+→ Registra evento `OE_creada` por cada una.
+
+**G. Snapshot de equity** — al final de cada vela H1:
+- Registra `ts` + `capital` en `equity_global.csv`.
+- Para cada activo: calcula `GA = sum((candle.Close - pa) * lote * UNITS[activo] for pa in OA)`, lee `GC` del estado, registra `(ts, activo, GC, GA, GC+GA)` en `equity_activos.csv`.
 
 > **Supuesto de orden dentro de la vela (sin intra-vela)**: el flujo C → E implica que el TS se actualiza con `High` *antes* de verificar si `Low` toca el SL. En "velas de conflicto" (Low tocaría el SL antiguo Y High subiría el TS) esto es levemente optimista: el sistema cierra al SL nuevo (más alto) en vez del antiguo. El sesgo es pequeño y la simulación intra-vela lo resuelve cuando el trigger se cumple.
 
@@ -214,7 +230,7 @@ def _necesita_intravela(activo_estado, candle, L, A, B, PERDIDA_MAX_BT):
    - `max(High_m1)` → `candle.High`
    - `min(Low_m1)` → `candle.Low`
    - Cada precio intermedio se escala proporcionalmente dentro de ese rango.
-3. Reproducir las operaciones A→F sobre cada vela M1 en secuencia (mismo código, `precio_ref = vela_m1.Close`).
+3. Reproducir las operaciones A→F sobre cada vela M1 en secuencia (mismo código, `precio_ref = vela_m1.Close`). Los eventos generados dentro de intra-vela se marcan con `"usa_intravela": true`.
 
 Si `Data_minuto/` no tiene datos del activo, se degrada a lógica H1 pura (log de advertencia).
 
@@ -260,7 +276,92 @@ Lista de objetos JSON, uno por cada trade cerrado. Se hace append al archivo exi
 
 ---
 
-## 9. Checkpoint (`checkpoint.json`)
+## 9. Log de eventos (`events.json`) y curvas de equity
+
+### events.json
+
+Lista cronológica de todos los eventos de órdenes durante la simulación. Propósito: auditoría completa del libro de órdenes, debugging, y contexto para X5 (ej. cuántas OE había activas cuando se abrió un trade).
+
+Cada evento tiene campos comunes + campos específicos por tipo:
+
+**Campos comunes a todos los eventos:**
+```json
+{
+  "ts": "2026-01-15T10:00:00",
+  "version": "V1",
+  "activo": "BTCUSD",
+  "tipo": "...",
+  "usa_intravela": false
+}
+```
+
+**Tipos de evento:**
+
+`OE_creada` — se declara una nueva orden de compra en un soporte:
+```json
+{ "tipo": "OE_creada", "precio": 94500.0, "lote": 0.01 }
+```
+
+`OE_eliminada` — una OE existente se cancela porque su soporte fue eliminado en el recálculo de X0. La orden nunca llegó a ejecutarse:
+```json
+{ "tipo": "OE_eliminada", "precio": 93200.0, "motivo": "soporte_desactivado" }
+```
+
+`OE_ejecutada` — una OE que estaba esperando se activa (el precio la toca). Pasa a ser posición abierta:
+```json
+{ "tipo": "OE_ejecutada", "precio": 94500.0, "lote": 0.01, "ts_oe_creacion": "2026-01-14T08:00:00" }
+```
+
+`SL_cambiado` — el stop loss de una posición abierta se activa o sube:
+```json
+{ "tipo": "SL_cambiado", "precio_apertura": 94500.0, "sl_anterior": 0, "sl_nuevo": 94350.0, "precio_max_vela": 94600.0 }
+```
+(`sl_anterior = 0` indica que el SL se activa por primera vez al alcanzar el umbral `A`.)
+
+`posicion_cerrada` — una posición se cierra por SL tocado o pérdida máxima:
+```json
+{ "tipo": "posicion_cerrada", "precio_apertura": 94500.0, "precio_cierre": 94350.0,
+  "motivo": "trailing_stop", "retorno_usd": -15.0, "lote": 0.01 }
+```
+(`motivo` ∈ `{"trailing_stop", "perdida_max"}`. Los cierres por `fin_backtest` solo van en `trades.json`, no aquí.)
+
+Append-only, igual que `trades.json`.
+
+### equity_global.csv
+
+Snapshot del capital total de la cuenta al cierre de cada vela H1. Columnas: `ts`, `capital`.
+
+```csv
+ts,capital
+2026-01-10T00:00:00,3000.0
+2026-01-10T01:00:00,3000.0
+...
+```
+
+### equity_activos.csv
+
+Snapshot por `(activo, ts)` al cierre de cada vela H1. Separa ganancia cerrada acumulada y ganancia abierta en ese momento:
+
+- **GC** (Ganancia Cerrada acumulada): suma de `retorno_usd` de todos los trades cerrados de este activo hasta este instante. Se acumula en `estado['por_activo'][activo]['GC']` cada vez que cierra una posición.
+- **GA** (Ganancia Abierta): suma de `(candle.Close - precio_apertura) * lote * UNITS[activo]` para cada posición en `OA` al cerrar la vela. Calculada al vuelo — no se persiste en estado.
+- **GT = GC + GA**
+
+```csv
+ts,activo,GC,GA,GT
+2026-01-10T00:00:00,BTCUSD,0.0,0.0,0.0
+2026-01-10T00:00:00,ETHUSD,0.0,0.0,0.0
+2026-01-10T01:00:00,BTCUSD,0.0,-12.5,-12.5
+2026-01-10T01:00:00,ETHUSD,0.0,4.2,4.2
+...
+```
+
+GA y GC pueden ser negativas. El valor de cuenta por activo no es `capital / n_activos` — es el P&L neto de ese activo independientemente del capital base.
+
+Útil para: curva de equity por activo, atribución de resultados entre BTCUSD y ETHUSD, drawdown por activo, y como feature para X5 (P&L flotante y acumulado al momento de abrir cada trade).
+
+---
+
+## 10. Checkpoint (`checkpoint.json`)
 
 Se guarda cada 24 velas (configurable). Permite reanudar sin perder progreso.
 
@@ -284,7 +385,7 @@ Se guarda cada 24 velas (configurable). Permite reanudar sin perder progreso.
 
 ---
 
-## 10. Funciones principales
+## 11. Funciones principales
 
 ```
 X4_backtester.py
@@ -293,12 +394,12 @@ X4_backtester.py
 ├── _cargar_datos_h1(cfg)                → dict {activo: DataFrame OHLCV}
 ├── _cargar_datos_m1(cfg)                → dict {activo: DataFrame M1} (None si no existe)
 ├── _cargar_checkpoint(cfg)              → dict estado | None
-├── _guardar_checkpoint(estado, trades, cfg)
+├── _guardar_checkpoint(estado, cfg)
 │
 ├── _recalcular_soportes(estado, datos_h1, ts_actual, cfg)
 │     └── ProcessPoolExecutor → _procesar_valor_N() de X0 (importado)
 │
-├── _limpiar_OE(activo_estado, soportes)
+├── _limpiar_OE(activo_estado, soportes)          → lista de precios eliminados
 ├── _verificar_ejecuciones_OE(activo_estado, candle, L)
 ├── _trailing_stop_sim(activo_estado, precio_max, L, A, B)
 ├── _controlar_perdida_max(activo_estado, precio_min, L, PERDIDA_MAX)
@@ -309,24 +410,32 @@ X4_backtester.py
 ├── _escalar_bloque_m1(bloque_m1, candle_h1)
 ├── _simular_intravela(activo_estado, candle_h1, datos_m1, params)
 │
-├── _procesar_candle(candle, activo, estado, datos_m1, trades_log, cfg)
-│     └── decide: intra-vela o H1 puro → ejecuta A→F → append a trades_log
+├── _procesar_candle(candle, activo, estado, datos_m1, trades_log, events_log, cfg)
+│     └── decide: intra-vela o H1 puro → ejecuta A→G → append a trades_log y events_log
 │
 ├── _registrar_trade(posicion, precio_cierre, motivo, ts, capital, cfg)  → dict
+├── _registrar_evento(tipo, activo, ts, cfg, **kwargs)                   → dict
+├── _append_eventos(events_log, cfg)     → append a events.json
+├── _calcular_GA(activo_estado, precio_actual, units)                     → float
+├── _append_equity(ts, capital, estado, datos_candle, cfg)
+│     → append fila a equity_global.csv
+│     → append filas (GC, GA, GT) por activo a equity_activos.csv
 │
 └── ejecutar_backtest(cfg)               → loop principal
       1. descargar/actualizar datos
       2. cargar checkpoint o inicializar estado
-      3. for ts, candle in datos_h1.iterrows() desde ts_ultimo_procesado:
+      3. cold start: si no hay soportes en conjuntos_N/bt/ para algún (activo, N, version)
+            → recalcular con fecha_hora_max = fecha_inicio antes de entrar al loop
+      4. for ts, candle in datos_h1.iterrows() desde ts_ultimo_procesado:
            a. check recálculo → si sí: recalcular, congelar, continuar
            b. for activo in valores: _procesar_candle(...)
            c. cada 24 velas: _guardar_checkpoint(...)
-      4. guardar checkpoint final + mensaje de tiempo total
+      5. guardar checkpoint final + mensaje de tiempo total
 ```
 
 ---
 
-## 11. CLI
+## 12. CLI
 
 ```bash
 python scripts/X4_backtester.py --version V1
@@ -335,22 +444,23 @@ python scripts/X4_backtester.py --version V1 --reset   # ignora checkpoint, part
 
 ---
 
-## 12. Secuencia de implementación
+## 13. Secuencia de implementación
 
 | Fase | Qué |
 |------|-----|
 | 1 | Crear estructura de carpetas + `config_V1.py` |
 | 2 | `_cargar_datos_h1` + `_cargar_datos_m1` + actualización con MT5 (Windows only) |
-| 3 | `_recalcular_soportes` — importar y envolver funciones de X0 |
+| 3 | `_recalcular_soportes` — importar y envolver funciones de X0; cold start al inicio |
 | 4 | `_limpiar_OE`, `_verificar_ejecuciones_OE`, `_trailing_stop_sim`, `_controlar_perdida_max`, `_cerrar_sl_tocados`, `_crear_OE` |
-| 5 | `_procesar_candle` H1 puro (sin intra-vela) + `_registrar_trade` + `trades.json` |
-| 6 | Checkpoint save/load + argparse + loop principal `ejecutar_backtest` |
-| 7 | `_trigger_intravela` + `_escalar_bloque_m1` + `_simular_intravela` |
-| 8 | Prueba end-to-end V1 en Mac (sin MT5: datos ya en `Data/` y `Data_minuto/`) |
+| 5 | `_procesar_candle` H1 puro + `_registrar_trade` + `trades.json` |
+| 6 | `_registrar_evento` + `events.json` + `_calcular_GA` + `_append_equity` + `equity_global.csv` + `equity_activos.csv` |
+| 7 | Checkpoint save/load + argparse + loop principal `ejecutar_backtest` |
+| 8 | `_trigger_intravela` + `_escalar_bloque_m1` + `_simular_intravela` |
+| 9 | Prueba end-to-end V1 en Mac (sin MT5: datos ya en `Data/` y `Data_minuto/`) |
 
 ---
 
-## 13. Qué queda fuera de V1 (para V2+)
+## 14. Qué queda fuera de V1 (para V2+)
 
 - Parámetros dinámicos por período (X6)
 - Features X2/X3 en el trade store (X5)
