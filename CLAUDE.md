@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X0: FO inicial en monitor + cambios_netos vs warm start
+
+`_procesar_valor_N`: tras calcular `FO_ref`, actualiza `estado_compartido` con ese valor (`'iniciando'`) para que el monitor no muestre FO=0 durante la preparación. Al finalizar ambas fases, calcula `cambios_netos = len(conjunto_N_prev - conjunto_N)` (soportes cuya posición final difiere del warm start) y lo usa en estado final, print y log. Etiqueta del monitor renombrada de `cambios` a `pasos` (micro-pasos del optimizador). `docs/todos.md`: eliminados los 2 ítems de X0 completados; movidos a `docs/done.md`.
+
 **2026-06-13** — Prioridad_0: tiempo ejecución scripts + listo Xs en monitor
 
 X0: tabla de progreso muestra `[listo Xs]` en vez de `[listo]` al converger cada combo. `__main__` de X0 y X1 imprimen tiempo total al terminar (`HH:MM:SS` o segundos si < 60s), usando `_fmt_duracion` + `finally`. `done.md`: eliminada sección `Prioridad_0` — sus ítems reasignados a `X0` y `Transversal`. Skill `/todos` actualizada: al mover completados a `done.md`, usar `X(N)` o `Transversal` según contenido.

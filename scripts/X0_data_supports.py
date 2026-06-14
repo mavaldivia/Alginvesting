@@ -970,6 +970,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
     if verbose:
         print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
+    if estado_compartido is not None:
+        estado_compartido[llave] = (0, 0, FO_ref, 'iniciando')
 
     oa = [] if es_bt else ordenes_activas
     if oa and verbose:
@@ -989,10 +991,11 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     if not df_FO_2.empty:
         df_FO_2['Iteracion'] += len(df_FO_1)
     df_FO = pd.concat([df_FO_1, df_FO_2], ignore_index=True)
-    cambios = cambios_1 + cambios_2
     max_pasos = max(max_pasos_1, max_pasos_2)
+    # Soportes cuya posición final difiere del warm start inicial
+    cambios_netos = len(conjunto_N_prev - conjunto_N) if conjunto_N_prev else N
     if verbose:
-        print(f'  Cambios aceptados {valor} {N}: {cambios}')
+        print(f'  Cambios netos (vs. warm start) {valor} {N}: {cambios_netos}')
 
     if not es_bt:
         graficar_df_extremos(df_extremos, valor=valor, N=N, graficar=GRAFICAR_EXTREMOS)
@@ -1034,7 +1037,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     _guardar_log_convergencia(
         valor, N, es_bt, clave_bt,
         t_inicio, t_fin,
-        len(df_FO), cambios,
+        len(df_FO), cambios_netos,
         FO_ref, FO_final,
         delta_next, convergio,
     )
@@ -1046,7 +1049,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
               f'({mins}m {segs:.1f}s | iters={len(df_FO)} | convergio={convergio})')
 
     if estado_compartido is not None:
-        estado_compartido[llave] = (cambios, -1, FO_final, f'listo {round(duracion)}s')
+        estado_compartido[llave] = (cambios_netos, -1, FO_final, f'listo {round(duracion)}s')
 
     return round(duracion, 1), convergio
 
@@ -1064,7 +1067,7 @@ def _monitor_tabla(estado, tuplas, stop_event):
             cambios, iters, FO, estado_str = estado.get(llave, (0, 0, None, 'esperando'))
             fo_str = f'{FO:.4e}' if FO is not None else '---'
             iter_str = str(iters) if iters >= 0 else 'conv.'
-            line = f'{v} {N}: cambios={cambios:<6} iter={iter_str:<8} FO={fo_str:<14} [{estado_str}]'
+            line = f'{v} {N}: pasos={cambios:<6} iter={iter_str:<8} FO={fo_str:<14} [{estado_str}]'
             sys.stdout.write(f'\r{line:<75}\n')
         sys.stdout.flush()
 

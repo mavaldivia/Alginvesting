@@ -335,3 +335,17 @@ Claude: Implementó tres cambios: (1) en `_procesar_valor_N`, el estado `'listo'
 Mauricio: Pidió que en `done.md` no exista el grupo `Prioridad_0` — los ítems completados deben ir a `X(algo)` o `Transversal` según corresponda.
 Claude: Movió los dos ítems de `Prioridad_0` en `done.md`: el del loop continuo de X0 → `### X0 — X0_data_supports.py`; el de tiempo de ejecución → `### Transversal`. Eliminó la sección `Prioridad_0` de `done.md`. Actualizó la skill `/todos` para que la regla quede explícita: al mover completados a `done.md`, usar `X(N)` o `Transversal` según contenido, nunca replicar el nombre de la sección origen.
 (Cierre: 2026-06-12 22:34)
+
+## SECCIÓN 40
+Mauricio: Abrió sesión con `/todos`, eligió trabajar en X0 y avanzó los dos ítems pendientes de esa sección.
+Claude: Mostró las secciones con pendientes (tabla de 7 grupos) y los 2 ítems de X0.
+
+Mauricio: Pidió trabajar en ítem 1 — "FO inicial 0 al arrancar tupla".
+Claude: Leyó el flujo de `_procesar_valor_N` y `nuevo_optimizador_2`. Identificó que `FO_ref` se calcula en línea 970 pero `estado_compartido` no se actualizaba hasta dentro del loop del optimizador. Fix: agregar `estado_compartido[llave] = (0, 0, FO_ref, 'iniciando')` justo después de calcular `FO_ref`.
+
+Mauricio: Pidió avanzar ítem 2 — "Contador de cambios inflado".
+Claude: Analizó el origen del problema: `cambios` acumula cada micro-paso del optimizador (con `prueba_cercanos`, una cadena de mejoras puede generar miles). Redefinió la métrica: renombró etiqueta a `pasos` en el monitor en vivo; al finalizar ambas fases calcula `cambios_netos = len(conjunto_N_prev - conjunto_N)` (soportes que cambiaron posición vs. warm start). Actualiza estado final, print y log con ese valor.
+
+Mauricio: Pidió marcar ambos ítems completados y cerrar sesión con `/guardar`.
+Claude: Eliminó ambos ítems de `docs/todos.md`, los agregó a `docs/done.md` bajo X0 con descripción de lo implementado.
+(Cierre: 2026-06-14 00:22)
