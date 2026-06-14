@@ -349,3 +349,19 @@ Claude: Analizó el origen del problema: `cambios` acumula cada micro-paso del o
 Mauricio: Pidió marcar ambos ítems completados y cerrar sesión con `/guardar`.
 Claude: Eliminó ambos ítems de `docs/todos.md`, los agregó a `docs/done.md` bajo X0 con descripción de lo implementado.
 (Cierre: 2026-06-14 00:22)
+
+## SECCIÓN 41
+Mauricio: Invocó `/todos`, eligió X4. Pidió generar `docs/x4_plan.md` reuniendo todos los ítems de X4 (no solo los 3 que muestra `/todos`) junto al contexto de CLAUDE.md. Aclaraciones clave: no usar X1 directamente pero sí replicar su lógica, parámetros estáticos en V1, X5/X6 complementarán después.
+Claude: Preguntó 5 dudas antes de escribir: granularidad M1, frecuencia de recálculo, dependencia de datos, formato store de trades, paralelismo.
+
+Mauricio: Respondió: M1 desde el inicio (intra-vela solo cuando se necesita detalle para resolver lo que pasó dentro de la vela); delta_recalculo_soportes configurable en config_V[i].py (default 1 día, enteros = a las 23 UTC, admite valores < 1); X4 actualiza datos al inicio si puede; formato JSON; paralelo. Definió V1: fecha_inicio 2026-01-10, BTCUSD/ETHUSD, N=70, capital_inicial=3000 USD, PERDIDA_MAX=120 USD.
+Claude: Preguntó una duda adicional (capital inicial) y propuso defaults para hora de recálculo (23 UTC), spread/slippage (ignorados) y descarga M1. Mauricio confirmó todo.
+
+Claude: Leyó X1_trading.py y config.py para entender la lógica a replicar. Generó `docs/x4_plan.md` con: estructura de carpetas, config_V1.py completo, lógica de recálculo de soportes (freeze durante recálculo), lógica de trading H1 (pasos A→F mirror de X1 sin MT5), trigger y método de simulación intra-vela, schema del store de trades (JSON), schema del checkpoint, listado de funciones y secuencia de implementación en 8 fases.
+
+Mauricio: Preguntó las implicancias del supuesto Low-before-High. Claude aclaró que el flujo propuesto (C→E) en realidad asume High antes que Low para OA existentes (levemente optimista en velas de conflicto). Mauricio aclaró que el bloque M1 son 60 velas consecutivas desde t aleatorio, no 60 independientes.
+Claude: Actualizó el plan: corrigió la descripción del supuesto, amplió el trigger de intra-vela para cubrir los tres casos reales (OA sin SL, OA con SL, OE que se ejecuta), precisó la selección del bloque M1 como `[t:t+60]` consecutivo. También corrigió que acciones US no requieren tratamiento especial de horario de mercado.
+
+Mauricio: Pidió agregar referencia al plan en el primer ítem de X4 en todos.md.
+Claude: Agregó línea `> Plan de implementación: docs/x4_plan.md` al inicio de la sección X4 en todos.md.
+(Cierre: 2026-06-14 01:12)

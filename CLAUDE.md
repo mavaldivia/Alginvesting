@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X4: plan de implementación en docs/x4_plan.md
+
+`docs/x4_plan.md` creado: plan completo del backtester (V1). Cubre estructura de carpetas, `config_V1.py` (BTCUSD/ETHUSD, N=70, capital=3000 USD, PERDIDA_MAX=120 USD, fecha_inicio=2026-01-10), lógica de trading mirror de X1 sin MT5 (pasos A→F por vela H1), recálculo de soportes con freeze (delta_recalculo_soportes en días, hora_recalculo=23 UTC), simulación intra-vela con bloque M1 consecutivo [t:t+60] escalado al OHLC horario, schema del store de trades JSON, checkpoint para reanudar, y secuencia de implementación en 8 fases. `docs/todos.md`: referencia al plan agregada al inicio de la sección X4.
+
 **2026-06-14** — X0: FO inicial en monitor + cambios_netos vs warm start
 
 `_procesar_valor_N`: tras calcular `FO_ref`, actualiza `estado_compartido` con ese valor (`'iniciando'`) para que el monitor no muestre FO=0 durante la preparación. Al finalizar ambas fases, calcula `cambios_netos = len(conjunto_N_prev - conjunto_N)` (soportes cuya posición final difiere del warm start) y lo usa en estado final, print y log. Etiqueta del monitor renombrada de `cambios` a `pasos` (micro-pasos del optimizador). `docs/todos.md`: eliminados los 2 ítems de X0 completados; movidos a `docs/done.md`.
