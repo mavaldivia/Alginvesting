@@ -136,6 +136,7 @@ python scripts/X1_trading.py
 
 ## Changelog
 
+- **2026-06-14** — X0: FO inicial en monitor + cambios_netos vs warm start
 - **2026-06-13** — Prioridad_0: tiempo ejecución scripts + listo Xs en monitor
 - **2026-06-12** — X2: score_tendencia + date en historial + validadores
 - **2026-06-12** — X2: implementar X2_fundamentals.py + validadores
