@@ -104,6 +104,29 @@ def _norm_sym(x) -> float:
     return (math.tanh(x / 50.0) + 1.0) / 2.0
 
 
+def _raw_iguales(a: dict, b: dict) -> bool:
+    """True si los datos crudos son iguales (tolerancia 0.01% relativa para floats)."""
+    if set(a.keys()) != set(b.keys()):
+        return False
+    for k in a:
+        va, vb = _to_float(a.get(k)), _to_float(b.get(k))
+        if va is None and vb is None:
+            continue
+        if va is None or vb is None:
+            return False
+        ref = max(abs(va), abs(vb))
+        if ref == 0:
+            continue
+        if abs(va - vb) / ref > 1e-4:
+            return False
+    return True
+
+
+def _fecha_entrada(e: dict) -> str:
+    """Extrae la fecha representativa de una entrada del historial (nuevo o viejo formato)."""
+    return e.get('periodo_fin') or e.get('date', '')
+
+
 # ─── Fetchers ─────────────────────────────────────────────────────────────────
 
 def _get_stock_data(valor: str) -> dict:
@@ -258,12 +281,12 @@ def _score_tendencia(valor: str, raw_hoy: dict, historia: list, dias: int) -> fl
 
     entradas = sorted(
         [e for e in historia if e.get('activo') == valor and e.get('raw')],
-        key=lambda e: e['date'],
+        key=lambda e: _fecha_entrada(e),
     )
     if not entradas:
         return 0.5
 
-    mas_antigua = date.fromisoformat(entradas[0]['date'])
+    mas_antigua = date.fromisoformat(_fecha_entrada(entradas[0]))
     dias_disp   = (hoy - mas_antigua).days
     if dias_disp < _DIAS_MIN_TENDENCIA:
         return 0.5
@@ -272,7 +295,7 @@ def _score_tendencia(valor: str, raw_hoy: dict, historia: list, dias: int) -> fl
     fecha_obj = hoy - timedelta(days=min(dias, dias_disp))
     ref_entry = min(
         entradas,
-        key=lambda e: abs((date.fromisoformat(e['date']) - fecha_obj).days),
+        key=lambda e: abs((date.fromisoformat(_fecha_entrada(e)) - fecha_obj).days),
     )
     raw_ref = ref_entry['raw']
 
@@ -486,8 +509,12 @@ def guardar_scores(scores: dict, carpeta: Path):
 
 
 def guardar_historial(scores: dict, raw_data: dict, carpeta: Path):
-    """Upsert por (fecha, activo) en x2_history.json. Incluye raw values para tendencia."""
-    path    = carpeta / 'x2_history.json'
+    """
+    Historial con lógica de periodos: si el raw de hoy es igual al último guardado
+    para ese activo, extiende periodo_fin en vez de crear una entrada nueva.
+    Si cambió, abre un nuevo periodo.
+    """
+    path = carpeta / 'x2_history.json'
     historia = []
     if path.exists():
         try:
@@ -495,25 +522,37 @@ def guardar_historial(scores: dict, raw_data: dict, carpeta: Path):
         except Exception:
             historia = []
 
-    hoy      = date.today().isoformat()
-    historia = [
-        e for e in historia
-        if not (e.get('date') == hoy and e.get('activo') in scores)
-    ]
+    hoy = date.today().isoformat()
 
     for activo, data in scores.items():
-        historia.append({
-            'date':            hoy,
-            'activo':          activo,
-            'score':           data['score'],
-            'score_cross':     data['score_cross'],
-            'score_tendencia': data['score_tendencia'],
-            'components':      data['components'],
-            'raw':             raw_data.get(activo, {}),
-        })
+        raw_hoy = raw_data.get(activo, {})
+
+        entradas = [e for e in historia if e.get('activo') == activo]
+        ultima = (
+            max(entradas, key=lambda e: _fecha_entrada(e))
+            if entradas else None
+        )
+
+        if ultima and _raw_iguales(ultima.get('raw', {}), raw_hoy):
+            ultima['periodo_fin']      = hoy
+            ultima['score']            = data['score']
+            ultima['score_cross']      = data['score_cross']
+            ultima['score_tendencia']  = data['score_tendencia']
+            ultima['components']       = data['components']
+        else:
+            historia.append({
+                'activo':          activo,
+                'periodo_inicio':  hoy,
+                'periodo_fin':     hoy,
+                'score':           data['score'],
+                'score_cross':     data['score_cross'],
+                'score_tendencia': data['score_tendencia'],
+                'components':      data['components'],
+                'raw':             raw_hoy,
+            })
 
     path.write_text(json.dumps(historia, indent=2, ensure_ascii=False))
-    print(f'x2_history.json → {path} ({len(historia)} entradas totales)')
+    print(f'x2_history.json → {path} ({len(historia)} periodos totales)')
 
 
 def _ya_ejecutado_hoy(carpeta: Path) -> bool:

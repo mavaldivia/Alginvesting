@@ -19,6 +19,7 @@ import multiprocessing
 import os
 import random
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -1006,6 +1007,13 @@ if __name__ == '__main__':
                   + f'\n{"═"*55}')
 
             try:
+                print('\n── X2: Datos fundamentales ─────────────────────────────')
+                try:
+                    x2_script = Path(__file__).parent / 'X2_fundamentals.py'
+                    subprocess.run([sys.executable, str(x2_script)], check=False)
+                except Exception as e:
+                    print(f'  Advertencia: X2 falló ({e}). Continuando.')
+
                 if args.opcion in (0, 2):
                     print('\n── Etapa 1: Descarga de datos ──────────────────────────')
                     try:

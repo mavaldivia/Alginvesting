@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X0+X2: llamar X2 en cada ciclo + historial por periodos
+
+X0 ahora llama `X2_fundamentals.py` vía `subprocess.run` al inicio de cada ciclo del `while True` — X2 se auto-regula con su guard de día (`x2_last_run.json`), así corre a lo sumo una vez por día. X2: `guardar_historial` reescrito con lógica de periodos — compara raw actual vs última entrada con `_raw_iguales` (tolerancia 0.01% relativa); si son iguales extiende `periodo_fin` y actualiza scores, si cambió abre nueva entrada. Schema: `{activo, periodo_inicio, periodo_fin, score, score_cross, score_tendencia, components, raw}`. Nuevas funciones: `_raw_iguales`, `_fecha_entrada` (fallback `periodo_fin`→`date` para compat. con entradas antiguas). `_score_tendencia` actualizada para usar `_fecha_entrada`.
+
 **2026-06-14** — X0: mostrar LAMBDA y FO warm start antes del optimizador
 
 **2026-06-14** — gitignore: actualizar rutas (Data/, Data_minuto/, limpiar conjuntosN old)
