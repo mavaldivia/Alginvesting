@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X0: pintar OA en negro en plot Soportes + leyenda
+
+`graficar_soportes_all` acepta nuevo parámetro `ordenes_activas: list = []`. Separa `conjunto_N` en soportes normales (rojo, `--`) y órdenes activas (negro, sólido). Agrega leyenda con `Line2D` proxy mostrando conteo de cada tipo: `Soportes (N)` y `OA — órdenes activas (N)`. La llamada en `_procesar_valor_N` pasa `oa`. En Mac siempre será lista vacía (MT5 no disponible); el cambio visual aplica cuando corre en Windows con órdenes reales.
+
 **2026-06-14** — X0: fix dist_max batch + sort/dedup CSVs
 
 `calcular_FO_batch` acepta `dist_max_global` opcional: cuando se pasa, normaliza `h_dist` con ese valor fijo (el mismo que usó `calcular_FO` al inicio de la iteración) en vez de recomputarlo por candidato, garantizando que la FO del batch es comparable con `FO_base`. `h_dist` se clipea a `[0,1]`. `nuevo_optimizador_2` extrae `dist_max_iter` tras el `calcular_FO` inicial y lo pasa a ambas llamadas de `calcular_FO_batch`. La llamada a `calcular_FO(lista_iter)` ya existente (que antes descartaba el FO con `_`) ahora captura `FO_proper` y lo asigna a `FO_base`, de modo que plot y verbose muestran el FO real en vez del FO batch inflado. Efecto: elimina el salto brusco en la curva de evolución de FO en la transición Fase 1 → Fase 2. Tres lecturas de CSV corregidas: `descargar_datos` (tenía `drop_duplicates` pero no `sort_values`), `_procesar_valor_N` (tenía `sort_values` pero no `drop_duplicates`), `df_info` en el bloque de info (sin ninguno).

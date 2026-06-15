@@ -94,5 +94,29 @@
     "FO_final": 0.00041529,
     "delta_final": 5.764800999999997e-06,
     "convergio": true
+  },
+  {
+    "clave": "GOOGL_100",
+    "t_inicio": "2026-06-14T23:07:33.811109",
+    "t_fin": "2026-06-14T23:15:54.009129",
+    "duracion_s": 500.2,
+    "iteraciones": 16298,
+    "cambios": 83,
+    "FO_inicial": 0.00041529,
+    "FO_final": 0.00081018,
+    "delta_final": 4.035360699999998e-06,
+    "convergio": true
+  },
+  {
+    "clave": "GOOGL_100",
+    "t_inicio": "2026-06-14T23:28:53.222878",
+    "t_fin": "2026-06-14T23:34:53.904072",
+    "duracion_s": 360.68,
+    "iteraciones": 12327,
+    "cambios": 87,
+    "FO_inicial": 0.00081018,
+    "FO_final": 0.00095687,
+    "delta_final": 2.8247524899999986e-06,
+    "convergio": true
   }
 ]

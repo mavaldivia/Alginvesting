@@ -60,6 +60,7 @@
 
 ### X4 — X4_backtester.py
 
+- [x] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre). (I:5 C:2 H:9 → 3.35) — definido en `docs/x4_plan.md` sección 8.
 - [x] **Fecha/hora máxima por tupla (valor, N) para backtesting**: `_procesar_valor_N` acepta `fecha_hora_max` opcional — filtra datos hasta ese datetime, usa warm start desde `{valor}_{N}_bt.json` (cache `{datetime: [soportes]}`), delta desde `{valor}_{N}_bt_delta.json`. Sin look-ahead: la clave guardada es `df['DateTime'].iloc[-1]` (último dato realmente usado). Lookup: `max(t1 <= t0)`. X4 llama esta función directamente con `fecha_hora_max=t`. X0 producción sin cambios. (I:10 C:5 H:8 → 1.26)
 - [x] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78) — decisión: no es un script separado, la lógica va embebida en X4 como subrutina de simulación intra-vela. Ver `docs/decisiones.md` 2026-06-08.
 - [x] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)

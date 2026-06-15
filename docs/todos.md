@@ -23,7 +23,6 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 
 > Plan de implementación: [`docs/x4_plan.md`](x4_plan.md)
 
-- [ ] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre). (I:5 C:2 H:9 → 3.35)
 - [ ] **Estructura de carpetas y configs por versión de backtesting**: crear `x4_backtesting/config/` con un archivo `config_[version].py` por versión (ej. `config_V1.py`), con la misma estructura que `config.py` de producción. Cada archivo define los parámetros exactos usados en esa corrida (activos, N, K, LAMBDA, A, B, TS, PERDIDA_MAX, fechas, etc.). Permite reproducir cualquier versión de backtesting de forma exacta. (I:5 C:2 H:8 → 3.16)
 - [ ] **DELTA_INICIAL por (valor, N, version)**: en backtesting, `delta_inicial` depende solo del trío `(valor, N, version)`, no de `max_datetime`. Se ajusta con `FACTOR_DELTA` cada vez que el optimizador converge para ese trio, al igual que en producción. Archivo de estado: `{valor}_{N}_{version}_bt_delta.json` (I:7 C:3 H:8 → 2.49)
 - [ ] **Descarga incremental de `Data_minuto/`**: en X0, agregar descarga de datos M1 desde MT5 con la misma lógica incremental que `Data/` (merge + drop_duplicates). Pre-requisito para simulación intra-vela en X4. Fuera de git (regenerable). (I:6 C:3 H:8 → 2.31)

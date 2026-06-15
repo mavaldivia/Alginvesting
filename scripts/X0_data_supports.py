@@ -27,6 +27,7 @@ import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import mplfinance as mpf
 import numpy as np
 import pandas as pd
@@ -499,21 +500,41 @@ def graficar_performance_FO(df_FO: pd.DataFrame, valor: str = '', N: int = 0,
 
 
 def graficar_soportes_all(df_0: pd.DataFrame, conjunto_N: set, valor: str = '', N: int = 0,
-                           graficar: bool = False, zoom: bool = False):
+                           graficar: bool = False, zoom: bool = False, ordenes_activas: list = []):
     if not graficar and not zoom:
         return
     df_plot = df_0.tail(100) if zoom else df_0
     p_min, p_max = df_plot['Low'].min(), df_plot['High'].max()
     sufijo = ' (zoom)' if zoom else ''
-    plt.figure(figsize=(21, 7))
-    plt.title(f'Soportes{sufijo} — {valor} N={N}')
-    plt.plot(df_plot['DateTime'], df_plot['Low'], color='b', label='Low')
-    plt.plot(df_plot['DateTime'], df_plot['High'], color='g', label='High')
-    for s in sorted(conjunto_N):
+    fig, ax = plt.subplots(figsize=(21, 7))
+    ax.set_title(f'Soportes{sufijo} — {valor} N={N}')
+    line_low, = ax.plot(df_plot['DateTime'], df_plot['Low'], color='b', label='Low')
+    line_high, = ax.plot(df_plot['DateTime'], df_plot['High'], color='g', label='High')
+
+    oa_set = set(ordenes_activas)
+    soportes_normales = [s for s in sorted(conjunto_N) if s not in oa_set]
+    soportes_oa = [s for s in sorted(conjunto_N) if s in oa_set]
+
+    for s in soportes_normales:
         if p_min <= s <= p_max:
-            plt.axhline(y=s, color='r', linestyle='--', alpha=0.5)
-    plt.grid()
-    plt.legend()
+            ax.axhline(y=s, color='r', linestyle='--', alpha=0.5)
+    for s in soportes_oa:
+        if p_min <= s <= p_max:
+            ax.axhline(y=s, color='black', linestyle='-', linewidth=1.2, alpha=0.85)
+
+    legend_handles = [
+        line_low,
+        line_high,
+        Line2D([0], [0], color='r', linestyle='--', alpha=0.5,
+               label=f'Soportes ({len(soportes_normales)})'),
+    ]
+    if soportes_oa:
+        legend_handles.append(
+            Line2D([0], [0], color='black', linestyle='-', linewidth=1.2,
+                   label=f'OA — órdenes activas ({len(soportes_oa)})')
+        )
+    ax.legend(handles=legend_handles)
+    ax.grid()
     subcarpeta = 'Zoom' if zoom else 'Soportes'
     _guardar_plot(subcarpeta, f'{valor}_{N}')
 
@@ -763,7 +784,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     if not es_bt:
         graficar_df_extremos(df_extremos, valor=valor, N=N, graficar=GRAFICAR_EXTREMOS)
         graficar_performance_FO(df_FO, valor=valor, N=N, graficar=GRAFICAR_FO)
-        graficar_soportes_all(df, conjunto_N, valor=valor, N=N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM)
+        graficar_soportes_all(df, conjunto_N, valor=valor, N=N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM,
+                              ordenes_activas=oa)
 
     # Guardar soportes
     if es_bt:

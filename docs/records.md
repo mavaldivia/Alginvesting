@@ -409,3 +409,13 @@ Claude: Implementó tres cambios en `X0_data_supports.py`: (1) `calcular_FO_batc
 Mauricio: Señaló que falta sort ascendente por DateTime + drop_duplicates en las lecturas de CSV de Data/.
 Claude: Confirmó tres lecturas sin sort+dedup completo: `descargar_datos` (tenía dedup pero no sort), `_procesar_valor_N` (tenía sort pero no dedup), `df_info` en el bloque de info (sin ninguno). Los tres corregidos.
 (Cierre: 2026-06-14 23:14)
+
+## SECCIÓN 48
+Mauricio: Inició sesión con `/todos`. Eligió trabajar en X4. Preguntó si el ítem 1 (schema del store de trades) ya estaba definido en `x4_plan.md`, y pidió moverlo a `done.md` si era así.
+Claude: Mostró tabla de 7 secciones con pendientes. Leyó `docs/x4_plan.md` y confirmó que la sección 8 tiene el schema completo de `trades.json` con todos los campos del ítem. Eliminó el ítem de `todos.md` y lo agregó como `[x]` en `done.md` bajo `X4 — X4_backtester.py`, con referencia a la sección del plan.
+(Cierre: 2026-06-14 23:30)
+
+## SECCIÓN 49
+Mauricio: Pidió que en el plot de Soportes (`docs/X0/plots/Soportes`) se pintaran los soportes activos (órdenes de compra activas en MT5) en negro, diferenciándolos del resto, y que se agregara simbología (leyenda).
+Claude: Modificó `graficar_soportes_all` para aceptar `ordenes_activas: list = []`. Separa `conjunto_N` en soportes normales (rojo punteado) y órdenes activas (negro sólido). Agrega leyenda con `Line2D` proxy mostrando conteo de cada tipo. Actualizó la llamada en `_procesar_valor_N` para pasar `oa`. En Mac siempre será lista vacía (MT5 no disponible); el cambio visual aplica cuando corre en Windows con órdenes reales. Añadió `from matplotlib.lines import Line2D` al bloque de imports.
+(Cierre: 2026-06-14 23:34)
