@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X0: revert optimizador a base + S6 + reiniciar_x0 + plots en docs/X0
+
+`nuevo_optimizador_2` revertido a lógica base (`8eefe88`): eliminados S1 (`_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`), S2 (`_inicializar_conjunto_smart`) y S4 (EMA ordering). Se mantiene S6 (`calcular_FO_batch`, vectorización numpy del loop M, matemáticamente idéntico). `prueba_cercanos=False` default; `random.shuffle` para ordenar; `calcular_FO` fresco al inicio de cada iteración outer. Se conservan N_MAX_MODELS, `_seleccionar_combos`, `--loop`, monitor, logs, M_COARSE dos fases, CARPETA_N_PROD/BT. Nuevos: `CARPETA_PLOTS` movida a `docs/X0/plots/`; parámetro `reiniciar_x0 = False` en `config.py` que al ponerse en `True` elimina logs/soportes/plots y se autoresetea. 3 ítems de validación agregados en `docs/todos.md` sección X0 (alta prioridad, secuencial). `docs/x4_plan.md` sección 5: dependencia directa de X0 documentada con bloque de import.
+
 **2026-06-14** — docs: actualizar README + plan X4 con eventos y equity por activo
 
 `README.md` reescrito: X2 pasa a "Operativo" con sección propia, estructura de carpetas actualizada (conjuntos_N/prod/, bt/, fundamentals/, docs/X0/logs/), parámetros ampliados, 5 optimizaciones del optimizador documentadas, comandos --loop y X2 en CLI. `docs/x4_plan.md` ampliado: nueva sección 9 con `events.json` (5 tipos: OE_creada, OE_eliminada, OE_ejecutada, SL_cambiado, posicion_cerrada) + `equity_global.csv` + `equity_activos.csv` (GC/GA/GT por tupla activo-hora). Cold start de soportes documentado en sección 5. `GC` agregado al estado en memoria por activo; `_calcular_GA` como nueva función.

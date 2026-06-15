@@ -95,7 +95,22 @@ CARPETA_N_BT         = BASE_DIR / 'conjuntos_N' / 'bt'
 
 ## 5. Recálculo de soportes
 
-El recálculo usa exactamente las mismas funciones de `X0_data_supports.py` (importadas), con `fecha_hora_max = timestamp_candle_actual`. Se corre en paralelo por `(valor, N)` vía `ProcessPoolExecutor`.
+### Dependencia directa de X0
+
+X4 **importa** las funciones de búsqueda de soportes desde `X0_data_supports.py` — no las duplica. Así, cualquier cambio al algoritmo (scoring, optimizador, factores) se propaga automáticamente al backtester.
+
+```python
+# En X4_backtester.py
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from X0_data_supports import _procesar_valor_N, obtener_df_extremos, calcular_FO
+```
+
+El parámetro `fecha_hora_max` de `_procesar_valor_N` es lo que activa el modo backtesting: filtra los datos hasta ese timestamp y usa/actualiza el cache en `conjuntos_N/bt/` en vez de `conjuntos_N/prod/`.
+
+El recálculo corre en paralelo por `(valor, N)` vía `ProcessPoolExecutor`, igual que en producción.
 
 **Cold start**: si al iniciar el backtest no existen soportes en `conjuntos_N/bt/` para algún `(activo, N, version)`, se ejecuta un recálculo completo con `fecha_hora_max = fecha_inicio` **antes de entrar al loop principal**. Sin soportes, no hay órdenes posibles. Este paso puede ser lento (cold start del optimizador) — se loguea explícitamente.
 

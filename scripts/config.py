@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).parent.parent
 CARPETA_DATA = BASE_DIR / 'Data'
 CARPETA_N_PROD = BASE_DIR / 'conjuntos_N' / 'prod'
 CARPETA_N_BT   = BASE_DIR / 'conjuntos_N' / 'bt'
-CARPETA_PLOTS = BASE_DIR / 'plots'
+CARPETA_PLOTS = BASE_DIR / 'docs' / 'X0' / 'plots'
 CARPETA_LOGS = BASE_DIR / 'docs' / 'X0' / 'logs'
 CARPETA_FUNDAMENTALS = BASE_DIR / 'fundamentals'
 
@@ -101,6 +101,12 @@ GRAFICAR_EXTREMOS = False
 GRAFICAR_FO = True
 GRAFICAR_SOPORTES = True
 GRAFICAR_ZOOM = False
+
+# ─── Control de estado X0 ─────────────────────────────────────────────────────
+# Si True, al inicio de la Etapa 2 elimina logs, soportes y plots generados por X0,
+# y luego se resetea a False automáticamente en este archivo.
+
+reiniciar_x0 = False
 
 # ─── X2: score fundamental ────────────────────────────────────────────────────
 

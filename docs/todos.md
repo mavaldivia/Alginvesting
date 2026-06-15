@@ -6,6 +6,16 @@
 
 Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md` en su sección correcta.
 
+### X0 — Validación post-revert (secuencial, alta prioridad)
+
+> Contexto: se revirtió el optimizador a la lógica base de 8eefe88 para recuperar confianza en los resultados.
+> Solo quedan speedups seguros: `calcular_FO_batch` (S6, vectorización numpy del loop M) y fase coarse/fine con `M_COARSE`.
+> Ejecutar estos pasos en orden antes de seguir desarrollando X0.
+
+- [ ] **1. Validar equidistancia con LAMBDA alto**: correr X0 con `LAMBDA = 5`, 1 activo (ej. BTCUSD), N pequeño (ej. 10-20), `verbose=True`. Los soportes finales deben ser aproximadamente equidistantes en el rango de precios. Si no → hay un bug en `calcular_FO` o `calcular_FO_batch`.
+- [ ] **2. Validar equivalencia calcular_FO_batch vs calcular_FO**: para un `conjunto_N` fijo y un set de M candidatos a soporte i, verificar que los valores de FO de `calcular_FO_batch` coinciden (con tolerancia numérica) con los de M llamadas individuales a `calcular_FO`. Garantiza que S6 es matemáticamente equivalente.
+- [ ] **3. Validar convergencia con LAMBDA normal**: con parámetros de producción (`LAMBDA = 1/500`, N real), verificar que FO crece monótonamente en cada cambio aceptado y que el optimizador converge (no cicla ni se queda sin mejoras prematuramente).
+
 ### X3 — X3_technical_features.py
 
 - [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes). (I:7 C:5 H:7 → 1.40)

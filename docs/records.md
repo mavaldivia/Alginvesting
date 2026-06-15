@@ -376,3 +376,17 @@ Claude: Reescribió x4_plan.md completo incorporando: nueva sección 9 con event
 Mauricio: Pidió además un registro por hora de GC (ganancia cerrada acumulada), GA (ganancia abierta) y GT=GC+GA por cada activo (tupla activo-hora), en archivos separados del equity global.
 Claude: Agregó equity_activos.csv al plan con schema (ts, activo, GC, GA, GT). GC se acumula en estado['por_activo'][activo]['GC'] al cerrar posiciones; GA se calcula al vuelo con candle.Close; GT = suma. Actualizó paso G del flujo de trading, funciones (_calcular_GA, firma de _append_equity), fase 6 de implementación, y estructura de carpetas en sección 3.
 (Cierre: 2026-06-14 01:27)
+
+## SECCIÓN 44
+Mauricio: Expresó desconfianza en los resultados de `X0_data_supports.py` tras implementar las mejoras de `docs/documentacion_V0.md` (S1–S4). Prueba concreta: con `LAMBDA = 5` (lambda alto fuerza equidistancia) los soportes no quedaban equidistantes. Pidió revertir a la versión previa a esas mejoras, conservando solo speedups que no modifiquen el comportamiento del algoritmo, la paralelización por valor-N, y el monitor de progreso.
+Claude: Revisó el historial git e identificó `8eefe88` como el commit base correcto. Aclaró qué conservar (N_MAX_MODELS, `--loop`, logs, monitor, M_COARSE dos fases, S6) y qué eliminar (S1 FO incremental con `dist_max_global` fijo, S2 inicialización inteligente, S4 EMA ordering). Ejecutó cambios quirúrgicos sobre el archivo actual: eliminó `_inicializar_conjunto_smart`, `_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`; revirtió `nuevo_optimizador_2` a lógica base con `calcular_FO_batch` (S6) para el loop M; `prueba_cercanos=False` default; `random.shuffle` para ordenar; `calcular_FO` fresco al inicio de cada iteración outer. Verificó sintaxis y cero referencias a funciones eliminadas. Agregó 3 ítems de validación secuencial en `docs/todos.md` sección X0.
+
+Mauricio: Pidió confirmar que `calcular_FO_batch` es matemáticamente idéntico a M llamadas a `calcular_FO`.
+Claude: Explicó en detalle: la función precomputa el soporte más cercano en la base (sin el candidato) una sola vez, luego para cada candidato compara su distancia contra esa base vía broadcasting `(M, n)`, computa `h_dist` con `dist_max` por candidato (correcto, igual que `calcular_FO`), y calcula `cv(H_n)` con un loop Python O(M×N) trivial. Matemáticamente equivalente.
+
+Mauricio: Pidió agregar `reiniciar_x0 = False` en `config.py`: si se pone en `True`, al inicio de la Etapa 2 debe limpiar logs, soportes y plots, y autoresetearse a `False` en el archivo. También pidió mover la carpeta `plots/` a `docs/X0/`.
+Claude: Implementó: `CARPETA_PLOTS` → `docs/X0/plots/` en `config.py`; nuevo parámetro `reiniciar_x0 = False` con sección propia; función `_reset_x0_state()` en X0 que borra y recrea `CARPETA_LOGS`, `CARPETA_N_PROD`, `CARPETA_PLOTS` con `shutil.rmtree` y escribe `reiniciar_x0 = False` en `config.py`; variable `_pendiente_reset` en `__main__` para que el reset ocurra una sola vez (entre Etapa 1 y Etapa 2) aunque se corra en `--loop`.
+
+Mauricio: Preguntó si X4 importa funciones directamente de X0, y pidió explicitarlo en el plan.
+Claude: Confirmó que X4 no existe aún como script. Agregó sección "Dependencia directa de X0" en `docs/x4_plan.md` sección 5: bloque de import concreto (`_procesar_valor_N`, `obtener_df_extremos`, `calcular_FO` importados desde X0), y explicación de que `fecha_hora_max` es el único switch entre modo producción y backtesting.
+(Cierre: 2026-06-14 21:32)
