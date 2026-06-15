@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X0: fix dist_max batch + sort/dedup CSVs
+
+`calcular_FO_batch` acepta `dist_max_global` opcional: cuando se pasa, normaliza `h_dist` con ese valor fijo (el mismo que usó `calcular_FO` al inicio de la iteración) en vez de recomputarlo por candidato, garantizando que la FO del batch es comparable con `FO_base`. `h_dist` se clipea a `[0,1]`. `nuevo_optimizador_2` extrae `dist_max_iter` tras el `calcular_FO` inicial y lo pasa a ambas llamadas de `calcular_FO_batch`. La llamada a `calcular_FO(lista_iter)` ya existente (que antes descartaba el FO con `_`) ahora captura `FO_proper` y lo asigna a `FO_base`, de modo que plot y verbose muestran el FO real en vez del FO batch inflado. Efecto: elimina el salto brusco en la curva de evolución de FO en la transición Fase 1 → Fase 2. Tres lecturas de CSV corregidas: `descargar_datos` (tenía `drop_duplicates` pero no `sort_values`), `_procesar_valor_N` (tenía `sort_values` pero no `drop_duplicates`), `df_info` en el bloque de info (sin ninguno).
+
 **2026-06-14** — X0+X2: llamar X2 en cada ciclo + historial por periodos
 
 X0 ahora llama `X2_fundamentals.py` vía `subprocess.run` al inicio de cada ciclo del `while True` — X2 se auto-regula con su guard de día (`x2_last_run.json`), así corre a lo sumo una vez por día. X2: `guardar_historial` reescrito con lógica de periodos — compara raw actual vs última entrada con `_raw_iguales` (tolerancia 0.01% relativa); si son iguales extiende `periodo_fin` y actualiza scores, si cambió abre nueva entrada. Schema: `{activo, periodo_inicio, periodo_fin, score, score_cross, score_tendencia, components, raw}`. Nuevas funciones: `_raw_iguales`, `_fecha_entrada` (fallback `periodo_fin`→`date` para compat. con entradas antiguas). `_score_tendencia` actualizada para usar `_fecha_entrada`.

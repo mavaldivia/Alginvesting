@@ -14,7 +14,6 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 
 - [ ] **1. Validar equidistancia con LAMBDA alto**: correr X0 con `LAMBDA = 5`, 1 activo (ej. BTCUSD), N pequeño (ej. 10-20), `verbose=True`. Los soportes finales deben ser aproximadamente equidistantes en el rango de precios. Si no → hay un bug en `calcular_FO` o `calcular_FO_batch`. (I:8 C:2 H:10 → 4.47)
 - [ ] **3. Validar convergencia con LAMBDA normal**: con parámetros de producción (`LAMBDA = 1/500`, N real), verificar que FO crece monótonamente en cada cambio aceptado y que el optimizador converge (no cicla ni se queda sin mejoras prematuramente). (I:8 C:2 H:8 → 4.00)
-- [ ] **2. Validar equivalencia calcular_FO_batch vs calcular_FO**: para un `conjunto_N` fijo y un set de M candidatos a soporte i, verificar que los valores de FO de `calcular_FO_batch` coinciden (con tolerancia numérica) con los de M llamadas individuales a `calcular_FO`. Garantiza que S6 es matemáticamente equivalente. (I:8 C:3 H:9 → 2.83)
 
 ### X3 — X3_technical_features.py
 

@@ -225,7 +225,8 @@ def calcular_FO(df_extremos: pd.DataFrame, conjunto_N: set, lambda_ponderador: f
 
 
 def calcular_FO_batch(df_extremos: pd.DataFrame, lista_N: list, idx_soporte: int,
-                       candidatos: np.ndarray, lambda_ponderador: float) -> np.ndarray:
+                       candidatos: np.ndarray, lambda_ponderador: float,
+                       dist_max_global: float = None) -> np.ndarray:
     """
     Evalúa la FO para todos los candidatos a soporte idx_soporte en una sola pasada vectorizada.
     Reemplaza el for-loop de M llamadas a calcular_FO en nuevo_optimizador_2.
@@ -233,6 +234,10 @@ def calcular_FO_batch(df_extremos: pd.DataFrame, lista_N: list, idx_soporte: int
     Para cada Low l_j, la distancia al soporte más cercano del conjunto {base ∪ c_k} es
     min(dist_base[j], |l_j - c_k|): se precomputa nearest_base una vez y se compara con
     los M candidatos via broadcasting (M_eff, n) sin iterar en Python.
+
+    dist_max_global: si se pasa, normaliza h_dist con este valor fijo (igual que calcular_FO
+    al inicio de la iteración) en vez de recomputarlo por candidato. Garantiza que la FO
+    del batch es comparable con FO_base y evita el salto entre fases. h_dist se clipea a [0,1].
 
     Returns: FO_values array (M_eff,)
     """
@@ -262,9 +267,13 @@ def calcular_FO_batch(df_extremos: pd.DataFrame, lista_N: list, idx_soporte: int
     )  # shape (M_eff, n)
 
     dist_sq = (nearest_all - lows[None, :]) ** 2
-    dist_max = dist_sq.max(axis=1)
-    dist_max = np.where(dist_max == 0, 1.0, dist_max)
-    h_dist = 1.0 - dist_sq / dist_max[:, None]  # shape (M_eff, n)
+    if dist_max_global is not None:
+        dm = max(dist_max_global, 1e-10)
+        h_dist = np.clip(1.0 - dist_sq / dm, 0.0, 1.0)
+    else:
+        dist_max = dist_sq.max(axis=1)
+        dist_max = np.where(dist_max == 0, 1.0, dist_max)
+        h_dist = 1.0 - dist_sq / dist_max[:, None]  # shape (M_eff, n)
 
     factores = [nombre for nombre, activo in parametros_soportes.items() if activo]
     cols_fijos = [f for f in factores if f != 'h_dist']
@@ -366,6 +375,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             sys.exit(f'Error en tamaño conjunto_N en iteración {j}: {len(conjunto_N)} != {N}')
 
         FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
+        dist_max_iter = float(df_extremos['dist'].max())
         mejora = False
 
         if estado_compartido is not None and llave:
@@ -379,7 +389,8 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             casos_random = np.linspace(cota_inf, cota_sup, M)[1:-1]
 
             # Evalúa todos los M candidatos en una sola pasada numpy vectorizada
-            FO_values = calcular_FO_batch(df_extremos, lista_N, i, casos_random, lambda_ponderador)
+            FO_values = calcular_FO_batch(df_extremos, lista_N, i, casos_random, lambda_ponderador,
+                                          dist_max_global=dist_max_iter)
             df_plot = pd.DataFrame({'caso': casos_random, 'FO_iter': FO_values})
 
             cumplen_logica = evaluar_crecimiento_decrecimiento(df_plot, 'FO_iter')
@@ -388,7 +399,8 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 a_c, b_c, _ = coef
                 caso = float(np.clip(-b_c / (2 * a_c), cota_inf + 1e-8, cota_sup - 1e-8))
                 FO_iter = float(calcular_FO_batch(df_extremos, lista_N, i,
-                                                   np.array([caso]), lambda_ponderador)[0])
+                                                   np.array([caso]), lambda_ponderador,
+                                                   dist_max_global=dist_max_iter)[0])
             else:
                 idx_max = int(df_plot['FO_iter'].argmax())
                 caso = float(df_plot['caso'].iloc[idx_max])
@@ -403,13 +415,13 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 max_pasos = max(max_pasos, pos + 1)
                 if estado_compartido is not None and llave:
                     estado_compartido[llave] = (cambios, max_pasos, FO_iter, 'corriendo')
-                FO_base = FO_iter
                 i_change = i
                 nuevo_value = caso
                 lista_iter = lista_N[:]
                 lista_iter[i] = caso
-                _, df_extremos, particion_FO = calcular_FO(df_extremos, set(lista_iter),
-                                                            lambda_ponderador)
+                FO_proper, df_extremos, particion_FO = calcular_FO(df_extremos, set(lista_iter),
+                                                                    lambda_ponderador)
+                FO_base = FO_proper  # FO real (no batch) para plot y verbose
 
             if mejora:
                 break
@@ -563,6 +575,7 @@ def descargar_datos(valores: list, carpeta_data: Path):
             df['DateTime'] = pd.to_datetime(df['DateTime'])
             data = (pd.concat([df, data_old])
                     .drop_duplicates(subset=['DateTime'])
+                    .sort_values('DateTime')
                     .reset_index(drop=True))
         else:
             data = df
@@ -660,7 +673,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         return
 
     df = pd.read_csv(csv_path)
-    df = df.sort_values('DateTime').reset_index(drop=True)
+    df = df.sort_values('DateTime').drop_duplicates(subset=['DateTime']).reset_index(drop=True)
     df['DateTime'] = pd.to_datetime(df['DateTime'])
     df = df[df['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
     if es_bt:
@@ -887,6 +900,8 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
             continue
         df_info = pd.read_csv(csv_path, usecols=['DateTime', 'Close'])
         df_info['DateTime'] = pd.to_datetime(df_info['DateTime'])
+        df_info = (df_info.sort_values('DateTime').drop_duplicates(subset=['DateTime'])
+                   .reset_index(drop=True))
         df_info = df_info[df_info['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
         if len(df_info):
             print(f'  Rango: {df_info["DateTime"].iloc[0]} → {df_info["DateTime"].iloc[-1]} ({len(df_info)} velas)')

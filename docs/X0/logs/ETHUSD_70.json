@@ -82,5 +82,17 @@
     "FO_final": -4.3e-07,
     "delta_final": 2.4009999999999995e-05,
     "convergio": false
+  },
+  {
+    "clave": "ETHUSD_70",
+    "t_inicio": "2026-06-14T23:07:33.820491",
+    "t_fin": "2026-06-14T23:14:24.392647",
+    "duracion_s": 410.57,
+    "iteraciones": 4343,
+    "cambios": 46,
+    "FO_inicial": -4.3e-07,
+    "FO_final": 6.542e-05,
+    "delta_final": 1.6806999999999997e-05,
+    "convergio": true
   }
 ]

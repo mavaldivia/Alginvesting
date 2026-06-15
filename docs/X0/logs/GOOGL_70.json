@@ -130,5 +130,17 @@
     "FO_final": 0.00035296,
     "delta_final": 1.977326742999999e-06,
     "convergio": true
+  },
+  {
+    "clave": "GOOGL_70",
+    "t_inicio": "2026-06-14T23:07:33.821190",
+    "t_fin": "2026-06-14T23:13:37.616746",
+    "duracion_s": 363.8,
+    "iteraciones": 20000,
+    "cambios": 69,
+    "FO_inicial": 0.00035296,
+    "FO_final": 0.00111677,
+    "delta_final": 1.977326742999999e-06,
+    "convergio": false
   }
 ]
