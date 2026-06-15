@@ -8,6 +8,9 @@
 
 ### X0 — X0_data_supports.py
 
+- [x] **Fix: soportes con OA no se desplazan en el optimizador (producción)**: en `nuevo_optimizador_2`, si `dic_N[i]` está en `ordenes_activas`, se salta la iteración con `continue` — el nivel ya está ejecutado en la plataforma y no debe moverse. El guard faltaba; sin él el optimizador relocalizaba soportes activos en MT5 como si fueran candidatos libres.
+- [x] **Fix: soportes con OA fijos en modo backtesting**: `_procesar_valor_N` recibía `oa = []` siempre en modo bt. Agregado parámetro `ordenes_abiertas_bt: list = []`; cuando `es_bt=True`, se usa ese valor en lugar de la lista vacía. X4 debe pasar `[precio_ap for precio_ap in estado['por_activo'][activo]['OA'].keys()]` al llamar a `_procesar_valor_N`. Documentado en `docs/x4_plan.md` sección 5.
+
 - [x] **Descarga M1 (Data_minuto/) en Etapa 1**: tras descargar H1 en `Data/`, X0 descarga las últimas 1000 velas M1 de cada activo y las guarda/mergea en `Data_minuto/`. Lógica análoga a `descargar_datos`: concat con histórico existente, drop_duplicates, sort por DateTime, CSV con mismo nombre `{VALOR}.csv`. Nueva función `descargar_datos_minuto`; `CARPETA_DATA_MINUTO` en `config.py`; la carpeta se crea en `__main__` al arrancar; la llamada va justo después de `descargar_datos`, con su propio bloque de try/except.
 
 - [x] **X0: loop continuo (`--loop`) no funciona correctamente**: el ciclo `while True` no reinicia como se espera — verificar que tras converger todos los combos el loop vuelve a ejecutar descarga + soportes con los deltas actualizados, y que `_seleccionar_combos` refleja el estado real de cada `_delta.json` al inicio de cada vuelta. (I:9 C:2 H:9 → 4.50)

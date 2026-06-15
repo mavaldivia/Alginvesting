@@ -383,6 +383,8 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             estado_compartido[llave] = (cambios, max_pasos, FO_base, 'corriendo')
 
         for pos, i in enumerate(tqdm.tqdm(casos_moviles, disable=not verbose)):
+            if dic_N[i] in ordenes_activas:
+                continue  # no se mueve este soporte, ya está ejecutado en la plataforma
             cota_inf = dic_N[i - 1] if (i - 1) in dic_N else p_min
             cota_sup = dic_N[i + 1] if (i + 1) in dic_N else p_max
 
@@ -713,11 +715,14 @@ def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
 def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
                       carpeta_n_prod: Path, carpeta_n_bt: Path,
                       ordenes_activas: list = [], fecha_hora_max=None,
-                      estado_compartido=None, verbose: bool = True):
+                      estado_compartido=None, verbose: bool = True,
+                      ordenes_abiertas_bt: list = []):
     """Worker para ProcessPoolExecutor: procesa un único par (valor, N).
 
     fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
                    esa fecha/hora y usa/actualiza el cache _bt.json en lugar de producción.
+    ordenes_abiertas_bt: en modo bt, precios de posiciones abiertas (OA) que no deben moverse.
+                         Son buy limits que ya se ejecutaron y siguen activas en la simulación.
     """
     t_inicio = time.time()
     es_bt = fecha_hora_max is not None
@@ -799,7 +804,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     if estado_compartido is not None:
         estado_compartido[llave] = (0, 0, FO_ref, 'iniciando')
 
-    oa = [] if es_bt else ordenes_activas
+    oa = ordenes_abiertas_bt if es_bt else ordenes_activas
     if oa and verbose:
         print(f'  Órdenes activas fijas: {[round(p, 2) for p in oa]}')
     # Fase 1: exploración barata con M_COARSE

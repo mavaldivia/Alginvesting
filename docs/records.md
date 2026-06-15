@@ -424,3 +424,10 @@ Claude: Modificó `graficar_soportes_all` para aceptar `ordenes_activas: list = 
 Mauricio: Pidió agregar la descarga de `Data_minuto/` en X0, con velas M1, usando una lógica análoga a la descarga H1 existente. También pidió registrar el cambio en `done.md` y cerrar la sesión.
 Claude: Agregó `CARPETA_DATA_MINUTO` a `config.py`, creó la función `descargar_datos_minuto` en X0 (idéntica a `descargar_datos` excepto por `TIMEFRAME_M1` y la carpeta destino), actualizó el import y el `__main__` para crear la carpeta y llamar la función tras la descarga H1 (con su propio try/except). Registró el ítem en `docs/done.md`.
 (Cierre: 2026-06-14 23:39)
+
+## SECCIÓN 51
+Mauricio: Informó que acababa de agregar líneas 386-387 en X0 (guard `if dic_N[i] in ordenes_activas: continue` en el optimizador) porque era un error no tenerlas — los soportes ya ejecutados en MT5 no se estaban fijando. Pidió registrarlo en `done.md`.
+Claude: Leyó las líneas y confirmó la lógica. Agregó el fix a `done.md` con descripción del problema original.
+Mauricio: Señaló que el mismo problema aplica al modo backtesting: cuando X4 recalcula soportes, las posiciones abiertas (OA — buy limits activadas aún no cerradas) deben pasarse como soportes fijos al optimizador. Revisó X0 y confirmó que `_procesar_valor_N` siempre pasaba `oa = []` en modo bt.
+Claude: Agregó parámetro `ordenes_abiertas_bt: list = []` a `_procesar_valor_N`. Cambió `oa = [] if es_bt else ordenes_activas` a `oa = ordenes_abiertas_bt if es_bt else ordenes_activas`. Actualizó `docs/x4_plan.md` sección 5 con bloque de código explicando que X4 debe extraer `OA.keys()` y pasarlos como `ordenes_abiertas_bt`. Registró ambos fixes en `done.md`.
+(Cierre: 2026-06-15 16:38)

@@ -110,6 +110,26 @@ from X0_data_supports import _procesar_valor_N, obtener_df_extremos, calcular_FO
 
 El parámetro `fecha_hora_max` de `_procesar_valor_N` es lo que activa el modo backtesting: filtra los datos hasta ese timestamp y usa/actualiza el cache en `conjuntos_N/bt/` en vez de `conjuntos_N/prod/`.
 
+### Posiciones abiertas como soportes fijos (OA → `ordenes_abiertas_bt`)
+
+Al recalcular soportes durante el backtest, X4 debe pasar las posiciones actualmente abiertas (OA) como soportes fijos al optimizador — igual que en producción se pasan las posiciones reales de MT5.
+
+Una OA es una buy limit que ya fue tocada por el precio y está activa en la simulación (no es una OE pendiente). Su precio no debe moverse durante el recálculo porque ya hay capital comprometido ahí.
+
+```python
+# En _recalcular_soportes (X4), antes de llamar a _procesar_valor_N:
+oa_bt = [precio_ap for precio_ap in estado['por_activo'][activo]['OA'].keys()]
+
+_procesar_valor_N(
+    activo, N, cfg.CARPETA_DATA, cfg.CARPETA_N_PROD, cfg.CARPETA_N_BT,
+    fecha_hora_max=ts_actual,
+    ordenes_abiertas_bt=oa_bt,   # precios de posiciones abiertas en la simulación
+    ...
+)
+```
+
+`_procesar_valor_N` ya acepta `ordenes_abiertas_bt: list = []` y lo pasa al optimizador cuando `es_bt=True` (en producción usa `ordenes_activas` de MT5 en su lugar).
+
 El recálculo corre en paralelo por `(valor, N)` vía `ProcessPoolExecutor`, igual que en producción.
 
 **Cold start**: si al iniciar el backtest no existen soportes en `conjuntos_N/bt/` para algún `(activo, N, version)`, se ejecuta un recálculo completo con `fecha_hora_max = fecha_inicio` **antes de entrar al loop principal**. Sin soportes, no hay órdenes posibles. Este paso puede ser lento (cold start del optimizador) — se loguea explícitamente.
