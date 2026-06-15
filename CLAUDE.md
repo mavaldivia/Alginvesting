@@ -164,6 +164,8 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — gitignore: actualizar rutas (Data/, Data_minuto/, limpiar conjuntosN old)
+
 **2026-06-14** — X0: revert optimizador a base + S6 + reiniciar_x0 + plots en docs/X0
 
 `nuevo_optimizador_2` revertido a lógica base (`8eefe88`): eliminados S1 (`_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`), S2 (`_inicializar_conjunto_smart`) y S4 (EMA ordering). Se mantiene S6 (`calcular_FO_batch`, vectorización numpy del loop M, matemáticamente idéntico). `prueba_cercanos=False` default; `random.shuffle` para ordenar; `calcular_FO` fresco al inicio de cada iteración outer. Se conservan N_MAX_MODELS, `_seleccionar_combos`, `--loop`, monitor, logs, M_COARSE dos fases, CARPETA_N_PROD/BT. Nuevos: `CARPETA_PLOTS` movida a `docs/X0/plots/`; parámetro `reiniciar_x0 = False` en `config.py` que al ponerse en `True` elimina logs/soportes/plots y se autoresetea. 3 ítems de validación agregados en `docs/todos.md` sección X0 (alta prioridad, secuencial). `docs/x4_plan.md` sección 5: dependencia directa de X0 documentada con bloque de import.

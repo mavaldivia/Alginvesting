@@ -1,10 +1,10 @@
 # Referencia histórica (solo lectura)
 Alginvesting_base/
+Data/
+Data_minuto/
 
 # Archivos generados en ejecución
 conjuntos_N/
-conjuntosN2/
-conjuntosN/
 
 # Python
 __pycache__/

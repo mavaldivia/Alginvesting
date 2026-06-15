@@ -185,6 +185,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-14** — gitignore: actualizar rutas (Data/, Data_minuto/, limpiar conjuntosN old)
 - **2026-06-14** — X0: revert optimizador a base + S6 + reiniciar_x0 + plots en docs/X0
 - **2026-06-14** — X4: plan de implementación en docs/x4_plan.md
 - **2026-06-14** — X0: FO inicial en monitor + cambios_netos vs warm start
