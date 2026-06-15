@@ -390,3 +390,8 @@ Claude: Implementó: `CARPETA_PLOTS` → `docs/X0/plots/` en `config.py`; nuevo 
 Mauricio: Preguntó si X4 importa funciones directamente de X0, y pidió explicitarlo en el plan.
 Claude: Confirmó que X4 no existe aún como script. Agregó sección "Dependencia directa de X0" en `docs/x4_plan.md` sección 5: bloque de import concreto (`_procesar_valor_N`, `obtener_df_extremos`, `calcular_FO` importados desde X0), y explicación de que `fecha_hora_max` es el único switch entre modo producción y backtesting.
 (Cierre: 2026-06-14 21:32)
+
+## SECCIÓN 45
+Mauricio: Pidió dos cambios en X0: mostrar el valor de LAMBDA antes de las iteraciones cíclicas, y recordó que al iniciar cada par valor-N con soportes existentes la FO de esos soportes debe ser la base de comparación (confirmar que esté visible).
+Claude: Agregó `print(f'\nLAMBDA = {LAMBDA} ...')` en `__main__` justo antes del `while True`. En el bloque de info previa de `buscar_soportes`, añadió lectura del último `FO_final` desde el log file (`docs/X0/logs/{v}_{n}.json`) y lo imprime como "FO warm start (última corrida)" — sin recalcular distancias, solo leyendo el valor ya guardado.
+(Cierre: 2026-06-14 22:41)

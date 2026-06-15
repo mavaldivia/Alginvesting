@@ -164,6 +164,8 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X0: mostrar LAMBDA y FO warm start antes del optimizador
+
 **2026-06-14** — gitignore: actualizar rutas (Data/, Data_minuto/, limpiar conjuntosN old)
 
 **2026-06-14** — X0: revert optimizador a base + S6 + reiniciar_x0 + plots en docs/X0

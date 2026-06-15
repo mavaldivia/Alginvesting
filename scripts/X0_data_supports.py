@@ -903,6 +903,12 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
             print(f'  delta_inicial: {notacion_cientifica(delta_val)}')
         else:
             print(f'  delta_inicial: {notacion_cientifica(DELTA_INICIAL)} (semilla)')
+        log_path = CARPETA_LOGS / f'{v}_{n}.json'
+        if log_path.exists():
+            with open(log_path) as f:
+                log = json.load(f)
+            if log:
+                print(f'  FO warm start (última corrida): {notacion_cientifica(log[-1]["FO_final"])}')
 
     with multiprocessing.Manager() as manager:
         estado = manager.dict()
@@ -970,10 +976,8 @@ if __name__ == '__main__':
     parser.add_argument('--opcion', type=int, default=2,
                         choices=[0, 1, 2],
                         help='0=solo datos, 1=solo soportes, 2=ambos (default)')
-    parser.add_argument('--loop', action='store_true',
-                        help='Ejecutar en bucle continuo (while True). '
-                             'Al terminar cada ciclo reinicia desde el principio. '
-                             'Usa N_MAX_MODELS de config.py para seleccionar combos por ciclo.')
+    parser.add_argument('--ciclos', type=int, default=0,
+                        help='Número de ciclos a ejecutar. 0 = infinito (default).')
     args = parser.parse_args()
 
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
@@ -990,15 +994,16 @@ if __name__ == '__main__':
         m, seg = divmod(rem, 60)
         return f'{h:02d}:{m:02d}:{seg:02d}'
 
+    print(f'\nLAMBDA = {LAMBDA} ({notacion_cientifica(LAMBDA)})')
+
     ciclo = 0
     _pendiente_reset = reiniciar_x0  # capturado al inicio; se consume una sola vez
     try:
         while True:
             ciclo += 1
-            if args.loop:
-                print(f'\n{"═"*55}\n CICLO {ciclo}'
-                      + (f' — top {N_MAX_MODELS} combos' if N_MAX_MODELS else ' — todos los combos')
-                      + f'\n{"═"*55}')
+            print(f'\n{"═"*55}\n CICLO {ciclo}'
+                  + (f' — top {N_MAX_MODELS} combos' if N_MAX_MODELS else ' — todos los combos')
+                  + f'\n{"═"*55}')
 
             try:
                 if args.opcion in (0, 2):
@@ -1006,11 +1011,8 @@ if __name__ == '__main__':
                     try:
                         descargar_datos(VALORES, CARPETA_DATA)
                     except Exception as e:
-                        if args.loop:
-                            print(f'  Advertencia: descarga de datos falló ({e}). '
-                                  f'Continuando con datos existentes.')
-                        else:
-                            raise
+                        print(f'  Advertencia: descarga de datos falló ({e}). '
+                              f'Continuando con datos existentes.')
 
                 if _pendiente_reset:
                     _reset_x0_state()
@@ -1024,12 +1026,9 @@ if __name__ == '__main__':
                                     n_max=N_MAX_MODELS)
 
             except Exception as e:
-                if args.loop:
-                    print(f'\nError en ciclo {ciclo}: {e}. Reintentando en el próximo ciclo.')
-                else:
-                    raise
+                print(f'\nError en ciclo {ciclo}: {e}. Reintentando en el próximo ciclo.')
 
-            if not args.loop:
+            if args.ciclos > 0 and ciclo >= args.ciclos:
                 break
 
     except KeyboardInterrupt:
