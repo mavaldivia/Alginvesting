@@ -8,6 +8,8 @@
 
 ### X0 — X0_data_supports.py
 
+- [x] **Descarga M1 (Data_minuto/) en Etapa 1**: tras descargar H1 en `Data/`, X0 descarga las últimas 1000 velas M1 de cada activo y las guarda/mergea en `Data_minuto/`. Lógica análoga a `descargar_datos`: concat con histórico existente, drop_duplicates, sort por DateTime, CSV con mismo nombre `{VALOR}.csv`. Nueva función `descargar_datos_minuto`; `CARPETA_DATA_MINUTO` en `config.py`; la carpeta se crea en `__main__` al arrancar; la llamada va justo después de `descargar_datos`, con su propio bloque de try/except.
+
 - [x] **X0: loop continuo (`--loop`) no funciona correctamente**: el ciclo `while True` no reinicia como se espera — verificar que tras converger todos los combos el loop vuelve a ejecutar descarga + soportes con los deltas actualizados, y que `_seleccionar_combos` refleja el estado real de cada `_delta.json` al inicio de cada vuelta. (I:9 C:2 H:9 → 4.50)
 - [x] **Formato de outputs en paralelo**: al terminar cada par (valor, N) en modo paralelo, imprimir una línea con el tiempo que tardó en converger y si convergió o no. El resumen se imprime después de que el monitor para (sin interferir con el redibujado). `_procesar_valor_N` retorna `(duracion_s, convergio)`; el loop `as_completed` acumula en `resultados_tiempo` y se imprime tras `monitor.join()`.
 - [x] **Separar `conjuntos_N/` en productivo vs backtesting**: reorganizar en `conjuntos_N/prod/{VALOR}_{N}.json`, `conjuntos_N/prod/{VALOR}_{N}_delta.json`, `conjuntos_N/bt/{VALOR}_{N}_bt.json`, `conjuntos_N/bt/{VALOR}_{N}_bt_delta.json`. Actualizar rutas en `config.py`, X0 y X1. Evita mezclar archivos de producción con cache de bt y facilita limpiar uno sin afectar el otro. (I:7 C:2 H:8 → 3.74)

@@ -185,6 +185,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-14** — X0: descargar Data_minuto/ con velas M1 en Etapa 1
 - **2026-06-14** — X0: pintar OA en negro en plot Soportes + leyenda
 - **2026-06-14** — X0: fix dist_max batch + sort/dedup CSVs
 - **2026-06-14** — X0+X2: llamar X2 en cada ciclo + historial por periodos

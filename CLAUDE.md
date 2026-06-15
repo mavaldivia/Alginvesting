@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-14** — X0: descargar Data_minuto/ con velas M1 en Etapa 1
+
+`descargar_datos_minuto` en `X0_data_supports.py`: descarga las últimas 1000 velas M1 de cada activo desde MT5 y las mergea con el histórico existente en `Data_minuto/` (misma lógica que `descargar_datos` con H1: concat, drop_duplicates, sort). `CARPETA_DATA_MINUTO` agregada a `config.py`. La carpeta se crea en `__main__` al arrancar; la llamada va inmediatamente después de `descargar_datos`, con su propio try/except independiente.
+
 **2026-06-14** — X0: pintar OA en negro en plot Soportes + leyenda
 
 `graficar_soportes_all` acepta nuevo parámetro `ordenes_activas: list = []`. Separa `conjunto_N` en soportes normales (rojo, `--`) y órdenes activas (negro, sólido). Agrega leyenda con `Line2D` proxy mostrando conteo de cada tipo: `Soportes (N)` y `OA — órdenes activas (N)`. La llamada en `_procesar_valor_N` pasa `oa`. En Mac siempre será lista vacía (MT5 no disponible); el cambio visual aplica cuando corre en Windows con órdenes reales.

@@ -1,7 +1,7 @@
 """
 X0_data_supports.py
 
-Etapa 1 (--opcion 0 o 2): Descarga velas OHLCV H1 desde MetaTrader5 y actualiza los CSVs en Data/.
+Etapa 1 (--opcion 0 o 2): Descarga velas OHLCV H1 (Data/) y M1 (Data_minuto/) desde MetaTrader5.
 Etapa 2 (--opcion 1 o 2): Busca N soportes/resistencias óptimos por activo usando un optimizador
                            de búsqueda local y guarda los resultados en conjuntos_N/.
 
@@ -36,7 +36,7 @@ import tqdm
 warnings.filterwarnings('ignore')
 
 from config import (
-    CARPETA_DATA, CARPETA_N_PROD, CARPETA_N_BT, CARPETA_PLOTS, CARPETA_LOGS,
+    CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_N_BT, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, M_COARSE, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
@@ -607,6 +607,48 @@ def descargar_datos(valores: list, carpeta_data: Path):
     mt5.shutdown()
 
 
+def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path):
+    import MetaTrader5 as mt5
+
+    if not mt5.initialize():
+        raise RuntimeError(f'MT5 initialize() falló: {mt5.last_error()}')
+
+    for valor in valores:
+        print(f'\nDescargando M1 {valor}...')
+        mt5.symbol_select(valor, True)
+        rates = mt5.copy_rates_from_pos(valor, mt5.TIMEFRAME_M1, 0, 1000)
+
+        if rates is None:
+            print(f'  Sin datos para {valor}, skip')
+            continue
+
+        df = pd.DataFrame(rates)
+        try:
+            df['time'] = pd.to_datetime(df['time'], unit='s')
+        except Exception as e:
+            print(f'  Error al convertir tiempo para {valor}: {e}')
+            continue
+
+        df.columns = ['DateTime', 'Open', 'High', 'Low', 'Close', 'Tick_Volume', 'Spread', 'Real_Volume']
+
+        csv_path = carpeta_data_minuto / f'{valor}.csv'
+        if csv_path.exists():
+            data_old = pd.read_csv(csv_path)
+            data_old['DateTime'] = pd.to_datetime(data_old['DateTime'])
+            df['DateTime'] = pd.to_datetime(df['DateTime'])
+            data = (pd.concat([df, data_old])
+                    .drop_duplicates(subset=['DateTime'])
+                    .sort_values('DateTime')
+                    .reset_index(drop=True))
+        else:
+            data = df
+
+        data.to_csv(csv_path, index=False)
+        print(f'  Guardado: {csv_path.name} ({len(data)} velas M1, último: {df["DateTime"].iloc[-1]})')
+
+    mt5.shutdown()
+
+
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
 def _bt_warm_start(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> set:
@@ -1019,6 +1061,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
+    CARPETA_DATA_MINUTO.mkdir(parents=True, exist_ok=True)
     CARPETA_N_PROD.mkdir(parents=True, exist_ok=True)
     CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
 
@@ -1056,7 +1099,12 @@ if __name__ == '__main__':
                     try:
                         descargar_datos(VALORES, CARPETA_DATA)
                     except Exception as e:
-                        print(f'  Advertencia: descarga de datos falló ({e}). '
+                        print(f'  Advertencia: descarga H1 falló ({e}). '
+                              f'Continuando con datos existentes.')
+                    try:
+                        descargar_datos_minuto(VALORES, CARPETA_DATA_MINUTO)
+                    except Exception as e:
+                        print(f'  Advertencia: descarga M1 falló ({e}). '
                               f'Continuando con datos existentes.')
 
                 if _pendiente_reset:

@@ -419,3 +419,8 @@ Claude: Mostró tabla de 7 secciones con pendientes. Leyó `docs/x4_plan.md` y c
 Mauricio: Pidió que en el plot de Soportes (`docs/X0/plots/Soportes`) se pintaran los soportes activos (órdenes de compra activas en MT5) en negro, diferenciándolos del resto, y que se agregara simbología (leyenda).
 Claude: Modificó `graficar_soportes_all` para aceptar `ordenes_activas: list = []`. Separa `conjunto_N` en soportes normales (rojo punteado) y órdenes activas (negro sólido). Agrega leyenda con `Line2D` proxy mostrando conteo de cada tipo. Actualizó la llamada en `_procesar_valor_N` para pasar `oa`. En Mac siempre será lista vacía (MT5 no disponible); el cambio visual aplica cuando corre en Windows con órdenes reales. Añadió `from matplotlib.lines import Line2D` al bloque de imports.
 (Cierre: 2026-06-14 23:34)
+
+## SECCIÓN 50
+Mauricio: Pidió agregar la descarga de `Data_minuto/` en X0, con velas M1, usando una lógica análoga a la descarga H1 existente. También pidió registrar el cambio en `done.md` y cerrar la sesión.
+Claude: Agregó `CARPETA_DATA_MINUTO` a `config.py`, creó la función `descargar_datos_minuto` en X0 (idéntica a `descargar_datos` excepto por `TIMEFRAME_M1` y la carpeta destino), actualizó el import y el `__main__` para crear la carpeta y llamar la función tras la descarga H1 (con su propio try/except). Registró el ítem en `docs/done.md`.
+(Cierre: 2026-06-14 23:39)
