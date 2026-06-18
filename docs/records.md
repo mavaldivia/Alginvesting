@@ -431,3 +431,19 @@ Claude: Leyó las líneas y confirmó la lógica. Agregó el fix a `done.md` con
 Mauricio: Señaló que el mismo problema aplica al modo backtesting: cuando X4 recalcula soportes, las posiciones abiertas (OA — buy limits activadas aún no cerradas) deben pasarse como soportes fijos al optimizador. Revisó X0 y confirmó que `_procesar_valor_N` siempre pasaba `oa = []` en modo bt.
 Claude: Agregó parámetro `ordenes_abiertas_bt: list = []` a `_procesar_valor_N`. Cambió `oa = [] if es_bt else ordenes_activas` a `oa = ordenes_abiertas_bt if es_bt else ordenes_activas`. Actualizó `docs/x4_plan.md` sección 5 con bloque de código explicando que X4 debe extraer `OA.keys()` y pasarlos como `ordenes_abiertas_bt`. Registró ambos fixes en `done.md`.
 (Cierre: 2026-06-15 16:38)
+
+## SECCIÓN 52
+Mauricio: Pidió agregar 3 ítems al TO DO: (1) X1 se cayó por `PermissionError` al leer `conjuntos_N/GOOGL_120.json`; (2) el reporte final de X0 muestra "no convergió" en algunos combos aunque los logs individuales digan `iter=conv.`; (3) X1 se detuvo al fallar la eliminación/apertura de órdenes (mercado cerrado), y en general X1 no puede caerse.
+Claude: Leyó `docs/todos.md`, creó sección "X1 — Robustez y estabilidad" con 2 ítems (auditar todos los puntos de fallo MT5 scored 3.16, y PermissionError al leer JSON scored 4.47), y agregó ítem de reporte inconsistente en la sección X0 existente (scored 2.45).
+(Cierre: 2026-06-18 13:48)
+
+## SECCIÓN 53
+Mauricio: Pidió agregar al plan de X4 (`docs/x4_plan.md`) que el backtester debe calcular hora a hora las métricas de cuenta de trading (equity, margen libre, margen usado, balance, margin level) y usarlas para evaluar si puede abrir nuevas operaciones.
+Claude: Agregó subsección "Métricas de cuenta" a la sección 6 del plan con fórmulas de balance, equity, margen_usado, margen_libre y margin_level; guard `puede_operar` en pasos B (ejecutar OE) y F (crear OE); expandió `equity_global.csv` a 8 columnas; agregó `_calcular_estado_cuenta` a sección 11; introdujo `APALANCAMIENTO` como parámetro global único y `MARGEN_LIBRE_MIN_BT` en sección 2.
+
+Mauricio: Cuestionó por qué `APALANCAMIENTO` aparecía como valor único en la tabla de parámetros de V1 — las métricas son outputs computados del estado, y el apalancamiento varía por activo.
+Claude: Reconoció el error de diseño: `APALANCAMIENTO` debía ser un dict por activo (como `LOTAJES`/`UNITS`) y vivir en `config.py`, no en la tabla de parámetros de simulación. Corrigió: agregó `APALANCAMIENTO` como dict a `config.py`, lo removió de sección 2 del plan, lo movió al import de `config_V1.py`.
+
+Mauricio: Entregó los valores reales de apalancamiento por activo (BTC/ETH: 400, acciones US: 5).
+Claude: Actualizó `APALANCAMIENTO` en `config.py` con esos valores.
+(Cierre: 2026-06-18 14:02)

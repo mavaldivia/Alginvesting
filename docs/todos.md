@@ -6,6 +6,11 @@
 
 Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md` en su sección correcta.
 
+### X1 — Robustez y estabilidad
+
+- [ ] **X1 no puede caerse — auditar todos los puntos de fallo de MT5**: X1 terminó al fallar la eliminación o creación de órdenes (probablemente mercado de acciones cerrado). Auditar todas las llamadas a MT5 en X1 y envolver en try/except; ante cualquier error → loggear el error completo + esperar un ciclo + continuar el loop sin detener el proceso. X1 debe correr indefinidamente salvo `KeyboardInterrupt`. (I:9 C:3 H:10 → 3.16)
+- [ ] **X1: PermissionError al leer conjuntos_N → código se cae**: al leer `conjuntos_N/GOOGL_120.json`, X1 lanzó `PermissionError` y terminó. Agregar try/except en la lectura de cada JSON de soportes; si falla → loggear el error y saltar ese activo en esa iteración (no detener el loop). (I:8 C:2 H:10 → 4.47)
+
 ### X0 — Validación post-revert (secuencial, alta prioridad)
 
 > Contexto: se revirtió el optimizador a la lógica base de 8eefe88 para recuperar confianza en los resultados.
@@ -14,6 +19,7 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 
 - [ ] **1. Validar equidistancia con LAMBDA alto**: correr X0 con `LAMBDA = 5`, 1 activo (ej. BTCUSD), N pequeño (ej. 10-20), `verbose=True`. Los soportes finales deben ser aproximadamente equidistantes en el rango de precios. Si no → hay un bug en `calcular_FO` o `calcular_FO_batch`. (I:8 C:2 H:10 → 4.47)
 - [ ] **3. Validar convergencia con LAMBDA normal**: con parámetros de producción (`LAMBDA = 1/500`, N real), verificar que FO crece monótonamente en cada cambio aceptado y que el optimizador converge (no cicla ni se queda sin mejoras prematuramente). (I:8 C:2 H:8 → 4.00)
+- [ ] **Reporte final inconsistente — "no convergió" con iter=conv. arriba**: al terminar un ciclo, algunos combos del resumen muestran "no convergió" aunque en los logs individuales todos indiquen `iter=conv.`. Investigar si el flag `convergio` se propaga correctamente desde `nuevo_optimizador_2` hasta el resumen final de `buscar_soportes`. (I:4 C:2 H:6 → 2.45)
 
 ### X3 — X3_technical_features.py
 

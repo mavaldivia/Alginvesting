@@ -21,7 +21,8 @@ X4 **no importa ni llama a X1**. Reimplementa su lógica de trading sin MT5.
 | `PERDIDA_MAX`          | `120.0` USD                    |
 | `delta_recalculo_soportes` | `1` (días; ver sección 5)  |
 | `hora_recalculo`       | `23`  (UTC)                    |
-| `A`, `B`, `LOTAJES`, `UNITS`, `K`, `N_EXP`, `LAMBDA`, `M`, … | Heredados de `config.py` |
+| `MARGEN_LIBRE_MIN_BT`  | `50.0` USD (buffer mínimo de margen libre para abrir/ejecutar OE) |
+| `A`, `B`, `LOTAJES`, `UNITS`, `APALANCAMIENTO`, `K`, `N_EXP`, `LAMBDA`, `M`, … | Heredados de `config.py` |
 
 Spread y slippage: ignorados en V1 (entrada exacta al precio del soporte).
 
@@ -63,7 +64,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'scripts'))
 from config import (
     K, N_EXP, parametros_soportes, LAMBDA, M, M_COARSE,
     DELTA_INICIAL, FACTOR_DELTA, BLOQUE_DISTANCIAS, MAX_ITERS,
-    A, B, LOTAJES, UNITS, CARPETA_DATA,
+    A, B, LOTAJES, UNITS, APALANCAMIENTO, CARPETA_DATA,
 )
 from pathlib import Path
 
@@ -77,6 +78,7 @@ fecha_fin            = 'F'   # 'F' = hasta la última vela disponible
 
 capital_inicial      = 3000.0   # USD
 PERDIDA_MAX_BT       = 120.0    # USD (sobreescribe el de config.py)
+MARGEN_LIBRE_MIN_BT  = 50.0    # USD — margen libre mínimo para crear/ejecutar una OE
 
 # Frecuencia de recálculo de soportes en backtesting.
 # Unidad: días (puede ser < 1, ej. 0.5 = cada 12 horas).
@@ -164,7 +166,8 @@ El estado de trading vive en memoria dentro del estado compartido de la simulaci
 
 ```python
 estado = {
-    'capital': 3000.0,
+    'capital': 3000.0,             # balance corriente (se actualiza al cerrar cada trade)
+    'GC_global': 0.0,              # suma de GC de todos los activos (evita recomputar en cada vela)
     'por_activo': {
         'BTCUSD': {
             'soportes': [],        # lista de floats (N soportes actuales)
@@ -180,6 +183,34 @@ estado = {
 }
 ```
 
+### Métricas de cuenta (hora a hora)
+
+Se calculan al cierre de cada vela H1 sobre el estado en memoria. No se persisten en `estado` — se computan on-the-fly con `_calcular_estado_cuenta`.
+
+```
+balance       = estado['capital']
+GA_global     = Σ (candle.Close − precio_ap) × lote × UNITS[activo]   para todo activo, toda OA
+equity        = balance + GA_global
+margen_usado  = Σ precio_ap × lote × UNITS[activo] / APALANCAMIENTO   para todo activo, toda OA
+margen_libre  = equity − margen_usado
+margin_level  = (equity / margen_usado × 100)  si margen_usado > 0, else None
+```
+
+`balance` es el capital "en papel" (ya realizó las pérdidas y ganancias cerradas). `equity` es el valor real de la cuenta incluyendo P&L flotante. `margin_level` < 100% significa que `equity < margen_usado` — situación de margin call; en V1 se loguea como warning pero no cierra posiciones automáticamente.
+
+**Guard para abrir/ejecutar órdenes**: antes de ejecutar una OE (paso B) y antes de crear una nueva OE (paso F), se verifica:
+
+```python
+margen_nueva = precio_soporte * lote * UNITS[activo] / APALANCAMIENTO
+puede_operar = margen_libre - margen_nueva >= MARGEN_LIBRE_MIN_BT
+```
+
+Si `puede_operar` es `False`:
+- Paso B: la OE no se ejecuta ese ciclo y se cancela (`OE_eliminada`, motivo: `margen_insuficiente`).
+- Paso F: la OE no se crea.
+
+---
+
 ### Por cada vela H1 (para cada activo)
 
 Orden de operaciones:
@@ -188,6 +219,7 @@ Orden de operaciones:
 → Registra evento `OE_eliminada` por cada una.
 
 **B. Verificar ejecuciones de OE** — una OE en precio `Pi` se ejecuta si `candle.Low <= Pi`:
+- Verificar guard de margen: `margen_libre - margen_nueva >= MARGEN_LIBRE_MIN_BT`. Si falla → cancelar OE (`OE_eliminada`, motivo: `margen_insuficiente`) y continuar con la siguiente.
 - La posición entra a `OA` con `sl=0`.
 - La OE se elimina (no se repone; la reposición ocurre después del trailing stop si corresponde).
 → Registra evento `OE_ejecutada`.
@@ -210,8 +242,10 @@ Orden de operaciones:
 
 **F. Crear nuevas OE** — usando `candle.Close` como precio de referencia:
 - Para cada soporte `Pi` en `soportes` no presente en OA ni OE:
-  - Si `(candle.Close - Pi) * L >= A` → crear OE en `Pi`.
-→ Registra evento `OE_creada` por cada una.
+  - Si `(candle.Close - Pi) * L >= A`:
+    - Verificar guard de margen: `margen_libre - margen_nueva >= MARGEN_LIBRE_MIN_BT`. Si falla → no crear OE en ese soporte.
+    - Si pasa → crear OE en `Pi`. El margen libre se reduce en `margen_nueva` para evaluar las OE siguientes del mismo ciclo (las OE creadas en esta vela son candidatas a ejecutarse en la próxima).
+→ Registra evento `OE_creada` por cada una que pase el guard.
 
 **G. Snapshot de equity** — al final de cada vela H1:
 - Registra `ts` + `capital` en `equity_global.csv`.
@@ -364,14 +398,24 @@ Append-only, igual que `trades.json`.
 
 ### equity_global.csv
 
-Snapshot del capital total de la cuenta al cierre de cada vela H1. Columnas: `ts`, `capital`.
+Snapshot de todas las métricas de cuenta al cierre de cada vela H1.
+
+Columnas: `ts`, `balance`, `equity`, `margen_usado`, `margen_libre`, `margin_level`, `n_OA`, `n_OE`.
+
+- `balance`: `estado['capital']` — capital ya realizando P&L cerrado.
+- `equity`: balance + GA_global flotante.
+- `margen_usado` / `margen_libre` / `margin_level`: ver fórmulas en "Métricas de cuenta".
+- `n_OA`: total de posiciones abiertas en todos los activos.
+- `n_OE`: total de órdenes en espera en todos los activos.
 
 ```csv
-ts,capital
-2026-01-10T00:00:00,3000.0
-2026-01-10T01:00:00,3000.0
+ts,balance,equity,margen_usado,margen_libre,margin_level,n_OA,n_OE
+2026-01-10T00:00:00,3000.0,3000.0,0.0,3000.0,,0,0
+2026-01-10T01:00:00,3000.0,2987.5,945.0,2042.5,315.9,1,3
 ...
 ```
+
+(`margin_level` vacío cuando `margen_usado = 0`.)
 
 ### equity_activos.csv
 
@@ -441,6 +485,10 @@ X4_backtester.py
 ├── _cerrar_sl_tocados(activo_estado, precio_min)
 ├── _crear_OE(activo_estado, precio_ref, soportes, L, A, lote)
 │
+├── _calcular_estado_cuenta(estado, precios_cierre, cfg)
+│     → {balance, equity, margen_usado, margen_libre, margin_level, n_OA, n_OE}
+│     precios_cierre: dict {activo: candle.Close} para calcular GA flotante
+│
 ├── _trigger_intravela(activo_estado, candle, L, A, PERDIDA_MAX)
 ├── _escalar_bloque_m1(bloque_m1, candle_h1)
 ├── _simular_intravela(activo_estado, candle_h1, datos_m1, params)
@@ -505,4 +553,4 @@ python scripts/X4_backtester.py --version V1 --reset   # ignora checkpoint, part
 
 ---
 
-_Última actualización: 2026-06-14_
+_Última actualización: 2026-06-18_

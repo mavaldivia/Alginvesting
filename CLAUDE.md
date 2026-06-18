@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-18** — config: APALANCAMIENTO por activo + métricas de cuenta en x4_plan
+
+`APALANCAMIENTO` agregado a `config.py` como dict por activo (BTC/ETH: 400, acciones US: 5), junto a `LOTAJES`/`UNITS`. `docs/x4_plan.md` sección 6 ampliada con subsección "Métricas de cuenta": fórmulas de balance, equity, margen_usado, margen_libre y margin_level; guard `puede_operar` en pasos B y F; `equity_global.csv` expandido a 8 columnas; `_calcular_estado_cuenta` agregado a sección 11. `MARGEN_LIBRE_MIN_BT` agregado como parámetro de V1.
+
 **2026-06-15** — X0: fijar OA en bt + guard en optimizador
 
 `_procesar_valor_N` acepta nuevo parámetro `ordenes_abiertas_bt: list = []`. Cuando `es_bt=True`, pasa ese valor al optimizador en vez de lista vacía — permite que X4 fije las posiciones abiertas (OA) como soportes no desplazables al recalcular. En producción sigue usando `ordenes_activas` de MT5. Guard `if dic_N[i] in ordenes_activas: continue` confirmado en `nuevo_optimizador_2` (líneas 386-387). `docs/x4_plan.md` sección 5 actualizada con bloque de código que muestra cómo X4 debe extraer `OA.keys()` y pasarlos como `ordenes_abiertas_bt`.

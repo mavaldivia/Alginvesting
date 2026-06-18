@@ -161,3 +161,13 @@ UNITS = {
     'NVDA':   100,
     'AMZN':   100,
 }
+
+# Apalancamiento por activo según configuración del broker
+APALANCAMIENTO = {
+    'BTCUSD': 400,
+    'ETHUSD': 400,
+    'TSLA':   5,
+    'GOOGL':  5,
+    'NVDA':   5,
+    'AMZN':   5,
+}
