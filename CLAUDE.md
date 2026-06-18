@@ -164,6 +164,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
+**2026-06-18** — X1: robustez — try/except por activo + fixes sys.exit
+
+`json_act` re-lanza la excepción en vez de `sys.exit(1)`. `leer_lista_N` lanza `FileNotFoundError` en vez de `sys.exit`. `obtener_precio_actual` levanta `RuntimeError` si MT5 retorna `None`. `ejecutar_orden` ya no llama `mt5.shutdown()/sys.exit(1)` ante retcodes inesperados — solo loggea. El bloque por activo en el loop principal (`for valor in VALORES`) y `informacion` envueltos en `try/except Exception` que loggea y hace `continue`. X1 corre indefinidamente salvo `KeyboardInterrupt`.
+
 **2026-06-18** — config: APALANCAMIENTO por activo + métricas de cuenta en x4_plan
 
 `APALANCAMIENTO` agregado a `config.py` como dict por activo (BTC/ETH: 400, acciones US: 5), junto a `LOTAJES`/`UNITS`. `docs/x4_plan.md` sección 6 ampliada con subsección "Métricas de cuenta": fórmulas de balance, equity, margen_usado, margen_libre y margin_level; guard `puede_operar` en pasos B y F; `equity_global.csv` expandido a 8 columnas; `_calcular_estado_cuenta` agregado a sección 11. `MARGEN_LIBRE_MIN_BT` agregado como parámetro de V1.

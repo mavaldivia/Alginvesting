@@ -8,9 +8,6 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 
 ### X1 — Robustez y estabilidad
 
-- [ ] **X1 no puede caerse — auditar todos los puntos de fallo de MT5**: X1 terminó al fallar la eliminación o creación de órdenes (probablemente mercado de acciones cerrado). Auditar todas las llamadas a MT5 en X1 y envolver en try/except; ante cualquier error → loggear el error completo + esperar un ciclo + continuar el loop sin detener el proceso. X1 debe correr indefinidamente salvo `KeyboardInterrupt`. (I:9 C:3 H:10 → 3.16)
-- [ ] **X1: PermissionError al leer conjuntos_N → código se cae**: al leer `conjuntos_N/GOOGL_120.json`, X1 lanzó `PermissionError` y terminó. Agregar try/except en la lectura de cada JSON de soportes; si falla → loggear el error y saltar ese activo en esa iteración (no detener el loop). (I:8 C:2 H:10 → 4.47)
-
 ### X0 — Validación post-revert (secuencial, alta prioridad)
 
 > Contexto: se revirtió el optimizador a la lógica base de 8eefe88 para recuperar confianza en los resultados.

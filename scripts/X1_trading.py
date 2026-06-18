@@ -47,7 +47,7 @@ def json_act(file_path: str, variable=None, mode: str = 'open'):
             return json.load(f)
     except Exception as e:
         print(f'Error json_act ({mode}, {path}): {e}')
-        sys.exit(1)
+        raise
 
 
 def leer_lista_N(valor: str, N: int) -> list:
@@ -61,7 +61,7 @@ def leer_lista_N(valor: str, N: int) -> list:
             lista_N = json_act(str(CARPETA_N_PROD / f'{valor}_{N}'))
             return [round(n, 2) for n in lista_N]
         time.sleep(2)
-    sys.exit(f'No se encontró {json_path} después de 10 intentos')
+    raise FileNotFoundError(f'No se encontró {json_path} después de 10 intentos')
 
 
 # ─── Funciones MT5 ────────────────────────────────────────────────────────────
@@ -69,6 +69,8 @@ def leer_lista_N(valor: str, N: int) -> list:
 def obtener_precio_actual(valor: str, modo: str = 'B') -> float:
     """modo='B' → bid (precio de venta del mercado, precio de compra para nosotros)."""
     tick = mt5.symbol_info_tick(valor)
+    if tick is None:
+        raise RuntimeError(f'symbol_info_tick({valor}) retornó None: {mt5.last_error()}')
     return tick.bid if modo == 'B' else tick.ask
 
 
@@ -150,8 +152,6 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float):
             if result.retcode in [10006, 10044, 10018, 10031]:
                 return
             print(f'  Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
-            mt5.shutdown()
-            sys.exit(1)
         else:
             print(f'  Orden ejecutada: {symbol} {volumen} lotes @ {precio}')
     except Exception as e:
@@ -338,27 +338,31 @@ if __name__ == '__main__':
             time_sleep = True
 
             for valor in VALORES:
-                L = LOTAJES[valor] * UNITS[valor]
+                try:
+                    L = LOTAJES[valor] * UNITS[valor]
 
-                if not PRUEBA_TRAILING_STOP:
-                    N = n_sizes[valor]
-                    lista_N = leer_lista_N(valor, N)
+                    if not PRUEBA_TRAILING_STOP:
+                        N = n_sizes[valor]
+                        lista_N = leer_lista_N(valor, N)
 
-                lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
+                    lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
 
-                # A: Limpiar órdenes pendientes que ya no corresponden a soportes vigentes
-                if not PRUEBA_TRAILING_STOP and (i % int(5 / TS) == 0):
-                    limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
+                    # A: Limpiar órdenes pendientes que ya no corresponden a soportes vigentes
+                    if not PRUEBA_TRAILING_STOP and (i % int(5 / TS) == 0):
+                        limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
 
-                # B: Crear órdenes de compra pendientes en soportes válidos
-                if not PRUEBA_TRAILING_STOP:
-                    crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
+                    # B: Crear órdenes de compra pendientes en soportes válidos
+                    if not PRUEBA_TRAILING_STOP:
+                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
 
-                # C: Trailing stop en posiciones abiertas
-                trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)
+                    # C: Trailing stop en posiciones abiertas
+                    trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)
 
-                # D: Cierre por pérdida máxima
-                controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX)
+                    # D: Cierre por pérdida máxima
+                    controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX)
+
+                except Exception as e:
+                    print(f'  [X1] Error en {valor}: {e} — saltando activo este ciclo')
 
             # Si alguna posición tiene trailing stop activo → no dormir (reaccionar rápido)
             for c in dic_seguimiento:
@@ -367,7 +371,10 @@ if __name__ == '__main__':
 
             if i % int(5000 / TS) == 0:
                 print(f'\nIteración {i} | Tiempo: {round((time.time() - t0) / 60, 1)} min')
-                informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
+                try:
+                    informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
+                except Exception as e:
+                    print(f'  [X1] Error en informacion: {e}')
 
             i += 1
             if time_sleep:

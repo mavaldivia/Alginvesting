@@ -447,3 +447,8 @@ Claude: Reconoció el error de diseño: `APALANCAMIENTO` debía ser un dict por 
 Mauricio: Entregó los valores reales de apalancamiento por activo (BTC/ETH: 400, acciones US: 5).
 Claude: Actualizó `APALANCAMIENTO` en `config.py` con esos valores.
 (Cierre: 2026-06-18 14:02)
+
+## SECCIÓN 54
+Mauricio: Inició sesión con `/todos`. Eligió trabajar en la sección X1 — Robustez y estabilidad, con dos ítems pendientes: auditar puntos de fallo de MT5 y el PermissionError al leer JSONs de soportes. Pidió resolver ambos en simultáneo por estar relacionados.
+Claude: Leyó `X1_trading.py` e identificó todos los puntos de crash: `json_act` (`sys.exit(1)`), `leer_lista_N` (`sys.exit(...)`), `ejecutar_orden` (`sys.exit(1)` ante retcodes inesperados), `obtener_precio_actual` (crash en `.bid` si MT5 retorna `None`), y ausencia de `try/except` por activo en el loop principal. Aplicó los cinco cambios: re-raise en `json_act`, `FileNotFoundError` en `leer_lista_N`, `RuntimeError` en `obtener_precio_actual`, eliminó `mt5.shutdown()/sys.exit` en `ejecutar_orden`, y envolvió el bloque por activo e `informacion` en `try/except Exception` con `continue`. Marcó ambos ítems como completados en `todos.md` y los movió a `done.md`.
+(Cierre: 2026-06-18 15:05)

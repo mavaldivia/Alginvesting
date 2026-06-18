@@ -185,6 +185,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-18** — X1: robustez — try/except por activo + fixes sys.exit
 - **2026-06-18** — config: APALANCAMIENTO por activo + métricas de cuenta en x4_plan
 - **2026-06-15** — X0: fijar OA en bt + guard en optimizador
 - **2026-06-14** — X0: descargar Data_minuto/ con velas M1 en Etapa 1

@@ -48,6 +48,7 @@
 
 ### X1 — X1_trading.py
 
+- [x] **X1 robustez — auditar puntos de fallo MT5 + PermissionError en JSON**: `ejecutar_orden` ya no llama `sys.exit` ante retcodes inesperados. `json_act` re-lanza la excepción en vez de `sys.exit(1)`. `leer_lista_N` lanza `FileNotFoundError` en vez de `sys.exit`. `obtener_precio_actual` levanta `RuntimeError` si MT5 retorna `None`. El bloque por activo en el loop principal (`for valor in VALORES`) está envuelto en `try/except Exception` que loggea y hace `continue`. `informacion` también protegida con `try/except`. X1 corre indefinidamente salvo `KeyboardInterrupt`.
 - [x] Migrar X1 (notebook) a `scripts/X1_trading.py`
   - Mismas reglas que X0: solo lo estrictamente necesario, misma lógica
   - Agregada lógica: si pérdida > `PERDIDA_MAX` → cerrar la operación (`controlar_perdida_max`)
