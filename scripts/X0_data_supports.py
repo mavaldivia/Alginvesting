@@ -41,8 +41,9 @@ from config import (
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, M_COARSE, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
-    n_sizes, N_MAX_MODELS, reiniciar_x0,
+    n_sizes, n_sizes_ejecucion, N_MAX_MODELS, reiniciar_x0,
 )
+from X3_technical_features import actualizar_features as _x3_actualizar_features
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
@@ -1111,6 +1112,22 @@ if __name__ == '__main__':
                     except Exception as e:
                         print(f'  Advertencia: descarga M1 falló ({e}). '
                               f'Continuando con datos existentes.')
+
+                    print('\n── X3: Features técnicas ────────────────────────────────')
+                    for valor in VALORES:
+                        csv_h1 = CARPETA_DATA / f'{valor}.csv'
+                        if not csv_h1.exists():
+                            print(f'  X3 {valor}: sin CSV H1, skip')
+                            continue
+                        try:
+                            df_v = pd.read_csv(csv_h1)
+                            n_prod = n_sizes_ejecucion.get(valor, 120)
+                            json_path = CARPETA_N_PROD / f'{valor}_{n_prod}.json'
+                            conjunto_n_v = (set(json.load(open(json_path)))
+                                            if json_path.exists() else set())
+                            _x3_actualizar_features(valor, df_v, conjunto_n_v)
+                        except Exception as e:
+                            print(f'  Advertencia: X3 falló para {valor} ({e}). Continuando.')
 
                 if _pendiente_reset:
                     _reset_x0_state()

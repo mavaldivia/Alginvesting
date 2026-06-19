@@ -67,6 +67,7 @@
 ### X3 — X3_technical_features.py
 
 - [x] **Plan X3**: `docs/x3_plan.md` creado. 11 indicadores técnicos con fórmulas LaTeX (SMA, EMA, RSI, MACD, ATR, Bollinger, ROC, volatilidad histórica, drawdown, tendencia OLS, distancia a soportes). 10 variables de contexto operativo. Integración en X0 (incremental, tras descarga H1). Output: `features/{VALOR}.csv`. X3 alimenta solo a X6. X4 consume el CSV pre-computado sin llamar a X3 en runtime.
+- [x] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes). (I:7 C:5 H:7 → 1.40)
 
 ### X4 — X4_backtester.py
 

@@ -129,6 +129,24 @@ PESOS_CRYPTO = {
     'fear_greed': 0.20,
 }
 
+# ─── X3: features técnicas ────────────────────────────────────────────────────
+
+CARPETA_FEATURES = BASE_DIR / 'features'
+
+X3_VENTANAS = {
+    'sma': [20, 50, 200],
+    'ema': [12, 26],
+    'rsi': 14,
+    'macd': (12, 26, 9),        # fast, slow, signal
+    'atr': 14,
+    'bb': (20, 2),               # window, k
+    'roc': [10, 20],
+    'vol': [24, 168],            # horas: 1d, 7d
+    'drawdown': [20, 50],
+    'trend_slope': [20, 50],
+    'density_delta': 0.02,       # banda ±2% para densidad de soportes
+}
+
 # ─── Trading: ejecución y gestión de riesgo (X1) ──────────────────────────────
 
 # a: ganancia mínima en USD para activar el primer SL ganador

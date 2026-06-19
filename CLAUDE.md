@@ -166,7 +166,9 @@ Ver [`docs/todos.md`](docs/todos.md).
 
 ## Última actualización
 
-**2026-06-18** — X3: plan de implementación + fórmulas LaTeX
+**2026-06-18** — X3: implementar X3_technical_features.py
+
+`scripts/X3_technical_features.py` creado: módulo con 11 indicadores técnicos (SMA/EMA + dist, RSI Wilder, MACD, ATR + atr_pct, Bollinger bb_width/bb_pos, ROC 10/20, vol_24h/vol_7d log-returns, drawdown 20/50, tendencia OLS 20/50, distancias a soportes vectorizadas). Lógica incremental: solo hace append de filas nuevas al CSV existente. `conjunto_N` vacío → NaN en dist_*, sin crash. `CARPETA_FEATURES` y `X3_VENTANAS` agregados a `config.py`. Integrado en X0 (Etapa 1, tras descarga M1, try/except por activo). Validado con ETHUSD real: 40.281 filas, 30 columnas, dist_* con valores cuando hay soportes. `docs/todos.md`: ítem X3 eliminado. `docs/done.md`: ítem agregado en sección X3.
 
 `docs/x3_plan.md` creado: 11 indicadores técnicos con fórmulas LaTeX (SMA, EMA, RSI, MACD, ATR, Bollinger, ROC, volatilidad histórica, drawdown, tendencia OLS, distancia a soportes). X3 corre dentro del ciclo de X0 (tras descarga H1), cálculo incremental por velas nuevas, alimenta solo X6. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Tabla de scripts en `CLAUDE.md` actualizada con X2 y X3. README.md actualiza X3 a "En diseño". `docs/done.md` agrega sección X3.
 

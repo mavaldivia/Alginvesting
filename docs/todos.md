@@ -18,10 +18,6 @@ Urgencias transversales. Una vez completadas, el ítem se mueve a `docs/done.md`
 - [ ] **3. Validar convergencia con LAMBDA normal**: con parámetros de producción (`LAMBDA = 1/500`, N real), verificar que FO crece monótonamente en cada cambio aceptado y que el optimizador converge (no cicla ni se queda sin mejoras prematuramente). (I:8 C:2 H:8 → 4.00)
 - [ ] **Reporte final inconsistente — "no convergió" con iter=conv. arriba**: al terminar un ciclo, algunos combos del resumen muestran "no convergió" aunque en los logs individuales todos indiquen `iter=conv.`. Investigar si el flag `convergio` se propaga correctamente desde `nuevo_optimizador_2` hasta el resumen final de `buscar_soportes`. (I:4 C:2 H:6 → 2.45)
 
-### X3 — X3_technical_features.py
-
-- [ ] **X3_technical_features.py**: indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Variables de contexto operativo (precio, volumen relativo, capital disponible, exposición actual, órdenes abiertas, pérdida/ganancia flotante, densidad de soportes). (I:7 C:5 H:7 → 1.40)
-
 ### X4 — X4_backtester.py
 
 > Plan de implementación: [`docs/x4_plan.md`](x4_plan.md)
