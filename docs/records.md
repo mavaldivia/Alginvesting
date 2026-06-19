@@ -452,3 +452,11 @@ Claude: Actualizó `APALANCAMIENTO` en `config.py` con esos valores.
 Mauricio: Inició sesión con `/todos`. Eligió trabajar en la sección X1 — Robustez y estabilidad, con dos ítems pendientes: auditar puntos de fallo de MT5 y el PermissionError al leer JSONs de soportes. Pidió resolver ambos en simultáneo por estar relacionados.
 Claude: Leyó `X1_trading.py` e identificó todos los puntos de crash: `json_act` (`sys.exit(1)`), `leer_lista_N` (`sys.exit(...)`), `ejecutar_orden` (`sys.exit(1)` ante retcodes inesperados), `obtener_precio_actual` (crash en `.bid` si MT5 retorna `None`), y ausencia de `try/except` por activo en el loop principal. Aplicó los cinco cambios: re-raise en `json_act`, `FileNotFoundError` en `leer_lista_N`, `RuntimeError` en `obtener_precio_actual`, eliminó `mt5.shutdown()/sys.exit` en `ejecutar_orden`, y envolvió el bloque por activo e `informacion` en `try/except Exception` con `continue`. Marcó ambos ítems como completados en `todos.md` y los movió a `done.md`.
 (Cierre: 2026-06-18 15:05)
+
+## SECCIÓN 55
+Mauricio: Inició sesión con `/todos` y eligió trabajar en X3. Confirmó arrancar con el único ítem pendiente de esa sección: implementar `X3_technical_features.py`.
+Claude: Propuso crear primero `docs/x3_plan.md` con el plan completo y las fórmulas matemáticas en LaTeX de cada indicador. Redactó el plan cubriendo 11 indicadores técnicos (SMA, EMA, RSI, MACD, ATR, Bollinger, ROC, volatilidad histórica, drawdown, tendencia OLS, distancia a soportes) y 10 variables de contexto operativo, con integración en X0.
+
+Mauricio: Entregó 10 aclaraciones (S1–S10): X2 y X3 solo alimentan X6 (no X4/X5); X3 corre dentro del ciclo de X0 tras la descarga H1; el cálculo es incremental (solo las velas nuevas); las features operativas (PnL, órdenes, exposición) quedan fuera de X3 — son responsabilidad de X1 y X4 directamente.
+Claude: Actualizó `docs/x3_plan.md` en secciones 1–3, 5–6, 8–10: eliminó `estado_cuenta` de los inputs y la función `_calcular_contexto_operativo`, agregó sección 5 explicando que X1/X4 calculan esas features, ajustó firma de `actualizar_features` a `(valor, df_ohlcv, conjunto_N)`. Actualizó `CLAUDE.md` (tabla de scripts: X2 y X3 con descripción completa), `README.md` (X3 en diseño con link al plan, flujo principal), y `docs/done.md` (nueva sección X3 con ítem del plan).
+(Cierre: 2026-06-18 23:07)

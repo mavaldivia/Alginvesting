@@ -19,7 +19,7 @@ El sistema está organizado en 7 módulos (X0→X6):
 | **X0** | Descarga precios vía MT5 + algoritmo de búsqueda de soportes/resistencias óptimos | Operativo |
 | **X1** | Loop semi-automático de trading: buy limits, trailing stop, control de pérdida máxima | Operativo |
 | **X2** | Score fundamental por activo (yfinance + CoinGecko + Fear & Greed) con historial diario | Operativo |
-| **X3** | Features técnicos (SMA, RSI, ATR, Bollinger, contexto operativo) | Pendiente |
+| **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) — alimenta X6 ([plan](docs/x3_plan.md)) | En diseño |
 | **X4** | Backtester histórico sobre datos reales con parámetros dinámicos | En diseño ([plan](docs/x4_plan.md)) |
 | **X5** | Modelos supervisados sobre store de trades (retorno esperado, probabilidad de pérdida) | Pendiente |
 | **X6** | Cerebro macro: recomienda parámetros dinámicos a X0/X1 basándose en X2/X3/X5 | Pendiente |
@@ -33,6 +33,7 @@ X0 — Etapa 1: Descarga/actualiza CSVs OHLCV desde MT5
 X0 — Etapa 2: Búsqueda de N soportes óptimos por activo → conjuntos_N/prod/{VALOR}_{N}.json
 X1 — Loop: Lee soportes → Gestiona buy limits en MT5 → Trailing stop → Cierra si pérdida > PERDIDA_MAX
 X2 — Diario: Score fundamental por activo → fundamentals/scores.json + x2_history.json
+X3 — Incremental: Features técnicas por activo → features/{VALOR}.csv (actualizado en cada ciclo de X0, tras descarga H1)
 ```
 
 ---

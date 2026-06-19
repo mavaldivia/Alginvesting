@@ -31,8 +31,10 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 | Archivo | Propósito |
 |---|---|
-| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5. **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntos_N/` como JSON. `--opcion 0/1/2` |
+| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5 + llama X2 (score fundamental) y X3 (features técnicas). **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntos_N/` como JSON. `--opcion 0/1/2` |
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. |
+| `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X6. |
+| `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `features/{VALOR}.csv`. Alimenta X6. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/x3_plan.md`. |
 | `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, y configuración de X0 (algoritmo) y X1 (trading). |
 
 ### Directorios de datos
@@ -163,6 +165,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 ---
 
 ## Última actualización
+
+**2026-06-18** — X3: plan de implementación + fórmulas LaTeX
+
+`docs/x3_plan.md` creado: 11 indicadores técnicos con fórmulas LaTeX (SMA, EMA, RSI, MACD, ATR, Bollinger, ROC, volatilidad histórica, drawdown, tendencia OLS, distancia a soportes). X3 corre dentro del ciclo de X0 (tras descarga H1), cálculo incremental por velas nuevas, alimenta solo X6. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Tabla de scripts en `CLAUDE.md` actualizada con X2 y X3. README.md actualiza X3 a "En diseño". `docs/done.md` agrega sección X3.
 
 **2026-06-18** — X1: robustez — try/except por activo + fixes sys.exit
 

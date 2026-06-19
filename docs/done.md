@@ -64,6 +64,10 @@
 - [x] **[x2_plan paso 3] Ejecutar X2 al menos una vez al día en el loop de X0**: en el `while True` de X0, forzar ejecución de X2 a una hora determinada aunque ya se haya ejecutado al inicio del loop ese día — garantiza que el score se actualice diariamente en corridas de varios días seguidos. Hora configurable vía `X2_HORA_EJECUCION` en `config.py`. (I:5 C:2 H:8 → 3.16)
 - [x] **Llamar X2 al inicio de cada ciclo del while True en X0**: `subprocess.run([sys.executable, X2_fundamentals.py])` al comienzo de cada iteración. El guard de día de X2 (`x2_last_run.json`) asegura que el script solo ejecuta una vez por día aunque se llame múltiples veces. No requiere lógica de hora en X0 — X2 se auto-regula.
 
+### X3 — X3_technical_features.py
+
+- [x] **Plan X3**: `docs/x3_plan.md` creado. 11 indicadores técnicos con fórmulas LaTeX (SMA, EMA, RSI, MACD, ATR, Bollinger, ROC, volatilidad histórica, drawdown, tendencia OLS, distancia a soportes). 10 variables de contexto operativo. Integración en X0 (incremental, tras descarga H1). Output: `features/{VALOR}.csv`. X3 alimenta solo a X6. X4 consume el CSV pre-computado sin llamar a X3 en runtime.
+
 ### X4 — X4_backtester.py
 
 - [x] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre). (I:5 C:2 H:9 → 3.35) — definido en `docs/x4_plan.md` sección 8.
