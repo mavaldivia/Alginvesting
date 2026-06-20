@@ -2,7 +2,7 @@
 
 ## El problema
 
-`conjuntos_N/` está en `.gitignore` — git nunca lo toca. Sin problema.
+`resources/` y `Data_minuto/` están en `.gitignore` — git nunca los toca. Sin problema.
 
 `Data/` **sí está trackeado en git**. Si haces `git pull` en Windows sin configuración previa, git sobrescribirá los CSV con la versión de Mac (que puede ser más antigua), perdiendo las actualizaciones que X0 ha corrido en Windows.
 
@@ -64,7 +64,7 @@ git push
 git pull
 ```
 
-`Data/` y `conjuntos_N/` quedan intactos. El resto (scripts, docs, config) se actualiza.
+`Data/`, `Data_minuto/` y `resources/` quedan intactos. El resto (scripts, docs, config) se actualiza.
 
 ---
 
@@ -103,7 +103,8 @@ git update-index --skip-worktree Data/BTCUSD.csv
 
 | Carpeta | Mecanismo | Efecto en git pull |
 |---|---|---|
-| `conjuntos_N/` | `.gitignore` | git no la ve; nunca se toca |
+| `resources/` | `.gitignore` | git no la ve; nunca se toca (incluye conjuntos_N, x0, x2, x3) |
+| `Data_minuto/` | `.gitignore` | git no la ve; nunca se toca |
 | `Data/` | `--skip-worktree` (solo Windows) | git la ve pero no la modifica |
 | Todo lo demás | trackeado normalmente | se actualiza con pull |
 
