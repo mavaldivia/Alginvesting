@@ -75,9 +75,12 @@
 
 ### X4 — X4_backtester.py
 
+- [x] **Leer plan X4 desde sección 3**: revisado `docs/plans/x4_plan.md` a partir de la sección 3. Plan leído antes de implementar cualquier ítem de X4. (I:10 C:1 H:10 → 10.00)
 - [x] Definir schema del store de trades históricos: qué se guarda por cada orden simulada (activo, timestamps, precio entrada/salida, parámetros usados, features fundamentales y técnicas al momento de apertura, retorno, drawdown máximo, ganancia flotante máxima, duración, motivo de cierre). (I:5 C:2 H:9 → 3.35) — definido en `docs/x4_plan.md` sección 8.
 - [x] **Fecha/hora máxima por tupla (valor, N) para backtesting**: `_procesar_valor_N` acepta `fecha_hora_max` opcional — filtra datos hasta ese datetime, usa warm start desde `{valor}_{N}_bt.json` (cache `{datetime: [soportes]}`), delta desde `{valor}_{N}_bt_delta.json`. Sin look-ahead: la clave guardada es `df['DateTime'].iloc[-1]` (último dato realmente usado). Lookup: `max(t1 <= t0)`. X4 llama esta función directamente con `fecha_hora_max=t`. X0 producción sin cambios. (I:10 C:5 H:8 → 1.26)
 - [x] Evaluar incorporar X1.5_intravela al scope (renombrado de X2_Intravela; numeración 1.5 para no desplazar la visión) (I:6 C:7 H:5 → 0.78) — decisión: no es un script separado, la lógica va embebida en X4 como subrutina de simulación intra-vela. Ver `docs/decisiones.md` 2026-06-08.
+- [x] **Simulación intra-vela en X4**: diseño documentado en `docs/plans/x4_plan.md`. Trigger: `hay_soporte_en_rango and (puede_activar_ts or puede_activar_perdida_max)`. Método: 60 registros M1 aleatorios de `Data_minuto/` escalados linealmente para calzar el OHLC H1. (I:7 C:5 H:7 → 1.40)
+- [x] **Config de versiones para backtesting**: `config.py` principal tendrá `X4_VERSION_ACTIVA = 'V1'` y `X4_VERSIONES = {'V1': {'fecha_inicio': '2026-01-10', 'fecha_fin': 'F'}}`. `config_V1.py` tiene todos los parámetros fijados. `_cargar_config(version)` usa importlib. Sin `--reset`, X4 retoma desde `checkpoint.json`. Documentado en `docs/plans/x4_plan.md` sección 2 y CLI sección 12. (I:8 C:5 H:8 → 1.60)
 - [x] Revisar los mensajes "SEGUIR EXPLICACION" en `prompts` (líneas 57 y 62) — quedaron explicaciones pendientes de continuar (lógica de `X2_Intravela` para el caso borde de abrir y cerrar una orden dentro de la misma vela horaria)
 
 ### Transversal

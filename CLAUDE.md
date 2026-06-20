@@ -169,6 +169,10 @@ Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
 ## Última actualización
 
+**2026-06-20** — docs: agregar ítems X4B y X4.py al TO DO
+
+Dos ítems nuevos en la sección X4 de `docs/tracking/todos.md`: `X4B_crear_version_backtesting.py` (score 2.83 — crea infraestructura de una versión con un input, muestra ruta del config al terminar) y `X4.py` (renombrado de `X4_backtester.py`, score 1.13 — implementación según `docs/plans/x4_plan.md`). Minuta de sesión 61 agregada a `docs/tracking/records.md`.
+
 **2026-06-20** — docs: actualizar plan X4 con comentarios de sesión
 
 `docs/plans/x4_plan.md` reescrito con 6 cambios estructurales: (1) nota de escalabilidad a backtesting dinámico con X6; (2) estructura de carpetas movida a `resources/x4/versionV1/config_V1.py` + `resources_V1/` (flat, análogo al resto del proyecto); (3) `config_V1.py` completamente explícito sin imports de `config.py` (todos los parámetros de producción fijados al 2026-01-10); (4) `resources/conjuntos_N/` pasa a ser plana (sin subdirectorios `prod/` ni `bt/`) — bt va en `resources_V1/conjuntos_N/`; (5) loop termina sin cerrar posiciones ni generar `fin_backtest` cuando `fecha_fin = 'F'`; (6) regla de gap de mercado en paso B: OEs dentro del gap se ejecutan al precio de la menor de ellas, con `precio_ejecucion` y `es_gap` en el evento `OE_ejecutada`.

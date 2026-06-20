@@ -18,13 +18,8 @@
 
 > Plan de implementación: [`docs/plans/x4_plan.md`](../plans/x4_plan.md)
 
-- [ ] **Leer plan X4 desde sección 3**: revisar `docs/plans/x4_plan.md` a partir de la sección 3 antes de implementar cualquier ítem de X4. (I:10 C:1 H:10 → 10.00)
-- [ ] **Estructura de carpetas y configs por versión de backtesting**: crear `x4_backtesting/config/` con un archivo `config_[version].py` por versión (ej. `config_V1.py`), con la misma estructura que `config.py` de producción. Cada archivo define los parámetros exactos usados en esa corrida (activos, N, K, LAMBDA, A, B, TS, PERDIDA_MAX, fechas, etc.). Permite reproducir cualquier versión de backtesting de forma exacta. (I:5 C:2 H:8 → 3.16)
-- [ ] **DELTA_INICIAL por (valor, N, version)**: en backtesting, `delta_inicial` depende solo del trío `(valor, N, version)`, no de `max_datetime`. Se ajusta con `FACTOR_DELTA` cada vez que el optimizador converge para ese trio, al igual que en producción. Archivo de estado: `{valor}_{N}_{version}_bt_delta.json` (I:7 C:3 H:8 → 2.49)
-- [ ] **Descarga incremental de `Data_minuto/`**: en X0, agregar descarga de datos M1 desde MT5 con la misma lógica incremental que `Data/` (merge + drop_duplicates). Pre-requisito para simulación intra-vela en X4. Fuera de git (regenerable). (I:6 C:3 H:8 → 2.31)
-- [ ] **Config de versiones para backtesting**: sección en `config.py` con `version = 'V1'` (str activo) y `fechas_version = {'V1': ['2023-01-01', 'F']}`. `'F'` = hasta la última vela disponible. Al reiniciar con la misma versión, el sistema retoma desde el último snapshot guardado. Las órdenes simuladas se gatillan de forma ficticia sobre precios reales (I:8 C:5 H:8 → 1.60)
-- [ ] **Simulación intra-vela en X4**: subrutina embebida en X4_backtester. Trigger: `hay_soporte_en_rango and (puede_activar_ts or puede_activar_perdida_max)`, donde `hay_soporte_en_rango = Low <= max(soportes_activos)`, `puede_activar_ts = (H-L) > A/(lote*units)`, `puede_activar_perdida_max = (H-L) > PERDIDA_MAX/(lote*units)`. Método: 60 registros M1 aleatorios de `Data_minuto/` escalados linealmente para calzar el OHLC H1. Diseño en `docs/decisiones.md` 2026-06-08. (I:7 C:5 H:7 → 1.40)
-- [ ] **X4_backtester.py**: simulación histórica desde 2024-01-01 con parámetros dinámicos (búsqueda de nuevos soportes cada N días, cierre de operaciones por trailing stop o pérdida máxima, tracking de cuenta). Es la fuente primaria de training data para X5. (I:9 C:8 H:9 → 1.13)
+- [ ] **X4B_crear_version_backtesting.py**: script con un único input `nombre_version` que crea la infraestructura completa de una versión (subdirectorios + `config_V.py`). Si la versión ya existe, pregunta si reiniciar. Al terminar, muestra la ruta del `config_V.py` para completar parámetros. (I:7 C:3 H:10 → 2.83)
+- [ ] **X4.py**: implementar según `docs/plans/x4_plan.md`. Config, estructura de carpetas, lógica de trading y secuencia de fases ya documentadas. (I:9 C:8 H:9 → 1.13)
 
 ### X5 — X5_model_training.py
 

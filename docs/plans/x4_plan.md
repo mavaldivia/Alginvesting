@@ -28,6 +28,22 @@ X4 **no importa ni llama a X1**. Reimplementa su lógica de trading sin MT5.
 
 Spread y slippage: ignorados en V1 (entrada exacta al precio del soporte o al precio de gap).
 
+### Registro en `config.py` (el principal, no `config_V1.py`)
+
+Además de `config_V1.py`, el `config.py` del proyecto debe tener:
+
+```python
+# ─── X4 — Backtester ─────────────────────────────────────────────────────────
+X4_VERSION_ACTIVA = 'V1'
+X4_VERSIONES = {
+    'V1': {'fecha_inicio': '2026-01-10', 'fecha_fin': 'F'},
+}
+```
+
+- `X4_VERSION_ACTIVA`: versión que usa X4 si no se pasa `--version` en CLI.
+- `X4_VERSIONES`: registro consultable de todas las versiones con sus rangos de fechas. Las fechas deben coincidir con `fecha_inicio`/`fecha_fin` en el `config_{V}.py` correspondiente — permiten consultar el rango sin importar el módulo de versión.
+- `_cargar_config(version)` usa `importlib` para cargar `resources/x4/version{V}/config_{V}.py`. Si la versión ya tiene checkpoint guardado en `resources_V1/checkpoint.json`, la simulación retoma desde el último timestamp procesado (sin `--reset`).
+
 ---
 
 ## 3. Estructura de carpetas
@@ -519,6 +535,7 @@ scripts/X4_backtester.py
 ## 12. CLI
 
 ```bash
+python scripts/X4_backtester.py                        # usa X4_VERSION_ACTIVA de config.py
 python scripts/X4_backtester.py --version V1
 python scripts/X4_backtester.py --version V1 --reset   # ignora checkpoint, parte de cero
 ```
