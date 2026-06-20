@@ -169,6 +169,8 @@ Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
 ## Última actualización
 
+**2026-06-19** — docs: paso_a_paso_git + guia_git simplificada para Windows
+
 **2026-06-19** — Reestructuración de directorios del proyecto
 
 `resources/` creado como directorio raíz para datos generados/intermedios: `resources/x0/` (logs de convergencia trackeados + plots generados), `resources/x2/` (fundamentals: scores, historial, guard de día), `resources/x3/` (features técnicas por activo), `resources/conjuntos_N/prod/` y `resources/conjuntos_N/bt/`. `docs/` reorganizado en `docs/plans/` (x2_plan, x3_plan, x4_plan), `docs/context/` (decisiones, vision, guia_git, documentacion_V0), `docs/tracking/` (todos, done, records, oportunidad de mejora). `plots/` raíz (obsoleta, no actualizada desde Jun 12) eliminada con `git rm`. `config.py` actualizado: todas las `CARPETA_*` apuntan a `resources/`. `.gitignore` actualizado: `conjuntos_N/` → `resources/conjuntos_N/`, más `resources/x0/plots/` y `resources/x3/`. Skill global `/record` actualizada: apunta a `docs/tracking/records.md`. Comentarios docstring en X0, X2, X3 actualizados.

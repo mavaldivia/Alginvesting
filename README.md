@@ -186,6 +186,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-19** — docs: paso_a_paso_git + guia_git simplificada para Windows
 - **2026-06-19** — refactor: reestructurar directorios del proyecto
 - **2026-06-18** — X3: implementar X3_technical_features.py
 - **2026-06-18** — X1: robustez — try/except por activo + fixes sys.exit
