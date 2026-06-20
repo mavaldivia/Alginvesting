@@ -3,7 +3,7 @@ X3_technical_features.py
 
 Genera features técnicas incrementales (indicadores de precio/volumen) para cada activo.
 Llamado desde X0 tras descargar datos H1.
-Output: features/{valor}.csv  (columna datetime + una columna por feature)
+Output: resources/x3/{valor}.csv  (columna datetime + una columna por feature)
 
 No es un script standalone. Se importa y llama con:
     from X3_technical_features import actualizar_features
@@ -201,7 +201,7 @@ def _calcular_todos_indicadores(df: pd.DataFrame, conjunto_N: set) -> pd.DataFra
 
 def actualizar_features(valor: str, df_ohlcv: pd.DataFrame, conjunto_N: set) -> None:
     """
-    Actualiza features/{valor}.csv con las filas nuevas de df_ohlcv.
+    Actualiza resources/x3/{valor}.csv con las filas nuevas de df_ohlcv.
 
     Parámetros
     ----------

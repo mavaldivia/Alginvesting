@@ -13,11 +13,11 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.parent
 CARPETA_DATA = BASE_DIR / 'Data'
 CARPETA_DATA_MINUTO = BASE_DIR / 'Data_minuto'
-CARPETA_N_PROD = BASE_DIR / 'conjuntos_N' / 'prod'
-CARPETA_N_BT   = BASE_DIR / 'conjuntos_N' / 'bt'
-CARPETA_PLOTS = BASE_DIR / 'docs' / 'X0' / 'plots'
-CARPETA_LOGS = BASE_DIR / 'docs' / 'X0' / 'logs'
-CARPETA_FUNDAMENTALS = BASE_DIR / 'fundamentals'
+CARPETA_N_PROD = BASE_DIR / 'resources' / 'conjuntos_N' / 'prod'
+CARPETA_N_BT   = BASE_DIR / 'resources' / 'conjuntos_N' / 'bt'
+CARPETA_PLOTS = BASE_DIR / 'resources' / 'x0' / 'plots'
+CARPETA_LOGS = BASE_DIR / 'resources' / 'x0' / 'logs'
+CARPETA_FUNDAMENTALS = BASE_DIR / 'resources' / 'x2'
 
 # ─── Activos y universo de soportes ───────────────────────────────────────────
 
@@ -131,7 +131,7 @@ PESOS_CRYPTO = {
 
 # ─── X3: features técnicas ────────────────────────────────────────────────────
 
-CARPETA_FEATURES = BASE_DIR / 'features'
+CARPETA_FEATURES = BASE_DIR / 'resources' / 'x3'
 
 X3_VENTANAS = {
     'sma': [20, 50, 200],

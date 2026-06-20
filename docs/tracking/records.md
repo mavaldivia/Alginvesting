@@ -1,6 +1,14 @@
 
 # Registro de conversaciones — Alginvesting
 
+## SECCIÓN 57
+Mauricio: Pidió reestructurar el proyecto: mover `features/` y `fundamentals/` a `resources/x3/` y `resources/x2/`, mover `docs/X0/` a `resources/x0/`, organizar los MDs de `docs/` en subcarpetas, confirmar cuál `plots/` era el obsoleto y eliminarlo, y actualizar `.gitignore`. Agregó `/consultar` para clarificar antes de ejecutar.
+Claude: Verificó la estructura actual y confirmó que `plots/` raíz (Jun 12) estaba obsoleto frente a `docs/X0/plots/` (Jun 14-15, apuntado por `CARPETA_PLOTS` en config.py). Hizo tres preguntas: nombres de subcarpetas en `docs/`, si mover `records.md` y actualizar la skill, y si incluir `conjuntos_N/` en `resources/`.
+Mauricio: Eligió `plans/` + `context/` + `tracking/`, mover `records.md` y actualizar la skill, y mover `conjuntos_N/` a `resources/conjuntos_N/`.
+Claude: Ejecutó la reestructuración completa: creó `resources/x0/`, `resources/x2/`, `resources/x3/`, `resources/conjuntos_N/`. Organizó `docs/` en `plans/`, `context/`, `tracking/`. Usó `git mv` para archivos trackeados, `mv` para no trackeados, `git rm -r plots/` para el obsoleto. Actualizó `config.py` (todas las `CARPETA_*`), `.gitignore`, skill `/record`, comentarios docstring en X0/X2/X3, `CLAUDE.md` (tabla de arquitectura, convenciones, TO DO), `docs/tracking/todos.md` (ítem Prioridad_0 eliminado) y `docs/tracking/done.md` (ítem agregado en sección Transversal). Ofreció 5 oportunidades de mejora adicionales al cierre.
+Mauricio: Ajustó `.gitignore` para ignorar `resources/` completo (en vez de subcarpetas específicas). Cerró con `/guardar`.
+(Cierre: 2026-06-19 21:49)
+
 ## SECCIÓN 1
 Mauricio: Pidió continuar con el TODO de Alginvesting ("sigamos con el to do, que viene?").
 Claude: Revisó CLAUDE.md, marcó "Paralelización" como completada (ya estaba en el último commit) y propuso los siguientes ítems de velocidad pendientes en X0: vectorizar `calcular_distancias` o `calcular_FO`/`asignar_soporte`.

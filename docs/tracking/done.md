@@ -2,6 +2,10 @@
 
 Ítems completados, organizados por sección.
 
+### Transversal
+
+- [x] **Reorganizar estructura de directorios del proyecto**: `resources/x0/` (logs, plots), `resources/x2/` (fundamentals), `resources/x3/` (features), `resources/conjuntos_N/` (soportes). `docs/` reorganizado en `plans/`, `context/`, `tracking/`. `plots/` raíz obsoleta eliminada. `config.py` y `.gitignore` actualizados. Skill `/record` actualizada a `docs/tracking/records.md`.
+
 ### X2 — X2_fundamentals.py
 
 - [x] **X2_fundamentals.py**: score fundamental por activo. Acciones: yfinance (ingresos, EPS, P/E, EV/EBITDA, ROE, ROA, FCF, deuda, market cap). Crypto: yfinance + fuentes on-chain (CoinGecko u otras). Output: score de confianza por activo en rango [0, 1]. (I:7 C:6 H:6 → 1.08)

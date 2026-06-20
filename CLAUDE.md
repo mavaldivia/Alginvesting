@@ -21,7 +21,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 - El código se desarrolla en Mac y se ejecuta en Windows donde está MT5.
 - `Alginvesting_base/` es el repo clonado de la versión Windows (solo lectura, referencia histórica).
-- `Data/` se trackea en git (ver `docs/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `conjuntos_N/` (JSONs de soportes) sigue fuera de git, se regenera corriendo X0.
+- `Data/` se trackea en git (ver `docs/context/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `resources/conjuntos_N/` (JSONs de soportes) sigue fuera de git, se regenera corriendo X0.
 
 ---
 
@@ -31,10 +31,10 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 | Archivo | Propósito |
 |---|---|
-| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5 + llama X2 (score fundamental) y X3 (features técnicas). **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `conjuntos_N/` como JSON. `--opcion 0/1/2` |
+| `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5 + llama X2 (score fundamental) y X3 (features técnicas). **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `resources/conjuntos_N/` como JSON. `--opcion 0/1/2` |
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. |
-| `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X6. |
-| `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `features/{VALOR}.csv`. Alimenta X6. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/x3_plan.md`. |
+| `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X6. Output: `resources/x2/`. |
+| `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `resources/x3/{VALOR}.csv`. Alimenta X6. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/plans/x3_plan.md`. |
 | `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, y configuración de X0 (algoritmo) y X1 (trading). |
 
 ### Directorios de datos
@@ -43,7 +43,10 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 |---|---|
 | `Data/` | CSVs OHLCV H1 por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, **trackeados en git** (historia desde 2024-01-01) |
 | `Data_minuto/` | CSVs OHLCV M1 por activo — usados por X4 para simulación intra-vela; se alimentan incrementalmente igual que `Data/`. Fuera de git (regenerables). |
-| `conjuntos_N/` | JSONs por activo — `{VALOR}_{N}.json` (soportes producción, leído por X1), `{VALOR}_{N}_delta.json` (delta adaptativo producción), `{VALOR}_{N}_bt.json` (cache bt: `{datetime: [soportes], ...}`), `{VALOR}_{N}_bt_delta.json` (delta adaptativo bt) — generados, fuera de git |
+| `resources/conjuntos_N/` | JSONs por activo — `{VALOR}_{N}.json` (soportes producción, leído por X1), `{VALOR}_{N}_delta.json` (delta adaptativo producción), `{VALOR}_{N}_bt.json` (cache bt: `{datetime: [soportes], ...}`), `{VALOR}_{N}_bt_delta.json` (delta adaptativo bt) — generados, fuera de git |
+| `resources/x0/` | `logs/` (JSONs de convergencia por combo, trackeados) y `plots/` (FO, Soportes — generados, fuera de git) |
+| `resources/x2/` | Scores fundamentales (`scores.json`), historial (`x2_history.json`), guard de día (`x2_last_run.json`) — trackeados en git |
+| `resources/x3/` | Features técnicas por activo (`{VALOR}.csv`) — generados, fuera de git |
 
 ---
 
@@ -148,15 +151,15 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - `snake_case` para variables y funciones. `PascalCase` para clases.
 - Archivos `.py` en producción. `.ipynb` solo para exploración visual de nuevos módulos.
 - Parámetros clave centralizados en `config.py`.
-- Archivos en `conjuntos_N/`: `{VALOR}_{N}.json` es el único archivo de soportes (X0 escribe, X1 lee).
+- Archivos en `resources/conjuntos_N/`: `{VALOR}_{N}.json` es el único archivo de soportes (X0 escribe, X1 lee).
 - Sin hardcodear rutas fuera de `config.py`.
-- `docs/decisiones.md` registra decisiones técnicas relevantes.
+- `docs/context/decisiones.md` registra decisiones técnicas relevantes.
 
 ---
 
 ## TO DO
 
-Ver [`docs/todos.md`](docs/todos.md).
+Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
 ## Referencia base
 
@@ -165,6 +168,10 @@ Ver [`docs/todos.md`](docs/todos.md).
 ---
 
 ## Última actualización
+
+**2026-06-19** — Reestructuración de directorios del proyecto
+
+`resources/` creado como directorio raíz para datos generados/intermedios: `resources/x0/` (logs de convergencia trackeados + plots generados), `resources/x2/` (fundamentals: scores, historial, guard de día), `resources/x3/` (features técnicas por activo), `resources/conjuntos_N/prod/` y `resources/conjuntos_N/bt/`. `docs/` reorganizado en `docs/plans/` (x2_plan, x3_plan, x4_plan), `docs/context/` (decisiones, vision, guia_git, documentacion_V0), `docs/tracking/` (todos, done, records, oportunidad de mejora). `plots/` raíz (obsoleta, no actualizada desde Jun 12) eliminada con `git rm`. `config.py` actualizado: todas las `CARPETA_*` apuntan a `resources/`. `.gitignore` actualizado: `conjuntos_N/` → `resources/conjuntos_N/`, más `resources/x0/plots/` y `resources/x3/`. Skill global `/record` actualizada: apunta a `docs/tracking/records.md`. Comentarios docstring en X0, X2, X3 actualizados.
 
 **2026-06-18** — X3: implementar X3_technical_features.py
 

@@ -4,7 +4,7 @@ X2_fundamentals.py
 Score fundamental por activo en [0, 1].
 Acciones: yfinance (ROE, márgenes, FCF, crecimiento, valorización, deuda, analistas).
 Crypto: yfinance + CoinGecko + Fear & Greed (alternative.me).
-Output: fundamentals/scores.json + fundamentals/x2_history.json
+Output: resources/x2/scores.json + resources/x2/x2_history.json
 
 Score final = (1 - W_TENDENCIA) × score_cross + W_TENDENCIA × score_tendencia
   score_cross:     normalización min-max entre activos del universo (hoy)

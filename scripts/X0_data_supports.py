@@ -3,7 +3,7 @@ X0_data_supports.py
 
 Etapa 1 (--opcion 0 o 2): Descarga velas OHLCV H1 (Data/) y M1 (Data_minuto/) desde MetaTrader5.
 Etapa 2 (--opcion 1 o 2): Busca N soportes/resistencias óptimos por activo usando un optimizador
-                           de búsqueda local y guarda los resultados en conjuntos_N/.
+                           de búsqueda local y guarda los resultados en resources/conjuntos_N/.
 
 Uso:
     python X0_data_supports.py               # opcion=2: ambas etapas
@@ -685,7 +685,7 @@ def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
                               iteraciones: int, cambios: int,
                               FO_inicial: float, FO_final: float,
                               delta_final: float, convergio: bool):
-    """Agrega una entrada al log de convergencia de un combo (valor, N) en docs/X0/logs/."""
+    """Agrega una entrada al log de convergencia de un combo (valor, N) en resources/x0/logs/."""
     CARPETA_LOGS.mkdir(parents=True, exist_ok=True)
     sufijo = '_bt' if es_bt else ''
     log_path = CARPETA_LOGS / f'{valor}_{N}{sufijo}.json'
