@@ -169,6 +169,10 @@ Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
 ## Última actualización
 
+**2026-06-20** — docs: actualizar plan X4 con comentarios de sesión
+
+`docs/plans/x4_plan.md` reescrito con 6 cambios estructurales: (1) nota de escalabilidad a backtesting dinámico con X6; (2) estructura de carpetas movida a `resources/x4/versionV1/config_V1.py` + `resources_V1/` (flat, análogo al resto del proyecto); (3) `config_V1.py` completamente explícito sin imports de `config.py` (todos los parámetros de producción fijados al 2026-01-10); (4) `resources/conjuntos_N/` pasa a ser plana (sin subdirectorios `prod/` ni `bt/`) — bt va en `resources_V1/conjuntos_N/`; (5) loop termina sin cerrar posiciones ni generar `fin_backtest` cuando `fecha_fin = 'F'`; (6) regla de gap de mercado en paso B: OEs dentro del gap se ejecutan al precio de la menor de ellas, con `precio_ejecucion` y `es_gap` en el evento `OE_ejecutada`.
+
 **2026-06-19** — docs: paso_a_paso_git + guia_git simplificada para Windows
 
 **2026-06-19** — Reestructuración de directorios del proyecto

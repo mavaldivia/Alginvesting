@@ -42,18 +42,22 @@ n_sizes = {
 """
 
 n_sizes = {
-    'GOOGL': [70, 100],
-    'ETHUSD': [70, 100],
+    'BTCUSD': [150],
+    'ETHUSD': [150],
+    'TSLA':   [150],
+    'GOOGL':  [150],
+    'NVDA':   [150],
+    'AMZN':   [150],
 }
 
 # Cantidad de soportes activos en producción, usada por X1
 n_sizes_ejecucion = {
-    'BTCUSD': 130,
-    'ETHUSD': 130,
-    'TSLA': 120,
-    'GOOGL': 120,
-    'NVDA': 120,
-    'AMZN': 120,
+    'BTCUSD': 150,
+    'ETHUSD': 150,
+    'TSLA': 150,
+    'GOOGL': 150,
+    'NVDA': 150,
+    'AMZN': 150,
 }
 
 # ─── Datos históricos ─────────────────────────────────────────────────────────
@@ -77,7 +81,7 @@ parametros_soportes = {
     'f': True,       # fuerza del rechazo: f = 1 - |Close - Open| / (High - Low)  (proporción del rango que fue "mecha")
 }
 
-LAMBDA = 1 / 500    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
+LAMBDA = 1 / 5    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
 M = 30              # candidatos evaluados por soporte en fase fine (linspace entre vecinos)
 M_COARSE = 5        # candidatos en fase coarse (exploración barata antes del refinamiento fino)
 DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido); semilla para la primera corrida de cada (valor, N)
@@ -156,7 +160,7 @@ B = 2
 
 TS = 0.5  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
 
-PERDIDA_MAX = 50  # USD — si la pérdida de una posición abierta supera este valor, se cierra
+PERDIDA_MAX = 120  # USD — si la pérdida de una posición abierta supera este valor, se cierra
 
 PRUEBA_TRAILING_STOP = False  # True: solo prueba el trailing stop, no crea nuevas órdenes
 

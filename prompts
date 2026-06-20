@@ -178,3 +178,34 @@ X2
   claude comandos
 
   https://www.linkedin.com/feed/update/urn:li:activity:7465416574728925185/
+
+
+
+-----------------------------------
+
+  ### Cuestionamientos y lectura de plan X4
+
+  voy con 1. Voy a leer el plan y a dejar acá mis comentarios por sesión
+  S1: Es importante aclarar que el backtesting comenzará solo dependiendo de un config_[version].py, estático. Nada lo moverá.
+  En el futuro, cuando construya X6, la idea es hacer backtesting dinámico. Eso será clave. Te lo dejo para que tengas la
+  big-picture y puedas después escalar
+  S2: Por ahora lo veo bien
+  S3: Cambiala. Crea en resources/x4/version[X]/. Aquí debe ir todo el contenido de esa versión: config[X].py + resources[X],
+  que será una carpeta. La estructura dentro de resources[X], te la dejo a ti, para que reordenes todo lo que tienes
+  actualmente declarado en el plan, de una forma más similar a la que tiene actualmente el proyecto
+  S4: me parece bueno. Revisa si en config.py hay algo que pueda hacer sentido agregar, siempre y cuando dependa unicamente de
+  la versión
+  S5: Que conjuntos_N, sean solo los productivos (ya no irían las carpetas prod y bt)
+  En cambio, conjuntos_N iría resources/x4/version[X]/resources[X] para cada una de las versiones.
+  Lo demás está bien
+  S8: No cierres nunca por "fin_backtest" si fecha_fin = "F"
+
+
+  ## Extra. Hay una regla que, cuando existe gap de mercado, las ordenes se abren al precio de la menor orden abierta
+  ej: tsla cierra un dia a 140
+  tengo ordenes de compra en 130, 120, 110, 100
+  tsla abre al otro dia en 105 (entonces las ordenes 130, 120 y 110, se ejecutan las 3 a 110)
+  # Lo demás me parece bien a priori
+
+  # Actualiza el plan con todos estos comentarios
+/consultar
