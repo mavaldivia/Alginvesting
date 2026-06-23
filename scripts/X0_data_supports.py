@@ -36,7 +36,7 @@ import tqdm
 warnings.filterwarnings('ignore')
 
 from config import (
-    CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_N_BT, CARPETA_PLOTS, CARPETA_LOGS,
+    CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, M_COARSE, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
@@ -1069,7 +1069,6 @@ if __name__ == '__main__':
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
     CARPETA_DATA_MINUTO.mkdir(parents=True, exist_ok=True)
     CARPETA_N_PROD.mkdir(parents=True, exist_ok=True)
-    CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
 
     t_inicio_script = time.time()
 
@@ -1137,7 +1136,7 @@ if __name__ == '__main__':
                     print('\n── Etapa 2: Búsqueda de soportes ───────────────────────')
                     print('Consultando posiciones activas en MT5...')
                     ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
-                    buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N_PROD, CARPETA_N_BT, ordenes_activas_mt5,
+                    buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N_PROD, None, ordenes_activas_mt5,
                                     n_max=N_MAX_MODELS)
 
             except Exception as e:

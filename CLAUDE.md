@@ -169,6 +169,10 @@ Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
 ## Última actualización
 
+**2026-06-22** — X4: implementar X4_backtester.py + migrar paths prod
+
+`scripts/X4_backtester.py` creado: backtester completo que simula la estrategia X0+X1 sobre datos históricos. Incluye: carga de config vía importlib desde `resources/x4/version{V}/config_{V}.py`, checkpoint save/load, cold start de soportes, recálculo periódico en paralelo (ProcessPoolExecutor → `_procesar_valor_N` de X0), pasos A→F por vela H1 (limpiar OE, gap de mercado, trailing stop, PERDIDA_MAX, cierre por SL, crear OE con guard de margen), simulación intra-vela con escalado de bloque M1, equity CSVs (`equity_global.csv`, `equity_activos.csv`), flush a `trades.json` y `events.json` cada 24 velas. CLI: `--version` y `--reset`. Migración de paths: `CARPETA_N_PROD` aplanada (sin `/prod/`), `CARPETA_N_BT` eliminada de `config.py` (cada versión X4 define la suya). Corregido `BASE_DIR` en `config_V1.py` (4 niveles de parent). Validado con cold start real: N=70 BTC+ETH, 3454 velas H1, 3 trades en primeras 24h.
+
 **2026-06-22** — X4B: crear infraestructura de versión de backtesting
 
 `scripts/X4B_crear_version_backtesting.py` creado: acepta `nombre_version` como arg CLI o prompt interactivo (normaliza V1/1/v1 → V1), crea `resources/x4/version{V}/config_{V}.py` desde template con todos los parámetros de V1, crea subdirectorios `resources_{V}/conjuntos_N/` y `resources_{V}/logs/`. Si la versión ya existe pide confirmación antes de sobrescribir. Registra la versión en `config.py` bajo `X4_VERSION_ACTIVA` y `X4_VERSIONES`. Validado creando V1.
