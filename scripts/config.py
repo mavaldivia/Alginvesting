@@ -193,3 +193,9 @@ APALANCAMIENTO = {
     'NVDA':   5,
     'AMZN':   5,
 }
+
+# ─── X4 — Backtester ─────────────────────────────────────────────────────────
+X4_VERSION_ACTIVA = 'V1'
+X4_VERSIONES = {
+    'V1': {'fecha_inicio': '2026-01-10', 'fecha_fin': 'F'},
+}

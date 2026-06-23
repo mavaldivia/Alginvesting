@@ -498,3 +498,8 @@ Claude: Agregó ambos ítems a la sección X4 de `docs/tracking/todos.md`. `X4B_
 Mauricio: Informó que hizo un cambio en `X0_data_supports.py` líneas 346-347: reemplazó `len(ordenes_activas)` por `len(set(ordenes_activas))` en el cálculo de `delta` y `delta2`.
 Claude: Confirmó que el cambio es correcto — si `ordenes_activas` contiene precios duplicados, el código anterior sobrecontaba las órdenes y dejaba menos slots para soportes libres de los necesarios. Con `set()` se cuentan niveles únicos, que es la métrica correcta.
 (Cierre: 2026-06-22 22:10)
+
+## SECCIÓN 63
+Mauricio: Pidió ver los pendientes del TO DO. Eligió trabajar en la sección X4 e implementar el primer ítem: `X4B_crear_version_backtesting.py`.
+Claude: Leyó `docs/plans/x4_plan.md` y `config.py`. Implementó `scripts/X4B_crear_version_backtesting.py`: acepta `nombre_version` como arg CLI o prompt interactivo, normaliza el formato, crea `resources/x4/version{V}/config_{V}.py` desde un template (con todos los parámetros de V1 del plan), crea subdirectorios `resources_V/conjuntos_N/` y `resources_V/logs/`, y registra la versión en `config.py` bajo `X4_VERSION_ACTIVA` y `X4_VERSIONES`. Si la versión ya existe pide confirmación antes de sobrescribir. Validado ejecutando con V1. Ítem movido a `done.md`.
+(Cierre: 2026-06-22 22:21)

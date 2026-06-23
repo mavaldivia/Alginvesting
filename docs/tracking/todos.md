@@ -18,7 +18,6 @@
 
 > Plan de implementación: [`docs/plans/x4_plan.md`](../plans/x4_plan.md)
 
-- [ ] **X4B_crear_version_backtesting.py**: script con un único input `nombre_version` que crea la infraestructura completa de una versión (subdirectorios + `config_V.py`). Si la versión ya existe, pregunta si reiniciar. Al terminar, muestra la ruta del `config_V.py` para completar parámetros. (I:7 C:3 H:10 → 2.83)
 - [ ] **X4.py**: implementar según `docs/plans/x4_plan.md`. Config, estructura de carpetas, lógica de trading y secuencia de fases ya documentadas. (I:9 C:8 H:9 → 1.13)
 
 ### X5 — X5_model_training.py

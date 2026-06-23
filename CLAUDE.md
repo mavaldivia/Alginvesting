@@ -169,6 +169,10 @@ Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
 ## Última actualización
 
+**2026-06-22** — X4B: crear infraestructura de versión de backtesting
+
+`scripts/X4B_crear_version_backtesting.py` creado: acepta `nombre_version` como arg CLI o prompt interactivo (normaliza V1/1/v1 → V1), crea `resources/x4/version{V}/config_{V}.py` desde template con todos los parámetros de V1, crea subdirectorios `resources_{V}/conjuntos_N/` y `resources_{V}/logs/`. Si la versión ya existe pide confirmación antes de sobrescribir. Registra la versión en `config.py` bajo `X4_VERSION_ACTIVA` y `X4_VERSIONES`. Validado creando V1.
+
 **2026-06-22** — X0: set(ordenes_activas) en cálculo de delta
 
 `nuevo_optimizador_2`: cálculo de `delta` y `delta2` (líneas 346-347) ahora usa `len(set(ordenes_activas))` en vez de `len(ordenes_activas)`. Si `ordenes_activas` contiene precios duplicados, el conteo anterior sobreestimaba las órdenes y dejaba menos slots para soportes libres de los necesarios.

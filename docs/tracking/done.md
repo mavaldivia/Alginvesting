@@ -2,6 +2,10 @@
 
 Ítems completados, organizados por sección.
 
+### X4 — X4_backtester.py
+
+- [x] **X4B_crear_version_backtesting.py**: script con un único input `nombre_version` que crea la infraestructura completa de una versión (`resources/x4/version{V}/`, `config_{V}.py`, `resources_{V}/conjuntos_N/`, `resources_{V}/logs/`). Si la versión ya existe, pregunta si reiniciar. Al terminar muestra la ruta del `config_{V}.py`. También registra la versión en la sección X4 de `config.py` (`X4_VERSION_ACTIVA`, `X4_VERSIONES`). Validado creando V1.
+
 ### Transversal
 
 - [x] **Reorganizar estructura de directorios del proyecto**: `resources/x0/` (logs, plots), `resources/x2/` (fundamentals), `resources/x3/` (features), `resources/conjuntos_N/` (soportes). `docs/` reorganizado en `plans/`, `context/`, `tracking/`. `plots/` raíz obsoleta eliminada. `config.py` y `.gitignore` actualizados. Skill `/record` actualizada a `docs/tracking/records.md`.
