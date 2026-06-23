@@ -169,6 +169,10 @@ Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
 ## Última actualización
 
+**2026-06-22** — X0: set(ordenes_activas) en cálculo de delta
+
+`nuevo_optimizador_2`: cálculo de `delta` y `delta2` (líneas 346-347) ahora usa `len(set(ordenes_activas))` en vez de `len(ordenes_activas)`. Si `ordenes_activas` contiene precios duplicados, el conteo anterior sobreestimaba las órdenes y dejaba menos slots para soportes libres de los necesarios.
+
 **2026-06-20** — docs: agregar ítems X4B y X4.py al TO DO
 
 Dos ítems nuevos en la sección X4 de `docs/tracking/todos.md`: `X4B_crear_version_backtesting.py` (score 2.83 — crea infraestructura de una versión con un input, muestra ruta del config al terminar) y `X4.py` (renombrado de `X4_backtester.py`, score 1.13 — implementación según `docs/plans/x4_plan.md`). Minuta de sesión 61 agregada a `docs/tracking/records.md`.

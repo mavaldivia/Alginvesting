@@ -343,8 +343,8 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     max_pasos = 0  # máx. posición alcanzada en el inner loop antes de aceptar un cambio
 
     # Inicializar conjunto_N respetando las ordenes activas
-    delta = N - len(ordenes_activas) - len(conjunto_N)
-    delta2 = N - len(ordenes_activas)
+    delta = N - len(set(ordenes_activas)) - len(conjunto_N)
+    delta2 = N - len(set(ordenes_activas))
 
     if delta2 < 0:
         sys.exit('Cantidad de ordenes activas es mayor a N')

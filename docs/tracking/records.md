@@ -493,3 +493,8 @@ Claude: Eliminó el ítem de intra-vela de `todos.md` y lo movió a `done.md` (b
 Mauricio: Pidió agregar dos ítems al TO DO de X4: (1) `X4B_crear_version_backtesting.py` — script con input `nombre_version` que crea la infraestructura completa (subdirectorios + `config_V.py`) y muestra la ruta al terminar; (2) `X4.py` — implementar según `docs/plans/x4_plan.md`.
 Claude: Agregó ambos ítems a la sección X4 de `docs/tracking/todos.md`. `X4B_crear_version_backtesting.py` con score 2.83 (queda por encima de `X4.py` por habilitación alta — hay que tener la infraestructura antes de implementar). Renombró `X4_backtester.py` → `X4.py` para consistir con el plan.
 (Cierre: 2026-06-20 00:47)
+
+## SECCIÓN 62
+Mauricio: Informó que hizo un cambio en `X0_data_supports.py` líneas 346-347: reemplazó `len(ordenes_activas)` por `len(set(ordenes_activas))` en el cálculo de `delta` y `delta2`.
+Claude: Confirmó que el cambio es correcto — si `ordenes_activas` contiene precios duplicados, el código anterior sobrecontaba las órdenes y dejaba menos slots para soportes libres de los necesarios. Con `set()` se cuentan niveles únicos, que es la métrica correcta.
+(Cierre: 2026-06-22 22:10)
