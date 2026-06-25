@@ -739,3 +739,8 @@ Claude: Identificó el bug en la regex `[^}]*` de `_registrar_version_en_config`
 Mauricio: Pidió agrupar los prints de "Orden ejecutada" y "Orden eliminada" en X1_trading.py — en vez de un print por orden, mostrar un resumen por activo: `{valor}: {h} órdenes ejecutadas (o eliminadas) desde {lowest_price} hasta {highest_price}`. También pidió agregar el ítem al TODO.
 Claude: Marcó el ítem como completado en `docs/tracking/todos.md`. En X1: `limpiar_ordenes_pendientes_no_validas` acumula precios en `eliminadas[]` y printea resumen al final; `ejecutar_orden` ahora retorna `bool`; `crear_ordenes_espera` acumula en `ejecutadas[]` y printea resumen al final.
 (Cierre: 2026-06-25 14:31)
+
+## SECCIÓN 70
+Mauricio: En X1.py líneas 362 y 365, pidió quitar las condiciones `if not PRUEBA_TRAILING_STOP` que protegían las llamadas a `limpiar_ordenes_pendientes_no_validas` y `crear_ordenes_espera`. Luego preguntó si la variable se usaba para algo más, y al confirmar que solo quedaba un uso residual, pidió eliminarla por completo.
+Claude: Quitó los tres `if not PRUEBA_TRAILING_STOP` (líneas 361, 354 y 365), dejando `leer_lista_N`, `limpiar_ordenes_pendientes_no_validas` y `crear_ordenes_espera` ejecutándose siempre. Eliminó `PRUEBA_TRAILING_STOP` del import en X1.py y borró su definición de `config.py`.
+(Cierre: 2026-06-25 17:05)

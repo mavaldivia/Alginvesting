@@ -28,7 +28,7 @@ warnings.filterwarnings('ignore')
 
 from config import (
     CARPETA_N_PROD,
-    VALORES, A, B, TS, PERDIDA_MAX, PRUEBA_TRAILING_STOP,
+    VALORES, A, B, TS, PERDIDA_MAX,
     LOTAJES, UNITS,
     n_sizes_ejecucion as n_sizes,
 )
@@ -351,19 +351,16 @@ if __name__ == '__main__':
                 try:
                     L = LOTAJES[valor] * UNITS[valor]
 
-                    if not PRUEBA_TRAILING_STOP:
-                        N = n_sizes[valor]
-                        lista_N = leer_lista_N(valor, N)
+                    N = n_sizes[valor]
+                    lista_N = leer_lista_N(valor, N)
 
                     lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
 
                     # A: Limpiar órdenes pendientes que ya no corresponden a soportes vigentes
-                    if not PRUEBA_TRAILING_STOP and (i % int(5 / TS) == 0):
-                        limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
+                    limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
 
                     # B: Crear órdenes de compra pendientes en soportes válidos
-                    if not PRUEBA_TRAILING_STOP:
-                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
+                    crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
 
                     # C: Trailing stop en posiciones abiertas
                     trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)

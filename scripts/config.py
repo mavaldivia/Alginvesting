@@ -161,8 +161,6 @@ TS = 0.5  # segundos de espera entre ciclos cuando no hay posiciones activas en 
 
 PERDIDA_MAX = 120  # USD — si la pérdida de una posición abierta supera este valor, se cierra
 
-PRUEBA_TRAILING_STOP = False  # True: solo prueba el trailing stop, no crea nuevas órdenes
-
 # Tamaño mínimo de lote por activo (granularidad del broker)
 LOTAJES = {
     'BTCUSD': 0.01,
