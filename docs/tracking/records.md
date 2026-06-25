@@ -510,3 +510,210 @@ Claude: Consultó si migrar `CARPETA_N_PROD` a path plano (sin `/prod/`) y si te
 Claude: Ejecutó migración de paths: movió JSONs de `resources/conjuntos_N/prod/` al directorio plano, eliminó subdirectorios `prod/` y `bt/`, actualizó `config.py` (CARPETA_N_PROD plano, eliminó CARPETA_N_BT), actualizó `X0_data_supports.py` (imports y __main__). Corrigió también `BASE_DIR` en `config_V1.py` (necesitaba 4 niveles de parent, no 3). Implementó `scripts/X4_backtester.py` completo: carga de config vía importlib, datos H1/M1, checkpoint save/load, cold start, recálculo de soportes en paralelo (ProcessPoolExecutor), pasos A→F por vela (limpiar OE, gap de mercado, trailing stop, PERDIDA_MAX, cierre SL, crear OE), simulación intra-vela (escalado M1), equity CSVs, flush a trades.json y events.json cada 24 velas. Corrigió bugs de drawdown tracking y capital_apertura en el dict de OA.
 Mauricio: Lanzó el backtest en esta sesión para validar. Cold start completó (N=70 BTC+ETH, ~4 años de datos). Loop avanzó 24 velas con 3 trades cerrados y 84 OEs activas, luego se mató el proceso para correrlo en Windows.
 (Cierre: 2026-06-22 23:24)
+
+---
+
+## Historial de commits
+
+**2026-06-22** — X4: implementar X4_backtester.py + migrar paths prod
+
+`scripts/X4_backtester.py` creado: backtester completo que simula la estrategia X0+X1 sobre datos históricos. Incluye: carga de config vía importlib desde `resources/x4/version{V}/config_{V}.py`, checkpoint save/load, cold start de soportes, recálculo periódico en paralelo (ProcessPoolExecutor → `_procesar_valor_N` de X0), pasos A→F por vela H1 (limpiar OE, gap de mercado, trailing stop, PERDIDA_MAX, cierre por SL, crear OE con guard de margen), simulación intra-vela con escalado de bloque M1, equity CSVs (`equity_global.csv`, `equity_activos.csv`), flush a `trades.json` y `events.json` cada 24 velas. CLI: `--version` y `--reset`. Migración de paths: `CARPETA_N_PROD` aplanada (sin `/prod/`), `CARPETA_N_BT` eliminada de `config.py` (cada versión X4 define la suya). Corregido `BASE_DIR` en `config_V1.py` (4 niveles de parent). Validado con cold start real: N=70 BTC+ETH, 3454 velas H1, 3 trades en primeras 24h.
+
+**2026-06-22** — X4B: crear infraestructura de versión de backtesting
+
+`scripts/X4B_crear_version_backtesting.py` creado: acepta `nombre_version` como arg CLI o prompt interactivo (normaliza V1/1/v1 → V1), crea `resources/x4/version{V}/config_{V}.py` desde template con todos los parámetros de V1, crea subdirectorios `resources_{V}/conjuntos_N/` y `resources_{V}/logs/`. Si la versión ya existe pide confirmación antes de sobrescribir. Registra la versión en `config.py` bajo `X4_VERSION_ACTIVA` y `X4_VERSIONES`. Validado creando V1.
+
+**2026-06-22** — X0: set(ordenes_activas) en cálculo de delta
+
+`nuevo_optimizador_2`: cálculo de `delta` y `delta2` (líneas 346-347) ahora usa `len(set(ordenes_activas))` en vez de `len(ordenes_activas)`. Si `ordenes_activas` contiene precios duplicados, el conteo anterior sobreestimaba las órdenes y dejaba menos slots para soportes libres de los necesarios.
+
+**2026-06-20** — docs: agregar ítems X4B y X4.py al TO DO
+
+Dos ítems nuevos en la sección X4 de `docs/tracking/todos.md`: `X4B_crear_version_backtesting.py` (score 2.83 — crea infraestructura de una versión con un input, muestra ruta del config al terminar) y `X4.py` (renombrado de `X4_backtester.py`, score 1.13 — implementación según `docs/plans/x4_plan.md`). Minuta de sesión 61 agregada a `docs/tracking/records.md`.
+
+**2026-06-20** — docs: actualizar plan X4 con comentarios de sesión
+
+`docs/plans/x4_plan.md` reescrito con 6 cambios estructurales: (1) nota de escalabilidad a backtesting dinámico con X6; (2) estructura de carpetas movida a `resources/x4/versionV1/config_V1.py` + `resources_V1/` (flat, análogo al resto del proyecto); (3) `config_V1.py` completamente explícito sin imports de `config.py` (todos los parámetros de producción fijados al 2026-01-10); (4) `resources/conjuntos_N/` pasa a ser plana (sin subdirectorios `prod/` ni `bt/`) — bt va en `resources_V1/conjuntos_N/`; (5) loop termina sin cerrar posiciones ni generar `fin_backtest` cuando `fecha_fin = 'F'`; (6) regla de gap de mercado en paso B: OEs dentro del gap se ejecutan al precio de la menor de ellas, con `precio_ejecucion` y `es_gap` en el evento `OE_ejecutada`.
+
+**2026-06-19** — docs: paso_a_paso_git + guia_git simplificada para Windows
+
+**2026-06-19** — Reestructuración de directorios del proyecto
+
+`resources/` creado como directorio raíz para datos generados/intermedios: `resources/x0/` (logs de convergencia trackeados + plots generados), `resources/x2/` (fundamentals: scores, historial, guard de día), `resources/x3/` (features técnicas por activo), `resources/conjuntos_N/prod/` y `resources/conjuntos_N/bt/`. `docs/` reorganizado en `docs/plans/` (x2_plan, x3_plan, x4_plan), `docs/context/` (decisiones, vision, guia_git, documentacion_V0), `docs/tracking/` (todos, done, records, oportunidad de mejora). `plots/` raíz (obsoleta, no actualizada desde Jun 12) eliminada con `git rm`. `config.py` actualizado: todas las `CARPETA_*` apuntan a `resources/`. `.gitignore` actualizado: `conjuntos_N/` → `resources/conjuntos_N/`, más `resources/x0/plots/` y `resources/x3/`. Skill global `/record` actualizada: apunta a `docs/tracking/records.md`. Comentarios docstring en X0, X2, X3 actualizados.
+
+**2026-06-18** — X3: implementar X3_technical_features.py
+
+`scripts/X3_technical_features.py` creado: módulo con 11 indicadores técnicos (SMA/EMA + dist, RSI Wilder, MACD, ATR + atr_pct, Bollinger bb_width/bb_pos, ROC 10/20, vol_24h/vol_7d log-returns, drawdown 20/50, tendencia OLS 20/50, distancias a soportes vectorizadas). Lógica incremental: solo hace append de filas nuevas al CSV existente. `conjunto_N` vacío → NaN en dist_*, sin crash. `CARPETA_FEATURES` y `X3_VENTANAS` agregados a `config.py`. Integrado en X0 (Etapa 1, tras descarga M1, try/except por activo). Validado con ETHUSD real: 40.281 filas, 30 columnas, dist_* con valores cuando hay soportes. `docs/todos.md`: ítem X3 eliminado. `docs/done.md`: ítem agregado en sección X3.
+
+`docs/x3_plan.md` creado: 11 indicadores técnicos con fórmulas LaTeX (SMA, EMA, RSI, MACD, ATR, Bollinger, ROC, volatilidad histórica, drawdown, tendencia OLS, distancia a soportes). X3 corre dentro del ciclo de X0 (tras descarga H1), cálculo incremental por velas nuevas, alimenta solo X6. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Tabla de scripts en `CLAUDE.md` actualizada con X2 y X3. README.md actualiza X3 a "En diseño". `docs/done.md` agrega sección X3.
+
+**2026-06-18** — X1: robustez — try/except por activo + fixes sys.exit
+
+`json_act` re-lanza la excepción en vez de `sys.exit(1)`. `leer_lista_N` lanza `FileNotFoundError` en vez de `sys.exit`. `obtener_precio_actual` levanta `RuntimeError` si MT5 retorna `None`. `ejecutar_orden` ya no llama `mt5.shutdown()/sys.exit(1)` ante retcodes inesperados — solo loggea. El bloque por activo en el loop principal (`for valor in VALORES`) y `informacion` envueltos en `try/except Exception` que loggea y hace `continue`. X1 corre indefinidamente salvo `KeyboardInterrupt`.
+
+**2026-06-18** — config: APALANCAMIENTO por activo + métricas de cuenta en x4_plan
+
+`APALANCAMIENTO` agregado a `config.py` como dict por activo (BTC/ETH: 400, acciones US: 5), junto a `LOTAJES`/`UNITS`. `docs/x4_plan.md` sección 6 ampliada con subsección "Métricas de cuenta": fórmulas de balance, equity, margen_usado, margen_libre y margin_level; guard `puede_operar` en pasos B y F; `equity_global.csv` expandido a 8 columnas; `_calcular_estado_cuenta` agregado a sección 11. `MARGEN_LIBRE_MIN_BT` agregado como parámetro de V1.
+
+**2026-06-15** — X0: fijar OA en bt + guard en optimizador
+
+`_procesar_valor_N` acepta nuevo parámetro `ordenes_abiertas_bt: list = []`. Cuando `es_bt=True`, pasa ese valor al optimizador en vez de lista vacía — permite que X4 fije las posiciones abiertas (OA) como soportes no desplazables al recalcular. En producción sigue usando `ordenes_activas` de MT5. Guard `if dic_N[i] in ordenes_activas: continue` confirmado en `nuevo_optimizador_2` (líneas 386-387). `docs/x4_plan.md` sección 5 actualizada con bloque de código que muestra cómo X4 debe extraer `OA.keys()` y pasarlos como `ordenes_abiertas_bt`.
+
+**2026-06-14** — X0: descargar Data_minuto/ con velas M1 en Etapa 1
+
+`descargar_datos_minuto` en `X0_data_supports.py`: descarga las últimas 1000 velas M1 de cada activo desde MT5 y las mergea con el histórico existente en `Data_minuto/` (misma lógica que `descargar_datos` con H1: concat, drop_duplicates, sort). `CARPETA_DATA_MINUTO` agregada a `config.py`. La carpeta se crea en `__main__` al arrancar; la llamada va inmediatamente después de `descargar_datos`, con su propio try/except independiente.
+
+**2026-06-14** — X0: pintar OA en negro en plot Soportes + leyenda
+
+`graficar_soportes_all` acepta nuevo parámetro `ordenes_activas: list = []`. Separa `conjunto_N` en soportes normales (rojo, `--`) y órdenes activas (negro, sólido). Agrega leyenda con `Line2D` proxy mostrando conteo de cada tipo: `Soportes (N)` y `OA — órdenes activas (N)`. La llamada en `_procesar_valor_N` pasa `oa`. En Mac siempre será lista vacía (MT5 no disponible); el cambio visual aplica cuando corre en Windows con órdenes reales.
+
+**2026-06-14** — X0: fix dist_max batch + sort/dedup CSVs
+
+`calcular_FO_batch` acepta `dist_max_global` opcional: cuando se pasa, normaliza `h_dist` con ese valor fijo (el mismo que usó `calcular_FO` al inicio de la iteración) en vez de recomputarlo por candidato, garantizando que la FO del batch es comparable con `FO_base`. `h_dist` se clipea a `[0,1]`. `nuevo_optimizador_2` extrae `dist_max_iter` tras el `calcular_FO` inicial y lo pasa a ambas llamadas de `calcular_FO_batch`. La llamada a `calcular_FO(lista_iter)` ya existente (que antes descartaba el FO con `_`) ahora captura `FO_proper` y lo asigna a `FO_base`, de modo que plot y verbose muestran el FO real en vez del FO batch inflado. Efecto: elimina el salto brusco en la curva de evolución de FO en la transición Fase 1 → Fase 2. Tres lecturas de CSV corregidas: `descargar_datos` (tenía `drop_duplicates` pero no `sort_values`), `_procesar_valor_N` (tenía `sort_values` pero no `drop_duplicates`), `df_info` en el bloque de info (sin ninguno).
+
+**2026-06-14** — X0+X2: llamar X2 en cada ciclo + historial por periodos
+
+X0 ahora llama `X2_fundamentals.py` vía `subprocess.run` al inicio de cada ciclo del `while True` — X2 se auto-regula con su guard de día (`x2_last_run.json`), así corre a lo sumo una vez por día. X2: `guardar_historial` reescrito con lógica de periodos — compara raw actual vs última entrada con `_raw_iguales` (tolerancia 0.01% relativa); si son iguales extiende `periodo_fin` y actualiza scores, si cambió abre nueva entrada. Schema: `{activo, periodo_inicio, periodo_fin, score, score_cross, score_tendencia, components, raw}`. Nuevas funciones: `_raw_iguales`, `_fecha_entrada` (fallback `periodo_fin`→`date` para compat. con entradas antiguas). `_score_tendencia` actualizada para usar `_fecha_entrada`.
+
+**2026-06-14** — X0: mostrar LAMBDA y FO warm start antes del optimizador
+
+**2026-06-14** — gitignore: actualizar rutas (Data/, Data_minuto/, limpiar conjuntosN old)
+
+**2026-06-14** — X0: revert optimizador a base + S6 + reiniciar_x0 + plots en docs/X0
+
+`nuevo_optimizador_2` revertido a lógica base (`8eefe88`): eliminados S1 (`_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`), S2 (`_inicializar_conjunto_smart`) y S4 (EMA ordering). Se mantiene S6 (`calcular_FO_batch`, vectorización numpy del loop M, matemáticamente idéntico). `prueba_cercanos=False` default; `random.shuffle` para ordenar; `calcular_FO` fresco al inicio de cada iteración outer. Se conservan N_MAX_MODELS, `_seleccionar_combos`, `--loop`, monitor, logs, M_COARSE dos fases, CARPETA_N_PROD/BT. Nuevos: `CARPETA_PLOTS` movida a `docs/X0/plots/`; parámetro `reiniciar_x0 = False` en `config.py` que al ponerse en `True` elimina logs/soportes/plots y se autoresetea. 3 ítems de validación agregados en `docs/todos.md` sección X0 (alta prioridad, secuencial). `docs/x4_plan.md` sección 5: dependencia directa de X0 documentada con bloque de import.
+
+**2026-06-14** — docs: actualizar README + plan X4 con eventos y equity por activo
+
+`README.md` reescrito: X2 pasa a "Operativo" con sección propia, estructura de carpetas actualizada (conjuntos_N/prod/, bt/, fundamentals/, docs/X0/logs/), parámetros ampliados, 5 optimizaciones del optimizador documentadas, comandos --loop y X2 en CLI. `docs/x4_plan.md` ampliado: nueva sección 9 con `events.json` (5 tipos: OE_creada, OE_eliminada, OE_ejecutada, SL_cambiado, posicion_cerrada) + `equity_global.csv` + `equity_activos.csv` (GC/GA/GT por tupla activo-hora). Cold start de soportes documentado en sección 5. `GC` agregado al estado en memoria por activo; `_calcular_GA` como nueva función.
+
+**2026-06-14** — X4: plan de implementación en docs/x4_plan.md
+
+`docs/x4_plan.md` creado: plan completo del backtester (V1). Cubre estructura de carpetas, `config_V1.py` (BTCUSD/ETHUSD, N=70, capital=3000 USD, PERDIDA_MAX=120 USD, fecha_inicio=2026-01-10), lógica de trading mirror de X1 sin MT5 (pasos A→F por vela H1), recálculo de soportes con freeze (delta_recalculo_soportes en días, hora_recalculo=23 UTC), simulación intra-vela con bloque M1 consecutivo [t:t+60] escalado al OHLC horario, schema del store de trades JSON, checkpoint para reanudar, y secuencia de implementación en 8 fases. `docs/todos.md`: referencia al plan agregada al inicio de la sección X4.
+
+**2026-06-14** — X0: FO inicial en monitor + cambios_netos vs warm start
+
+`_procesar_valor_N`: tras calcular `FO_ref`, actualiza `estado_compartido` con ese valor (`'iniciando'`) para que el monitor no muestre FO=0 durante la preparación. Al finalizar ambas fases, calcula `cambios_netos = len(conjunto_N_prev - conjunto_N)` (soportes cuya posición final difiere del warm start) y lo usa en estado final, print y log. Etiqueta del monitor renombrada de `cambios` a `pasos` (micro-pasos del optimizador). `docs/todos.md`: eliminados los 2 ítems de X0 completados; movidos a `docs/done.md`.
+
+**2026-06-13** — Prioridad_0: tiempo ejecución scripts + listo Xs en monitor
+
+X0: tabla de progreso muestra `[listo Xs]` en vez de `[listo]` al converger cada combo. `__main__` de X0 y X1 imprimen tiempo total al terminar (`HH:MM:SS` o segundos si < 60s), usando `_fmt_duracion` + `finally`. `done.md`: eliminada sección `Prioridad_0` — sus ítems reasignados a `X0` y `Transversal`. Skill `/todos` actualizada: al mover completados a `done.md`, usar `X(N)` o `Transversal` según contenido.
+
+**2026-06-12** — X2: score_tendencia + date en historial + validadores
+
+`score_tendencia` (longitudinal): compara raw values de hoy vs hace `DIAS_TENDENCIA=30` días en historial; delta_pct por campo normalizado con `_norm_sym`; campos invertidos negados; `fear_greed` excluido. Score final = `(1-W_TENDENCIA) × score_cross + W_TENDENCIA × score_tendencia` (0.5 neutral si <7 días de historia). `x2_history.json` ahora guarda campo `raw` (valores crudos pre-normalización) y usa `date` en vez de `datetime`. Staleness warning si se saltaron días. `_metadata.ultima_ejecucion` en `scores.json`. `W_TENDENCIA=0.20` y `DIAS_TENDENCIA=30` agregados a `config.py`.
+
+**2026-06-12** — X2: implementar X2_fundamentals.py + validadores
+
+`scripts/X2_fundamentals.py` creado: score fundamental por activo `[0, 1]`. Acciones vía yfinance (ROE, márgenes, FCF, crecimiento, valorización, deuda, analistas); crypto vía yfinance + CoinGecko `/coins/markets` (7d/30d) + Fear & Greed (alternative.me). Normalización min-max dentro del universo. Guard de día (`fundamentals/x2_last_run.json`), flag `--forzar`. Historial acumulativo en `fundamentals/x2_history.json` (upsert por fecha+activo). Override de pesos desde `config/active_parameters.json` para X6. Validadores: check de campos nulos, warning de score extremo con componentes en límite, tabla de datos crudos pre-normalización. `config.py` actualizado: `CARPETA_FUNDAMENTALS`, `X2_HORA_EJECUCION`, `PESOS_STOCK`, `PESOS_CRYPTO`.
+
+**2026-06-12** — docs: guía git Mac→Windows
+
+`docs/guia_git.md` creado: explica por qué `Data/` (trackeado en git) se sobreescribiría con `git pull` en Windows y cómo evitarlo con `git update-index --skip-worktree` por CSV. Incluye setup inicial, workflow diario, manejo de nuevos activos y caso de actualización forzada.
+
+**2026-06-12** — X2: historial del score — sección 3.5 en x2_plan.md + TO DO actualizados
+
+**2026-06-12** — X2: clarificar plan (pesos, guard de día, hora ejecución)
+
+Tres clarificaciones en `docs/x2_plan.md`: (1) nueva sección `2.4` — pesos `PESOS_STOCK`/`PESOS_CRYPTO` son inicialización para X6, sobreescribibles vía `active_parameters.json`; (2)+(3) sección `3.2` reescrita — guard de día con `fundamentals/x2_last_run.json` (si `fecha == hoy` → saltear) y re-ejecución forzada diaria desde el loop de X0 a `X2_HORA_EJECUCION` configurable en `config.py`. Funciones `_ya_ejecutado_hoy()`/`_marcar_ejecutado()` agregadas a estructura `3.3`. Tres ítems TO DO marcados como completados y movidos a `docs/done.md`.
+
+**2026-06-12** — X2: investigación fuentes + plan docs/x2_plan.md + ítem TO DO
+
+Experimentación real con yfinance (acciones y crypto), CoinGecko free API y alternative.me (Fear & Greed). Diseño del score `[0,1]` con funciones separadas para stocks (`_score_stock`) y crypto (`_score_crypto`). Plan completo documentado en `docs/x2_plan.md`. Ítem de revisión agregado al tope de la sección X2 en `docs/todos.md` (I:3 C:1 H:9 → 5.20). También: "Formato outputs en paralelo" completado en X0 (tiempos de convergencia por par al final de `buscar_soportes`).
+
+**2026-06-12** — Correcciones X0 260612 + sep rutas prod vs backtesting
+
+`CARPETA_N2` reemplazada por `CARPETA_N_PROD` (`conjuntos_N/prod/`) y `CARPETA_N_BT` (`conjuntos_N/bt/`) en `config.py`, `X0_data_supports.py` y `X1_trading.py`. Firmas actualizadas: `_bt_warm_start`, `_bt_guardar`, `_procesar_valor_N`, `_seleccionar_combos`, `buscar_soportes`. `__main__` crea ambas carpetas. Skill `/todos` actualizada: al completar un ítem, eliminarlo de `todos.md` y moverlo a `docs/done.md`.
+
+**2026-06-11** — S1: Evaluación incremental de la FO
+
+Tres nuevas funciones en `X0_data_supports.py`: `_init_estado_incremental`, `_fo_incremental_batch`, `_actualizar_estado`. El estado incremental precomputa `asignaciones[j]` (soporte más cercano por fila), `fixed_z` (y×w×v×f sin h_dist), `z_sum`, `H_n`, `H_sum`, `H_sq_sum` y `dist_max_global` (fijado al inicio — válido para búsqueda local). `_fo_incremental_batch` reemplaza `calcular_FO_batch` en el hot path: para cada candidato al soporte `i`, solo recalcula las ~3n/N filas asignadas a `i-1`, `i`, `i+1` y los 2 gaps del `cv(H_n)` que cambian. `_actualizar_estado` mantiene el estado tras cada cambio aceptado (O(3n/N)) y actualiza `df_extremos` in-place. `nuevo_optimizador_2` pasa de N llamadas O(M×n) por iteración outer a O(3×M×n) total — medido en BTCUSD N=130, M=30, n=38730: 1518 ms → 45 ms por iteración outer (33.5x). `calcular_FO` se llama una sola vez antes del loop (en vez de una vez por iteración). El ajuste cuadrático clipa el resultado a `(cota_inf, cota_sup)` para garantizar H_n positivos.
+
+**2026-06-11** — S6: Vectorización del loop interno de candidatos M
+
+Nueva función `calcular_FO_batch` en `X0_data_supports.py`. Reemplaza el for-loop Python de M llamadas a `calcular_FO` por una sola pasada vectorizada con numpy. Enfoque: precalcula `nearest_base` y `dist_base` una vez para los N-1 soportes base, luego usa broadcasting `(M_eff, n)` para comparar distancias de todos los candidatos simultáneamente. El loop Python restante es solo para `cv(H_n)`: O(M×N) operaciones numpy, trivial. En `nuevo_optimizador_2`: M llamadas a `calcular_FO` → 1 llamada a `calcular_FO_batch` + 0-1 llamadas a `calcular_FO` (solo si el cambio es aceptado o cumplen_logica). Además corrige bug del notebook original: en `cumplen_logica=False`, `df_extremos` se actualizaba con el estado del último candidato evaluado en lugar del mejor; ahora llama `calcular_FO` una vez para el candidato aceptado.
+
+**2026-06-11** — S2: Inicialización inteligente del conjunto N
+
+`_inicializar_conjunto_smart(df_extremos, n)` reemplaza `np.random.uniform` en cold start. Divide el rango de `Low` en n cuantiles ordenados por precio y selecciona el `Low` con mayor `y × w` (aislamiento × recencia) en cada uno. Reemplazado en `obtener_df_extremos` (ruta principal) y en `nuevo_optimizador_2` (ajuste por `ordenes_activas`). Fallback a uniform solo si faltan columnas o hay duplicados de precio entre cuantiles.
+
+**2026-06-11** — S4: Priorización de soportes por historial de mejoras
+
+`nuevo_optimizador_2` ahora mantiene `mejora_acumulada[i]` (EMA con alpha=0.3 de las mejoras relativas aceptadas por soporte). Al reconstruir `casos_moviles` — tanto tras aceptar un cambio como al expandir al conjunto completo — los soportes se ordenan desc por `mejora_acumulada` en lugar de shuffle aleatorio. Con `prueba_cercanos=True`, los vecinos siguen al frente; el resto se ordena por historial. Objetivo: 15-25% menos evaluaciones de `calcular_FO` en iteraciones tardías cuando la mayoría de soportes ya convergió.
+
+**2026-06-11** — N_MAX_MODELS + loop continuo en X0_data_supports.py
+
+`N_MAX_MODELS = None` en `config.py` (None = todos los combos, entero = top N por delta). Nuevo helper `_seleccionar_combos`: lee `delta_inicial` de cada `_delta.json`, ordena desc por delta (tie-break random), retorna los top N_MAX_MODELS. `buscar_soportes` acepta `n_max` y delega en el helper. `--loop` flag en argparse: activa `while True` que reinicia el ciclo completo (descarga + soportes) al terminar. Sin `--loop`, comportamiento idéntico al anterior. Ctrl+C sale limpiamente mostrando cuántos ciclos corrieron.
+
+**2026-06-11** — Logs de convergencia implementados en X0_data_supports.py
+
+`_guardar_log_convergencia` en `X0_data_supports.py`: al terminar cada `_procesar_valor_N`, guarda entrada JSON en `docs/X0/logs/{valor}_{N}.json` (producción) o `{valor}_{N}_bt.json` (bt). Campos: `clave`, `t_inicio`, `t_fin`, `duracion_s`, `iteraciones`, `cambios`, `FO_inicial`, `FO_final`, `delta_final`, `convergio`. Cada archivo es una lista que se acumula entre corridas. `t_inicio` capturado al inicio de la función (incluye carga de datos + distancias + optimizador). `CARPETA_LOGS` agregado a `config.py`.
+
+**2026-06-11** — Análisis de convergencia de `nuevo_optimizador_2` + X0_aux al TO DO
+
+7 sugerencias de mejora documentadas en `docs/documentacion_V0.md`: FO incremental (~30-35x en eval FO), inicialización inteligente (60-80% menos iters en cold start), M adaptativo coarse-to-fine (~58% menos evaluaciones), priorización por historial, activar `prueba_cercanos`, vectorización del loop M, y criterio de parada por tasa. Agregado ítem `X0_aux.py` al TO DO de X0 (I:6 C:3 H:7 → 2.16) como fase 2 de esta etapa. Sin cambios de código en producción.
+
+**2026-06-10** — TO DO: nuevos ítems X0/X4 + skill /todos completada
+
+Agregados 4 ítems al TO DO: "Formato outputs en paralelo" (X0, baja prioridad), "DELTA_INICIAL por (valor, N, version)" (X4, score 2.49), "Config versiones backtesting" (X4, score 1.60), y "Modificar skill /todos" (Transversal — marcado directamente como completado, ya estaba implementado). Confirmada la lógica de diseño: DELTA en backtesting depende solo de (valor, N, version), no de max_datetime.
+
+**2026-06-10** — Fixes al optimizador + monitor de progreso en vivo + mejoras de visualización
+
+Fix crítico: condición de mejora en `nuevo_optimizador_2` usaba `FO_base` (negativo) en el denominador — el optimizador nunca había aceptado cambios. Corregido con `abs(FO_base)`. Fix secundario: `df_plot.loc[idxmax()]` fallaba con índices duplicados tras `pd.concat`; corregido con `argmax()` + `iloc`. Implementado monitor de progreso en vivo: `multiprocessing.Manager().dict()` compartido entre workers + hilo monitor que redibuja tabla cada segundo (cambios, max_pasos, FO, estado). Workers con `verbose=False` suprimen tqdm y prints. Info previa por combo (rango, cierre, warm start, delta) se imprime secuencialmente antes del executor. Plots guardados en `plots/{Extremos,FO,Soportes,Zoom}/{valor}_{N}.png` en vez de `plt.show()`. Títulos con `"Tipo — VALOR N=N"` en todos los gráficos. `buscar_soportes` omite activos ausentes en `n_sizes`.
+
+**2026-06-09** — conjuntos_N + sin _beta + bt cache para backtesting
+
+Renombrada carpeta `conjuntosN2/` → `conjuntos_N/`. Eliminado sufijo `_beta`: X0 escribe directo a `{VALOR}_{N}.json`, X1 lee directo desde ahí; eliminada `promover_a_productivo` y su import `shutil`. Implementado cache de backtesting: `_bt_warm_start` y `_bt_guardar` en `X0_data_supports.py`; parámetro `fecha_hora_max=None` en `_procesar_valor_N` — cuando se pasa un datetime activa modo bt (filtra datos, warm start desde `_bt.json`, delta desde `_bt_delta.json`, upsert con clave = último datetime real usado). Prioridad 0 del TO DO marcada como completada.
+
+**2026-06-09** — TO DO: fecha máxima por tupla valor-N en X4 (Prioridad 0)
+
+Nuevo ítem en Prioridad 0: la estimación de soportes en el tiempo `t` debe usar solo velas hasta `t` (sin look-ahead), y la búsqueda debe ser un continuo temporal que actualiza `delta_inicial` progresivamente. Pendiente integrar con `_procesar_valor_N` y `{valor}_{N}_delta.json`. Se limpió texto suelto que había quedado en la sección Pendientes. Se eliminó el ítem "Backtesting histórico (X4)" del TO DO Principal (ya cubierto en TO DO Visión bajo X4_backtester).
+
+**2026-06-08** — Diseño simulación intra-vela para X4_backtester
+
+X1.5_intravela como script separado descartado. La lógica de simulación intra-vela se embebe en X4 como subrutina. Se agrega `Data_minuto/` al proyecto (CSVs M1, fuera de git, alimentados incrementalmente). Diseño del trigger: `hay_soporte_en_rango = Low <= max(soportes_activos)` AND (`H-L > A/(lot*units)` OR `H-L > PERDIDA_MAX/(lot*units)`). Escalado intra-vela: bloque aleatorio de 60 registros M1 escalado linealmente para calzar el OHLC de la vela horaria. Ver `docs/decisiones.md` 2026-06-08.
+
+**2026-06-08** — Visión: arquitectura X0→X6 + TO DO Visión en CLAUDE.md
+
+Se explicitó la visión completa del proyecto en `docs/vision.md`: arquitectura X0→X6 con X1.5_intravela en posición intermedia, decisiones de diseño (dónde corre X6, fuentes de training data, orden de construcción X2→X3→X4→X5→X6). Se creó el capítulo "TO DO Visión" en CLAUDE.md con 11 ítems organizados en 3 fases (Datos/features, Backtesting, Modelo/cerebro) más infraestructura transversal. BIG PICTURE marcado como completado.
+
+**2026-06-08** — DELTA_INICIAL adaptativo + órdenes activas fijas en optimizador
+
+Se refinó la lógica de `DELTA_INICIAL` adaptativo: el delta ahora solo se reduce (`* FACTOR_DELTA = 0.7`, antes `LAMBDA_DELTA = 0.9` en cada corrida) cuando el optimizador realmente converge — es decir, cuando sale por el break de "ningún soporte mejoró tras recorrer todos" y no por `max_iters`. `nuevo_optimizador_2` retorna `convergio: bool`; `_procesar_valor_N` aplica el factor solo si `convergio=True` y persiste `{'delta_inicial', 'convergio'}` en `{valor}_{N}_delta.json`.
+
+Además, se implementó la integración de órdenes activas de MT5 como soportes fijos en el optimizador: `obtener_ordenes_activas_mt5(valores)` consulta `positions_get` (posiciones ejecutadas, no pendientes), hace su propio init/shutdown de MT5, y falla gracefully en Mac. El dict resultante se pasa a `buscar_soportes` → cada worker → `nuevo_optimizador_2` vía `ordenes_activas` (parámetro que ya existía pero siempre recibía `[]`).
+
+**2026-06-07** — `DELTA_INICIAL` adaptativo entre corridas
+
+Se conectó `DELTA_INICIAL` a `nuevo_optimizador_2` (hasta ahora no estaba enlazado — el optimizador usaba su propio default) y se hizo adaptativo *entre* corridas sucesivas de cada combo (valor, N): si existe estado previo en `conjuntos_N/{valor}_{N}_delta.json`, se usa `delta_actual = LAMBDA_DELTA * delta_previo` (`LAMBDA_DELTA = 0.9` en `config.py`); si no existe (cold start), se usa `DELTA_INICIAL` como semilla. La lógica: con warm start cercano al óptimo, exigir mejoras relativas cada vez más finas no dispara un costo proporcional en iteraciones, así que se puede "presionar" la precisión sin pagar el precio de un cold start. El estado se persiste en un archivo separado por combo (no junto a `conjunto_N`, para no tocar el formato que consume X1, y para evitar carreras con `ProcessPoolExecutor`). Detalle y alternativas descartadas en `docs/decisiones.md` 2026-06-07.
+
+Además se agregó la sección "Prioridad 0" en el TO DO: revisar los mensajes "SEGUIR EXPLICACION" pendientes en `prompts` (explicaciones inconclusas sobre `X2_Intravela`).
+
+**2026-06-07** — Agregar volumen (`v`) y fuerza del rechazo (`f`) al scoring de soportes y hacer el cálculo de `z` configurable
+
+A partir de la revisión de la lógica de `calcular_FO` (TO DO "Revisar con Mauricio..."), se agregaron dos factores nuevos:
+- `v` (volumen normalizado: `Tick_Volume / Tick_Volume.max()`, en `[0,1]`) como proxy de actividad/participación en cada nivel de precio — se usa `Tick_Volume` porque `Real_Volume` viene vacío (0.0) en los 10 CSV de `Data/`, consistente entre todos los activos.
+- `f` (fuerza del rechazo: `1 - |Close - Open| / (High - Low)`, en `[0,1]`) — proporción del rango de la vela que fue "mecha" en vez de cuerpo; mide cuán abrupto fue el rebote del precio al tocar el extremo, de forma direccional-agnóstica (consistente con cómo `y` ya combina aislamiento de `Low` y `High`).
+
+`z` deja de ser un producto fijo (`y * w * h_dist`) y pasa a ser el producto de los factores activos en el nuevo diccionario `parametros_soportes` (`config.py`), que permite activar/desactivar cada uno (`y`, `w`, `h_dist`, `v`, `f`) para experimentar con el scoring sin tocar el código. Cambios en `obtener_df_extremos` (cálculo de `v` y `f`) y `calcular_FO` (`z = df_extremos[factores].prod(axis=1)`) en `X0_data_supports.py`.
+
+**2026-06-07** — Renombrar transversal.py a config.py y centralizar parámetros
+
+`Transversal.py` pasa a llamarse `config.py` y concentra ahora todos los parámetros del proyecto: lo que ya tenía (`n_sizes`, `n_sizes_ejecucion`) más rutas (`BASE_DIR`, `CARPETA_DATA`, `CARPETA_N2`), `VALORES`, y los parámetros que estaban hardcodeados directamente en `X0_data_supports.py` (`FECHA_INICIAL`, `K`, `N_EXP`, `BLOQUE_DISTANCIAS`, `M`, `LAMBDA`, `MAX_ITERS`, `DELTA_INICIAL`, flags `GRAFICAR_*`) y en `X1_trading.py` (`A`, `B`, `TS`, `PERDIDA_MAX`, `PRUEBA_TRAILING_STOP`, `LOTAJES`, `UNITS`). Ambos scripts ahora importan todo desde `config`. Se unificó el orden de `VALORES` (difería entre X0 y X1) al de X0. Ver `docs/decisiones.md` para el detalle de la decisión y por qué se optó por consolidar todo en un solo archivo en lugar de la opción acotada que había quedado registrada en `docs/records.md`.
+
+**2026-06-07** — Migrar conjuntosN2 de pickle a JSON
+
+`conjunto_N` es solo un `set` de ~50-130 floats (niveles de precio) — pickle no aportaba nada frente a JSON, que además permite inspeccionar los soportes a simple vista (parquet quedó descartado por sobredimensionado para este tamaño). `pickle_act` se reemplazó por `json_act` en `X0_data_supports.py` y `X1_trading.py` (`sorted(set)` al guardar, `set(list)`/`list` al cargar), y los archivos pasan de `{valor}_{N}_beta.pkl` / `{valor}_{N}.pkl` a `.json` en todo el flujo (warm start, guardado, `promover_a_productivo`, `leer_lista_N`). Se quitó `*.pkl` de `.gitignore` (redundante, `conjuntos_N/` ya está ignorado como carpeta).
+
+**2026-06-07** — Vectorizar calcular_distancias + asignar_soporte, setup skills record/guardar
+
+`calcular_distancias` en `X0_data_supports.py` reemplaza el doble loop O(n²) con `.loc` por `_vecino_mas_cercano`, vectorizado con numpy por bloques (`BLOQUE_DISTANCIAS`). Resultados idénticos byte a byte, ~19x más rápido (33.9s → 1.8s en BTCUSD, n=21.213). `asignar_soporte` reemplaza el `apply` con `min(soportes, key=...)` (O(n×N)) por `np.searchsorted` (búsqueda binaria, O(n log N)) — ~45-178x más rápido (0.26s → 0.0014s en BTCUSD, N=130), mismos resultados byte a byte; relevante porque `calcular_FO` la invoca miles de veces por iteración del optimizador. Se agregó la sección "Parámetros del algoritmo — efecto de cada uno" documentando qué hace subir/bajar cada uno (N, K, N_EXP, M, LAMBDA, DELTA_INICIAL). `Data/` pasa a trackearse en git (revierte la decisión del 2026-06-03): MT5 solo entrega ~1000 velas por descarga, así que sin el CSV existente se pierde la historia previa a `FECHA_INICIAL=2024-01-01`. Se crearon las skills globales `record` y `guardar` (registro de sesiones en `docs/records.md` + commit/push encadenado).
+
+**2026-06-06** — Paralelizar búsqueda de soportes por (valor, N)
+
+`n_sizes` en `Transversal.py` pasa de un único N por activo a una lista de N candidatos (grid search: 50 a 120). `buscar_soportes` en `X0_data_supports.py` ahora arma todos los pares `(valor, N)` y los procesa en paralelo con `ProcessPoolExecutor` vía `_procesar_valor_N`. `promover_a_productivo` itera sobre cada N de la lista.
+
+## SECCIÓN 65
+Mauricio: Reportó bug visual en X0: en el print del monitor, combinaciones de valor-N aparecen más de una vez (GOOGL 150 aparecía hasta 4-5 veces en el terminal Windows). Adjuntó imagen mostrando 12 filas en lugar de 6.
+Claude: Investigó `_monitor_tabla` y todo el flujo de workers. Diagnosticó que la función usa ANSI cursor-up (`\033[{n}A`) para sobreescribir las filas en el lugar; si cualquier proceso escribe a stdout durante la fase paralela, el cursor se desplaza y las redraws quedan desfasadas. Causa probable: workers spawneados en Windows reimportan el módulo al inicio, lo que inicializa matplotlib/mplfinance y puede generar prints a stdout antes de que se llame la función con `verbose=False`. Fix aplicado: bloque al inicio del módulo que redirige stdout a `/dev/null` en cualquier proceso worker (`multiprocessing.current_process().name != 'MainProcess'`), ejecutándose antes de cualquier import de librerías gráficas (líneas 19-22 de `X0_data_supports.py`).
+(Cierre: 2026-06-24 23:33)

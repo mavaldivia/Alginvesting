@@ -186,6 +186,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-24** — fix: suprimir stdout en workers para proteger monitor ANSI
 - **2026-06-22** — X4: implementar X4_backtester.py + migrar paths prod
 - **2026-06-20** — docs: agregar ítems X4B y X4.py al TO DO
 - **2026-06-20** — docs: actualizar plan X4 con comentarios de sesión

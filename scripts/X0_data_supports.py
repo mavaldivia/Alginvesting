@@ -16,6 +16,12 @@ import concurrent.futures
 import datetime
 import json
 import multiprocessing
+
+# Suprimir stdout en procesos worker antes de que importen matplotlib/mplfinance.
+# Los workers usan spawn en Windows/macOS; sus prints interfieren con el cursor ANSI del monitor.
+if multiprocessing.current_process().name != 'MainProcess':
+    import os, sys
+    sys.stdout = open(os.devnull, 'w')
 import os
 import random
 import shutil
