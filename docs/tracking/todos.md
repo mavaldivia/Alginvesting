@@ -4,6 +4,8 @@
 
 ### X1 — Robustez y estabilidad
 
+- [x] **Agrupar prints de órdenes ejecutadas/eliminadas**: en vez de un print por orden, mostrar resumen por activo: `{valor}: {h} órdenes ejecutadas (o eliminadas) desde {min_precio} hasta {max_precio}`.
+
 ### X0 — Validación post-revert (secuencial, alta prioridad)
 
 > Contexto: se revirtió el optimizador a la lógica base de 8eefe88 para recuperar confianza en los resultados.

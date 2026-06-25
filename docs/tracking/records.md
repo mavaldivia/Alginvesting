@@ -734,3 +734,8 @@ Claude: Explicó que `-A` agrega todo lo modificado — el riesgo es subir accid
 Mauricio: Mostró que al ejecutar `X4B_crear_version_backtesting.py` para crear V0 y V2, la sección X4 de `scripts/config.py` quedó corrupta — las tres entradas del dict `X4_VERSIONES` colapsadas en una sola línea con sintaxis inválida. Pidió revisión.
 Claude: Identificó el bug en la regex `[^}]*` de `_registrar_version_en_config`: para en el primer `}` encontrado (el de la inner dict), no en el cierre externo. Corrigió `config.py` manualmente (V1, V0, V2 con formato correcto) y arregló la regex en el script a `.*?\n\}` con `re.DOTALL` + `'\n'` antes del `}` de cierre en la construcción de `nuevo`.
 (Cierre: 2026-06-25 12:40)
+
+## SECCIÓN 69
+Mauricio: Pidió agrupar los prints de "Orden ejecutada" y "Orden eliminada" en X1_trading.py — en vez de un print por orden, mostrar un resumen por activo: `{valor}: {h} órdenes ejecutadas (o eliminadas) desde {lowest_price} hasta {highest_price}`. También pidió agregar el ítem al TODO.
+Claude: Marcó el ítem como completado en `docs/tracking/todos.md`. En X1: `limpiar_ordenes_pendientes_no_validas` acumula precios en `eliminadas[]` y printea resumen al final; `ejecutar_orden` ahora retorna `bool`; `crear_ordenes_espera` acumula en `ejecutadas[]` y printea resumen al final.
+(Cierre: 2026-06-25 14:31)

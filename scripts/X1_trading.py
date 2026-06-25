@@ -96,6 +96,7 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
 
 def limpiar_ordenes_pendientes_no_validas(valor: str, actual_OE: list, lista_N: list):
     """Cancela órdenes pendientes cuyo precio ya no está en la lista de soportes válidos."""
+    eliminadas = []
     for orden in actual_OE:
         precio_OE = round(orden.price_open, 2)
         if precio_OE not in lista_N:
@@ -114,7 +115,9 @@ def limpiar_ordenes_pendientes_no_validas(valor: str, actual_OE: list, lista_N: 
                 if result.retcode not in [10018]:  # 10018: mercado cerrado
                     print(f'  Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
             else:
-                print(f'  Orden eliminada: {valor} @ {precio_OE}')
+                eliminadas.append(precio_OE)
+    if eliminadas:
+        print(f'  {valor}: {len(eliminadas)} órdenes eliminadas desde {min(eliminadas)} hasta {max(eliminadas)}')
 
 
 def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: float, sl: float = 0) -> dict:
@@ -135,27 +138,29 @@ def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: f
     return request
 
 
-def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float):
+def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) -> bool:
     if 'sl' in request:
         request['sl'] = float(round(request['sl'], 0))
 
     if volumen == 0:
         print('  Orden no ejecutada: volumen = 0')
-        return
+        return False
 
     result = mt5.order_send(request)
     try:
         if result.retcode != mt5.TRADE_RETCODE_DONE:
             result_dict = result._asdict()
             if result_dict.get('comment') == 'Market closed':
-                return
+                return False
             if result.retcode in [10006, 10044, 10018, 10031]:
-                return
+                return False
             print(f'  Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
+            return False
         else:
-            print(f'  Orden ejecutada: {symbol} {volumen} lotes @ {precio}')
+            return True
     except Exception as e:
         print(f'  Excepción en ejecutar_orden: {e}')
+        return False
 
 
 def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
@@ -166,6 +171,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     """
     P0 = obtener_precio_actual(valor, modo='B')
     lista_OAE = lista_OA + lista_OE
+    ejecutadas = []
 
     for Pi in lista_N:
         if Pi in lista_OAE:
@@ -177,7 +183,11 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
                 volumen=lotajes[valor],
                 precio=Pi,
             )
-            ejecutar_orden(request, symbol=valor, volumen=lotajes[valor], precio=Pi)
+            if ejecutar_orden(request, symbol=valor, volumen=lotajes[valor], precio=Pi):
+                ejecutadas.append(Pi)
+
+    if ejecutadas:
+        print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}')
 
 
 def cambiar_SL(orden, valor: str, sl: float):
