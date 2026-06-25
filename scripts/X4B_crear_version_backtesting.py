@@ -32,7 +32,7 @@ CONFIG_TEMPLATE = '''\
 
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent.parent.parent  # raíz del proyecto
+BASE_DIR = Path(__file__).parent.parent.parent.parent  # raíz del proyecto
 
 # ─── Versión y activos ───────────────────────────────────────────────────────
 version = \'{V}\'
@@ -107,11 +107,11 @@ def _registrar_version_en_config(version, fecha_inicio, fecha_fin):
         if f"'{version}'" in contenido:
             return  # ya registrada
         # Insertar nueva entrada antes del cierre del dict
-        patron = r"(X4_VERSIONES\s*=\s*\{[^}]*)\}"
+        patron = r"(X4_VERSIONES\s*=\s*\{.*?)\n\}"
         match = re.search(patron, contenido, re.DOTALL)
         if match:
             entrada = f"    '{version}': {{'fecha_inicio': '{fecha_inicio}', 'fecha_fin': '{fecha_fin}'}},\n"
-            nuevo = match.group(1) + entrada + '}'
+            nuevo = match.group(1) + '\n' + entrada + '}'
             contenido = contenido[:match.start()] + nuevo + contenido[match.end():]
             _escribir_config_py(contenido)
         return

@@ -197,4 +197,7 @@ APALANCAMIENTO = {
 X4_VERSION_ACTIVA = 'V1'
 X4_VERSIONES = {
     'V1': {'fecha_inicio': '2026-01-10', 'fecha_fin': 'F'},
+    'V0': {'fecha_inicio': '2026-01-10', 'fecha_fin': 'F'},
+    'V2': {'fecha_inicio': '2026-01-10', 'fecha_fin': 'F'},
+    'V3': {'fecha_inicio': '2026-01-10', 'fecha_fin': 'F'},
 }

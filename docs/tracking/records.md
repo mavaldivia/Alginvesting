@@ -729,3 +729,8 @@ Claude: Ejecutó git rm --cached sobre los 9 archivos tracked de resources/x2/ y
 Mauricio: Preguntó por qué la guía decía stagear archivos uno a uno en vez de usar `git add -A`, y si `.env` puede estar en el `.gitignore`.
 Claude: Explicó que `-A` agrega todo lo modificado — el riesgo es subir accidentalmente archivos sensibles si el `.gitignore` está incompleto. Confirmó que `.env` sí puede (y debe) estar en `.gitignore`, y que en este proyecto el `.gitignore` está bien configurado, así que `-A` es seguro. Actualizó `guia_git_v2.md` para usar `git add -A` en el paso de stagear. Nota: la regla de no usar `-A` en `instrucciones_globales.md` aplica a todos los proyectos — no se tocó.
 (Cierre: 2026-06-24 23:50)
+
+## SECCIÓN 68
+Mauricio: Mostró que al ejecutar `X4B_crear_version_backtesting.py` para crear V0 y V2, la sección X4 de `scripts/config.py` quedó corrupta — las tres entradas del dict `X4_VERSIONES` colapsadas en una sola línea con sintaxis inválida. Pidió revisión.
+Claude: Identificó el bug en la regex `[^}]*` de `_registrar_version_en_config`: para en el primer `}` encontrado (el de la inner dict), no en el cierre externo. Corrigió `config.py` manualmente (V1, V0, V2 con formato correcto) y arregló la regex en el script a `.*?\n\}` con `re.DOTALL` + `'\n'` antes del `}` de cierre en la construcción de `nuevo`.
+(Cierre: 2026-06-25 12:40)

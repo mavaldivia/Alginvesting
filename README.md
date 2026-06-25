@@ -186,6 +186,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-25** — fix: corregir regex en X4B_crear_version_backtesting
 - **2026-06-24** — docs: simplificar guia_git_v2 con git add -A
 - **2026-06-24** — docs: guia_git_v2 + fix tracking resources + update CLAUDE.md
 - **2026-06-24** — fix: suprimir stdout en workers para proteger monitor ANSI
