@@ -21,7 +21,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 - El código se desarrolla en Mac y se ejecuta en Windows donde está MT5.
 - `Alginvesting_base/` es el repo clonado de la versión Windows (solo lectura, referencia histórica).
-- `Data/` se trackea en git (ver `docs/context/decisiones.md` 2026-06-07): contiene la historia de precios desde 2024-01-01 y MT5 solo entrega las últimas ~1000 velas, así que sin el CSV existente se pierde todo lo anterior. `resources/conjuntos_N/` (JSONs de soportes) sigue fuera de git, se regenera corriendo X0.
+- `Data/`, `Data_minuto/` y `resources/` están fuera de git (`.gitignore`). Se generan y mantienen íntegramente desde Windows al ejecutar X0/X1. Nunca se commiten desde Mac.
 
 ---
 
@@ -41,11 +41,11 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 | Carpeta | Contenido |
 |---|---|
-| `Data/` | CSVs OHLCV H1 por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, **trackeados en git** (historia desde 2024-01-01) |
+| `Data/` | CSVs OHLCV H1 por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, fuera de git |
 | `Data_minuto/` | CSVs OHLCV M1 por activo — usados por X4 para simulación intra-vela; se alimentan incrementalmente igual que `Data/`. Fuera de git (regenerables). |
 | `resources/conjuntos_N/` | JSONs por activo — `{VALOR}_{N}.json` (soportes producción, leído por X1), `{VALOR}_{N}_delta.json` (delta adaptativo producción), `{VALOR}_{N}_bt.json` (cache bt: `{datetime: [soportes], ...}`), `{VALOR}_{N}_bt_delta.json` (delta adaptativo bt) — generados, fuera de git |
-| `resources/x0/` | `logs/` (JSONs de convergencia por combo, trackeados) y `plots/` (FO, Soportes — generados, fuera de git) |
-| `resources/x2/` | Scores fundamentales (`scores.json`), historial (`x2_history.json`), guard de día (`x2_last_run.json`) — trackeados en git |
+| `resources/x0/` | `logs/` (JSONs de convergencia por combo) y `plots/` (FO, Soportes) — generados en Windows, fuera de git |
+| `resources/x2/` | Scores fundamentales (`scores.json`), historial (`x2_history.json`), guard de día (`x2_last_run.json`) — generados en Windows, fuera de git |
 | `resources/x3/` | Features técnicas por activo (`{VALOR}.csv`) — generados, fuera de git |
 
 ---
