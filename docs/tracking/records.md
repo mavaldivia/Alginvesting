@@ -724,3 +724,8 @@ Claude: Antes de escribir, verificó .gitignore y git ls-files. Detectó dos inc
 Mauricio: Eligió sacar resources/x2/ y resources/x0/logs/ del tracking (git rm --cached), confirmar que Data/ queda en gitignore (CLAUDE.md desactualizado), y usar git fetch + git reset --hard origin/master como estrategia de pull en Windows.
 Claude: Ejecutó git rm --cached sobre los 9 archivos tracked de resources/x2/ y resources/x0/logs/. Actualizó CLAUDE.md: corrigió 3 párrafos que decían "trackeados en git" para Data/, resources/x0/logs/ y resources/x2/. Creó docs/context/guia_git_v2.md con sección detallada (qué hace cada comando, tabla de qué está en git, qué no hacer en Windows) y resumen final de 2 comandos: git fetch origin + git reset --hard origin/master.
 (Cierre: 2026-06-24 23:43)
+
+## SECCIÓN 67
+Mauricio: Preguntó por qué la guía decía stagear archivos uno a uno en vez de usar `git add -A`, y si `.env` puede estar en el `.gitignore`.
+Claude: Explicó que `-A` agrega todo lo modificado — el riesgo es subir accidentalmente archivos sensibles si el `.gitignore` está incompleto. Confirmó que `.env` sí puede (y debe) estar en `.gitignore`, y que en este proyecto el `.gitignore` está bien configurado, así que `-A` es seguro. Actualizó `guia_git_v2.md` para usar `git add -A` en el paso de stagear. Nota: la regla de no usar `-A` en `instrucciones_globales.md` aplica a todos los proyectos — no se tocó.
+(Cierre: 2026-06-24 23:50)

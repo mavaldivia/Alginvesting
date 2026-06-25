@@ -20,9 +20,9 @@ Las carpetas `Data/`, `Data_minuto/` y `resources/` son **exclusivas de Windows*
    git diff
    ```
 
-2. Stagear archivos específicos (nunca `git add -A`):
+2. Stagear:
    ```bash
-   git add scripts/X0_data_supports.py scripts/config.py
+   git add -A
    ```
 
 3. Commitear:

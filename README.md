@@ -186,6 +186,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-24** — docs: simplificar guia_git_v2 con git add -A
 - **2026-06-24** — docs: guia_git_v2 + fix tracking resources + update CLAUDE.md
 - **2026-06-24** — fix: suprimir stdout en workers para proteger monitor ANSI
 - **2026-06-22** — X4: implementar X4_backtester.py + migrar paths prod
