@@ -47,6 +47,7 @@ fecha_fin    = \'F\'   # \'F\' = hasta la última vela disponible; no cierra pos
 capital_inicial     = 3000.0   # USD
 PERDIDA_MAX_BT      = 120.0    # USD
 MARGEN_LIBRE_MIN_BT = 50.0     # USD — buffer mínimo de margen libre para abrir/ejecutar OE
+STOP_OUT_LEVEL      = 50       # % — margin level mínimo antes de declarar stop-out y detener la simulación
 
 # ─── Recálculo de soportes ───────────────────────────────────────────────────
 delta_recalculo_soportes = 1    # días (puede ser fraccionario, ej. 0.5 = 12h)

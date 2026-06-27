@@ -517,7 +517,7 @@ def _procesar_candle(ts, candle, activo: str, est_a: dict, estado: dict,
 
 # ─── Equity CSV ───────────────────────────────────────────────────────────────
 
-def _append_equity(ts, estado: dict, precios: dict, cfg):
+def _append_equity(ts, estado: dict, precios: dict, cfg) -> dict:
     mc = _calcular_estado_cuenta(estado, precios, cfg)
 
     eq_g = cfg.CARPETA_RESOURCES / 'equity_global.csv'
@@ -548,6 +548,8 @@ def _append_equity(ts, estado: dict, precios: dict, cfg):
             GC = est_a['GC']
             GA = _calcular_GA(est_a, precio_a, lote, units)
             w.writerow([ts.isoformat(), activo, round(GC, 4), round(GA, 4), round(GC + GA, 4)])
+
+    return mc
 
 
 # ─── Flush a disco ────────────────────────────────────────────────────────────
@@ -696,21 +698,46 @@ def ejecutar_backtest(cfg, reset: bool = False):
             cierre_previo[activo] = candle['Close']
 
         # Paso G: snapshot equity
-        _append_equity(ts, estado, precios_ts, cfg)
+        mc = _append_equity(ts, estado, precios_ts, cfg)
 
         estado['ts_ultimo_procesado'] = ts.isoformat()
         velas_procesadas += 1
+
+        # Stop-out: equity <= 0 o margin level bajo el umbral con posiciones abiertas
+        stop_out_level = getattr(cfg, 'STOP_OUT_LEVEL', 50)
+        ml = mc['margin_level']
+        cuenta_quemada = (
+            mc['equity'] <= 0
+            or (ml is not None and mc['margen_usado'] > 0 and ml <= stop_out_level)
+        )
+        if cuenta_quemada:
+            events_log.append({
+                'tipo': 'stop_out',
+                'ts': ts.isoformat(),
+                'equity': round(mc['equity'], 4),
+                'balance': round(mc['balance'], 4),
+                'margen_usado': round(mc['margen_usado'], 4),
+                'margin_level': round(ml, 4) if ml is not None else None,
+                'n_OA': mc['n_OA'],
+            })
+            estado['stop_out'] = True
+            _guardar_checkpoint(estado, cfg)
+            _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
+            _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
+            print(f'\n  *** STOP OUT [{ts}] ***')
+            print(f'  equity={mc["equity"]:.2f}  balance={mc["balance"]:.2f}'
+                  f'  margin_level={f"{ml:.1f}%" if ml is not None else "N/A"}'
+                  f'  OA={mc["n_OA"]}')
+            break
 
         # Checkpoint + flush cada 24 velas
         if velas_procesadas % 24 == 0:
             _guardar_checkpoint(estado, cfg)
             _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
             _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
-            n_oa = sum(len(e['OA']) for e in estado['por_activo'].values())
-            n_oe = sum(len(e['OE']) for e in estado['por_activo'].values())
             trades_path = cfg.CARPETA_RESOURCES / 'trades.json'
             n_trades = len(json.load(open(trades_path))) if trades_path.exists() else 0
-            print(f'  [{ts}] cap={estado["capital"]:.2f} | OA={n_oa} OE={n_oe} | trades={n_trades}')
+            print(f'  [{ts}] eq={mc["equity"]:.2f} bal={mc["balance"]:.2f} | OA={mc["n_OA"]} OE={mc["n_OE"]} | trades={n_trades}')
 
     # Fin de datos
     _guardar_checkpoint(estado, cfg)
@@ -719,7 +746,10 @@ def ejecutar_backtest(cfg, reset: bool = False):
 
     dur = time.time() - t_inicio
     print(f'\n{"═"*60}')
-    print(f' Backtest completado: {velas_procesadas} velas procesadas')
+    if estado.get('stop_out'):
+        print(f' STOP OUT — cuenta quemada tras {velas_procesadas} velas procesadas')
+    else:
+        print(f' Backtest completado: {velas_procesadas} velas procesadas')
     print(f' Capital final:       {estado["capital"]:.2f} USD '
           f'(inicio: {cfg.capital_inicial:.2f})')
     n_oa = sum(len(e['OA']) for e in estado['por_activo'].values())

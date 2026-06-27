@@ -744,3 +744,19 @@ Claude: Marcó el ítem como completado en `docs/tracking/todos.md`. En X1: `lim
 Mauricio: En X1.py líneas 362 y 365, pidió quitar las condiciones `if not PRUEBA_TRAILING_STOP` que protegían las llamadas a `limpiar_ordenes_pendientes_no_validas` y `crear_ordenes_espera`. Luego preguntó si la variable se usaba para algo más, y al confirmar que solo quedaba un uso residual, pidió eliminarla por completo.
 Claude: Quitó los tres `if not PRUEBA_TRAILING_STOP` (líneas 361, 354 y 365), dejando `leer_lista_N`, `limpiar_ordenes_pendientes_no_validas` y `crear_ordenes_espera` ejecutándose siempre. Eliminó `PRUEBA_TRAILING_STOP` del import en X1.py y borró su definición de `config.py`.
 (Cierre: 2026-06-25 17:05)
+
+## SECCIÓN 71
+
+Mauricio: Preguntó qué representa el `cap` que muestran los prints del backtester en X4, y si debería ser `capital_inicial + trades cerrados + PnL flotante de OA`.
+Claude: Confirmó que el print mostraba solo el balance (`estado['capital']` = capital inicial + trades cerrados), no la equity. La función `_calcular_estado_cuenta` ya calculaba la equity correctamente; el checkpoint print simplemente no la usaba.
+
+Mauricio: Pidió cambiar el print para mostrar la equity.
+Claude: Modificó el print del checkpoint para llamar `_calcular_estado_cuenta` y mostrar `eq` (equity) y `bal` (balance) en vez de solo `cap`.
+
+Mauricio: Pidió implementar stop-out: si la cuenta se quema, detener la simulación y dejar registro.
+Claude: Implementó stop-out en X4_backtester.py: `_append_equity` ahora devuelve `mc` (evita doble cálculo); después de cada vela se chequea `equity <= 0` o `margin_level <= STOP_OUT_LEVEL`; si se dispara, registra evento `stop_out` en events.json, guarda checkpoint con `estado['stop_out'] = True`, imprime prominentemente y rompe el loop. Resumen final diferenciado. Agregó `STOP_OUT_LEVEL = 50` al template de X4B; configs existentes usan `getattr` con fallback.
+
+Mauricio: Consultó si antes del fix la simulación se detenía o seguía con números negativos.
+Claude: Confirmó que seguía: el loop original era un `for ts in all_ts` sin break condicional — solo se detenía al agotar los datos.
+
+(Cierre: 2026-06-26 23:24)

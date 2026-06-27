@@ -186,6 +186,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-26** — feat: stop-out en X4 + equity en prints de checkpoint
 - **2026-06-25** — refactor: eliminar PRUEBA_TRAILING_STOP de X1 y config
 - **2026-06-25** — refactor: agrupar prints de órdenes en X1
 - **2026-06-25** — fix: corregir regex en X4B_crear_version_backtesting
