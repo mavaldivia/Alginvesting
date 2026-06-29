@@ -760,3 +760,9 @@ Mauricio: Consultó si antes del fix la simulación se detenía o seguía con n�
 Claude: Confirmó que seguía: el loop original era un `for ts in all_ts` sin break condicional — solo se detenía al agotar los datos.
 
 (Cierre: 2026-06-26 23:24)
+
+## SECCIÓN 72
+
+Mauricio: Pidió continuar con `x5_plan.md`, preguntar qué faltaba, con énfasis en arquitecturas de redes neuronales adecuadas para el problema. Confirmó agregar todo lo discutido al plan en una sección nueva "Sugerencias y definiciones", y agregar un ítem en `/todos x5` para leer el plan primero.
+Claude: Identificó 4 gaps en el plan: (1) problema contrafactual / sesgo de selección en el store — propone exploración explícita con `EXPLORATION_RATE` y menciona IPW; (2) comparativa de arquitecturas — LightGBM como V1, FT-Transformer como V2, descarta TFT y LSTM; argumento clave para NN: gradient ascent en inferencia es más barato que grid search; (3) estrategia de inferencia diferenciada por tipo de modelo; (4) no-estacionariedad, estado UNTRAINED/TRAINED, y multi-head para las 3 variables objetivo. Agregó sección "Sugerencias y definiciones" al final de `x5_plan.md` y añadió ítem "Leer x5_plan.md completo" al tope de la sección X5 en `todos.md` (score 8.94).
+(Cierre: 2026-06-27 00:33)
