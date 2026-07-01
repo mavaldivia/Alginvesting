@@ -766,3 +766,15 @@ Claude: Confirmó que seguía: el loop original era un `for ts in all_ts` sin br
 Mauricio: Pidió continuar con `x5_plan.md`, preguntar qué faltaba, con énfasis en arquitecturas de redes neuronales adecuadas para el problema. Confirmó agregar todo lo discutido al plan en una sección nueva "Sugerencias y definiciones", y agregar un ítem en `/todos x5` para leer el plan primero.
 Claude: Identificó 4 gaps en el plan: (1) problema contrafactual / sesgo de selección en el store — propone exploración explícita con `EXPLORATION_RATE` y menciona IPW; (2) comparativa de arquitecturas — LightGBM como V1, FT-Transformer como V2, descarta TFT y LSTM; argumento clave para NN: gradient ascent en inferencia es más barato que grid search; (3) estrategia de inferencia diferenciada por tipo de modelo; (4) no-estacionariedad, estado UNTRAINED/TRAINED, y multi-head para las 3 variables objetivo. Agregó sección "Sugerencias y definiciones" al final de `x5_plan.md` y añadió ítem "Leer x5_plan.md completo" al tope de la sección X5 en `todos.md` (score 8.94).
 (Cierre: 2026-06-27 00:33)
+
+## SECCIÓN 73
+
+Mauricio: Pidió agregar en x5_plan.md la representación del estado del portfolio como input de la NN (órdenes abiertas y cerradas en cada t). Preguntó cómo estructurarlo para evitar overfitting cargado a ciertos registros.
+Claude: Recomendó agregar estadísticas agregadas de OAs (mean/std retorno flotante, exposición %) en vez de inputs individuales por orden. Para OCs cerradas: `pnl_cerrado_activo_oc` ya cubre el acumulado; opcionalmente una rolling window (`retorno_promedio_ultimas_5_oc`) para capturar racha sin secuencia. Agregó sección 7 "Representación del estado del portfolio" a `x5_plan.md` con tabla de features nuevas y descripción de Deep Sets para V2.
+
+Mauricio: Pidió que el lenguaje del plan sea más accesible. Solicitó crear `docs/plans/x5_plan_redes_neuronales.md` con explicación del plan de NN "con peras y manzanas", incluyendo glosario.
+Claude: Creó el archivo con analogía del chef, explicación de inputs, V1 (Gradient Boosting), V2 (FT-Transformer), multi-head, inferencia, Deep Sets, overfitting, sesgo de selección y concept drift. Glosario de ~25 términos con definiciones en contexto del proyecto.
+
+Mauricio: Pidió mejorar tres puntos del documento: (1) cómo se tokeniza matemáticamente un parámetro, (2) mejor explicación de Gradient Boosting con ejemplo numérico, (3) si tiene sentido aleatorizar parámetros al inicio de cada ciclo de backtesting (no por vela).
+Claude: (1) Agregó la transformación explícita `embedding_i = valor_i × W_i + b_i` con ejemplo numérico paso a paso. (2) Agregó ejemplo con 4 operaciones mostrando predicción inicial, cálculo de errores por ronda, y acumulación de correcciones. (3) Confirmó que aleatorizar por ciclo completo es mejor que por vela — cada ciclo cubre todo el historial con params consistentes, dando al modelo una visión limpia de "estos params en todo tipo de mercado". Propone designar ciclos explícitamente como EXPLORACIÓN (params random) o EXPLOTACIÓN (mejor conocido), con 30% exploración como punto de partida.
+(Cierre: 2026-06-30 22:40)

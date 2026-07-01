@@ -353,3 +353,61 @@ Ventajas: comparte representación de features (más eficiente), el trunk aprend
 La función objetivo de inferencia (qué maximizar con los params) sigue siendo configurable — puede ser `Head_1` solo, o una combinación ponderada. Pero el modelo se entrena con las 3 señales simultáneamente.
 
 Para LightGBM (V1): entrenar 3 modelos separados. La arquitectura multi-head aplica a partir de V2 con NN.
+
+---
+
+### 7 — Representación del estado del portfolio en los inputs
+
+El store tiene **una fila por OC**. Los features de portfolio son snapshots en el momento de OE (cuando se coloca el buy limit). El diseño debe evitar que el modelo aprenda de ruido de posiciones individuales en lugar de la señal real del mercado.
+
+#### Órdenes abiertas (OA) al momento de OE
+
+**No usar inputs individuales por orden.** Si se alimentan las OAs como filas separadas, el modelo puede aprender identidades espurias ("la orden con entrada en $45k y P&L flotante +2% implica usar params agresivos") en vez del patrón general. El número de OAs también varía, lo que crea inputs de longitud variable.
+
+**Opción A (recomendada para V1) — agregación estadística:**
+
+```
+n_ordenes_abiertas_activo       (ya en el schema)
+exposicion_usd_activo           (ya en el schema)
+mean_retorno_pct_abierto        → promedio de retorno flotante % entre las OAs del activo
+std_retorno_pct_abierto         → dispersión del retorno flotante (¿portfolio "partido" o uniforme?)
+```
+
+Usar `retorno_pct` (no P&L absoluto) y `exposicion_pct_cuenta` (no USD) para eliminar el efecto del capital y hacer los features transferibles entre sesiones.
+
+**Opción B (V2 con NN) — Deep Sets / mean pooling permutation-invariant:**
+
+Si se quiere representación individual sin introducir orden artificial, cada OA se codifica como un vector pequeño:
+
+```
+[retorno_pct_flotante, horas_abierta, dist_precio_entrada_pct, lotaje_relativo]
+```
+
+Un módulo de **mean pooling** sobre todos esos vectores produce un embedding de tamaño fijo independiente del número de OAs. Esto es equivalente a una capa de atención simplificada (Deep Sets) y es permutation-invariant: el resultado no depende de en qué orden se listen las OAs. Se concatena al vector principal de features antes del trunk.
+
+La opción A es suficiente para V1 y evita complejidad arquitectural innecesaria.
+
+#### Órdenes cerradas (OC) hasta t
+
+El store ya tiene `pnl_cerrado_activo_oc` (P&L acumulado cerrado del activo en la sesión). Eso cubre la señal de "cómo le fue al activo en la sesión hasta ahora".
+
+**No agregar una secuencia de OCs individuales pasadas**: introduce correlación redundante con X3 (que ya refleja el historial de precios) y riesgo de overfitting a rachas de suerte.
+
+**Si se quiere capturar momentum de sesión** (racha ganadora/perdedora), agregar una sola feature rolling:
+
+```
+retorno_promedio_ultimas_N_oc   (N = 3 o 5, configurable)
+```
+
+Esta feature resume si las últimas N operaciones cerradas del activo fueron ganadoras o perdedoras en promedio — sin exponer el modelo a identidades individuales de trades.
+
+#### Resumen de features de portfolio a agregar al schema
+
+Las siguientes columnas se agregan al snapshot **al momento de OE** (sección "Contexto operativo al momento de OE" del store):
+
+| Feature | Descripción |
+|---|---|
+| `mean_retorno_pct_abierto` | Promedio de retorno flotante % de las OA del activo al colocar la OE |
+| `std_retorno_pct_abierto` | Desviación estándar del retorno flotante de las OA del activo |
+| `exposicion_pct_cuenta` | `exposicion_usd_activo / capital_cuenta` — normalizado por capital |
+| `retorno_promedio_ultimas_5_oc` | Promedio de `retorno_pct` de las últimas 5 OC cerradas del activo en la sesión |

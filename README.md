@@ -186,6 +186,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-06-30** — docs: x5 plan redes neuronales + mejoras explicación
 - **2026-06-27** — docs: sugerencias arquitectura y gaps en x5_plan
 - **2026-06-26** — feat: stop-out en X4 + equity en prints de checkpoint
 - **2026-06-25** — refactor: eliminar PRUEBA_TRAILING_STOP de X1 y config
