@@ -786,3 +786,16 @@ Mauricio: (continuación de sesión anterior, compactada) Describió su modelo m
 Claude: Identificó que el modelo mental implica aprendizaje continuo (online para Red Neuronal, batch frecuente para Gradient Boosting / LightGBM) — distinto al diseño anterior que separaba `--train` y `--infer` como sesiones discretas. Actualizó `x5_plan.md`: "Frecuencia de ejecución" reescrita con los 4 pasos del ciclo por vela, nuevo modo `--vela` como modo normal de producción, renombró `X5_RETRAIN_EVERY_N_TRADES` → `X5_RETRAIN_EVERY_N_VELAS`, actualizó dependencias (X1 llama a X5 `--vela` en cada cierre en Fase 2). Actualizó `x5_plan_redes_neuronales.md`: nueva sección "El ciclo por vela" con ejemplo concreto de BTC en semana volátil y tres entradas nuevas en el glosario (aprendizaje online, aprendizaje batch, `--vela`).
 
 (Cierre: 2026-07-06 23:13)
+
+## SECCIÓN 75
+
+Mauricio: Pidió revisar `x5_plan.md` porque Optuna no estaba explicado y el documento tenía demasiado tecnicismo. Luego indicó que en la sección "Rangos de búsqueda de parámetros" todos los params deben ser por activo (K, N_EXP, LAMBDA, A, B estaban como escalares globales). Pidió alinear `x5_plan_redes_neuronales.md` con `x5_plan.md` porque el primero estaba desactualizado — en particular la sección "Lo que queremos predecir" solo mencionaba un output.
+Claude: Hizo 8 ediciones en `x5_plan.md`: Optuna explicado en 3 lugares clave, GBDT expandido, MLP→"Perceptrón Multicapa (MLP)", NN→"Red Neuronal (NN)", gradient ascent explicado inline, cross-val temporal→"validación cruzada temporal", `X5_PARAM_RANGES` expandido a per-activo para todos los parámetros. En `x5_plan_redes_neuronales.md`: actualizó sección §1 (contexto OE+OA, sin OC), §2 (params son por activo), §4 (ahora §5, 3 variables + Y de registros periódicos), secciones nuevas de Airbag y estado UNTRAINED, y 4 entradas nuevas al glosario.
+
+Mauricio: Pidió incorporar features temporales (dummies día semana, mes, festivos) en los inputs de X5, y crear `x5.py` con backtesting paralelo por activo y checkpoint/resume.
+Claude: Actualizó `x5_plan.md` con sección "Features temporales al momento de OE" en el store schema. Actualizó `x5_plan_redes_neuronales.md` con nueva sección §3 "Features temporales". Agregó bloque X5 completo en `config.py` (X5_EXPLORATION_RATE, X5_CAPITAL_BT, X5_PARAM_RANGES per-activo, X5_US_HOLIDAYS 2022–2026, airbag, etc.). Creó `scripts/x5.py` (~380 líneas) con: features temporales (28 cols), loaders X2/X3 históricos, soportes desde bt cache, checkpoint JSON por activo, store CSV dinámico, simulación pasos A–F sin gestión de margen, loop explore/exploit, parallelización con `multiprocessing.Event` y Ctrl+C limpio, flags `--status --activo --ciclos --reset`.
+
+Mauricio: Indicó que el archivo debería llamarse `x5_macrobrain.py`, no `x5.py`. Aclaró que no esperaba que se creara todavía.
+Claude: Renombró `scripts/x5.py` → `scripts/x5_macrobrain.py`.
+
+(Cierre: 2026-07-07 00:30)

@@ -216,6 +216,17 @@ El store tiene **dos tipos de fila**, distinguidas por `tipo_registro`:
 - `mean_retorno_pct_abierto`, `std_retorno_pct_abierto`, `exposicion_pct_cuenta`
 - `retorno_promedio_ultimas_5_oc`
 
+**Features temporales al momento de OE** *(entra al modelo)*
+- `hora` (0–23), `dia_semana` (0=Lunes, 6=Domingo), `dia_mes` (1–31), `mes` (1–12)
+- Dummies día semana: `ds_lun`, `ds_mar`, `ds_mie`, `ds_jue`, `ds_vie`, `ds_sab`, `ds_dom`
+- Dummies mes: `mes_1` … `mes_12`
+- `dias_hasta_festivo`: días hasta el próximo festivo US (capped a 30)
+- `dias_desde_festivo`: días desde el último festivo US (capped a 30)
+- `es_vispera_festivo`: 1 si `dias_hasta_festivo <= 1`
+- `es_post_festivo`: 1 si `dias_desde_festivo <= 1`
+
+Los festivos considerados son los de mercado US (NYSE): Año Nuevo, MLK Day, Presidents Day, Viernes Santo, Memorial Day, Juneteenth, Independence Day, Labor Day, Thanksgiving, Christmas. Para crypto (BTCUSD, ETHUSD), el mercado es 24/7 pero los festivos US sí afectan volumen institucional, por eso se incluyen para todos los activos. Los dummies de día/mes capturan estacionalidad intrasemanal (lunes post-cierre semanal), fin de mes, etc.
+
 ### Columnas — tipo `"periodico"` (una fila cada T velas H1)
 
 **Identificadores**
@@ -229,6 +240,8 @@ El store tiene **dos tipos de fila**, distinguidas por `tipo_registro`:
 - `n_ejecucion`, `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M`
 
 **Features de X2 y X3 en este momento** *(mismo schema que OE en registros "oc")*
+
+**Features temporales en este momento** *(mismo schema que OE en registros "oc")*
 
 **Contexto operativo en este momento**
 - `n_ordenes_abiertas_activo`, `exposicion_usd_activo`, `exposicion_pct_cuenta`
@@ -294,12 +307,12 @@ El modelo predice las tres métricas; la función objetivo que se maximiza en in
 - Más fácil de depurar e interpretar
 - Recomendado para la primera versión
 
-### Opción B — Red neuronal (MLP o LSTM)
+### Opción B — Red neuronal (Perceptrón Multicapa (MLP) o LSTM)
 - Puede capturar interacciones no lineales más complejas
 - Mejor candidato si se quiere pasar a Aprendizaje por Refuerzo (RL) más adelante
 - Requiere más datos para generalizar
 
-**Decisión pendiente**: evaluar con los primeros datos reales cuál generaliza mejor (cross-val temporal, no aleatoria).
+**Decisión pendiente**: evaluar con los primeros datos reales cuál generaliza mejor (validación cruzada temporal, no aleatoria).
 
 ---
 
@@ -442,8 +455,11 @@ _entrenar(activo: str, store: pd.DataFrame, tipo: str) -> modelo
 
 _inferir_params(activo: str, modelo, contexto_x2_x3: dict) -> dict
     # Fija el vector de contexto y busca los config_params que maximizan retorno_pct.
-    # lgbm: búsqueda con Optuna (N_OPTUNA_TRIALS evaluaciones).
-    # ftt:  gradient ascent sobre los inputs de params (backprop, pesos fijos).
+    # lgbm: búsqueda con Optuna (N_OPTUNA_TRIALS evaluaciones). Optuna es un optimizador
+    #        bayesiano: aprende qué zonas del espacio de params son prometedoras y concentra
+    #        los intentos ahí, en vez de probar todas las combinaciones posibles.
+    # ftt:  gradient ascent sobre los inputs de params: el gradiente se propaga desde la
+    #        salida del modelo hacia los valores de params de entrada (no hacia los pesos).
     # Aplica airbag si drawdown_4_velas < -AIRBAG_THRESHOLD[activo].
     # Retorna dict con los params optimizados para ese activo.
 
@@ -569,22 +585,39 @@ X5_EXPLORATION_RATE = 0.30   # % de ciclos de backtesting con params aleatorios 
 ### Inferencia
 
 ```python
-X5_N_OPTUNA_TRIALS  = 200    # evaluaciones de Optuna en modo LGBM
-X5_ASCENT_RESTARTS  = 10     # puntos de inicio aleatorios para gradient ascent en modo FTT
-X5_ASCENT_STEPS     = 300    # pasos de gradient ascent por restart
-X5_ASCENT_LR        = 0.01   # learning rate del ascent
+# Optuna (modo LGBM): optimizador bayesiano que aprende qué zonas del espacio de params son
+# prometedoras y concentra los intentos ahí — más eficiente que probar todas las combinaciones.
+X5_N_OPTUNA_TRIALS  = 200    # intentos por inferencia (~10-30 seg con 200)
+# Gradient ascent (modo FTT): ajusta iterativamente los valores de params de entrada para
+# maximizar el retorno predicho, propagando el gradiente hacia la entrada (no hacia los pesos).
+X5_ASCENT_RESTARTS  = 10     # puntos de inicio aleatorios (para no quedar en óptimo local)
+X5_ASCENT_STEPS     = 300    # pasos de ascent por punto de inicio
+X5_ASCENT_LR        = 0.01   # magnitud del paso por iteración
 ```
 
 ### Rangos de búsqueda de parámetros
 
+Todos los parámetros son por activo — X5 optimiza un set independiente para cada uno.
+
 ```python
+# Todos los rangos son por activo. Los params K, N_EXP, LAMBDA, A, B comparten el mismo
+# rango orientativo entre activos; n_sizes_ejecucion y LOTAJES_M difieren por activo.
 X5_PARAM_RANGES = {
-    'K':       (0.5, 2.0),
-    'N_EXP':   (0.5, 3.0),
-    'LAMBDA':  (1/1000, 1/50),
-    'A':       (2.0, 20.0),
-    'B':       (0.5, 5.0),
-    # por activo:
+    'K':               {'BTCUSD': (0.5, 2.0), 'ETHUSD': (0.5, 2.0),
+                        'TSLA': (0.5, 2.0), 'GOOGL': (0.5, 2.0),
+                        'NVDA': (0.5, 2.0), 'AMZN': (0.5, 2.0)},
+    'N_EXP':           {'BTCUSD': (0.5, 3.0), 'ETHUSD': (0.5, 3.0),
+                        'TSLA': (0.5, 3.0), 'GOOGL': (0.5, 3.0),
+                        'NVDA': (0.5, 3.0), 'AMZN': (0.5, 3.0)},
+    'LAMBDA':          {'BTCUSD': (1/1000, 1/50), 'ETHUSD': (1/1000, 1/50),
+                        'TSLA': (1/1000, 1/50), 'GOOGL': (1/1000, 1/50),
+                        'NVDA': (1/1000, 1/50), 'AMZN': (1/1000, 1/50)},
+    'A':               {'BTCUSD': (2.0, 20.0), 'ETHUSD': (2.0, 20.0),
+                        'TSLA': (2.0, 20.0), 'GOOGL': (2.0, 20.0),
+                        'NVDA': (2.0, 20.0), 'AMZN': (2.0, 20.0)},
+    'B':               {'BTCUSD': (0.5, 5.0), 'ETHUSD': (0.5, 5.0),
+                        'TSLA': (0.5, 5.0), 'GOOGL': (0.5, 5.0),
+                        'NVDA': (0.5, 5.0), 'AMZN': (0.5, 5.0)},
     'n_sizes_ejecucion': {'BTCUSD': (50, 200), 'ETHUSD': (50, 200),
                           'TSLA': (40, 180), 'GOOGL': (40, 180),
                           'NVDA': (40, 180), 'AMZN': (40, 180)},
@@ -639,7 +672,7 @@ El problema es **regresión tabular heterogénea**: ~100 features de distintas e
 |---|---|---|---|
 | **LightGBM** | Muy alto (<50k filas) | Robusto, interpretable, rápido de iterar | No diferenciable → inferencia por grid/Optuna |
 | **FT-Transformer** (Feature Tokenizer + Transformer) | Alto (>5k filas) | Attention sobre features; captura interacciones `params × contexto` que MLP no ve | Requiere más datos para generalizar |
-| **MLP estándar** | Medio | Simple, diferenciable | Interacciones implícitas; satura pronto |
+| **Perceptrón Multicapa (MLP) estándar** | Medio | Simple, diferenciable | Interacciones implícitas; satura pronto |
 | **TFT** (Temporal Fusion Transformer) | Bajo para este diseño | Potente para series multivariadas con horizonte múltiple | Diseñado para forecasting, no por-trade; overhead alto |
 | **LSTM/GRU sobre X3** | Bajo | Capta trayectoria temporal de features técnicas | X3 ya codifica ese estado; duplica información |
 
@@ -647,7 +680,7 @@ El problema es **regresión tabular heterogénea**: ~100 features de distintas e
 1. **V1**: LightGBM — el baseline más robusto para datasets pequeños (<50k filas).
 2. **V2**: FT-Transformer — si el store supera ~5k trades y LightGBM plateó.
 
-**Argumento para priorizar NN en inferencia**: con un modelo diferenciable (MLP / FT-Transformer), la búsqueda de params óptimos puede hacerse por **gradient ascent** sobre los inputs de params con el contexto fijo. Esto es mucho más barato que grid search u Optuna, especialmente si la inferencia corre cada vela H1. Si se elige LightGBM, la estrategia de inferencia debe ser explícitamente Optuna con el espacio acotado.
+**Argumento para priorizar Red Neuronal (NN) en inferencia**: con un modelo diferenciable (MLP o FT-Transformer), la búsqueda de params óptimos puede hacerse por **gradient ascent** (igual que el entrenamiento, pero maximizando en vez de minimizar, y ajustando los valores de params de entrada en vez de los pesos del modelo) con el contexto fijo. Esto es mucho más barato que grid search u Optuna, especialmente si la inferencia corre cada vela H1. Si se elige LightGBM, la estrategia de inferencia debe ser explícitamente Optuna (optimizador bayesiano de hiperparámetros: concentra intentos en zonas prometedoras del espacio de params) con el espacio acotado.
 
 ---
 
@@ -655,11 +688,11 @@ El problema es **regresión tabular heterogénea**: ~100 features de distintas e
 
 Debe documentarse explícitamente antes de implementar, porque condiciona la elección de arquitectura.
 
-**Si modelo = GBDT (LightGBM / XGBoost):**
+**Si modelo = Gradient Boosting sobre Árboles de Decisión (GBDT — LightGBM / XGBoost son dos implementaciones del mismo algoritmo):**
 - Grid search discreto sobre params enteros (`n_sizes_ejecucion`, `LOTAJES_M`) + Optuna para params continuos (`K`, `N_EXP`, `LAMBDA`, `A`, `B`)
 - El contexto se fija como constante; Optuna optimiza los params como variables de decisión
 
-**Si modelo = NN diferenciable (MLP / FT-Transformer):**
+**Si modelo = Red Neuronal (NN) diferenciable (MLP o FT-Transformer):**
 - Fijar el vector de contexto (X2+X3 de la última vela)
 - Inicializar params aleatoriamente dentro de sus rangos
 - Gradient ascent sobre los inputs de params (backprop a través del modelo, no actualizar pesos)

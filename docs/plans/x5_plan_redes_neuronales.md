@@ -26,12 +26,17 @@ Cada fila del dataset de entrenamiento representa **una operación cerrada**. Su
 
 ### 1. Contexto de mercado (X2 + X3)
 
-Lo que sabíamos del mercado en el momento de abrir la orden.
+Lo que sabíamos del mercado en **dos momentos clave**:
+
+- **Al colocar el buy limit (OE)**: el contexto del mercado cuando el sistema decidió poner la orden.
+- **Al ejecutarse la orden (OA)**: el contexto cuando el precio tocó el soporte y la posición se abrió. Entre OE y OA pueden pasar días — el mercado puede cambiar notablemente en ese tiempo.
+
+En cambio, el contexto de **cuando cierra la posición (OC) no entra al modelo** — eso es el futuro, no está disponible en inferencia.
 
 - **X2** (fundamentales): ¿está el activo fundamentalmente sano? Score 0–1 basado en ratios financieros, tendencia histórica, sentimiento del mercado.
 - **X3** (técnicas): ¿cómo se comportó el precio recientemente? RSI, medias móviles, volatilidad, distancia a soportes, etc.
 
-Son ~100 números que describen el estado del mercado en ese momento. El modelo aprende a reconocer patrones en esos números.
+Son ~100 números por momento (OE y OA), ~200 en total por operación. El modelo aprende a reconocer patrones en esos números.
 
 ### 2. Parámetros de configuración activos (config params)
 
@@ -39,15 +44,34 @@ Los parámetros que el sistema tenía configurados cuando se abrió esa orden: `
 
 Son los "ingredientes de la receta". El modelo aprende qué combinación de parámetros funciona mejor en cada tipo de mercado.
 
-### 3. Estado del portfolio en ese momento
+**Importante: todos los parámetros son por activo.** X5 entrena un modelo independiente para BTCUSD, TSLA, NVDA, etc. Los parámetros óptimos para BTC (muy volátil, 24/7) no son los mismos que para GOOGL (más estable, mercado horario). Cada activo tiene su propio set y sus propios rangos de búsqueda.
+
+### 3. Features temporales
+
+Cada vela tiene una marca de tiempo (timestamp). De ahí extraemos features que el modelo puede usar para detectar estacionalidad:
+
+- **Hora del día** (0–23): los mercados de acciones tienen patrones claros — mayor volumen a la apertura (09:30 ET) y al cierre (16:00 ET). Para crypto (24/7), hay patrones de actividad institucional durante el horario europeo/americano.
+- **Día de la semana**: los lunes suelen abrir con gaps acumulados del fin de semana; los viernes cierran posiciones antes del weekend. Codificado como dummies `ds_lun` a `ds_dom`.
+- **Día del mes** y **mes**: útil para capturar patrones de fin de mes (rebalanceo de fondos), estacionalidad de Q4, enero effect, etc. Codificados como dummies.
+- **Proximidad a festivos US**: `dias_hasta_festivo` y `dias_desde_festivo` (capped a 30 días). El día previo a un festivo US el volumen cae; el post-festivo puede abrir con gaps. Aplica a todos los activos — incluso crypto tiene menor actividad institucional en festivos US.
+
+Son ~28 features adicionales por momento (OE), totalmente derivables del timestamp — sin requerir datos de mercado externos.
+
+### 4. Estado del portfolio en ese momento
 
 Cuántas posiciones abiertas había, cuánto capital estaba comprometido, cómo iban esas posiciones. Se representa como **estadísticas resumidas** (ver sección "El problema de las órdenes abiertas" más abajo).
 
-### 4. Lo que queremos predecir (output / Y)
+### 5. Lo que queremos predecir (output / Y)
 
-- `retorno_pct`: el retorno porcentual de esta operación cuando cerró.
+El modelo predice **tres variables** (ver sección "Multi-head" más abajo):
 
-Eso es todo lo que el modelo predice. A partir de esa predicción, el sistema busca los parámetros que la maximizan.
+1. `retorno_pct` — retorno porcentual de esta operación
+2. `pnl_abierto_activo_oc` — P&L flotante de las otras posiciones abiertas del activo cuando cerró esta
+3. `pnl_cerrado_activo_oc` — P&L acumulado cerrado del activo en la sesión
+
+La función objetivo que se maximiza en inferencia (la que guía la búsqueda de parámetros óptimos) es configurable. Propuesta inicial: `retorno_pct`, que es la señal más limpia — mide el resultado de una operación individual sin ruido de otras posiciones.
+
+Además, los **registros periódicos** (filas del store que se generan aunque no haya OC) usan `pnl_flotante_activo` como Y — el P&L no realizado de todas las posiciones abiertas del activo en ese momento. Eso permite al modelo aprender cómo va el portfolio durante rachas bajistas sostenidas (ver sección "El problema de las rachas bajistas").
 
 ---
 
@@ -465,6 +489,45 @@ El modelo no esperó al lunes siguiente para aprender del crash del lunes — ap
 
 ---
 
+## El airbag — cuando el modelo no reacciona a tiempo
+
+El modelo aprende patrones del pasado. Un crash repentino puede ser tan diferente a todo lo que vio antes que no reaccione a tiempo: recomienda params normales mientras el precio cae 8% en 4 horas.
+
+Para ese caso existe el **airbag**: una regla explícita, no aprendida, que actúa de forma independiente a lo que el modelo recomiende.
+
+```
+Si en las últimas 4 velas H1 el precio cayó más del umbral configurado:
+  → forzar LOTAJES_M al mínimo (1)
+  → forzar n_sizes_ejecucion al mínimo permitido
+  → no abrir nuevas órdenes hasta que el precio se recupere a la mitad del umbral
+```
+
+El airbag es el último recurso — existe pero no debería ser el mecanismo principal. La idea es que, con suficiente historia de crashes, el modelo aprenda a recomendar params conservadores antes de que el airbag se active. Si el airbag se dispara frecuentemente, es señal de que el modelo necesita más datos de ese tipo de escenario.
+
+Los umbrales por activo (`AIRBAG_THRESHOLD`) van en `config.py`: 8% para crypto, 5% para acciones.
+
+---
+
+## Estado sin entrenar (UNTRAINED)
+
+Antes de que el store tenga suficientes trades (~500 por activo), X5 no tiene con qué entrenar un modelo útil. En ese estado:
+
+- X5 devuelve los parámetros de `config.py` tal cual — no toca nada.
+- X1 sigue operando con los params manuales.
+- El campo `model_status` en `config/active_parameters.json` vale `"untrained"` para ese activo.
+
+El estado avanza automáticamente:
+
+```
+Menos de 500 trades  → untrained (X1 usa config.py)
+500 a 5.000 trades   → lgbm     (X1 usa params del modelo V1)
+Más de 5.000 trades  → ftt      (X1 usa params del modelo V2)
+```
+
+Cada activo avanza de forma independiente: BTCUSD puede estar en `lgbm` mientras TSLA sigue en `untrained` dentro de la misma corrida.
+
+---
+
 ## Glosario
 
 | Término | Qué significa en este proyecto |
@@ -504,3 +567,7 @@ El modelo no esperó al lunes siguiente para aprender del crash del lunes — ap
 | **Aprendizaje online** | El modelo actualiza sus pesos con cada nuevo dato (o mini-lote pequeño), sin esperar a acumular un dataset grande. Natural en Redes Neuronales vía un paso de gradiente por vela. |
 | **Aprendizaje batch** | El modelo se reentrena sobre todo el dataset acumulado en una sola sesión. LightGBM usa este modo; el reentrenamiento completo ocurre cada `X5_RETRAIN_EVERY_N_VELAS` velas. |
 | **`--vela`** | Modo normal de producción de X5: ejecuta los 4 pasos del ciclo por vela (capturar → actualizar modelo → inferir params → escribir active_parameters.json). Llamado por X1 en Fase 2 al cierre de cada vela H1. |
+| **Airbag** | Regla explícita (no aprendida) que anula la recomendación del modelo cuando el precio cae más de un umbral en las últimas 4 velas H1. Fuerza params mínimos de seguridad independientemente de lo que X5 recomiende. |
+| **model_status** | Campo en `config/active_parameters.json` que indica el estado del modelo por activo: `"untrained"` (sin datos suficientes), `"lgbm"` (V1 activo), `"ftt"` (V2 activo). X1 lo lee para decidir si usar los params del modelo o caer back a `config.py`. |
+| **UNTRAINED** | Estado inicial de X5 para un activo cuando el store tiene menos de ~500 trades. En este estado X5 devuelve los params de `config.py` sin modificar. |
+| **OE / OA context** | Los features de X2+X3 se capturan en dos momentos distintos: al colocar el buy limit (OE) y al ejecutarse la orden (OA). Ambos entran al modelo. Los features de OC (cierre) solo se guardan para análisis — no entran al modelo porque son información del futuro. |

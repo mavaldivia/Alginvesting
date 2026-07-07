@@ -213,6 +213,78 @@ APALANCAMIENTO = {
 
 TIPO_EJECUCION = "est"
 
+# ─── X5 — Backtester y surrogate model ───────────────────────────────────────
+
+CARPETA_X5 = BASE_DIR / 'resources' / 'x5'
+
+# Loop explore/exploit
+X5_EXPLORATION_RATE      = 0.30   # fracción de ciclos con params aleatorios
+X5_CAPITAL_BT            = 1_000_000  # capital virtual por activo (sin restricción de margen)
+X5_FREQ_REGISTRO_PERIODICO = 4    # snapshot periódico cada N velas H1 (si hay OA)
+X5_CKPT_INTERVAL         = 100    # guardar checkpoint cada N velas del ciclo actual
+X5_RECALC_SOPORTES_CADA  = 168    # actualizar soportes del bt cache cada N velas H1 (≈1 semana)
+
+# Umbrales de modelo
+X5_MIN_TRADES_TRAIN      = 500    # mínimo de OC para entrenar (menor → untrained)
+X5_MIN_TRADES_FTT        = 5000   # a partir de aquí usa FT-Transformer en vez de LightGBM
+
+# Reentrenamiento (modo LightGBM)
+X5_RETRAIN_EVERY_N_VELAS = 48     # reentrenamiento completo cada N velas H1 (≈2 días)
+
+# Dataset y ponderación temporal
+X5_WINDOW_TRAIN          = None   # None = todo el store; int = últimas N filas
+X5_LAMBDA_DECAY          = 0.001  # decay exponencial: peso = e^(-λ × días_antigüedad)
+                                   # 0.001 ≈ peso 0.5 para trades de ~700 días atrás
+
+# Optuna (modo LightGBM): optimizador bayesiano de hiperparámetros — concentra
+# intentos en zonas prometedoras del espacio de parámetros.
+X5_N_OPTUNA_TRIALS       = 200    # intentos por inferencia (~10-30 seg con 200)
+
+# Gradient ascent (modo FTT): ajusta los parámetros de entrada para maximizar
+# el retorno predicho, propagando el gradiente hacia la entrada (no los pesos).
+X5_ASCENT_RESTARTS       = 10     # puntos de inicio aleatorios (para evitar óptimos locales)
+X5_ASCENT_STEPS          = 300    # pasos por punto de inicio
+X5_ASCENT_LR             = 0.01   # magnitud del paso
+
+# Airbag: anula la recomendación del modelo si el precio cayó demasiado en las últimas 4 velas
+X5_AIRBAG_THRESHOLD = {
+    'BTCUSD': 0.08, 'ETHUSD': 0.08,
+    'TSLA':   0.05, 'GOOGL':  0.05, 'NVDA': 0.05, 'AMZN': 0.05,
+}
+X5_N_MINIMO = {
+    'BTCUSD': 30, 'ETHUSD': 30,
+    'TSLA':   20, 'GOOGL':  20, 'NVDA': 20, 'AMZN': 20,
+}
+
+# Rangos de búsqueda — todos por activo
+# K, N_EXP, LAMBDA, A, B comparten el mismo rango entre activos (ajustable)
+X5_PARAM_RANGES = {
+    'K': {v: (0.5, 2.0) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+    'N_EXP': {v: (0.5, 3.0) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+    'LAMBDA': {v: (1/1000, 1/50) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+    'A': {v: (2.0, 20.0) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+    'B': {v: (0.5, 5.0) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+    'n_sizes_ejecucion': {
+        'BTCUSD': (50, 200), 'ETHUSD': (50, 200),
+        'TSLA': (40, 180), 'GOOGL': (40, 180), 'NVDA': (40, 180), 'AMZN': (40, 180),
+    },
+    'LOTAJES_M': {v: (1, 5) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+}
+
+# Festivos US (NYSE) — afectan patrones de volumen incluso en crypto
+X5_US_HOLIDAYS = [
+    '2022-01-17', '2022-02-21', '2022-04-15', '2022-05-30', '2022-06-20',
+    '2022-07-04', '2022-09-05', '2022-11-24', '2022-12-26',
+    '2023-01-02', '2023-01-16', '2023-02-20', '2023-04-07', '2023-05-29',
+    '2023-06-19', '2023-07-04', '2023-09-04', '2023-11-23', '2023-12-25',
+    '2024-01-01', '2024-01-15', '2024-02-19', '2024-03-29', '2024-05-27',
+    '2024-06-19', '2024-07-04', '2024-09-02', '2024-11-28', '2024-12-25',
+    '2025-01-01', '2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26',
+    '2025-06-19', '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25',
+    '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25',
+    '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+]
+
 # ─── X4 — Backtester ─────────────────────────────────────────────────────────
 X4_VERSION_ACTIVA = 'V1'
 X4_VERSIONES = {

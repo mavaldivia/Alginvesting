@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-07** — docs: alinear x5_plan + redes_neuronales, features temporales, x5_macrobrain
 - **2026-07-06** — docs: ciclo por vela en X5 — aprendizaje continuo y modo --vela
 - **2026-06-30** — docs: x5 plan redes neuronales + mejoras explicación
 - **2026-06-27** — docs: sugerencias arquitectura y gaps en x5_plan
