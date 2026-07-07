@@ -40,7 +40,7 @@ Son ~100 números por momento (OE y OA), ~200 en total por operación. El modelo
 
 ### 2. Parámetros de configuración activos (config params)
 
-Los parámetros que el sistema tenía configurados cuando se abrió esa orden: `K`, `N_EXP`, `LAMBDA`, `n_sizes_ejecucion`, `LOTAJES_M`, `A`, `B`.
+Los parámetros que el sistema tenía configurados cuando se abrió esa orden: `K`, `N_EXP`, `LAMBDA`, `n_sizes_ejecucion`, `LOTAJES_M`, `A`, `B`, `PERDIDA_MAX`.
 
 Son los "ingredientes de la receta". El modelo aprende qué combinación de parámetros funciona mejor en cada tipo de mercado.
 
@@ -87,7 +87,7 @@ Antes de entrar en cada pieza por separado, aquí está el cuadro completo: desd
 │  Temporal en OE   ─┤                                                                       │
 │  (~28)            ─┼── todo se concatena en un vector plano de ~240 columnas ──────────►  │
 │  Config params    ─┤   (tamaño siempre fijo — ver "¿Es dinámica?" más abajo)               │
-│  (7)              ─┤                                                                       │
+│  (8)              ─┤                                                                       │
 │  Portfolio ctx    ─┤                                                                       │
 │  (~7)             ─┤                                                                       │
 │  X2 en OA  (~12)  ─┤                                                                       │
@@ -257,6 +257,175 @@ FT-Transformer:
   MACD ─→ embedding ──┘
   (las features "se hablan entre sí" antes de pasar por las capas densas)
 ```
+
+### Hiperparámetros por defecto (paper original)
+
+Los valores a continuación provienen del paper original: *Revisiting Deep Learning Models for Tabular Data* (Gorishniy et al., 2021). Son el punto de partida para X5 — se pueden ajustar si la validación lo justifica.
+
+| Hiperparámetro | Valor | Qué controla |
+|---|---|---|
+| `d` (dimensión del embedding) | 192 | Tamaño del vector por feature después del Feature Tokenizer |
+| `n_layers` | 3 | Número de bloques Transformer apilados |
+| `n_heads` | 8 | Cabezas de atención paralelas en Multi-Head Attention |
+| `d_ffn` (MLP interno) | 256 ≈ 4/3 × d | Tamaño de la capa oculta del MLP dentro de cada bloque |
+| `dropout_attention` | 0.0 | Fracción de pesos de atención que se apagan durante entrenamiento |
+| `dropout_ffn` | 0.0 | Fracción de neuronas del MLP interno que se apagan |
+
+Con ~240 features de entrada y estos valores, el FT-Transformer de X5 tiene del orden de **500 k–1 M parámetros** — compacto para datos tabulares, no requiere GPU de alta gama.
+
+---
+
+## Cómo funciona la atención — explicación profunda
+
+### El problema que resuelve
+
+En una Red Neuronal (NN) tipo Perceptrón Multicapa (MLP), cada feature entra de forma independiente. El modelo puede aprender "un RSI alto es mala señal", pero no puede aprender "un RSI alto es mala señal... pero solo cuando la volatilidad también es alta Y K > 1.2". Eso requiere capturar la interacción entre tres features al mismo tiempo.
+
+La atención resuelve eso: permite que cada feature ajuste su representación según el contexto de todas las demás.
+
+### La analogía: la reunión de equipo
+
+Imagina que eres parte de un equipo de 5 personas en una reunión. Cada persona representa una feature:
+
+- **RSI** dice: "el precio está sobrecomprado, RSI = 78"
+- **K** dice: "el parámetro de peso futuro es 1.5"
+- **Volatilidad** dice: "el mercado está muy agitado"
+- **n_sizes** dice: "hay 90 soportes activos"
+- **Score fundamental** dice: "BTC está fundamentalmente sano"
+
+En una MLP, cada persona escribe sus conclusiones en un papel y las manda directamente a la salida. **No se hablan entre sí.**
+
+En un Transformer, **antes de escribir sus conclusiones, cada persona escucha a las demás y ajusta lo que va a decir según lo que oyó**. RSI puede pensar: "soy alto, normalmente eso es mala señal — pero escuché que la volatilidad también es alta y el score fundamental es positivo. En ese contexto, quizás no sea tan mala señal". Y ajusta su representación en consecuencia.
+
+### El mecanismo concreto: Q, K, V
+
+Para que una feature pueda "preguntar" a las demás, el Transformer le asigna tres vectores:
+
+- **Q (Query)**: "¿qué información busco en mis compañeras?"
+- **K (Key)**: "¿qué información ofrezco a las demás?"
+- **V (Value)**: "la información que realmente comparto si me encuentran relevante"
+
+La transformación es:
+```
+Q_i = embedding_i × W_Q    (W_Q es una matriz aprendida, compartida por todas las features)
+K_i = embedding_i × W_K
+V_i = embedding_i × W_V
+```
+
+**Cómo RSI le "pregunta" a las demás:**
+
+RSI tiene su `Q_RSI`. Para saber cuánto le importa cada compañera, calcula el producto interno (dot product) entre su Query y el Key de cada una:
+
+```
+score(RSI, Volatilidad)      = Q_RSI · K_Volatilidad   →  8.3   (alta relevancia)
+score(RSI, K)                = Q_RSI · K_K              →  5.1
+score(RSI, n_sizes)          = Q_RSI · K_n_sizes        →  2.2
+score(RSI, Score_fundamental)= Q_RSI · K_fund           →  4.7
+```
+
+Luego aplica **softmax** para convertir esos scores en pesos que sumen 1:
+
+```
+pesos = softmax([8.3, 5.1, 2.2, 4.7])
+      = [0.47, 0.22, 0.05, 0.26]
+         Vol.   K    n_sz  fund
+```
+
+El nuevo embedding de RSI es la suma ponderada de los Values de todas las features según esos pesos:
+
+```
+embedding_RSI_nuevo = 0.47 × V_Volatilidad
+                    + 0.22 × V_K
+                    + 0.05 × V_n_sizes
+                    + 0.26 × V_fund
+```
+
+Lo que pasó: RSI "absorbió" información de las otras features proporcionalmente a cuánto le importaban. Su nuevo embedding ya no es solo "soy RSI = 78". Es "soy RSI = 78 en un contexto de alta volatilidad con score fundamental sano y K = 1.5".
+
+Y esto ocurre **simultáneamente para todas las features** — cada una actualiza su representación mirando a las demás.
+
+### Multi-head: mirar desde varios ángulos
+
+Con una sola cabeza de atención, cada feature solo puede "mirar" a las demás desde un ángulo. **Atención multi-cabeza** (Multi-Head Attention o MHA) corre el mecanismo varias veces en paralelo, con matrices `W_Q`, `W_K`, `W_V` distintas por cabeza:
+
+```
+Cabeza 1: aprende relaciones técnicas          → RSI ↔ Volatilidad ↔ MACD
+Cabeza 2: aprende relaciones params-contexto   → K ↔ tendencia ↔ n_sizes
+Cabeza 3: aprende relaciones de riesgo         → LOTAJES_M ↔ exposición ↔ drawdown
+...
+```
+
+Los resultados de todas las cabezas se concatenan y se proyectan en un vector final. Así el modelo captura múltiples tipos de relaciones al mismo tiempo, sin que una interfiera con la otra.
+
+### Capas: de lo simple a lo abstracto
+
+Un único bloque de atención captura relaciones directas entre features. Pero algunos patrones son más abstractos — "el efecto de K depende de la volatilidad, que a su vez depende del régimen de mercado, que se infiere combinando Score + MACD + tendencia".
+
+Por eso el Transformer apila varias capas:
+
+```
+Input (embeddings del Feature Tokenizer)
+         ↓
+Capa 1: atención directa entre features
+         ↓
+Capa 2: atención entre representaciones ya contextualizadas de la Capa 1
+         ↓
+Capa 3: atención sobre representaciones aún más abstractas
+         ↓
+Output (embeddings ricos en contexto, listos para el trunk y los heads)
+```
+
+Cada capa ve el mundo un nivel más arriba. Capa 1 aprende "RSI alto + Volatilidad alta". Capa 2 puede aprender "ese patrón se combina con K bajo de cierta manera". Capa 3 puede capturar el régimen completo.
+
+Para datos tabulares como los de X5, 2–4 capas suele ser suficiente. Los Modelos de Lenguaje Grandes (LLMs) como Claude usan 32–96 capas porque el lenguaje es vastamente más complejo.
+
+### Dentro de cada bloque Transformer
+
+Cada capa no es solo atención pura. El bloque completo es:
+
+```
+                   x (embedding de entrada)
+                         ↓
+               ┌── Layer Norm ────┐
+               │                 │
+               ↓                 │  ← conexión residual
+        Multi-Head Attention      │
+               ↓                 │
+               └───── + ─────────┘
+                         ↓
+               ┌── Layer Norm ────┐
+               │                 │
+               ↓                 │  ← conexión residual
+              MLP (2 capas densas)│
+               ↓                 │
+               └───── + ─────────┘
+                         ↓
+               x' (embedding enriquecido)
+```
+
+Dos detalles clave:
+
+**Conexión residual**: el embedding de entrada se suma al resultado de la atención (y al del MLP). Garantiza que si la capa no aporta nada útil, puede aprender a devolver el input intacto — el gradiente fluye sin degradarse en redes profundas. Sin esto, apilar más de 2–3 capas es muy difícil de entrenar.
+
+**MLP después de la atención**: una vez que cada feature absorbió contexto de las demás, pasa por un Perceptrón Multicapa pequeño (2 capas densas con activación no lineal, independiente por feature). Añade capacidad para transformar la representación enriquecida de formas más complejas que la atención sola.
+
+### Cómo aplica al FT-Transformer de X5
+
+En X5, las "personas en la reunión" son las ~240 features tokenizadas: cada columna del store (RSI, K, LOTAJES_M, score_fundamental, n_ordenes_abiertas, etc.) se convierte en un embedding de dimensión D antes de entrar al Transformer.
+
+```
+RSI = 72.3  →  embedding D-dim  ──┐
+K = 1.0     →  embedding D-dim  ──┤
+MACD = ...  →  embedding D-dim  ──┼──  L capas Transformer, H heads  ──► trunk ──► 3 heads
+LAMBDA = .. →  embedding D-dim  ──┤
+...         →  embedding D-dim  ──┘
+```
+
+La atención aprende qué features interactúan para predecir el retorno. Por ejemplo:
+- Descubre que `LOTAJES_M` importa más cuando `n_ordenes_abiertas` es alto (exposición compuesta).
+- Descubre que `K` interactúa con `sma_ratio_50_200` de formas distintas según régimen.
+
+Esas interacciones son imposibles de capturar con una MLP o con LightGBM de forma explícita — el Transformer las descubre por sí solo durante el entrenamiento.
 
 ---
 
@@ -610,7 +779,12 @@ Cada activo avanza de forma independiente: BTCUSD puede estar en `lgbm` mientras
 | **Feature** | Una columna de input del modelo. Ej: `RSI`, `K`, `n_ordenes_abiertas`. |
 | **Embedding** | Representación de un valor como un vector de números. Convierte "RSI = 72.3" en un vector de tamaño fijo que el modelo puede procesar con más riqueza. |
 | **Atención / Attention** | Mecanismo que permite que una feature "mire" a las demás y ajuste su representación. Base de los Transformers (y de los LLMs). |
-| **Transformer** | Arquitectura de red neuronal basada en atención. Originalmente para texto (BERT, GPT); adaptada para datos tabulares en el FT-Transformer. |
+| **Q / K / V (Query, Key, Value)** | Los tres vectores que el Transformer deriva de cada embedding. Q = "qué busco", K = "qué ofrezco", V = "lo que comparto si me encuentran relevante". La atención se calcula como suma ponderada de Values, donde los pesos vienen del producto Q·K. |
+| **Softmax** | Función que convierte un vector de números arbitrarios en probabilidades que suman 1. En atención: convierte los scores Q·K en pesos de mezcla. |
+| **Multi-Head Attention (MHA)** | Ejecutar el mecanismo Q/K/V varias veces en paralelo (con pesos distintos por cabeza), concatenar los resultados y proyectarlos. Cada cabeza puede capturar un tipo distinto de relación entre features. |
+| **Conexión residual** | Sumar el input de una capa a su output: `x' = capa(x) + x`. Permite que el gradiente fluya sin degradarse en redes con muchas capas. Sin esto, apilar más de 2–3 bloques es muy difícil de entrenar. |
+| **Layer Norm (Normalización de capa)** | Normaliza los valores de un embedding para que tengan media 0 y desviación estándar 1 antes de cada sub-bloque. Estabiliza el entrenamiento. |
+| **Transformer** | Arquitectura de red neuronal basada en atención. Originalmente para texto (BERT, GPT); adaptada para datos tabulares en el FT-Transformer. Cada bloque tiene: Layer Norm → Multi-Head Attention → conexión residual → Layer Norm → MLP → conexión residual. |
 | **FT-Transformer** | Feature Tokenizer + Transformer. Convierte cada feature en un embedding y luego aplica atención entre ellas. Estado del arte para datos tabulares con muchas interacciones entre features. |
 | **Gradient Boosting** | Método de ML que entrena muchos árboles de decisión secuencialmente, donde cada árbol corrige los errores del anterior. LightGBM y XGBoost son implementaciones. No es una NN. |
 | **LightGBM** | Implementación rápida de Gradient Boosting. Excelente para datasets tabulares pequeños. Se usa como V1 de X5. |

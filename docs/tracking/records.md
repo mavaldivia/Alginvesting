@@ -806,3 +806,17 @@ Mauricio: Indicó que en los planes `x5_plan.md` y `x5_plan_redes_neuronales.md`
 Claude: Agregó sección "Arquitectura end-to-end" en `x5_plan_redes_neuronales.md` con diagrama ASCII completo (inputs ~240 features → modelo por activo → 3 outputs → inferencia). Agregó sección "¿Es dinámica?" con las 3 formas de dinamismo: (1) escala con datos (untrained→lgbm→ftt, automático por activo); (2) inputs de tamaño variable (portfolio resuelto con estadísticas resumidas en V1 o mean pooling Deep Sets en V2, siempre vector fijo); (3) aprende continuamente (gradiente por vela en FTT, reentrenamiento batch en LightGBM). En `x5_plan.md`: reemplazó la sección "Arquitectura del modelo (opciones)" — que aún describía "Opción A / Opción B" como decisión pendiente — por "Arquitectura del modelo" con la decisión definitiva (untrained→lgbm→ftt), diagrama resumido y V1/V2 diferenciados.
 
 (Cierre: 2026-07-07 00:45)
+
+## SECCIÓN 77
+Mauricio: Preguntó qué arquitectura tiene la red neuronal de X5 — número de capas, neuronas, tipos de conexiones.
+Claude: Revisó `x5_macrobrain.py` (es el backtester, no tiene modelo) y los planes. Encontró que la arquitectura FT-Transformer está descrita conceptualmente pero sin hiperparámetros concretos definidos.
+
+Mauricio: Pidió agregar una sección en `x5_plan_redes_neuronales.md` explicando cómo funcionan los Transformers.
+Claude: Agregó sección "Cómo funciona la atención — explicación profunda" con analogía de reunión de equipo, mecanismo Q/K/V con números concretos, multi-head attention, capas apiladas, diagrama del bloque Transformer (Norm → Attention → residual → Norm → MLP → residual), y cómo aplica al FT-Transformer de X5. También agregó subsección con hiperparámetros del paper original (D=192, 3 capas, 8 heads, d_ffn=256, dropout=0.0) y actualizó el Glosario con Q/K/V, Softmax, MHA, conexión residual y Layer Norm.
+
+Mauricio: Señaló que `PERDIDA_MAX` no aparecía como parámetro aprendido en X5 y que prefería dejarlo como parámetro de aprendizaje (en USD), junto con `LOTAJES_M`. Definió el rango como [100, 300] USD para todos los activos.
+Claude: Implementó `PERDIDA_MAX` como parámetro aprendido en `config.py` (rango en `X5_PARAM_RANGES`), `x5_macrobrain.py` (`_params_baseline`, `_samplear_params`, `_COLS_BASE`, paso D de `_procesar_vela`), y actualizó `x5_plan.md` y `x5_plan_redes_neuronales.md` (lista de params, diagrama de inputs: 7→8).
+
+Mauricio: Pidió dejar como primera prioridad en todos construir X5_macro_brain.py con base en los planes.
+Claude: Agregó ítem `[PRIORIDAD 1]` en la sección X5 de `docs/tracking/todos.md`, actualizó el schema de `active_parameters.json` para incluir `PERDIDA_MAX[v]`, y eliminó el ítem de "Leer x5_plan.md" que quedaba obsoleto.
+(Cierre: 2026-07-07 01:03)

@@ -103,6 +103,7 @@ Cambiar `TIPO_EJECUCION` a `"din"` es la única acción manual para activar Fase
 | `A[v]` | float | Ganancia mínima en USD para activar el primer stop loss ganador (trailing stop) | 6 | [2, 20] |
 | `B[v]` | float | Distancia en USD que mantiene el stop loss bajo el precio actual (holgura del trailing) | 2 | [0.5, 5] |
 | `LOTAJES_M[v]` | int ≥ 1 | Multiplicador de lote: lote efectivo = `LOTAJES_M[v] × MIN_LOTAJES[v]` (mínimo fijo del broker) | 1 (todos) | [1, 5] |
+| `PERDIDA_MAX[v]` | float | Pérdida máxima en USD por posición abierta antes de forzar cierre. Su nivel óptimo interactúa con LOTAJES_M y el régimen de mercado. | 120 USD (global) | [100, 300] |
 
 En `config.py` hoy `K`, `N_EXP`, `LAMBDA`, `A` y `B` son escalares globales. Al integrar X5 pasan a ser diccionarios indexados por activo, igual que `n_sizes_ejecucion` y `LOTAJES_M`.
 
@@ -119,7 +120,7 @@ El X5 backtester corre por activo de forma completamente independiente. Cada act
 Todos los parámetros se estiman por separado para cada activo `v`:
 
 ```
-n_sizes_ejecucion[v], K[v], N_EXP[v], LAMBDA[v], A[v], B[v], LOTAJES_M[v]
+n_sizes_ejecucion[v], K[v], N_EXP[v], LAMBDA[v], A[v], B[v], LOTAJES_M[v], PERDIDA_MAX[v]
 ```
 
 ### Loop del backtesting

@@ -196,7 +196,7 @@ def _estado_inicial() -> dict:
 _COLS_BASE = [
     'tipo_registro', 'activo', 'ciclo', 'tipo_ciclo',
     'timestamp_oe', 'timestamp_oa', 'timestamp_oc', 'timestamp_registro',
-    'n_ejecucion', 'K', 'N_EXP', 'LAMBDA', 'A', 'B', 'LOTAJES_M',
+    'n_ejecucion', 'K', 'N_EXP', 'LAMBDA', 'A', 'B', 'LOTAJES_M', 'PERDIDA_MAX',
     'precio_entrada', 'precio_salida', 'pnl_usd', 'retorno_pct',
     'pnl_flotante_activo', 'pnl_cerrado_activo_sesion',
     'n_ordenes_abiertas', 'n_ordenes_espera', 'exposicion_usd',
@@ -239,6 +239,7 @@ def _params_baseline(activo: str) -> dict:
         'A': cfg.A, 'B': cfg.B,
         'LOTAJES_M': cfg.LOTAJES_M[activo],
         'n_ejecucion': cfg.n_sizes_ejecucion[activo],
+        'PERDIDA_MAX': cfg.PERDIDA_MAX,
     }
 
 
@@ -253,6 +254,7 @@ def _samplear_params(activo: str) -> dict:
         'A': _u('A'), 'B': _u('B'),
         'LOTAJES_M': random.randint(int(lm_lo), int(lm_hi)),
         'n_ejecucion': random.randint(int(n_lo), int(n_hi)),
+        'PERDIDA_MAX': _u('PERDIDA_MAX'),
     }
 
 
@@ -345,7 +347,7 @@ def _procesar_vela(
                 pos['sl'] = sl_nuevo
 
     # Paso D: cerrar por PERDIDA_MAX
-    for p_ap in [p for p, pos in oa.items() if (p - candle['Low']) * L > cfg.PERDIDA_MAX]:
+    for p_ap in [p for p, pos in oa.items() if (p - candle['Low']) * L > params['PERDIDA_MAX']]:
         pos = oa.pop(p_ap)
         precio_cierre = candle['Low']
         pnl = (precio_cierre - p_ap) * L

@@ -269,6 +269,7 @@ X5_PARAM_RANGES = {
         'TSLA': (40, 180), 'GOOGL': (40, 180), 'NVDA': (40, 180), 'AMZN': (40, 180),
     },
     'LOTAJES_M': {v: (1, 5) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+    'PERDIDA_MAX': {v: (100, 300) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
 }
 
 # Festivos US (NYSE) — afectan patrones de volumen incluso en crypto
