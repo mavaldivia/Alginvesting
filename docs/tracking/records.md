@@ -799,3 +799,10 @@ Mauricio: Indicó que el archivo debería llamarse `x5_macrobrain.py`, no `x5.py
 Claude: Renombró `scripts/x5.py` → `scripts/x5_macrobrain.py`.
 
 (Cierre: 2026-07-07 00:30)
+
+## SECCIÓN 76
+
+Mauricio: Indicó que en los planes `x5_plan.md` y `x5_plan_redes_neuronales.md` no quedaba clara la arquitectura general de la red neuronal, y preguntó si podía ser dinámica.
+Claude: Agregó sección "Arquitectura end-to-end" en `x5_plan_redes_neuronales.md` con diagrama ASCII completo (inputs ~240 features → modelo por activo → 3 outputs → inferencia). Agregó sección "¿Es dinámica?" con las 3 formas de dinamismo: (1) escala con datos (untrained→lgbm→ftt, automático por activo); (2) inputs de tamaño variable (portfolio resuelto con estadísticas resumidas en V1 o mean pooling Deep Sets en V2, siempre vector fijo); (3) aprende continuamente (gradiente por vela en FTT, reentrenamiento batch en LightGBM). En `x5_plan.md`: reemplazó la sección "Arquitectura del modelo (opciones)" — que aún describía "Opción A / Opción B" como decisión pendiente — por "Arquitectura del modelo" con la decisión definitiva (untrained→lgbm→ftt), diagrama resumido y V1/V2 diferenciados.
+
+(Cierre: 2026-07-07 00:45)

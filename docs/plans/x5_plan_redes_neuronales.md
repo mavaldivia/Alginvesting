@@ -75,6 +75,79 @@ Además, los **registros periódicos** (filas del store que se generan aunque no
 
 ---
 
+## Arquitectura end-to-end
+
+Antes de entrar en cada pieza por separado, aquí está el cuadro completo: desde los inputs hasta los outputs, pasando por el modelo.
+
+```
+┌──────────────────────── INPUTS (~240 features, vector de tamaño fijo) ─────────────────────┐
+│                                                                                             │
+│  X2 en OE  (~12)  ─┐                                                                       │
+│  X3 en OE  (~25)  ─┤                                                                       │
+│  Temporal en OE   ─┤                                                                       │
+│  (~28)            ─┼── todo se concatena en un vector plano de ~240 columnas ──────────►  │
+│  Config params    ─┤   (tamaño siempre fijo — ver "¿Es dinámica?" más abajo)               │
+│  (7)              ─┤                                                                       │
+│  Portfolio ctx    ─┤                                                                       │
+│  (~7)             ─┤                                                                       │
+│  X2 en OA  (~12)  ─┤                                                                       │
+│  X3 en OA  (~25)  ─┘                                                                       │
+│                                                                                             │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+                                            ↓
+┌──────────────────────────── MODELO (uno por activo) ────────────────────────────────────────┐
+│                                                                                             │
+│  < 500 OC   →  untrained:  devuelve config.py sin modificar                                │
+│                    ↓                                                                        │
+│  500–5.000 OC → lgbm:    3 modelos LightGBM independientes, uno por output                │
+│                    ↓                                                                        │
+│  > 5.000 OC  →  ftt:     1 FT-Transformer con trunk compartido + 3 heads                  │
+│                                                                                             │
+│  La transición es automática y por activo — BTCUSD puede estar en ftt                      │
+│  mientras TSLA sigue en lgbm.                                                              │
+│                                                                                             │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+                                            ↓
+┌────────────────────────── OUTPUTS (3 predicciones) ─────────────────────────────────────────┐
+│                                                                                             │
+│  retorno_pct             ← target principal para inferencia                                │
+│  pnl_abierto_activo_oc   ← cuánto ganan/pierden las otras posiciones abiertas              │
+│  pnl_cerrado_activo_oc   ← P&L acumulado cerrado del activo en la sesión                  │
+│                                                                                             │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+                                            ↓
+                    INFERENCIA: dado el contexto actual (X2+X3+temporal+portfolio, fijo),
+                    busca los config_params que maximizan retorno_pct predicho.
+                    lgbm → Optuna (~200 trials)  |  ftt → gradient ascent
+```
+
+---
+
+## ¿Es dinámica la arquitectura?
+
+Sí, en tres sentidos distintos:
+
+**1. La arquitectura escala con los datos (dinámica por volumen)**
+
+El sistema no arranca con una arquitectura fija. Empieza sin modelo (`untrained`), sube a LightGBM cuando hay suficientes datos, y sube a FT-Transformer cuando hay muchos más. La transición es automática, por activo, y se controla con dos umbrales en `config.py` (`X5_MIN_TRADES_TRAIN`, `X5_MIN_TRADES_FTT`). Cada activo vive en su propia fase sin afectar a los demás.
+
+**2. El portfolio tiene inputs de longitud variable (dinámica en inputs)**
+
+El número de órdenes abiertas (OA) en cualquier momento varía: a veces hay 2, a veces hay 8. Una red neuronal necesita inputs de tamaño fijo — esto se resuelve de dos formas según la versión:
+
+- **V1 (lgbm)**: se calculan estadísticas resumidas del portfolio (n_ordenes, media y desviación del retorno flotante, exposición %). Siempre son 7 números, sin importar cuántas OA haya.
+- **V2 (ftt)**: se usa mean pooling (Deep Sets) — cada OA se convierte en un vector de 4 features, y se promedian todos. El resultado es siempre un vector de 4 números, independientemente de cuántas órdenes haya.
+
+En ambos casos, el vector de entrada al modelo es de tamaño fijo (~240 features).
+
+**3. El modelo aprende continuamente (dinámica en tiempo)**
+
+Con FT-Transformer: el modelo da un paso de gradiente por cada vela nueva (~cada hora), actualizando sus pesos en tiempo real. Con LightGBM: reentrena cada ~48 horas sobre el store acumulado. En ambos casos, el modelo de mañana sabe algo que el de hoy no sabía.
+
+**Lo que NO es dinámico**: el número de features de entrada es fijo (~240 columnas) — no crece con más datos. Las dimensiones internas del FT-Transformer (tamaño del embedding D, número de capas) son fijas una vez definidas. Solo los pesos aprendidos cambian.
+
+---
+
 ## V1: Gradient Boosting (LightGBM) — "el comité de expertos"
 
 Antes de hablar de redes neuronales, la primera versión usa **Gradient Boosting** (LightGBM o XGBoost). No es una red neuronal, pero es el punto de partida más robusto para datos tabulares con pocas filas.

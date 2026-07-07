@@ -299,20 +299,38 @@ El modelo predice las tres métricas; la función objetivo que se maximiza en in
 
 ---
 
-## Arquitectura del modelo (opciones)
+## Arquitectura del modelo
 
-### Opción A — Gradient Boosting (XGBoost / LightGBM)
-- Interpreta bien features tabulares heterogéneas (mix de scores, precios, conteos)
-- No requiere normalización estricta
-- Más fácil de depurar e interpretar
-- Recomendado para la primera versión
+La arquitectura no es fija: escala automáticamente con el volumen de datos disponible. Cada activo vive en su propia fase de forma independiente.
 
-### Opción B — Red neuronal (Perceptrón Multicapa (MLP) o LSTM)
-- Puede capturar interacciones no lineales más complejas
-- Mejor candidato si se quiere pasar a Aprendizaje por Refuerzo (RL) más adelante
-- Requiere más datos para generalizar
+```
+< 500 OC → untrained  → devuelve config.py sin tocar (fallback seguro)
+500–5.000 OC → lgbm  → 3 Gradient Boosting (LightGBM) independientes, uno por output
+> 5.000 OC  →  ftt   → 1 FT-Transformer (Feature Tokenizer + Transformer) con 3 heads
+```
 
-**Decisión pendiente**: evaluar con los primeros datos reales cuál generaliza mejor (validación cruzada temporal, no aleatoria).
+Los umbrales se controlan con `X5_MIN_TRADES_TRAIN` y `X5_MIN_TRADES_FTT` en `config.py`. La transición es automática al detectar que el store del activo superó el umbral.
+
+**Cuadro general — de inputs a outputs:**
+
+```
+┌──────────────────── INPUTS (~240 features, vector de tamaño fijo) ─────────────────┐
+│  X2 en OE (~12)  · X3 en OE (~25)  · Temporal en OE (~28)                        │
+│  X2 en OA (~12)  · X3 en OA (~25)  · Config params (7)  · Portfolio (~7)         │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        ↓
+         ┌──────────────────────────────────────────────────────┐
+         │  untrained → lgbm (V1) → ftt (V2)   (por activo)    │
+         └──────────────────────────────────────────────────────┘
+                                        ↓
+          retorno_pct  ·  pnl_abierto_activo_oc  ·  pnl_cerrado_activo_oc
+```
+
+**V1 — LightGBM (Gradient Boosting)**: 3 modelos independientes, uno por output. Reentrena en batch cada `X5_RETRAIN_EVERY_N_VELAS` velas. Infiere con Optuna (Bayesian Optimization) para encontrar los config_params que maximizan `retorno_pct`.
+
+**V2 — FT-Transformer (Feature Tokenizer + Transformer)**: cada feature se convierte en un vector de embedding → capa de atención entre features → trunk compartido → 3 heads. Aprende con un paso de gradiente por vela (online). Infiere con gradient ascent sobre los config_params.
+
+El detalle completo de la arquitectura neuronal está en [`x5_plan_redes_neuronales.md`](x5_plan_redes_neuronales.md).
 
 ---
 
