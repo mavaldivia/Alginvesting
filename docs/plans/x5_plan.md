@@ -20,32 +20,106 @@ Ajusta dinámicamente los parámetros de config que usan X0 y X1, basándose en 
 
 ---
 
+## Fases de rollout
+
+X5 se implementa en dos fases. **X1 sigue usando parámetros estáticos de `config.py` hasta que X5 esté entrenado y validado.**
+
+El switch entre fases se controla con **`TIPO_EJECUCION`** en `config.py` (y en cada `config_V*.py` de backtesting):
+
+```python
+TIPO_EJECUCION = "est"   # "est" = estático (Fase 1) | "din" = dinámico (Fase 2)
+```
+
+### Fase 1 — Entrenamiento (estado actual, `TIPO_EJECUCION = "est"`)
+
+| Quién | Qué hace |
+|---|---|
+| X1 | Corre con parámetros de `config.py` (ignora `active_parameters.json`). **No escribe al store de X5.** |
+| X5 backtester (por activo) | Genera el store de trades simulando la lógica de X1 sobre el historial — loop explore/exploit, snapshots OE+OA+OC, output `resources/x5/{ACTIVO}_store.csv` |
+| X5 | Se ejecuta manualmente (`--train`, `--infer`) para entrenar el modelo y producir `active_parameters.json` |
+| X0/X1/X4 | **No leen** `active_parameters.json` todavía |
+
+El objetivo de esta fase es acumular suficiente historial de trades con los parámetros base para que el modelo tenga con qué entrenarse.
+
+### Fase 2 — Integración y retroalimentación (`TIPO_EJECUCION = "din"`)
+
+Con `TIPO_EJECUCION = "din"`, X1 lee `active_parameters.json` y aplica los params por activo de forma independiente. La granularidad es por activo: cada uno tiene su propio `model_status` en el JSON.
+
+Los valores posibles de `model_status` son:
+
+| Valor | Significado |
+|---|---|
+| `"untrained"` | No hay suficientes datos aún (menos de `X5_MIN_TRADES_TRAIN` trades en el store). X1 cae back a `config.py`. |
+| `"lgbm"` | **LightGBM** — modelo de Gradient Boosting (árboles de decisión encadenados). Es el modelo V1: robusto, rápido de entrenar, funciona bien con datasets pequeños (<5.000 trades). Ver `x5_plan_redes_neuronales.md` sección "V1: Gradient Boosting". |
+| `"ftt"` | **FT-Transformer** (Feature Tokenizer + Transformer) — red neuronal que convierte cada feature en un vector y aplica mecanismos de atención entre ellas. Es el modelo V2: más potente para capturar interacciones complejas entre features, pero requiere más datos (>5.000 trades). Ver `x5_plan_redes_neuronales.md` sección "V2: FT-Transformer". |
+
+La transición `"lgbm"` → `"ftt"` es automática al superar `X5_MIN_TRADES_FTT` trades en el store. Ambos modelos usan el mismo store y el mismo schema de inputs/outputs — solo cambia la arquitectura interna y la estrategia de inferencia.
+
+```
+BTCUSD: model_status = 'lgbm'      → X1 usa params de active_parameters.json  (modelo V1 activo)
+TSLA:   model_status = 'untrained' → X1 cae back a config.py para TSLA         (sin datos suficientes)
+NVDA:   model_status = 'ftt'       → X1 usa params de active_parameters.json  (modelo V2 activo)
+```
+
+X1 chequea `model_status[activo]` en cada vuelta del loop. El fallback a `config.py` es automático por activo — no requiere cambiar `TIPO_EJECUCION` de vuelta a `"est"`. Un activo puede estar en dinámico mientras otro sigue en estático, dentro de la misma corrida.
+
+**Ciclo de retroalimentación (estado objetivo del sistema):**
+
+En Fase 2 se cierra el loop completo. X1 con params dinámicos genera trades reales, que alimentan el store de X5, que reentrena el modelo, que mejora los params que usa X1:
+
+```
+        X0 (soportes óptimos, actualizado continuamente)
+         │
+         ▼
+X2 ──► X1 live (TIPO_EJECUCION="din") ──► OC cerrada ──► resources/x5/{ACTIVO}_store.csv
+X3 ──►  │                                                           │
+         │ lee active_parameters.json                               ▼
+         │         ▲                               X5 ──train──► modelo
+         └─────────┘                               │
+                   └──────── active_parameters.json ◄── inferencia con contexto X2+X3 actual
+```
+
+En este estado, los X5 backtesters dedicados dejan de ser la fuente principal de datos. X1 live los reemplaza progresivamente a medida que acumula trades reales con variedad de contextos de mercado.
+
+**X0, X2 y X3 son siempre independientes de las fases** — siguen corriendo igual en Fase 1 y Fase 2:
+- X0 sigue calculando soportes óptimos para distintos N
+- X2 sigue generando scores fundamentales diarios
+- X3 sigue generando features técnicas por vela
+
+Cambiar `TIPO_EJECUCION` a `"din"` es la única acción manual para activar Fase 2. El momento de ese cambio es una decisión del operador, no automática.
+
+---
+
 ## Parámetros que X5 controla
 
-| Parámetro | Tipo | Granularidad | Rango orientativo |
-|---|---|---|---|
-| `n_sizes_ejecucion[v]` | int | por activo | [50, 200] |
-| `K` | float | global | [0.5, 2.0] |
-| `N_EXP` | float | global | [0.5, 3.0] |
-| `LAMBDA` | float | global | [1/1000, 1/50] |
-| `A` | float | global | [2, 20] |
-| `B` | float | global | [0.5, 5] |
-| `LOTAJES_M[v]` | int ≥ 1 | por activo | [1, 5] |
+**Todos los parámetros son por activo `[v]`.** BTCUSD, TSLA y NVDA tienen dinámicas distintas (volatilidad, liquidez, correlaciones) y sus params óptimos difieren — un mismo `K` o `LAMBDA` no es necesariamente óptimo para todos. X5 entrena un modelo independiente por activo y optimiza cada set de params por separado.
 
-`LOTAJES_M[v]` es el multiplicador sobre `MIN_LOTAJES[v]` (mínimo fijo del broker). El lote efectivo es `LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]`.
+| Parámetro | Tipo | Descripción | Valor por defecto (`config.py`) | Rango orientativo para X5 |
+|---|---|---|---|---|
+| `n_sizes_ejecucion[v]` | int | Cantidad de soportes activos en producción para el activo `v` | 80 (todos) | [50, 200] |
+| `K[v]` | float | Peso del aislamiento futuro vs. pasado en el scoring de soportes (`y = dist_izq + K * dist_der`) | 1 | [0.5, 2.0] |
+| `N_EXP[v]` | float | Exponente de recencia en el scoring (`w = t^N_EXP`); mayor valor = más peso a velas recientes | 1.3 | [0.5, 3.0] |
+| `LAMBDA[v]` | float | Penalización por concentración de soportes en una zona del rango de precios | 1/5 = 0.2 | [1/1000, 1/3] |
+| `A[v]` | float | Ganancia mínima en USD para activar el primer stop loss ganador (trailing stop) | 6 | [2, 20] |
+| `B[v]` | float | Distancia en USD que mantiene el stop loss bajo el precio actual (holgura del trailing) | 2 | [0.5, 5] |
+| `LOTAJES_M[v]` | int ≥ 1 | Multiplicador de lote: lote efectivo = `LOTAJES_M[v] × MIN_LOTAJES[v]` (mínimo fijo del broker) | 1 (todos) | [1, 5] |
+
+En `config.py` hoy `K`, `N_EXP`, `LAMBDA`, `A` y `B` son escalares globales. Al integrar X5 pasan a ser diccionarios indexados por activo, igual que `n_sizes_ejecucion` y `LOTAJES_M`.
 
 ---
 
 ## Backtesting como generador de datos
 
+> El store de trades de X5 **no lo genera X1** (live trading). Lo generan **X5 backtesters dedicados** — uno por activo, completamente independientes entre sí. X1 con `TIPO_EJECUCION = "est"` no produce ningún output hacia X5.
+
 ### Ejecución independiente por activo
 
-El backtesting corre por activo de forma completamente independiente. Cada activo tiene su propia instancia del proceso, con su propio set de parámetros. La cuenta de trading es compartida pero, para efectos del entrenamiento, se asume con capital suficiente para no imponer restricciones — los registros monetarios se capturan como **deltas** (variaciones de P&L), no como valores absolutos de cuenta.
+El X5 backtester corre por activo de forma completamente independiente. Cada activo tiene su propia instancia del proceso, con su propio set de parámetros. La cuenta de trading es compartida pero, para efectos del entrenamiento, se asume con capital suficiente para no imponer restricciones — los registros monetarios se capturan como **deltas** (variaciones de P&L), no como valores absolutos de cuenta.
 
-Parámetros que pueden estimarse/entrenarse por separado para cada activo `v`:
+Todos los parámetros se estiman por separado para cada activo `v`:
 
 ```
-n_sizes_ejecucion[v], K, N_EXP, LAMBDA, A, B, LOTAJES_M[v]
+n_sizes_ejecucion[v], K[v], N_EXP[v], LAMBDA[v], A[v], B[v], LOTAJES_M[v]
 ```
 
 ### Loop del backtesting
@@ -65,8 +139,9 @@ día 0 ────────────────────────�
 En cada vuelta el proceso:
 1. Recorre las velas H1 desde `FECHA_INICIAL` hasta el día actual
 2. Simula la lógica de X1 (colocación de buy limits, apertura/cierre de posiciones, trailing stop)
-3. Registra en cada trade cerrado: el contexto de mercado (X2+X3), los parámetros activos, y los **deltas de P&L** (orden cerrada + posiciones aún abiertas)
-4. Al terminar el recorrido, actualiza los parámetros y reinicia desde el día 0 con el set actualizado
+3. **En cada vela H1**: si es múltiplo de `X5_FREQ_REGISTRO_PERIODICO`, registra un snapshot periódico (`tipo_registro="periodico"`) con el estado actual del portfolio y el contexto X2+X3
+4. **Al cerrar una orden**: registra un snapshot de OC (`tipo_registro="oc"`) con el resultado de la operación
+5. Al terminar el recorrido, actualiza los parámetros y reinicia desde el día 0 con el set actualizado
 
 **Acumulación de datos**: el store acumula todas las vueltas sin truncar. Los registros de ciclos con params peores son igualmente valiosos — más variedad de (contexto, params, resultado) = más relaciones causa-efecto que B puede aprender.
 
@@ -83,56 +158,91 @@ Estos deltas son la variable objetivo que el modelo (X6) aprenderá a predecir c
 
 ## Store de trades — dataset de entrenamiento
 
-### Qué es
+### Dos tipos de registro
 
-Una fila por trade cerrado (OC). Captura el contexto en tres momentos del ciclo de vida de la orden:
+El store tiene **dos tipos de fila**, distinguidas por `tipo_registro`:
 
-```
-OE (buy limit colocada) → OA (orden abierta) → OC (orden cerrada)
-```
+| tipo_registro | Cuándo se genera | Variable objetivo (Y) |
+|---|---|---|
+| `"oc"` | Al cerrar una orden (OC) | `retorno_pct` de esa operación |
+| `"periodico"` | Cada `X5_FREQ_REGISTRO_PERIODICO` velas H1, haya o no OC | `pnl_flotante_activo` (P&L flotante de posiciones abiertas del activo en ese momento) |
 
-Solo cuando OC ocurre se registra la fila completa.
+**Por qué los dos tipos son necesarios:** si el store solo acumula registros en OC, durante una racha bajista sostenida (posiciones abiertas en pérdida, ninguna cerrando) el modelo no recibe señal de que algo está mal — precisamente cuando más necesita adaptar los params. Los registros periódicos cubren ese hueco: aunque no haya trades cerrados, capturan el deterioro del portfolio en tiempo real.
 
-### Columnas (draft — sujeto a refinamiento)
+**Qué features entran al modelo y cuáles son solo para análisis:**
+
+| Momento | Entra al modelo | Razón |
+|---|---|---|
+| OE | Sí | Es el contexto de decisión; equivale a "ahora" en inferencia |
+| OA | Sí | El `retorno_pct` se mide desde el precio de OA; captura el estado real del mercado al entrar. Entre OE y OA puede pasar tiempo significativo (días). |
+| OC | No (solo análisis) | No disponible en inferencia — es información del futuro. Capturado en el store para investigación. |
+
+### Columnas — tipo `"oc"` (una fila por trade cerrado)
 
 **Identificadores**
-- `activo`, `ticket`, `timestamp_oe`, `timestamp_oa`, `timestamp_oc`
+- `tipo_registro` = `"oc"`, `activo`, `ticket`, `timestamp_oe`, `timestamp_oa`, `timestamp_oc`
 
 **Precio y resultado**
 - `precio_entrada`, `precio_salida`, `pnl_usd`, `retorno_pct`
-- `pnl_abierto_activo_oc`: P&L de posiciones aún abiertas del mismo activo al cerrar esta orden
+- `pnl_flotante_activo`: P&L flotante de posiciones aún abiertas del activo al cerrar esta orden
 - `pnl_cerrado_activo_oc`: P&L acumulado de órdenes ya cerradas del activo en la sesión
 
 **Config activa al momento de OE**
 - `n_ejecucion`, `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M`
 
-**Features de X2 al momento de OE** (snapshot del score fundamental)
+**Features de X2 al momento de OE** *(entra al modelo)*
 - `x2_score`, `x2_tendencia` + scores componentes según activo (stock vs crypto)
 
-**Features de X2 al momento de OC**
+**Features de X2 al momento de OA** *(entra al modelo, sufijo `_oa`)*
+- ídem, con sufijo `_oa`
+
+**Features de X2 al momento de OC** *(solo análisis, sufijo `_oc`)*
 - ídem, con sufijo `_oc`
 
-**Features de X3 al momento de OE** (snapshot técnicas)
+**Features de X3 al momento de OE** *(entra al modelo)*
 - `sma_20`, `sma_50`, `ema_12`, `ema_26`, `rsi_14`, `macd`, `macd_signal`
 - `atr_14`, `atr_pct`, `bb_width`, `bb_pos`, `roc_3`, `roc_5`, `roc_10`, `roc_20`
 - `vol_24h`, `vol_168h`, `vol_spike_ratio`, `drawdown_20`, `drawdown_50`
 - `trend_slope_20`, `trend_slope_50`, `dist_nearest_support`, `dist_floor_support`, `density_2pct`
 
-**Features de X3 al momento de OC**
+**Features de X3 al momento de OA** *(entra al modelo, sufijo `_oa`)*
+- ídem, con sufijo `_oa`
+
+**Features de X3 al momento de OC** *(solo análisis, sufijo `_oc`)*
 - ídem, con sufijo `_oc`
 
 **Contexto operativo al momento de OE**
-- `n_ordenes_abiertas_activo`: cuántas OA hay en ese activo al crear la OE
-- `n_ordenes_espera_activo`: cuántas OE hay en ese activo
-- `exposicion_usd_activo`: exposición total en USD de posiciones abiertas del activo
+- `n_ordenes_abiertas_activo`, `n_ordenes_espera_activo`, `exposicion_usd_activo`
+- `mean_retorno_pct_abierto`, `std_retorno_pct_abierto`, `exposicion_pct_cuenta`
+- `retorno_promedio_ultimas_5_oc`
+
+### Columnas — tipo `"periodico"` (una fila cada T velas H1)
+
+**Identificadores**
+- `tipo_registro` = `"periodico"`, `activo`, `timestamp_registro`
+- Campos de orden (`ticket`, `timestamp_oe`, `timestamp_oa`, `timestamp_oc`, `precio_entrada`, `precio_salida`, `pnl_usd`, `retorno_pct`): `null`
+
+**Variable objetivo**
+- `pnl_flotante_activo`: P&L flotante de todas las posiciones abiertas del activo en este momento. Es la señal de deterioro durante rachas adversas.
+
+**Config activa en este momento**
+- `n_ejecucion`, `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M`
+
+**Features de X2 y X3 en este momento** *(mismo schema que OE en registros "oc")*
+
+**Contexto operativo en este momento**
+- `n_ordenes_abiertas_activo`, `exposicion_usd_activo`, `exposicion_pct_cuenta`
+- `mean_retorno_pct_abierto`, `std_retorno_pct_abierto`
 
 ### Output en disco
 
-`resources/x6/{ACTIVO}_store.csv` — un CSV por activo, con append al cerrar cada OC.
+`resources/x5/{ACTIVO}_store.csv` — un CSV por activo, con append en cada OC y cada T velas H1.
 
 ---
 
 ## Ciclo A↔B — frecuencia de consulta y reentrenamiento
+
+> **Fase 2.** Este ciclo no aplica mientras X1 corra con parámetros estáticos.
 
 ```
 cada vela H1 (A → B):
@@ -186,7 +296,7 @@ El modelo predice las tres métricas; la función objetivo que se maximiza en in
 
 ### Opción B — Red neuronal (MLP o LSTM)
 - Puede capturar interacciones no lineales más complejas
-- Mejor candidato si se quiere pasar a RL más adelante
+- Mejor candidato si se quiere pasar a Aprendizaje por Refuerzo (RL) más adelante
 - Requiere más datos para generalizar
 
 **Decisión pendiente**: evaluar con los primeros datos reales cuál generaliza mejor (cross-val temporal, no aleatoria).
@@ -207,10 +317,30 @@ Con el contexto de mercado actual fijo (X2+X3 de la última ejecución):
 
 ## Frecuencia de ejecución
 
-Pendiente de decisión (ver TO DO). Opciones:
-- **Diaria**: simple, batch. Desconectada del estado del portafolio en tiempo real.
-- **Por evento**: al cerrar cada OC, re-evaluar si los params óptimos cambiaron. Más reactivo.
-- **Antes de cada corrida de X0**: natural — X0 usa los params de config para calcular soportes.
+**Decisión: cada vela H1.** El ciclo completo de X5 (capturar datos → actualizar modelo → inferir params → ejecutar) corre una vez por vela horaria. El objetivo es que los parámetros de trading siempre reflejen el estado más reciente del mercado (X2 + X3) y la historia acumulada de operaciones.
+
+**El ciclo por vela (4 pasos):**
+
+```
+── Cierre de vela t ──────────────────────────────────────────────────────────
+Paso 1: Capturar — leer P&L flotante del activo + trades cerrados en esta vela
+        → Generar nuevo(s) registro(s) en el store (tipo "oc" si hubo OC,
+          tipo "periodico" siempre si hay posición abierta)
+        → Alimentar el modelo con ese(s) nuevo(s) dato(s) (entrenamiento continuo)
+
+── Apertura de vela t+1 ──────────────────────────────────────────────────────
+Paso 2: Observar — leer contexto actual: X2 (fundamentales) + X3 (técnicas)
+Paso 3: Seleccionar — dado ese contexto, ¿qué params maximizan retorno esperado?
+        → El modelo responde con un set de params por activo
+Paso 4: Ejecutar — X1 corre con esos params para la vela t+1
+```
+
+**Entrenamiento continuo vs. batch:**
+
+- Con Red Neuronal (MLP o FT-Transformer): el modelo puede actualizar sus pesos con cada nuevo dato (aprendizaje online) — un paso de gradiente por registro nuevo. Esto implementa literalmente el "siempre entrenando en paralelo".
+- Con Gradient Boosting (LightGBM): no hay aprendizaje online nativo; en cambio, se acumulan registros y se reentrena el modelo completo cada `X5_RETRAIN_EVERY_N_VELAS` velas. La inferencia sigue siendo por vela — solo el reentrenamiento es batch.
+
+La variable `X5_RETRAIN_EVERY_N_VELAS` aplica solo al modo LightGBM. En modo Red Neuronal, el reentrenamiento ocurre en cada Paso 1.
 
 ---
 
@@ -218,10 +348,251 @@ Pendiente de decisión (ver TO DO). Opciones:
 
 | Módulo | Rol |
 |---|---|
-| X1 | Genera el store de trades (captura OE+OA+OC y escribe en `resources/x6/`) |
-| X2 | Provee features fundamentales (snapshot al momento de OE y OC) |
-| X3 | Provee features técnicas (snapshot al momento de OE y OC) |
-| config.py | Lee y escribe `active_parameters.json`; `MIN_LOTAJES` y `LOTAJES_M` definidos aquí |
+| X5 backtester (por activo) | **Fase 1**: genera el store inicial — simula la lógica de X1 sobre el historial H1 con el loop explore/exploit, captura snapshots OE+OA+OC y escribe en `resources/x5/{ACTIVO}_store.csv`. |
+| X1 (Fase 2) | **Fase 2**: llama `X5_macro_brain.py --vela` en cada cierre de vela H1. X5 captura el P&L real, actualiza el modelo y escribe los params recomendados. X1 los lee antes de la siguiente vela. |
+| X2 | Provee features fundamentales (snapshot al momento de OE y OC, leído por el backtester y por X5 en inferencia) |
+| X3 | Provee features técnicas (snapshot al momento de OE y OC, ídem) |
+| config.py | `TIPO_EJECUCION` controla si X1/X0/X4 usan params estáticos o leen `active_parameters.json`; `MIN_LOTAJES` y `LOTAJES_M` definidos aquí |
+
+---
+
+## Diseño y estructura
+
+### Carpetas y archivos
+
+```
+resources/x5/
+├── {ACTIVO}_store.csv          # dataset de entrenamiento; append por cada OC
+└── models/
+    ├── {ACTIVO}_lgbm.pkl       # modelo LightGBM (V1); se sobreescribe en cada reentrenamiento
+    └── {ACTIVO}_ftt.pt         # modelo FT-Transformer (V2); idem
+
+config/
+└── active_parameters.json      # output de X5; leído por X0 y X1
+```
+
+`model_status` va dentro de `active_parameters.json` (ver sección 5 de Sugerencias). No hay un archivo de estado separado.
+
+### Estructura del código (`X5_macro_brain.py`)
+
+El script tiene cuatro modos de uso:
+
+```
+python X5_macro_brain.py --vela      # ciclo completo por vela: capturar + actualizar modelo + inferir params
+python X5_macro_brain.py --train     # reentrenamiento profundo (solo LightGBM o cuando se quiere forzar)
+python X5_macro_brain.py --infer     # solo inferir params (sin capturar ni entrenar)
+python X5_macro_brain.py --status    # mostrar n_trades por activo y modelo activo
+```
+
+**¿Qué hace cada modo?**
+
+- **`--vela`** — Es el modo normal de producción. Corre al cierre de cada vela H1 y realiza los 4 pasos del ciclo:
+  1. Captura P&L flotante + trades cerrados → escribe nuevos registros en el store
+  2. Lee contexto actual (X2 + X3)
+  3. Actualiza el modelo con los nuevos datos (online si Red Neuronal, batch ligero si LightGBM)
+  4. Infiere los mejores params para el activo y escribe `config/active_parameters.json`
+
+  En Fase 2, X1 llama a `--vela` automáticamente en cada cierre de vela. En Fase 1, se llama manualmente (o via cron).
+
+- **`--train`** — Reentrenamiento profundo (completo, desde cero con todos los datos del store). Útil cuando se quiere mejorar el modelo con una corrida más costosa y exhaustiva. Solo necesario en LightGBM cuando el dataset ha crecido mucho; con Red Neuronal el aprendizaje online del `--vela` ya lo hace continuamente.
+
+- **`--infer`** — Solo inferir params con el modelo ya cargado, sin capturar datos ni actualizar el modelo. Útil para recalcular params sin esperar al cierre de vela (p.ej. al arrancar el sistema en medio de la sesión).
+
+- **`--status`** — Dashboard de diagnóstico. Muestra en pantalla cuántos registros tiene el store por activo y qué modelo está activo para cada uno. No escribe nada.
+
+**Ejemplo concreto de uso típico (Fase 1 — manual):**
+
+```
+Lunes 09:00  → python X5_macro_brain.py --vela    # vela de las 08:00 cerró → captura + infiere
+Lunes 10:00  → python X5_macro_brain.py --vela    # siguiente vela
+Lunes 11:00  → python X5_macro_brain.py --vela    # siguiente vela
+...
+Cuando el store creció mucho:
+               python X5_macro_brain.py --train   # reentrenamiento profundo ocasional
+```
+
+**Ejemplo en Fase 2 (automático desde X1):**
+
+```
+X1 detecta cierre de vela H1
+  → llama X5_macro_brain.py --vela en subprocess
+  → X5 actualiza store + modelo + params
+  → X1 lee config/active_parameters.json para la siguiente vela
+```
+
+**Funciones principales:**
+
+```python
+_cargar_store(activo: str) -> pd.DataFrame
+    # Lee resources/x5/{ACTIVO}_store.csv. Retorna DataFrame vacío si no existe.
+
+_seleccionar_tipo_modelo(n_trades: int) -> str
+    # 'untrained' si n_trades < X5_MIN_TRADES_TRAIN
+    # 'lgbm'      si X5_MIN_TRADES_TRAIN <= n_trades < X5_MIN_TRADES_FTT
+    # 'ftt'       si n_trades >= X5_MIN_TRADES_FTT
+
+_preparar_features(store: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]
+    # Separa X (features) e Y (retorno_pct) del store.
+    # Aplica ponderación temporal exponencial (sample_weight).
+    # Mismo preproceso para lgbm y ftt — misma tabla, mismo contrato.
+
+_entrenar(activo: str, store: pd.DataFrame, tipo: str) -> modelo
+    # Entrena lgbm o ftt según tipo. Guarda en resources/x5/models/.
+    # Si tipo == 'lgbm': LightGBMRegressor; si 'ftt': FTTransformer.
+
+_inferir_params(activo: str, modelo, contexto_x2_x3: dict) -> dict
+    # Fija el vector de contexto y busca los config_params que maximizan retorno_pct.
+    # lgbm: búsqueda con Optuna (N_OPTUNA_TRIALS evaluaciones).
+    # ftt:  gradient ascent sobre los inputs de params (backprop, pesos fijos).
+    # Aplica airbag si drawdown_4_velas < -AIRBAG_THRESHOLD[activo].
+    # Retorna dict con los params optimizados para ese activo.
+
+_leer_contexto_actual(activo: str) -> dict
+    # Lee el snapshot más reciente de X2 (resources/x2/scores.json)
+    # y X3 (resources/x3/{ACTIVO}.csv, última fila).
+
+_escribir_active_parameters(params_por_activo: dict, model_status: dict)
+    # Escribe config/active_parameters.json con los params por activo
+    # y el campo model_status por activo ('untrained'|'lgbm'|'ftt').
+```
+
+**Flujo principal (`--train` + `--infer`) — Fase 1:**
+
+En Fase 1 X5 se ejecuta manualmente. X1 no lo llama ni lee su output.
+
+```python
+params_por_activo = {}
+model_status = {}
+
+for activo in VALORES:
+    store = _cargar_store(activo)
+    n = len(store)
+    tipo = _seleccionar_tipo_modelo(n)   # 'untrained' | 'lgbm' | 'ftt'
+
+    if tipo == 'untrained':
+        params_por_activo[activo] = _params_baseline(activo)   # desde config.py
+        model_status[activo] = 'untrained'
+        continue
+
+    modelo = _entrenar(activo, store, tipo)                    # solo en --train
+    contexto = _leer_contexto_actual(activo)
+    params = _inferir_params(activo, modelo, contexto)         # solo en --infer
+    params_por_activo[activo] = params
+    model_status[activo] = tipo
+
+_escribir_active_parameters(params_por_activo, model_status)
+# En Fase 1, este JSON se escribe pero X1/X0 no lo leen todavía.
+# La activación por activo (Fase 2) es una decisión manual.
+```
+
+Cada activo es completamente independiente. Si BTCUSD ya tiene 6000 trades y usa FTT, y TSLA tiene 400 y está UNTRAINED, cada uno sigue su propio camino. En Fase 2, X1 chequeará `model_status[activo]` para decidir si usa `config.py` o el JSON — activo por activo, sin afectar a los demás.
+
+**Frecuencia de reentrenamiento en Fase 1:** manual o por cron externo. En Fase 2, el ciclo `--vela` actualiza el modelo en cada vela (online para NN, batch ligero para LightGBM). El `--train` profundo es opcional y se corre manualmente cuando el dataset creció significativamente.
+
+---
+
+## Configuraciones de usuario
+
+Todo va en `config.py` (y en cada `config_V*.py` de backtesting), bajo el bloque `# ─── Modo de ejecución ───`.
+
+### Modo de ejecución
+
+```python
+TIPO_EJECUCION = "est"   # "est" | "din"
+```
+
+Controla si X1, X0 y X4 usan parámetros estáticos de `config.py` o dinámicos de `active_parameters.json`. Con `"din"`, el fallback por activo a `config.py` es automático si `model_status[activo] == "untrained"`. Ver sección "Fases de rollout" para el comportamiento completo.
+
+### Umbrales del modelo
+
+```python
+X5_MIN_TRADES_TRAIN = 500     # mínimo de OC en el store para entrenar cualquier modelo
+X5_MIN_TRADES_FTT   = 5000    # a partir de este n, X5 usa FT-Transformer en vez de LightGBM
+```
+
+Si el store de un activo tiene menos de `X5_MIN_TRADES_TRAIN` trades, X5 devuelve los parámetros de `config.py` sin tocarlos. La transición LGBM → FTT es automática al cruzar `X5_MIN_TRADES_FTT`.
+
+### Frecuencia de reentrenamiento profundo (solo LightGBM)
+
+```python
+X5_RETRAIN_EVERY_N_VELAS = 48   # cada cuántas velas H1 forzar un reentrenamiento completo (LightGBM)
+                                 # = aprox. cada 2 días; irrelevante en modo Red Neuronal (online)
+```
+
+Solo aplica en modo LightGBM. En el ciclo `--vela` normal, LightGBM acumula registros y reentrena rápido (incremental); cada `X5_RETRAIN_EVERY_N_VELAS` velas se hace un reentrenamiento completo desde cero para evitar deriva acumulada. Con Red Neuronal, el modelo se actualiza en cada `--vela` — este parámetro se ignora.
+
+### Dataset y ponderación temporal
+
+```python
+X5_WINDOW_TRAIN  = None    # None = usar todo el store; int = últimas N filas (ventana deslizante)
+X5_LAMBDA_DECAY  = 0.001   # decay exponencial: peso = e^(-lambda * dias_antiguedad)
+                            # 0.001 ≈ peso 0.5 para operaciones de ~700 días atrás
+```
+
+Estos dos parámetros son excluyentes en la práctica: si `X5_WINDOW_TRAIN` es `None` se usa `X5_LAMBDA_DECAY`; si se define una ventana, la ponderación temporal es opcional dentro de esa ventana.
+
+### Airbag (protección de mercado)
+
+```python
+X5_AIRBAG_THRESHOLD = {    # caída máxima permitida en las últimas 4 velas H1
+    'BTCUSD': 0.08,        # 8% para crypto
+    'ETHUSD': 0.08,
+    'TSLA':   0.05,        # 5% para acciones
+    'GOOGL':  0.05,
+    'NVDA':   0.05,
+    'AMZN':   0.05,
+}
+
+X5_N_MINIMO = {            # N mínimo de soportes a usar cuando se activa el airbag
+    'BTCUSD': 30,
+    'ETHUSD': 30,
+    'TSLA':   20,
+    'GOOGL':  20,
+    'NVDA':   20,
+    'AMZN':   20,
+}
+```
+
+### Frecuencia de registros periódicos
+
+```python
+X5_FREQ_REGISTRO_PERIODICO = 4   # registrar snapshot periódico cada N velas H1 (4 = cada 4 horas)
+                                  # si no hay posiciones abiertas en el activo, el registro se omite
+```
+
+### Exploración en backtesting
+
+```python
+X5_EXPLORATION_RATE = 0.30   # % de ciclos de backtesting con params aleatorios (exploración vs. explotación)
+```
+
+### Inferencia
+
+```python
+X5_N_OPTUNA_TRIALS  = 200    # evaluaciones de Optuna en modo LGBM
+X5_ASCENT_RESTARTS  = 10     # puntos de inicio aleatorios para gradient ascent en modo FTT
+X5_ASCENT_STEPS     = 300    # pasos de gradient ascent por restart
+X5_ASCENT_LR        = 0.01   # learning rate del ascent
+```
+
+### Rangos de búsqueda de parámetros
+
+```python
+X5_PARAM_RANGES = {
+    'K':       (0.5, 2.0),
+    'N_EXP':   (0.5, 3.0),
+    'LAMBDA':  (1/1000, 1/50),
+    'A':       (2.0, 20.0),
+    'B':       (0.5, 5.0),
+    # por activo:
+    'n_sizes_ejecucion': {'BTCUSD': (50, 200), 'ETHUSD': (50, 200),
+                          'TSLA': (40, 180), 'GOOGL': (40, 180),
+                          'NVDA': (40, 180), 'AMZN': (40, 180)},
+    'LOTAJES_M':         {'BTCUSD': (1, 5), 'ETHUSD': (1, 5),
+                          'TSLA': (1, 5), 'GOOGL': (1, 5),
+                          'NVDA': (1, 5), 'AMZN': (1, 5)},
+}
+```
 
 ---
 

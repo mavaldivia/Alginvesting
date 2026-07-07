@@ -778,3 +778,11 @@ Claude: Creó el archivo con analogía del chef, explicación de inputs, V1 (Gra
 Mauricio: Pidió mejorar tres puntos del documento: (1) cómo se tokeniza matemáticamente un parámetro, (2) mejor explicación de Gradient Boosting con ejemplo numérico, (3) si tiene sentido aleatorizar parámetros al inicio de cada ciclo de backtesting (no por vela).
 Claude: (1) Agregó la transformación explícita `embedding_i = valor_i × W_i + b_i` con ejemplo numérico paso a paso. (2) Agregó ejemplo con 4 operaciones mostrando predicción inicial, cálculo de errores por ronda, y acumulación de correcciones. (3) Confirmó que aleatorizar por ciclo completo es mejor que por vela — cada ciclo cubre todo el historial con params consistentes, dando al modelo una visión limpia de "estos params en todo tipo de mercado". Propone designar ciclos explícitamente como EXPLORACIÓN (params random) o EXPLOTACIÓN (mejor conocido), con 30% exploración como punto de partida.
 (Cierre: 2026-06-30 22:40)
+
+## SECCIÓN 74
+
+Mauricio: (continuación de sesión anterior, compactada) Describió su modelo mental del ciclo de X5: en todo momento el modelo ML está entrenando en paralelo; al cerrar cada vela se captura P&L cerrado y abierto, se alimenta el modelo con esos datos nuevos, y al abrir la siguiente vela se seleccionan los mejores params y se ejecuta.
+
+Claude: Identificó que el modelo mental implica aprendizaje continuo (online para Red Neuronal, batch frecuente para Gradient Boosting / LightGBM) — distinto al diseño anterior que separaba `--train` y `--infer` como sesiones discretas. Actualizó `x5_plan.md`: "Frecuencia de ejecución" reescrita con los 4 pasos del ciclo por vela, nuevo modo `--vela` como modo normal de producción, renombró `X5_RETRAIN_EVERY_N_TRADES` → `X5_RETRAIN_EVERY_N_VELAS`, actualizó dependencias (X1 llama a X5 `--vela` en cada cierre en Fase 2). Actualizó `x5_plan_redes_neuronales.md`: nueva sección "El ciclo por vela" con ejemplo concreto de BTC en semana volátil y tres entradas nuevas en el glosario (aprendizaje online, aprendizaje batch, `--vela`).
+
+(Cierre: 2026-07-06 23:13)

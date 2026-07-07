@@ -83,6 +83,33 @@
 **Método de escalado:** tomar 60 registros M1 consecutivos aleatorios de `Data_minuto/` (aunque existan datos reales para esa hora, siempre se toman aleatorios) y aplicar escalado lineal para que el OHLC resultante calce con el de la vela horaria.
 **Descartado:** usar los datos M1 reales de esa hora específica — implica alinear timestamps M1 con H1, mayor complejidad, y no aporta validez estadística sobre una muestra aleatoria dado el propósito (simular la forma del movimiento, no reproducirlo exactamente).
 
+## 2026-06-26 — X5 y X6 fusionados en X5_macro_brain.py
+
+**Decisión:** eliminar `X5_model_training.py` y `X6_macro_brain.py` como módulos separados. El módulo unificado se llama `X5_macro_brain.py`.
+**Razón:** X5 predecía resultados de trades; X6 usaría esas predicciones para ajustar params de config. Colapsar ambos evita una capa intermedia sin beneficio claro: el modelo puede aprender directamente (X2, X3, config_params, contexto) → retorno esperado, y luego optimizar sobre config_params en inferencia.
+
+**Diseño de X5 — surrogate + optimización:**
+- El modelo aprende a predecir retorno dado `(X2, X3, config_params, órdenes abiertas del activo)`.
+- En inferencia: se fija el contexto actual (X2+X3) y se buscan los `config_params` que maximizan el retorno predicho (gradient descent o búsqueda discreta).
+- **Datos de entrenamiento**: una fila por trade cerrado (OC). Snapshot de features capturado en tres momentos: OE (buy limit colocada), OA (orden abierta/activada), OC (orden cerrada). Y = rentabilidad de la operación + P&L abierto del activo + P&L cerrado del activo en el momento OC.
+- **Parámetros que X5 controla**: `n_sizes_ejecucion[v]`, `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M[v]` (entero ≥ 1).
+
+**Cambio de config asociado:** `LOTAJES` pasa a ser derivado: `LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]`. `MIN_LOTAJES` = mínimos fijos del broker. `LOTAJES_M` = multiplicador por activo que X5 ajusta.
+
+**Descartado:** mantener dos módulos separados (predictor + ajustador) — capa extra sin beneficio si el modelo aprende directamente la relación. También descartado por ahora: RL con X4 como simulador — más potente pero requiere X4 maduro y un simulador fiel; queda como evolución natural si el surrogate no generaliza bien.
+
+## 2026-06-30 — El store de X5 lo generan backtesters dedicados, no X1 live
+
+**Decisión:** X1 con `TIPO_EJECUCION = "est"` no produce ningún output hacia X5. Los datos de entrenamiento de X5 los generan **X5 backtesters dedicados** — uno por activo, independientes entre sí — que simulan la lógica de X1 sobre el historial H1 con el loop explore/exploit y capturan los snapshots OE+OA+OC en `resources/x5/{ACTIVO}_store.csv`.
+**Razón:** separar el live trading del proceso de generación de datos permite controlar la exploración (params aleatorios vs. óptimos) sin afectar la operativa real. X1 live con params estáticos genera datos sesgados hacia una sola combinación de parámetros — inútil para entrenar un surrogate model que necesita variedad de `(contexto, params, resultado)`.
+**Descartado:** capturar trades en X1 live y usarlos como training data — introduce sesgo de selección severo (todos los trades con los mismos params estáticos) y acopla el ciclo de vida del modelo al de la operativa real.
+
+## 2026-06-30 — `TIPO_EJECUCION` como switch entre parámetros estáticos y dinámicos (X5)
+
+**Decisión:** agregar `TIPO_EJECUCION = "est"` a `config.py` y a cada `config_V*.py` de backtesting. Valor `"est"` = X1/X0/X4 usan parámetros de `config.py`; valor `"din"` = leen `config/active_parameters.json` generado por X5. Con `"din"`, si `model_status[activo] == "untrained"` para un activo concreto, ese activo cae back a `config.py` automáticamente — la transición es independiente por activo dentro de una misma corrida.
+**Razón:** X5 se construye en dos fases. Fase 1: X1 sigue con parámetros estáticos mientras X5 acumula datos y se entrena. Fase 2: se activa `"din"` manualmente cuando X5 esté entrenado y validado. El parámetro hace ese switch explícito y reversible sin tocar código.
+**Descartado:** activar dinámico por activo de forma automática al cruzar el umbral de trades — opaco y difícil de auditar. El cambio manual de `"est"` → `"din"` deja trazabilidad clara de cuándo se activó el modo dinámico.
+
 ## 2026-06-07 — `DELTA_INICIAL` adaptativo entre corridas, presionado vía `LAMBDA_DELTA`
 
 **Decisión:** conectar `DELTA_INICIAL` (hasta ahora sin uso real — ver nota en la decisión "renombra a config.py") a `nuevo_optimizador_2`, y hacerlo adaptativo *entre* corridas sucesivas de cada combo (valor, N): si existe un estado previo en `{valor}_{N}_delta.json`, se usa `delta_actual = LAMBDA_DELTA * delta_previo` (con `LAMBDA_DELTA = 0.9`); si no existe (primera corrida, cold start), se usa `DELTA_INICIAL` de `config.py` como semilla sin presionar. El valor usado en cada corrida se persiste al converger en un archivo de estado separado por combo (`{valor}_{N}_delta.json`, formato `{"delta_inicial": valor}` vía `json.dump`/`json.load` directo — no `json_act`, que asume listas/sets de soportes y aplica `sorted()`).

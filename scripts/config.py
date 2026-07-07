@@ -162,7 +162,7 @@ TS = 0.5  # segundos de espera entre ciclos cuando no hay posiciones activas en 
 PERDIDA_MAX = 120  # USD — si la pérdida de una posición abierta supera este valor, se cierra
 
 # Tamaño mínimo de lote por activo (granularidad del broker)
-LOTAJES = {
+MIN_LOTAJES = {
     'BTCUSD': 0.01,
     'ETHUSD': 0.1,
     'TSLA':   0.01,
@@ -170,6 +170,19 @@ LOTAJES = {
     'NVDA':   0.01,
     'AMZN':   0.01,
 }
+
+# Multiplicador de lote por activo — X6 ajusta este valor; siempre entero >= 1
+LOTAJES_M = {
+    'BTCUSD': 1,
+    'ETHUSD': 1,
+    'TSLA':   1,
+    'GOOGL':  1,
+    'NVDA':   1,
+    'AMZN':   1,
+}
+
+# Lote efectivo: LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]
+LOTAJES = {v: LOTAJES_M[v] * MIN_LOTAJES[v] for v in LOTAJES_M}
 
 # Unidades del activo por lote (multiplica la exposición en USD)
 UNITS = {
@@ -190,6 +203,15 @@ APALANCAMIENTO = {
     'NVDA':   5,
     'AMZN':   5,
 }
+
+# ─── Modo de ejecución ────────────────────────────────────────────────────────
+# "est" → X1/X0/X4 usan los parámetros definidos en este archivo (estático).
+# "din" → X1/X0/X4 leen config/active_parameters.json generado por X5.
+#          Si model_status[activo] == "untrained" para un activo concreto,
+#          ese activo cae back a los valores de este archivo.
+#          La transición es por activo: BTCUSD puede estar en "din" mientras TSLA sigue en "est".
+
+TIPO_EJECUCION = "est"
 
 # ─── X4 — Backtester ─────────────────────────────────────────────────────────
 X4_VERSION_ACTIVA = 'V1'

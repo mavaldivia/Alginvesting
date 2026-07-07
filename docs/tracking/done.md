@@ -2,6 +2,11 @@
 
 Ítems completados, organizados por sección.
 
+### X5 — X5_macro_brain.py
+
+- [x] **Definir frecuencia de ejecución de X5**: cada vela H1 — inferencia barata tras cada vela, reentrenamiento batch cada `X5_RETRAIN_EVERY_N_TRADES` registros. Definido en `docs/plans/x5_plan.md` sección "Frecuencia de ejecución".
+- [x] **Diseñar schema del store de trades**: qué columnas capturar en cada snapshot (OE, OA, OC) — features de X2, X3, config_params activos, órdenes abiertas del activo, timestamp, precio, P&L. Definido en `docs/plans/x5_plan.md` secciones "Store de trades" y sección 7 (features de portfolio agregadas).
+
 ### X4 — X4_backtester.py
 
 - [x] **X4B_crear_version_backtesting.py**: script con un único input `nombre_version` que crea la infraestructura completa de una versión (`resources/x4/version{V}/`, `config_{V}.py`, `resources_{V}/conjuntos_N/`, `resources_{V}/logs/`). Si la versión ya existe, pregunta si reiniciar. Al terminar muestra la ruta del `config_{V}.py`. También registra la versión en la sección X4 de `config.py` (`X4_VERSION_ACTIVA`, `X4_VERSIONES`). Validado creando V1.

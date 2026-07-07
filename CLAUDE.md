@@ -32,10 +32,11 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | Archivo | Propósito |
 |---|---|
 | `X0_data_supports.py` | **Etapa 1**: Descarga/actualiza CSVs de precios vía MT5 + llama X2 (score fundamental) y X3 (features técnicas). **Etapa 2**: Encuentra los N soportes/resistencias óptimos y los guarda en `resources/conjuntos_N/` como JSON. `--opcion 0/1/2` |
-| `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. |
-| `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X6. Output: `resources/x2/`. |
-| `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `resources/x3/{VALOR}.csv`. Alimenta X6. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/plans/x3_plan.md`. |
-| `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, y configuración de X0 (algoritmo) y X1 (trading). |
+| `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. Con `TIPO_EJECUCION="est"` usa params de `config.py`; con `"din"` lee `config/active_parameters.json` generado por X5 (por activo, con fallback automático si `model_status="untrained"`). En Fase 2, cada OC cerrada alimenta el store de X5. |
+| `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X5. Output: `resources/x2/`. |
+| `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `resources/x3/{VALOR}.csv`. Alimenta X5. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/plans/x3_plan.md`. |
+| `X5_macro_brain.py` | Surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia. Output: `config/active_parameters.json`. **En Fase 1**: se entrena con datos de X5 backtesters dedicados (por activo). **En Fase 2**: X1 live con `TIPO_EJECUCION="din"` alimenta el store directamente → ciclo de retroalimentación cerrado. Plan: `docs/plans/x5_plan.md`. |
+| `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, configuración de X0 (algoritmo) y X1 (trading). `TIPO_EJECUCION = "est" \| "din"` controla si X1/X0/X4 usan params estáticos o los recomendados por X5. |
 
 ### Directorios de datos
 
@@ -47,6 +48,8 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | `resources/x0/` | `logs/` (JSONs de convergencia por combo) y `plots/` (FO, Soportes) — generados en Windows, fuera de git |
 | `resources/x2/` | Scores fundamentales (`scores.json`), historial (`x2_history.json`), guard de día (`x2_last_run.json`) — generados en Windows, fuera de git |
 | `resources/x3/` | Features técnicas por activo (`{VALOR}.csv`) — generados, fuera de git |
+| `resources/x5/` | Store de trades por activo (`{ACTIVO}_store.csv`) + modelos entrenados (`models/{ACTIVO}_lgbm.pkl`, `models/{ACTIVO}_ftt.pt`) — generados, fuera de git |
+| `config/` | `active_parameters.json` — escrito por X5, leído por X1/X0 cuando `TIPO_EJECUCION="din"` |
 
 ---
 
@@ -55,7 +58,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 - **N (n_sizes)**: Cantidad de soportes a mantener activos por activo. Varía por activo: BTCUSD/ETHUSD=130, resto=120.
 - **M**: Número de precios candidatos evaluados por soporte en cada paso del optimizador (linspace equidistante entre soportes vecinos). Controla la granularidad de la búsqueda local — mayor M, barrido más fino pero más evaluaciones de FO por iteración.
 - **Conjunto N**: Los N soportes óptimos elegidos por el algoritmo de optimización.
-- **OA / OE**: Órdenes Abiertas (posición activa) / Órdenes en Espera (buy limit pendiente).
+- **OE / OA / OC**: OE = Orden en Espera (buy limit colocada en un soporte, esperando que el precio baje hasta ella) / OA = Orden Abierta (posición activa; la OE fue ejecutada) / OC = Orden Cerrada (posición que ya cerró por trailing stop, PERDIDA_MAX o stop loss).
 - **Trailing Stop**: SL que sigue el precio hacia arriba para proteger ganancias.
 - **Beta**: Riesgo por operación como % de cuenta.
 - **T**: Ventana de días históricos usada para calcular soportes (default: 60).
@@ -154,6 +157,7 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 - Archivos en `resources/conjuntos_N/`: `{VALOR}_{N}.json` es el único archivo de soportes (X0 escribe, X1 lee).
 - Sin hardcodear rutas fuera de `config.py`.
 - `docs/context/decisiones.md` registra decisiones técnicas relevantes.
+- **Siglas técnicas**: siempre escribir el concepto completo primero y la sigla entre paréntesis después. Ej: Aprendizaje por Refuerzo (RL), Gradient Boosting (GB), Red Neuronal (NN). Nunca usar solo la sigla sin haberla definido antes en el mismo documento.
 
 ---
 

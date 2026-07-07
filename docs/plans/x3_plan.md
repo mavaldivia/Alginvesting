@@ -113,13 +113,11 @@ ATR como EMA de Wilder ($\alpha = 1/w$):
 
 $$\text{ATR}_t(w) = \alpha \cdot \text{TR}_t + (1-\alpha) \cdot \text{ATR}_{t-1}$$
 
-**Features generadas**: `atr_14`
-
-**Derivada útil** — ATR normalizado al precio (volatilidad relativa):
+**Features generadas**: `atr_14`, `atr_pct`
 
 $$\text{atr\_pct} = \frac{\text{ATR}_t}{C_t}$$
 
-ATR es base de los parámetros `A` (ganancia mínima TS) y `B` (distancia TS) — una versión adaptativa de esos parámetros podría expresarlos en unidades de ATR.
+`atr_pct` normaliza la volatilidad al precio del activo, haciéndola comparable entre activos de distinta escala. Es el input clave para que X6 detecte regímenes de alta volatilidad (crashes, gaps). ATR es también base de los parámetros `A` y `B` del trailing stop.
 
 ---
 
@@ -152,7 +150,9 @@ Rate of Change (normalizado):
 
 $$\text{ROC}_t(w) = \frac{C_t - C_{t-w}}{C_{t-w}}$$
 
-**Features generadas**: `roc_10`, `roc_20`
+**Features generadas**: `roc_3`, `roc_5`, `roc_10`, `roc_20`
+
+`roc_3` y `roc_5` capturan caídas bruscas en pocas velas (3-5h), que las ventanas de 10 y 20 suavizan demasiado. Son el input principal para que X6 detecte el inicio de un crash antes de que se acumulen pérdidas.
 
 ---
 
@@ -220,6 +220,18 @@ $$\text{density\_2pct} = \frac{|\{s \in \mathcal{S} : |s - C_t|/C_t \leq \delta\
 
 ---
 
+### 4.12 Volumen spike
+
+$$\text{vol\_spike\_ratio}_t = \frac{V_t}{\text{SMA}_t(V, 20)}$$
+
+Donde $V_t$ es el `Tick_Volume` de la vela $t$ y $\text{SMA}_t(V, 20)$ es la media simple del Tick_Volume de las últimas 20 velas.
+
+**Features generadas**: `vol_spike_ratio`
+
+Valores > 2 indican picos de volumen atípicos. En combinación con `roc_3` negativo, es señal de pánico vendedor (crash en curso). Valores < 0.5 indican mercado dormido.
+
+---
+
 ## 5. Features de contexto operativo (fuera de X3)
 
 Las features que dependen del estado de cuenta en cada corrida son calculadas directamente por X1 y X4:
@@ -261,7 +273,7 @@ X3_VENTANAS = {
     'macd': (12, 26, 9),          # fast, slow, signal
     'atr': 14,
     'bb': (20, 2),                # window, k
-    'roc': [10, 20],
+    'roc': [3, 5, 10, 20],
     'vol': [24, 168],             # horas: 1d, 7d
     'drawdown': [20, 50],
     'trend_slope': [20, 50],

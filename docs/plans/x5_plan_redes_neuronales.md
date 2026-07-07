@@ -226,6 +226,60 @@ Es mucho más eficiente que probar 200 combinaciones manualmente. El contra: pue
 
 ---
 
+## El problema de las rachas bajistas — registros periódicos
+
+### El gap del store solo-OC
+
+Imagina este escenario:
+
+```
+Lunes 09:00  → BTC abre en $95.000. El sistema tiene 8 posiciones abiertas.
+Lunes 15:00  → BTC cae a $92.000. Posiciones en rojo. Ninguna cierra (aún no toca stop loss).
+Martes 10:00 → BTC cae a $88.000. Más rojo. Ninguna cierra.
+Miércoles    → BTC cae a $83.000. Recién empieza a cerrar posiciones por PERDIDA_MAX.
+```
+
+Si el store solo guarda filas al cerrar órdenes, durante **3 días de caída** el modelo no recibió ningún registro nuevo. No sabe que el portfolio estaba sangrando. Cuando finalmente llega la OC del miércoles, ya es demasiado tarde — el daño está hecho.
+
+### La solución: registros periódicos
+
+Cada 4 velas H1 (configurable), aunque no haya ninguna OC, el backtester guarda una fila con el estado actual:
+
+```
+timestamp          | tipo       | rsi_14 | drawdown_20 | pnl_flotante_activo | n_ejecucion | LOTAJES_M
+-------------------+------------+--------+-------------+---------------------+-------------+----------
+Lunes 09:00        | periodico  |   52   |    -0.01    |         0           |     130     |     1
+Lunes 13:00        | periodico  |   41   |    -0.03    |       -180          |     130     |     1
+Lunes 17:00        | periodico  |   35   |    -0.05    |       -420          |     130     |     1
+Martes 09:00       | periodico  |   28   |    -0.08    |       -890          |     130     |     1
+Martes 13:00       | periodico  |   24   |    -0.12    |      -1350          |     130     |     1
+...
+Miércoles 11:00    | oc         |   22   |    -0.15    |      -1800          |     130     |     1   ← recién aquí cerró
+```
+
+Ahora el modelo sí tiene señal: "cuando el RSI bajó de 30 y el drawdown superó -0.08 con LOTAJES_M=1 y N=130, el `pnl_flotante` siguió deteriorándose". Con eso puede aprender que en ese contexto conviene reducir N y bajar LOTAJES_M antes de que el stop loss empiece a ejecutarse.
+
+### Variable objetivo de los registros periódicos
+
+La Y de un registro periódico es `pnl_flotante_activo` — el P&L flotante de todas las posiciones abiertas del activo en ese momento. Es negativo durante rachas bajistas, positivo cuando las posiciones van ganando.
+
+```
+Comparación de Y por tipo de registro:
+
+tipo="oc"         → Y = retorno_pct de la operación cerrada (ej. -2.3%)
+tipo="periodico"  → Y = pnl_flotante_activo en USD (ej. -$890)
+```
+
+Son distintas variables en la misma columna. Al entrenar, el modelo aprende dos cosas complementarias:
+- Con registros OC: "qué combinación de params genera operaciones rentables"
+- Con registros periódicos: "qué combinación de params mantiene el portfolio sano durante adversidad"
+
+### Un registro periódico solo se genera si hay posiciones abiertas
+
+Si el activo no tiene órdenes abiertas en ese momento, no hay `pnl_flotante_activo` que observar — el registro se omite. Solo tiene sentido capturar el estado del portfolio cuando hay algo expuesto al mercado.
+
+---
+
 ## El problema de las órdenes abiertas (Deep Sets)
 
 Al momento de abrir una nueva orden (OE), el sistema puede tener N órdenes abiertas en ese activo. N varía: a veces 2, a veces 8.
@@ -337,6 +391,80 @@ Donde `λ` controla qué tan rápido decae el peso. Con `λ` alto, el modelo "ol
 
 ---
 
+## El ciclo por vela — cómo aprende el modelo "en todo momento"
+
+Esta sección responde a la pregunta: ¿cómo funciona exactamente el loop de aprendizaje continuo?
+
+### El ciclo completo (4 pasos, cada hora)
+
+Imagina que el reloj marca las 10:00 y acaba de cerrar la vela de las 09:00–10:00.
+
+```
+── Fin de la vela de las 09:00–10:00 ─────────────────────────────────────────
+
+Paso 1: Capturar lo que pasó
+  - ¿Hubo alguna orden que cerró en esta hora? Si sí → guardar registro "oc":
+      features_vela + params_usados + retorno_pct_final
+  - ¿Hay posiciones abiertas? Si sí → guardar registro "periodico":
+      features_vela + params_usados + pnl_flotante_actual
+  → Estos registros nuevos se añaden al store
+
+  Paso 1b: Actualizar el modelo con esos registros nuevos
+    - Red Neuronal: dar 1 paso de gradiente con los datos nuevos (aprendizaje online)
+    - LightGBM: acumular. Cada ~48 velas (2 días), reentrenar completo
+
+── Apertura de la vela de las 10:00–11:00 ───────────────────────────────────
+
+Paso 2: Observar la cocina de hoy
+  - Leer X2 (score fundamental del activo hoy)
+  - Leer X3 (RSI, MACD, volatilidad, ATR... de la última vela)
+  → "La cocina de las 10:00 está así"
+
+Paso 3: Pedirle al chef que recomiende la receta
+  - El modelo (ya actualizado con los datos de las 09:00–10:00) recibe el contexto
+  - Responde: "para BTC con estos features, usa K=1.2, N_EXP=1.4, LAMBDA=1/300, n_sizes=90..."
+  → Se escribe en config/active_parameters.json
+
+Paso 4: Ejecutar
+  - X1 lee config/active_parameters.json
+  - Coloca buy limits con esos params para la vela 10:00–11:00
+```
+
+### ¿Qué significa "siempre aprendiendo"?
+
+Con Red Neuronal (aprendizaje online), el modelo actualiza sus pesos en cada Paso 1b. Literalmente, el modelo de las 10:00 sabe algo que el modelo de las 09:00 no sabía.
+
+Con LightGBM (batch frecuente), el modelo acumula registros y cada ~48 horas hace un reentrenamiento completo. No es "online" en sentido estricto, pero el efecto práctico es similar: el modelo se mantiene actualizado con la historia reciente.
+
+### Ejemplo concreto: BTC en una semana volátil
+
+```
+Lunes 09:00   → Paso 1: nada cerró. 3 posiciones abiertas, PnL −$400. Guarda "periodico".
+                Paso 1b: NN aprende que K=1 + RSI=72 + PnL_flotante=−0.4% → no es buena señal
+                Paso 2: RSI=72, score_fundamental=0.61
+                Paso 3: modelo recomienda reducir N_EXP a 1.1 (más conservador)
+                Paso 4: X1 usa N_EXP=1.1 para las nuevas órdenes de las 09:00–10:00
+
+Lunes 10:00   → Paso 1: tampoco cerró nada. PnL flotante = −$600. Otro "periodico".
+                Paso 1b: NN refuerza: "con estas condiciones, el sistema está sufriendo"
+                Paso 3: modelo recomienda bajar n_sizes_ejecucion a 70 (menos exposición)
+                Paso 4: X1 usa n_sizes=70
+
+Lunes 14:00   → Paso 1: 2 posiciones cerraron. Retorno −3.2% y −2.8%. Guarda 2 registros "oc".
+                Paso 1b: NN aprende: "K=1 + RSI_alto + mercado bajista → mal resultado"
+                Paso 3: modelo ahora recomienda parámetros más defensivos (A alto, LAMBDA bajo)
+```
+
+El modelo no esperó al lunes siguiente para aprender del crash del lunes — aprendió vela por vela mientras ocurría.
+
+### La diferencia clave respecto al diseño anterior
+
+**Antes (batch):** el modelo entrenaba periódicamente (ej. cada 100 trades) en una sesión separada `--train`. Entre sesiones, usaba el modelo antiguo aunque el mercado hubiera cambiado drásticamente.
+
+**Ahora (continuo):** el modelo se actualiza en cada vela. El ciclo `--vela` hace todo: captura → aprende → recomienda. No hay una sesión de entrenamiento separada en producción normal — el aprendizaje es parte del loop de trading.
+
+---
+
 ## Glosario
 
 | Término | Qué significa en este proyecto |
@@ -370,4 +498,9 @@ Donde `λ` controla qué tan rápido decae el peso. Con `λ` alto, el modelo "ol
 | **Ponderación temporal exponencial** | Dar más peso a los datos recientes durante el entrenamiento con un factor que decae exponencialmente con la antigüedad. Mitiga concept drift. |
 | **OE / OA / OC** | Orden en Espera (buy limit colocada) / Orden Abierta (posición activa) / Orden Cerrada (trade finalizado). |
 | **retorno_pct** | Retorno porcentual de una operación: `(precio_salida - precio_entrada) / precio_entrada × 100`. Variable objetivo principal de X5. |
-| **Store de trades** | El dataset de entrenamiento de X5: una tabla donde cada fila es una OC con su contexto (X2+X3 al momento de OE), los params activos, y el resultado. |
+| **Store de trades** | El dataset de entrenamiento de X5: una tabla con dos tipos de fila — `"oc"` (una por trade cerrado, Y=retorno_pct) y `"periodico"` (una cada T velas H1, Y=pnl_flotante_activo). Ambos tipos comparten el mismo CSV por activo. |
+| **Registro periódico** | Fila del store generada cada T velas H1 independientemente de si hay OC. Captura el estado del portfolio durante rachas adversas cuando ninguna orden cierra. Solo se genera si hay posiciones abiertas. |
+| **pnl_flotante_activo** | P&L flotante (no realizado) de todas las posiciones abiertas de un activo en un momento dado. Variable objetivo de los registros periódicos. Negativo = posiciones en pérdida. |
+| **Aprendizaje online** | El modelo actualiza sus pesos con cada nuevo dato (o mini-lote pequeño), sin esperar a acumular un dataset grande. Natural en Redes Neuronales vía un paso de gradiente por vela. |
+| **Aprendizaje batch** | El modelo se reentrena sobre todo el dataset acumulado en una sola sesión. LightGBM usa este modo; el reentrenamiento completo ocurre cada `X5_RETRAIN_EVERY_N_VELAS` velas. |
+| **`--vela`** | Modo normal de producción de X5: ejecuta los 4 pasos del ciclo por vela (capturar → actualizar modelo → inferir params → escribir active_parameters.json). Llamado por X1 en Fase 2 al cierre de cada vela H1. |

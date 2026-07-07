@@ -1,5 +1,10 @@
 # X4 Backtester — Plan de implementación
 
+> **Siglas de órdenes** (usadas en todo este documento):
+> - **OE** — Orden en Espera: buy limit colocada en un nivel de soporte, esperando que el precio baje hasta ella.
+> - **OA** — Orden Abierta: posición activa (la OE fue ejecutada, el precio tocó el soporte y entró la compra).
+> - **OC** — Orden Cerrada: posición que ya cerró, ya sea por trailing stop, PERDIDA_MAX o stop loss.
+
 ## 1. Objetivo
 
 Simular la estrategia completa (X0 + lógica de X1) sobre datos históricos, desde una fecha configurable hasta el presente. La simulación avanza vela H1 a vela H1, recalcula soportes periódicamente, gestiona un libro de órdenes en memoria, y registra cada trade cerrado en un store JSON. Este store es la fuente de training data para X5 y X6.

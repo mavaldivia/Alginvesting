@@ -28,10 +28,8 @@
 > Plan de implementación: [`docs/plans/x5_plan.md`](../plans/x5_plan.md)
 
 - [ ] **Leer x5_plan.md completo** antes de implementar — incluye sección "Sugerencias y definiciones" con decisiones de arquitectura, contrafactual, exploración y estrategia de inferencia que condicionan el diseño. (I:8 C:1 H:10 → 8.94)
-- [ ] **Diseñar schema del store de trades**: qué columnas capturar en cada snapshot (OE, OA, OC) — features de X2, X3, config_params activos, órdenes abiertas del activo, timestamp, precio, P&L. Es la base del dataset de entrenamiento. (I:8 C:2 H:9 → 4.24)
 - [ ] **Definir schema de `config/active_parameters.json`**: parámetros que escribe X5 (`n_sizes_ejecucion[v]`, `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M[v]`), con qué granularidad (por activo o global). (I:5 C:2 H:7 → 2.96)
-- [ ] Definir frecuencia de ejecución de X5: ¿diario? ¿antes de cada corrida de X0? ¿en el loop de X1? Requiere discusión. (I:4 C:2 H:5 → 2.24)
-- [ ] **Implementar captura de datos en X1**: al cerrar OC, agregar fila al store de trades con snapshots OE+OA+OC. Output: CSV o JSON por activo en `resources/x5/`. (I:8 C:4 H:8 → 2.00)
+- [ ] **Implementar X5 backtester por activo**: script independiente por activo (o `--activo` como argumento) que recorre el historial H1 en el loop explore/exploit, simula la lógica de X1 y registra cada OC con sus snapshots OE+OA+OC en `resources/x5/{ACTIVO}_store.csv`. Seguir el plan estructural de x5_plan.md ("Backtesting como generador de datos"). (I:9 C:7 H:9 → 1.29)
 - [ ] **X5_macro_brain.py**: surrogate model (X2+X3+config_params → retorno predicho) + optimización sobre config_params en inferencia. Output: `config/active_parameters.json` consumido por X0 y X1. (I:9 C:8 H:5 → 0.84)
 
 ### Backlog

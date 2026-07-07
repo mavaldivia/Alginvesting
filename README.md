@@ -12,29 +12,49 @@ Sistema de trading algorítmico personal. Identifica soportes y resistencias óp
 
 ## Arquitectura
 
-El sistema está organizado en 7 módulos (X0→X6):
+El sistema está organizado en 6 módulos (X0→X5):
 
 | Módulo | Propósito | Estado |
 |--------|-----------|--------|
 | **X0** | Descarga precios vía MT5 + algoritmo de búsqueda de soportes/resistencias óptimos | Operativo |
-| **X1** | Loop semi-automático de trading: buy limits, trailing stop, control de pérdida máxima | Operativo |
+| **X1** | Loop semi-automático de trading: buy limits, trailing stop, control de pérdida máxima. `TIPO_EJECUCION="est\|din"` | Operativo |
 | **X2** | Score fundamental por activo (yfinance + CoinGecko + Fear & Greed) con historial diario | Operativo |
-| **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) — alimenta X6 ([plan](docs/x3_plan.md)) | En diseño |
-| **X4** | Backtester histórico sobre datos reales con parámetros dinámicos | En diseño ([plan](docs/x4_plan.md)) |
-| **X5** | Modelos supervisados sobre store de trades (retorno esperado, probabilidad de pérdida) | Pendiente |
-| **X6** | Cerebro macro: recomienda parámetros dinámicos a X0/X1 basándose en X2/X3/X5 | Pendiente |
+| **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) — alimenta X5 ([plan](docs/plans/x3_plan.md)) | Operativo |
+| **X4** | Backtester histórico sobre datos reales | En diseño ([plan](docs/plans/x4_plan.md)) |
+| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](docs/plans/x5_plan.md)) | En diseño |
 
 ---
 
-## Flujo principal (X0 → X1)
+## Flujo principal
+
+### Fase 1 — Estático (`TIPO_EJECUCION = "est"`, estado actual)
 
 ```
 X0 — Etapa 1: Descarga/actualiza CSVs OHLCV desde MT5
 X0 — Etapa 2: Búsqueda de N soportes óptimos por activo → conjuntos_N/prod/{VALOR}_{N}.json
-X1 — Loop: Lee soportes → Gestiona buy limits en MT5 → Trailing stop → Cierra si pérdida > PERDIDA_MAX
-X2 — Diario: Score fundamental por activo → fundamentals/scores.json + x2_history.json
-X3 — Incremental: Features técnicas por activo → features/{VALOR}.csv (actualizado en cada ciclo de X0, tras descarga H1)
+X1 — Loop: Lee soportes → Gestiona buy limits → Trailing stop → Cierra si pérdida > PERDIDA_MAX
+             (parámetros de config.py — estáticos)
+X2 — Diario: Score fundamental por activo → resources/x2/scores.json + x2_history.json
+X3 — Incremental: Features técnicas → resources/x3/{VALOR}.csv (tras cada descarga H1 en X0)
+X5 backtester (por activo) — Genera store de trades con loop explore/exploit → resources/x5/{ACTIVO}_store.csv
+X5 — Entrena modelo sobre el store → config/active_parameters.json
 ```
+
+### Fase 2 — Dinámico con retroalimentación (`TIPO_EJECUCION = "din"`)
+
+> **OE** = Orden en Espera (buy limit en un soporte) · **OA** = Orden Abierta (posición activa) · **OC** = Orden Cerrada (trade finalizado)
+
+```
+         X0 (soportes óptimos)          X2 (fundamentales)   X3 (técnicas)
+              │                                │                    │
+              ▼                                └────────────────────┘
+         X1 live ──── lee config/active_parameters.json ◄──── X5 (inferencia)
+              │                                                      ▲
+              └── OC cerrada ──► resources/x5/{ACTIVO}_store.csv ───┘
+                                          (X5 reentrena periódicamente)
+```
+
+X0, X2 y X3 son independientes de las fases — siguen corriendo igual. La transición Fase 1 → Fase 2 es por activo y se activa manualmente (`TIPO_EJECUCION = "din"`). Si un activo no tiene modelo entrenado (`model_status = "untrained"`), X1 cae back a `config.py` automáticamente para ese activo.
 
 ---
 
@@ -77,7 +97,7 @@ El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste 
 
 Score final = `(1 - W_TENDENCIA) × score_cross + W_TENDENCIA × score_tendencia` (0.5 neutral si < 7 días de historia).
 
-Guarda historial en `fundamentals/x2_history.json` (upsert por fecha+activo), guard de día para no ejecutar dos veces, flag `--forzar`. Los pesos por activo son override-ables desde `config/active_parameters.json` (pensado para X6).
+Guarda historial en `fundamentals/x2_history.json` (upsert por fecha+activo), guard de día para no ejecutar dos veces, flag `--forzar`. Los pesos por activo son override-ables desde `config/active_parameters.json` (escrito por X5).
 
 ---
 
@@ -186,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-06** — docs: ciclo por vela en X5 — aprendizaje continuo y modo --vela
 - **2026-06-30** — docs: x5 plan redes neuronales + mejoras explicación
 - **2026-06-27** — docs: sugerencias arquitectura y gaps en x5_plan
 - **2026-06-26** — feat: stop-out en X4 + equity en prints de checkpoint
