@@ -4,6 +4,7 @@
 
 ### X5 — X5_macro_brain.py
 
+- [x] **[PRIORIDAD 1] Construir X5_macro_brain.py**: implementado `scripts/X5_macro_brain.py` (~890 líneas) — surrogate model completo con entrenamiento LightGBM (500–5000 OC, 3 targets, early stopping) y FT-Transformer (>5000 OC, Feature Tokenizer + Transformer 3 capas, 3 heads). Inferencia por Optuna/TPE (LightGBM) y gradient ascent con matriz de proyección P (FTT). Airbag hard rule, ponderación exponencial temporal, feature_cols persistidas con modelo. CLI: `--vela`, `--train`, `--infer`, `--status` + `--activo`. Output: `config/active_parameters.json` consumido por X1/X0.
 - [x] **Definir schema de `config/active_parameters.json`**: schema formalizado en `docs/plans/x5_plan.md` sección "Schema de `active_parameters.json`". Decisiones clave: `model_status` anidado por activo, params incluidos también en activos `untrained` (baseline de `config.py`), `generated_at` como metadata global, todos los params por activo (incluido `PERDIDA_MAX`).
 - [x] **Definir frecuencia de ejecución de X5**: cada vela H1 — inferencia barata tras cada vela, reentrenamiento batch cada `X5_RETRAIN_EVERY_N_TRADES` registros. Definido en `docs/plans/x5_plan.md` sección "Frecuencia de ejecución".
 - [x] **Diseñar schema del store de trades**: qué columnas capturar en cada snapshot (OE, OA, OC) — features de X2, X3, config_params activos, órdenes abiertas del activo, timestamp, precio, P&L. Definido en `docs/plans/x5_plan.md` secciones "Store de trades" y sección 7 (features de portfolio agregadas).

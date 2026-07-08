@@ -27,8 +27,6 @@
 > Fusiona los roles originales de X5 y X6 (ver `docs/context/decisiones.md` 2026-06-26).
 > Plan de implementación: [`docs/plans/x5_plan.md`](../plans/x5_plan.md)
 
-- [ ] **[PRIORIDAD 1] Construir X5_macro_brain.py**: implementar el surrogate model completo (entrenamiento LightGBM → FT-Transformer + inferencia por gradient ascent/Optuna) y el modo `--vela` de aprendizaje continuo, con base en `docs/plans/x5_plan.md` y `docs/plans/x5_plan_redes_neuronales.md`. El backtester (`x5_macrobrain.py`) ya existe — este ítem cubre la capa de modelo. (I:10 C:9 H:10 → 1.11)
-- [ ] **X5_macro_brain.py**: surrogate model (X2+X3+config_params → retorno predicho) + optimización sobre config_params en inferencia. Output: `config/active_parameters.json` consumido por X0 y X1. (I:9 C:8 H:5 → 0.84)
 
 ### Backlog
 
