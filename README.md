@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-07** — docs: schema active_parameters.json en x5_plan + records sesión 78
 - **2026-07-07** — docs: transformer explainer + PERDIDA_MAX como param aprendido en X5
 - **2026-07-07** — docs: arquitectura dinámica NN en x5_plan y x5_plan_redes_neuronales
 - **2026-07-07** — docs: alinear x5_plan + redes_neuronales, features temporales, x5_macrobrain

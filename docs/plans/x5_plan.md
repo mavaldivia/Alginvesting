@@ -405,6 +405,62 @@ config/
 
 `model_status` va dentro de `active_parameters.json` (ver sección 5 de Sugerencias). No hay un archivo de estado separado.
 
+### Schema de `active_parameters.json`
+
+Un objeto JSON con una clave por activo más un timestamp global:
+
+```json
+{
+  "generated_at": "2026-01-07T09:00:00",
+  "BTCUSD": {
+    "model_status": "lgbm",
+    "n_sizes_ejecucion": 95,
+    "K": 1.1,
+    "N_EXP": 1.4,
+    "LAMBDA": 0.002,
+    "A": 8.5,
+    "B": 2.1,
+    "LOTAJES_M": 2,
+    "PERDIDA_MAX": 140.0
+  },
+  "ETHUSD": {
+    "model_status": "untrained",
+    "n_sizes_ejecucion": 80,
+    "K": 1.0,
+    "N_EXP": 1.3,
+    "LAMBDA": 0.002,
+    "A": 6.0,
+    "B": 2.0,
+    "LOTAJES_M": 1,
+    "PERDIDA_MAX": 120.0
+  }
+}
+```
+
+**Decisiones fijadas:**
+
+- `model_status` va anidado dentro de cada activo (no en una clave separada). X1 lee `json[activo]["model_status"]`.
+- Activos con `model_status = "untrained"` incluyen igualmente todos los params — son los valores baseline de `config.py`. X1 los ignora y usa `config.py` directamente, pero el JSON siempre está completo.
+- `generated_at` (ISO 8601) es metadata global para debugging y auditoría. No lo lee X1.
+- Todos los params son por activo: `K`, `N_EXP`, `LAMBDA`, `A`, `B` (que hoy son escalares globales en `config.py`) pasan a ser por activo al integrar X5.
+- `PERDIDA_MAX` se incluye por activo — su nivel óptimo interactúa con `LOTAJES_M` y el régimen del activo.
+
+**Cómo lo lee X1:**
+
+```python
+import json
+with open("config/active_parameters.json") as f:
+    ap = json.load(f)
+
+for activo in VALORES:
+    if ap[activo]["model_status"] == "untrained":
+        # usa config.py directamente para este activo
+        continue
+    n_sizes_ejecucion = ap[activo]["n_sizes_ejecucion"]
+    K = ap[activo]["K"]
+    # ... etc.
+```
+
 ### Estructura del código (`X5_macro_brain.py`)
 
 El script tiene cuatro modos de uso:
@@ -650,7 +706,6 @@ X5_PARAM_RANGES = {
 
 ## Decisiones pendientes
 
-- [ ] Schema exacto de `config/active_parameters.json`
 - [ ] Frecuencia de ejecución
 - [ ] Variable objetivo principal para optimizar en inferencia (`retorno_pct` vs portfolio P&L)
 - [ ] Arquitectura del modelo (Gradient Boosting vs NN) — decidir con datos reales

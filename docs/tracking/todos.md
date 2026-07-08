@@ -28,7 +28,6 @@
 > Plan de implementación: [`docs/plans/x5_plan.md`](../plans/x5_plan.md)
 
 - [ ] **[PRIORIDAD 1] Construir X5_macro_brain.py**: implementar el surrogate model completo (entrenamiento LightGBM → FT-Transformer + inferencia por gradient ascent/Optuna) y el modo `--vela` de aprendizaje continuo, con base en `docs/plans/x5_plan.md` y `docs/plans/x5_plan_redes_neuronales.md`. El backtester (`x5_macrobrain.py`) ya existe — este ítem cubre la capa de modelo. (I:10 C:9 H:10 → 1.11)
-- [ ] **Definir schema de `config/active_parameters.json`**: parámetros que escribe X5 (`n_sizes_ejecucion[v]`, `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M[v]`, `PERDIDA_MAX[v]`), con qué granularidad (por activo o global). (I:5 C:2 H:7 → 2.96)
 - [ ] **X5_macro_brain.py**: surrogate model (X2+X3+config_params → retorno predicho) + optimización sobre config_params en inferencia. Output: `config/active_parameters.json` consumido por X0 y X1. (I:9 C:8 H:5 → 0.84)
 
 ### Backlog

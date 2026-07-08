@@ -4,6 +4,7 @@
 
 ### X5 — X5_macro_brain.py
 
+- [x] **Definir schema de `config/active_parameters.json`**: schema formalizado en `docs/plans/x5_plan.md` sección "Schema de `active_parameters.json`". Decisiones clave: `model_status` anidado por activo, params incluidos también en activos `untrained` (baseline de `config.py`), `generated_at` como metadata global, todos los params por activo (incluido `PERDIDA_MAX`).
 - [x] **Definir frecuencia de ejecución de X5**: cada vela H1 — inferencia barata tras cada vela, reentrenamiento batch cada `X5_RETRAIN_EVERY_N_TRADES` registros. Definido en `docs/plans/x5_plan.md` sección "Frecuencia de ejecución".
 - [x] **Diseñar schema del store de trades**: qué columnas capturar en cada snapshot (OE, OA, OC) — features de X2, X3, config_params activos, órdenes abiertas del activo, timestamp, precio, P&L. Definido en `docs/plans/x5_plan.md` secciones "Store de trades" y sección 7 (features de portfolio agregadas).
 

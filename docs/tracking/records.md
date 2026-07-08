@@ -820,3 +820,8 @@ Claude: Implementó `PERDIDA_MAX` como parámetro aprendido en `config.py` (rang
 Mauricio: Pidió dejar como primera prioridad en todos construir X5_macro_brain.py con base en los planes.
 Claude: Agregó ítem `[PRIORIDAD 1]` en la sección X5 de `docs/tracking/todos.md`, actualizó el schema de `active_parameters.json` para incluir `PERDIDA_MAX[v]`, y eliminó el ítem de "Leer x5_plan.md" que quedaba obsoleto.
 (Cierre: 2026-07-07 01:03)
+
+## SECCIÓN 78
+Mauricio: Invocó `/todos`, eligió trabajar en X5. Preguntó qué significa el ítem "Definir schema de `config/active_parameters.json`" y si Claude tenía dudas o una idea clara para ejecutarlo.
+Claude: Explicó que el ítem consiste en formalizar la estructura JSON que X5 escribe y X1/X0 leen — confirmó tener idea clara (el plan ya resolvía las decisiones sustantivas) y propuso cerrarlo. Mauricio aprobó. Claude agregó una subsección "Schema de `active_parameters.json`" en `x5_plan.md` con el JSON de ejemplo y las decisiones clave (model_status por activo, params incluidos en untrained con baseline de config.py, generated_at como metadata global, todos los params por activo incluyendo PERDIDA_MAX). Removió el ítem de "Decisiones pendientes" del plan, lo sacó de `todos.md` y lo movió a `done.md`.
+(Cierre: 2026-07-07 20:16)
