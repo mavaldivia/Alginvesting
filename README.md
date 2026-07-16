@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-15** — fix: X1 no elimina OE cuando mercado está cerrado
 - **2026-07-07** — feat: implementar X5_macro_brain.py — surrogate model completo
 - **2026-07-07** — docs: schema active_parameters.json en x5_plan + records sesión 78
 - **2026-07-07** — docs: transformer explainer + PERDIDA_MAX como param aprendido en X5

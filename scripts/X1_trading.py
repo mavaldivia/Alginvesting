@@ -74,6 +74,14 @@ def obtener_precio_actual(valor: str, modo: str = 'B') -> float:
     return tick.bid if modo == 'B' else tick.ask
 
 
+def mercado_abierto(valor: str) -> bool:
+    """Retorna True si el mercado permite colocar nuevas órdenes pendientes."""
+    info = mt5.symbol_info(valor)
+    if info is None:
+        return False
+    return info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
+
+
 def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
     """
     Devuelve las posiciones abiertas (OA) y órdenes pendientes (OE) actuales en MT5.
@@ -356,11 +364,13 @@ if __name__ == '__main__':
 
                     lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
 
-                    # A: Limpiar órdenes pendientes que ya no corresponden a soportes vigentes
-                    limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
-
-                    # B: Crear órdenes de compra pendientes en soportes válidos
-                    crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
+                    # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
+                    # no eliminar las OE existentes porque no se pueden reponer
+                    if mercado_abierto(valor):
+                        limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
+                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
+                    else:
+                        print(f'  {valor}: mercado cerrado — OE existentes mantenidas')
 
                     # C: Trailing stop en posiciones abiertas
                     trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)

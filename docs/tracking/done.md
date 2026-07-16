@@ -67,6 +67,7 @@
 - [x] Migrar X1 (notebook) a `scripts/X1_trading.py`
   - Mismas reglas que X0: solo lo estrictamente necesario, misma lógica
   - Agregada lógica: si pérdida > `PERDIDA_MAX` → cerrar la operación (`controlar_perdida_max`)
+- [x] **Fix X1: mercado cerrado no elimina OE activas**: cuando el mercado está cerrado y no se pueden colocar nuevas órdenes, tampoco se eliminan las buy limits (OE) pendientes ya activas en MT5.
 
 ### X2 — X2_fundamentals.py
 
