@@ -850,3 +850,8 @@ Claude: Revisó `X1_trading.py` y constató que el fix ya estaba implementado de
 Mauricio: Invocó `/new_todo` con una imagen de la terminal mostrando dos problemas en X1: (1) una posición de ETHUSD aparecía como "cerrada externamente" con SL=1825.79, pese a que el log anterior confirmaba que el SL había sido actualizado a 1851.34; (2) quería agregar una columna "A - distancia" a la tabla "Por declarar" que mostrara cuánto falta en USD para que cada buy limit se active.
 Claude: Identificó que el bug del SL es una race condition: el precio tocó el SL viejo (1825.79) justo cuando se enviaba el modify a MT5, que retorna `RETCODE_DONE` incluso si la posición ya se estaba cerrando. Fix en `cambiar_SL`: ahora retorna `True/False` y verifica con `positions_get(ticket=...)` que la posición siga abierta post-envío; si ya no existe, imprime mensaje claro y retorna `False`. En `trailing_stop`: usa el retorno — si falla en el caso `sl>0`, elimina el ticket de `dic_seguimiento` de inmediato. Para la columna: en `informacion`, agrega `Falta_USD = (A - Distancia_USD).round(2)` al DataFrame `por_declarar` antes de imprimirlo. Ambos cambios registrados en `done.md`.
 (Cierre: 2026-07-16 00:02)
+
+## SECCIÓN 84
+Mauricio: Invocó `/new_todo` con una imagen de la terminal mostrando que el log "SL actualizado: orden 528604805 → 1874.04" no indicaba a qué activo pertenecía.
+Claude: Localizó el print en `cambiar_SL` (`X1_trading.py:223`), que ya recibe `valor` como parámetro. Cambió el print a `"{valor}: SL actualizado: orden {ticket} → {sl}"`. Registrado en `done.md` bajo la sección X1.
+(Cierre: 2026-07-16 00:07)

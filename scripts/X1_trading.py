@@ -220,7 +220,7 @@ def cambiar_SL(orden, valor: str, sl: float) -> bool:
     if not posiciones:
         print(f'  SL enviado pero posición {orden.ticket} ya fue cerrada durante la modificación')
         return False
-    print(f'  SL actualizado: orden {orden.ticket} → {posiciones[0].sl:.2f}')
+    print(f'  {valor}: SL actualizado: orden {orden.ticket} → {posiciones[0].sl:.2f}')
     return True
 
 

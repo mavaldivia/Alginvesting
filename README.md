@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-16** — fix: X1 SL actualizado muestra activo
 - **2026-07-16** — fix: X1 race condition SL + columna Falta_USD en Por declarar
 - **2026-07-15** — docs: registrar sesión 82 + done.md X1
 - **2026-07-15** — fix: dic_seguimiento almacena tickets en vez de objetos MT5
