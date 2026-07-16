@@ -68,6 +68,7 @@
   - Mismas reglas que X0: solo lo estrictamente necesario, misma lógica
   - Agregada lógica: si pérdida > `PERDIDA_MAX` → cerrar la operación (`controlar_perdida_max`)
 - [x] **Fix X1: mercado cerrado no elimina OE activas**: cuando el mercado está cerrado y no se pueden colocar nuevas órdenes, tampoco se eliminan las buy limits (OE) pendientes ya activas en MT5.
+- [x] **Fix X1: chequeo de mercado abierto antes de colocar buy limits**: `crear_ordenes_espera` y `limpiar_ordenes_pendientes_no_validas` solo se ejecutan si `mercado_abierto(valor)` retorna True, evitando el spam de notificaciones "Pending order placed" cuando la bolsa US está cerrada.
 - [x] **Fix X1: falso positivo "posición cerrada" + SL omitido ocasionalmente**: `dic_seguimiento` almacenaba objetos MT5 completos; como MT5 retorna nuevos objetos cada ciclo y sus campos (sl, profit) cambian, la comparación `orden not in actual_OA` fallaba → falso "cerrada externamente" → loop dormía en modo TS → el trailing stop perdía ventanas de actualización. Fix: `dic_seguimiento` ahora almacena tickets (int) y la comparación usa `{p.ticket for p in actual_OA}`.
 
 ### X2 — X2_fundamentals.py

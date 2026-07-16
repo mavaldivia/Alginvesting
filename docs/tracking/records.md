@@ -840,3 +840,8 @@ Claude: Actualizó el skill `/new_todo` agregando un paso 2 mandatorio ("Impleme
 Mauricio: Invocó `/new_todo` con una imagen de la terminal mostrando que X1 reportaba una posición como "cerrada externamente" cuando en realidad seguía abierta, y que ocasionalmente el cambio de SL no se aplicaba.
 Claude: Leyó `X1_trading.py` completo, identificó la causa raíz: `dic_seguimiento` almacenaba objetos MT5 completos. Como `mt5.positions_get()` retorna nuevos objetos Python cada ciclo y sus campos (`sl`, `profit`) cambian, la comparación `orden not in actual_OA` fallaba siempre → falso "cerrada externamente" → `dic_seguimiento` quedaba vacío → `time_sleep = True` → loop dormía `TS` segundos entre ciclos → trailing stop perdía ventanas de actualización del SL. Fix: `dic_seguimiento` ahora almacena tickets (int); comparación usa `{p.ticket for p in actual_OA}` en `obtener_conjuntos_actuales` y `orden.ticket` en `trailing_stop`. Registrado en `done.md`.
 (Cierre: 2026-07-15 23:43)
+
+## SECCIÓN 82
+Mauricio: Invocó `/new_todo` con una imagen mostrando spam de notificaciones "Pending order placed" en MT5 para TSLA cuando el mercado estaba cerrado — pidió que X1 chequee si el mercado está abierto antes de intentar colocar buy limits.
+Claude: Revisó `X1_trading.py` y constató que el fix ya estaba implementado desde el commit `0b7d3de`: `mercado_abierto(valor)` en línea 370 ya envuelve tanto `limpiar_ordenes_pendientes_no_validas` como `crear_ordenes_espera`. La imagen era del estado previo al fix. Sin cambios de código, solo registró el ítem en `done.md` bajo la sección X1.
+(Cierre: 2026-07-15 23:49)
