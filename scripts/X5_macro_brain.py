@@ -62,9 +62,10 @@ except ImportError:
 
 # ─── Rutas ───────────────────────────────────────────────────────────────────
 
-CARPETA_X5     = cfg.CARPETA_X5
-CARPETA_MODELS = CARPETA_X5 / 'models'
-ACTIVE_PARAMS  = cfg.BASE_DIR / 'config' / 'active_parameters.json'
+CARPETA_X5          = cfg.CARPETA_X5
+CARPETA_MODELS      = CARPETA_X5 / 'models'
+CARPETA_PERFORMANCE = CARPETA_X5 / 'Performance'
+ACTIVE_PARAMS       = cfg.BASE_DIR / 'config' / 'active_parameters.json'
 
 # ─── Festivos (features temporales) ──────────────────────────────────────────
 
@@ -297,6 +298,49 @@ def _construir_vector(contexto: dict, params_store: dict, feature_cols: list) ->
     full = {**contexto, **params_store}
     return np.array([float(full.get(c, 0.0)) for c in feature_cols], dtype=np.float32)
 
+# ─── Métricas ML ─────────────────────────────────────────────────────────────
+
+def _calcular_metricas(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    """MAE, MSE, MAPE y R2 para un par (y_true, y_pred)."""
+    if len(y_true) == 0:
+        return {}
+    mae = float(np.mean(np.abs(y_true - y_pred)))
+    mse = float(np.mean((y_true - y_pred) ** 2))
+    mask = np.abs(y_true) > 1e-8
+    mape = float(np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100) if mask.any() else None
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+    r2 = float(1 - ss_res / ss_tot) if ss_tot > 1e-10 else None
+    return {
+        'MAE':  round(mae, 6),
+        'MSE':  round(mse, 6),
+        'MAPE': round(mape, 4) if mape is not None else None,
+        'R2':   round(r2, 6)   if r2   is not None else None,
+    }
+
+
+def _guardar_performance(activo: str, tipo_modelo: str, n_train: int, n_test: int,
+                         metricas: dict) -> None:
+    """Persiste métricas en resources/x5/Performance/{activo}_performance.json como historial."""
+    CARPETA_PERFORMANCE.mkdir(parents=True, exist_ok=True)
+    path = CARPETA_PERFORMANCE / f'{activo}_performance.json'
+    entrada = {
+        'timestamp':   datetime.now().isoformat(timespec='seconds'),
+        'tipo_modelo': tipo_modelo,
+        'n_train':     n_train,
+        'n_test':      n_test,
+        'targets':     metricas,
+    }
+    historial: list = []
+    if path.exists():
+        with open(path) as f:
+            contenido = json.load(f)
+        historial = contenido if isinstance(contenido, list) else [contenido]
+    historial.append(entrada)
+    with open(path, 'w') as f:
+        json.dump(historial, f, indent=2)
+    print(f'  [{activo}] Performance → {path.relative_to(cfg.BASE_DIR)}')
+
 # ─── Model directories ────────────────────────────────────────────────────────
 
 def _model_dir(activo: str) -> Path:
@@ -320,6 +364,8 @@ def _entrenar_lgbm(activo: str, store: pd.DataFrame) -> bool:
     }
 
     exito = True
+    metricas: dict = {}
+    n_train_total = n_test_total = 0
     for key, (target_col, tipo_reg) in targets.items():
         X, y, w = _preparar_features(store, feature_cols, target_col, tipo_reg)
         if len(X) < 20:
@@ -330,6 +376,8 @@ def _entrenar_lgbm(activo: str, store: pd.DataFrame) -> bool:
         split = max(10, int(len(X) * 0.8))
         X_tr, y_tr, w_tr = X[:split], y[:split], w[:split]
         X_val, y_val     = X[split:], y[split:]
+        n_train_total = split
+        n_test_total  = len(X_val)
 
         lgb_params = {
             'objective': 'regression', 'metric': 'rmse',
@@ -349,12 +397,19 @@ def _entrenar_lgbm(activo: str, store: pd.DataFrame) -> bool:
             model.fit(X_tr, y_tr, sample_weight=w_tr)
             best_iter = lgb_params['n_estimators']
 
+        metricas[key] = {
+            'train': _calcular_metricas(y_tr, model.predict(X_tr)),
+            'test':  _calcular_metricas(y_val, model.predict(X_val)) if len(X_val) > 0 else {},
+        }
+
         with open(out / f'{activo}_lgbm_{key}.pkl', 'wb') as f:
             pickle.dump(model, f)
         print(f'  [{activo}] LGBM {key}: {split} train | {len(X_val)} val | iter={best_iter}')
 
     with open(out / f'{activo}_lgbm_features.json', 'w') as f:
         json.dump(feature_cols, f)
+    if metricas:
+        _guardar_performance(activo, 'lgbm', n_train_total, n_test_total, metricas)
     return exito
 
 
@@ -474,10 +529,12 @@ def _entrenar_ftt(activo: str, store: pd.DataFrame) -> bool:
     y_f = y_f[:n] if len(y_f) >= n else np.zeros(n, dtype=np.float32)
     y_c = y_c[:n] if len(y_c) >= n else np.zeros(n, dtype=np.float32)
 
-    # Normalización columna a columna
-    col_mean = X.mean(axis=0, keepdims=True)
-    col_std  = np.where(X.std(axis=0, keepdims=True) > 1e-8,
-                        X.std(axis=0, keepdims=True), 1.0)
+    split = max(10, int(n * 0.8))
+
+    # Normalización columna a columna (solo sobre train)
+    col_mean = X[:split].mean(axis=0, keepdims=True)
+    col_std  = np.where(X[:split].std(axis=0, keepdims=True) > 1e-8,
+                        X[:split].std(axis=0, keepdims=True), 1.0)
     X_norm = ((X - col_mean) / col_std).astype(np.float32)
     scaler = {'mean': col_mean.tolist(), 'std': col_std.tolist()}
 
@@ -485,19 +542,19 @@ def _entrenar_ftt(activo: str, store: pd.DataFrame) -> bool:
     model  = FTTransformer(n_features=len(feature_cols)).to(device)
     opt    = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
 
-    X_t   = torch.tensor(X_norm, device=device)
-    y_rt  = torch.tensor(y_r,  device=device)
-    y_ft  = torch.tensor(y_f,  device=device)
-    y_ct  = torch.tensor(y_c,  device=device)
-    w_t   = torch.tensor(w,    device=device)
+    X_t   = torch.tensor(X_norm[:split], device=device)
+    y_rt  = torch.tensor(y_r[:split],  device=device)
+    y_ft  = torch.tensor(y_f[:split],  device=device)
+    y_ct  = torch.tensor(y_c[:split],  device=device)
+    w_t   = torch.tensor(w[:split],    device=device)
 
     EPOCHS = 50
-    BATCH  = min(256, n)
+    BATCH  = min(256, split)
     model.train()
     for epoch in range(EPOCHS):
-        perm       = torch.randperm(n, device=device)
+        perm       = torch.randperm(split, device=device)
         total_loss = 0.0
-        for start in range(0, n, BATCH):
+        for start in range(0, split, BATCH):
             idx = perm[start:start + BATCH]
             p_r, p_f, p_c = model(X_t[idx])
             l_r = ((p_r - y_rt[idx]) ** 2 * w_t[idx]).mean()
@@ -519,7 +576,31 @@ def _entrenar_ftt(activo: str, store: pd.DataFrame) -> bool:
     }, out / f'{activo}_ftt.pt')
     with open(out / f'{activo}_ftt_features.json', 'w') as f:
         json.dump(feature_cols, f)
-    print(f'  [{activo}] FTT entrenado con {n} filas OC.')
+    print(f'  [{activo}] FTT entrenado con {split} filas OC (train) | {n - split} (test).')
+
+    # Métricas train / test
+    model.eval()
+    X_all_t = torch.tensor(X_norm, device=device)
+    with torch.no_grad():
+        p_r_all, p_f_all, p_c_all = model(X_all_t)
+    p_r_np = p_r_all.cpu().numpy()
+    p_f_np = p_f_all.cpu().numpy()
+    p_c_np = p_c_all.cpu().numpy()
+    metricas_ftt = {
+        'retorno': {
+            'train': _calcular_metricas(y_r[:split], p_r_np[:split]),
+            'test':  _calcular_metricas(y_r[split:], p_r_np[split:]) if n > split else {},
+        },
+        'flotante': {
+            'train': _calcular_metricas(y_f[:split], p_f_np[:split]),
+            'test':  _calcular_metricas(y_f[split:], p_f_np[split:]) if n > split else {},
+        },
+        'cerrado': {
+            'train': _calcular_metricas(y_c[:split], p_c_np[:split]),
+            'test':  _calcular_metricas(y_c[split:], p_c_np[split:]) if n > split else {},
+        },
+    }
+    _guardar_performance(activo, 'ftt', split, n - split, metricas_ftt)
     return True
 
 

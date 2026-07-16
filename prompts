@@ -209,3 +209,9 @@ X2
 
   # Actualiza el plan con todos estos comentarios
 /consultar
+
+
+- /new_todo seccion X5: Es clave que se midan métricas clásicas de ML 
+(MAE, MSE, MAPE, R2) tanto para train como para test en la performance y evlocución de lo
+que se hace en X5, para cada valor.
+Guarda estos registros en resources/x5 de la forma que te parezca conveniente (puede ser un archivo para cada valor, dentro de una carpeta llamada Performance)

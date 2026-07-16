@@ -855,3 +855,8 @@ Claude: Identificó que el bug del SL es una race condition: el precio tocó el 
 Mauricio: Invocó `/new_todo` con una imagen de la terminal mostrando que el log "SL actualizado: orden 528604805 → 1874.04" no indicaba a qué activo pertenecía.
 Claude: Localizó el print en `cambiar_SL` (`X1_trading.py:223`), que ya recibe `valor` como parámetro. Cambió el print a `"{valor}: SL actualizado: orden {ticket} → {sl}"`. Registrado en `done.md` bajo la sección X1.
 (Cierre: 2026-07-16 00:07)
+
+## SECCIÓN 85
+Mauricio: Invocó `/new_todo` para X5: registrar métricas clásicas de ML (MAE, MSE, MAPE, R2) para train y test en cada entrenamiento del surrogate model, guardando los resultados en `resources/x5/Performance/` (un archivo por activo).
+Claude: Leyó `X5_macro_brain.py` completo. Implementó tres cambios: (1) `CARPETA_PERFORMANCE = CARPETA_X5 / 'Performance'`; (2) función `_calcular_metricas(y_true, y_pred)` que retorna MAE, MSE, MAPE (con guard de cero) y R2; (3) función `_guardar_performance` que appenda una entrada JSON a `resources/x5/Performance/{ACTIVO}_performance.json` con timestamp, tipo de modelo, n_train, n_test y métricas por target. En `_entrenar_lgbm` se computan métricas por los tres targets (retorno, flotante, cerrado) sobre train y val. En `_entrenar_ftt` se hizo explícito el split 80/20 (antes entrenaba con todo n), se corrigió la normalización para usar solo train, y se agrega un forward pass con `model.eval()` para calcular métricas train/test. Registrado en `done.md`.
+(Cierre: 2026-07-16 00:12)
