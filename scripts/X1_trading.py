@@ -199,7 +199,8 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
         print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}')
 
 
-def cambiar_SL(orden, valor: str, sl: float):
+def cambiar_SL(orden, valor: str, sl: float) -> bool:
+    """Modifica el SL. Retorna True solo si MT5 confirma el cambio Y la posición sigue abierta."""
     request = {
         'action': mt5.TRADE_ACTION_SLTP,
         'symbol': valor,
@@ -211,10 +212,16 @@ def cambiar_SL(orden, valor: str, sl: float):
     result = mt5.order_send(request)
     if result is None:
         print(f'  cambiar_SL failed: {mt5.last_error()}')
+        return False
     elif result.retcode != mt5.TRADE_RETCODE_DONE:
         print(f'  Error modificando SL orden {orden.ticket}: retcode={result.retcode}')
-    else:
-        print(f'  SL actualizado: orden {orden.ticket} → {sl:.2f}')
+        return False
+    posiciones = mt5.positions_get(ticket=orden.ticket)
+    if not posiciones:
+        print(f'  SL enviado pero posición {orden.ticket} ya fue cerrada durante la modificación')
+        return False
+    print(f'  SL actualizado: orden {orden.ticket} → {posiciones[0].sl:.2f}')
+    return True
 
 
 def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
@@ -239,7 +246,7 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
         if sl == 0:
             if (P0 - Pi) * L >= a:
                 sl_nuevo = P0 - b / L
-                cambiar_SL(orden, valor, sl_nuevo)
+                sl_ok = cambiar_SL(orden, valor, sl_nuevo)
                 # Repone la orden de compra en el mismo soporte para mantener el nivel activo
                 request = generate_request_buy_limit(
                     valor,
@@ -248,13 +255,15 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
                     precio=Pi,
                 )
                 ejecutar_orden(request, symbol=valor, volumen=lotajes[valor], precio=Pi)
-                cambios = True
+                cambios = sl_ok
         else:
             sl_nuevo = P0 - b / L
             if sl_nuevo > sl:
                 print(f'  Trailing stop: {valor} P0={P0:.2f} SL {sl:.2f} → {sl_nuevo:.2f}')
-                cambiar_SL(orden, valor, sl_nuevo)
-                cambios = True
+                if cambiar_SL(orden, valor, sl_nuevo):
+                    cambios = True
+                elif valor in dic_seguimiento and orden.ticket in dic_seguimiento[valor]:
+                    dic_seguimiento[valor].remove(orden.ticket)
 
         if cambios:
             if valor not in dic_seguimiento:
@@ -316,6 +325,7 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: flo
 
         print(f'\n{valor} | P0={P0:.2f} | N={N}')
         if len(por_declarar):
+            por_declarar['Falta_USD'] = (a - por_declarar['Distancia_USD']).round(2)
             print('  Por declarar (muy cerca):')
             print(por_declarar.head(5).to_string(index=False))
         if len(declarados):
