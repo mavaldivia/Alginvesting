@@ -395,15 +395,66 @@ La variable `X5_RETRAIN_EVERY_N_VELAS` aplica solo al modo LightGBM. En modo Red
 ```
 resources/x5/
 ├── {ACTIVO}_store.csv          # dataset de entrenamiento; append por cada OC
-└── models/
-    ├── {ACTIVO}_lgbm.pkl       # modelo LightGBM (V1); se sobreescribe en cada reentrenamiento
-    └── {ACTIVO}_ftt.pt         # modelo FT-Transformer (V2); idem
+├── models/
+│   ├── {ACTIVO}_lgbm.pkl       # modelo LightGBM (V1); se sobreescribe en cada reentrenamiento
+│   └── {ACTIVO}_ftt.pt         # modelo FT-Transformer (V2); idem
+└── Performance/
+    └── {ACTIVO}_performance.json  # historial de métricas ML por entrenamiento (append)
 
 config/
 └── active_parameters.json      # output de X5; leído por X0 y X1
 ```
 
 `model_status` va dentro de `active_parameters.json` (ver sección 5 de Sugerencias). No hay un archivo de estado separado.
+
+### Métricas de performance del modelo
+
+Cada vez que X5 reentrena (con `--train`), calcula y persiste métricas clásicas de Aprendizaje Automático (ML) para evaluar la calidad del modelo. El split es siempre 80 % train / 20 % test (cronológico — no aleatorio, para respetar el orden temporal de los trades).
+
+**Métricas registradas**, para cada target (`retorno`, `flotante`, `cerrado`) y para cada set (train y test):
+
+| Métrica | Fórmula | Descripción |
+|---|---|---|
+| **MAE** (Mean Absolute Error) | `mean(\|y - ŷ\|)` | Error absoluto promedio en las unidades del target. Más interpretable que MSE. |
+| **MSE** (Mean Squared Error) | `mean((y - ŷ)²)` | Penaliza errores grandes cuadráticamente. Útil para detectar outliers de predicción. |
+| **MAPE** (Mean Absolute Percentage Error) | `100 × mean(\|y - ŷ\| / \|y\|)` | Error porcentual relativo. Se omite (`None`) cuando `\|y\| ≈ 0` para evitar división por cero. |
+| **R²** (coeficiente de determinación) | `1 - SS_res/SS_tot` · `SS_res = Σ(y-ŷ)²` · `SS_tot = Σ(y-ȳ)²` | Proporción de varianza explicada. 1.0 = perfecto; 0.0 = equivale a predecir la media; negativo = peor que la media. `None` si `SS_tot ≈ 0`. |
+
+**Formato de `{ACTIVO}_performance.json`** — lista JSON con una entrada por entrenamiento (append histórico):
+
+```json
+[
+  {
+    "timestamp": "2026-07-16T00:05:00",
+    "tipo_modelo": "lgbm",
+    "n_train": 400,
+    "n_test": 100,
+    "targets": {
+      "retorno": {
+        "train": {"MAE": 0.012, "MSE": 0.0003, "MAPE": 5.2, "R2": 0.71},
+        "test":  {"MAE": 0.018, "MSE": 0.0006, "MAPE": 8.1, "R2": 0.52}
+      },
+      "flotante": {
+        "train": {"MAE": 0.9, "MSE": 1.4, "MAPE": null, "R2": 0.60},
+        "test":  {"MAE": 1.2, "MSE": 2.1, "MAPE": null, "R2": 0.40}
+      },
+      "cerrado": {
+        "train": {"MAE": 2.1, "MSE": 7.8, "MAPE": null, "R2": 0.45},
+        "test":  {"MAE": 3.3, "MSE": 15.2, "MAPE": null, "R2": 0.21}
+      }
+    }
+  }
+]
+```
+
+**Señales de alerta a vigilar en las métricas:**
+
+- `R² train >> R² test` → overfitting claro; considerar reducir `num_leaves` (LightGBM) o aumentar dropout (FTT).
+- `R² test < 0` → el modelo es peor que predecir la media; el store probablemente tiene ruido excesivo o poca variedad de contextos.
+- MAE test creciente entre entrenamientos consecutivos → degradación del modelo; coincide con el criterio de reentrenamiento forzado de la sección 4.
+- MAPE `null` frecuente en `flotante` y `cerrado` → normal (targets cercanos a 0); usar MAE y R² para esos heads.
+
+La evolución histórica de estas métricas es la fuente principal para decidir cuándo cambiar de arquitectura (V1 → V2) y para calibrar los umbrales del detector de degradación.
 
 ### Schema de `active_parameters.json`
 
@@ -787,7 +838,7 @@ a. **Ventana deslizante de entrenamiento**: en vez de acumular todo el store, en
 
 b. **Ponderación temporal en entrenamiento**: usar todos los datos pero con pesos que decaen exponencialmente hacia el pasado. Combina memoria histórica con sensibilidad al régimen actual.
 
-c. **Detección de degradación**: monitorear el error de predicción del modelo sobre los últimos N trades. Si supera un umbral → reentrenamiento forzado + alerta. Métrica sugerida: MAE rolling sobre `retorno_pct` real vs. predicho.
+c. **Detección de degradación**: monitorear el error de predicción del modelo sobre los últimos N trades. Si supera un umbral → reentrenamiento forzado + alerta. Métrica sugerida: MAE rolling sobre `retorno_pct` real vs. predicho. Las métricas históricas guardadas en `resources/x5/Performance/` son la fuente de referencia para calibrar ese umbral (ver sección "Métricas de performance del modelo").
 
 **Recomendación**: empezar con (b) — es una línea en el `sample_weight` del entrenamiento y no descarta datos valiosos de mercados pasados.
 

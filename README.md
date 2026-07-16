@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-16** — docs: métricas ML en x5_plan (fórmulas + schema + señales de alerta)
 - **2026-07-16** — feat: X5 métricas ML (MAE, MSE, MAPE, R2) train/test por activo
 - **2026-07-16** — fix: X1 SL actualizado muestra activo
 - **2026-07-16** — fix: X1 race condition SL + columna Falta_USD en Por declarar
