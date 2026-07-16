@@ -94,10 +94,11 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
     lista_OE = [o.price_open for o in actual_OE]
 
     if valor in dic_seguimiento:
-        for orden in list(dic_seguimiento[valor]):
-            if orden not in actual_OA:
-                print(f'Posición cerrada externamente, eliminando de seguimiento: {orden}')
-                dic_seguimiento[valor].remove(orden)
+        actual_tickets = {p.ticket for p in actual_OA}
+        for ticket in list(dic_seguimiento[valor]):
+            if ticket not in actual_tickets:
+                print(f'Posición cerrada externamente, eliminando de seguimiento: ticket={ticket}')
+                dic_seguimiento[valor].remove(ticket)
 
     return lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento
 
@@ -258,8 +259,8 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
         if cambios:
             if valor not in dic_seguimiento:
                 dic_seguimiento[valor] = []
-            if orden not in dic_seguimiento[valor]:
-                dic_seguimiento[valor].append(orden)
+            if orden.ticket not in dic_seguimiento[valor]:
+                dic_seguimiento[valor].append(orden.ticket)
 
 
 def cerrar_posicion(orden, valor: str, lotajes: dict):
