@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-17** — docs: record sesión 89 (cierre)
 - **2026-07-17** — feat: X5 config_x5.py + estructura resources/x5/
 - **2026-07-17** — docs: plan pipeline X5→X4 recolección de datos (5 todos)
 - **2026-07-16** — docs: métricas ML en x5_plan (fórmulas + schema + señales de alerta)

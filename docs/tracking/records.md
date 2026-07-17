@@ -884,3 +884,8 @@ Claude: Revisó `config_V1.py` y `x5_plan.md`. Explicó que `config_V*.py` son c
 Mauricio: Confirmó la propuesta y pidió corregir el ítem en `todos.md` y luego implementarlo.
 Claude: Corrigió el ítem 1 en `todos.md` para apuntar a la creación de `config_x5.py`. Implementó el archivo en `resources/x5/config_x5.py` — autocontenido (sin imports de `config.py`), con los 6 activos, todos los parámetros de trading como dicts por activo (`A`, `B`, `PERDIDA_MAX_BT`, `LOTAJES_M`, `UNITS`, `APALANCAMIENTO`, `n_sizes`), parámetros de recolección (`EXPLORATION_RATE`, `N_CICLOS_BT`), `X5_PARAM_RANGES` por activo y rutas propias en `resources/x5/`. Creó también las carpetas `models/`, `conjuntos_N/` y `Performance/`. Marcó el ítem como completado en `done.md`.
 (Cierre: 2026-07-17 19:43)
+
+## SECCIÓN 89
+Mauricio: Invocó `/guardar` para cerrar la sesión.
+Claude: No hubo trabajo nuevo — sesión de cierre puro.
+(Cierre: 2026-07-17 19:51)

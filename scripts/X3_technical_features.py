@@ -199,6 +199,29 @@ def _calcular_todos_indicadores(df: pd.DataFrame, conjunto_N: set) -> pd.DataFra
 
 # ─── API pública ─────────────────────────────────────────────────────────────
 
+def compute_snapshot(df_ohlcv: pd.DataFrame, soportes: list) -> dict:
+    """
+    Retorna features técnicas de la última vela del slice OHLCV dado.
+
+    Parámetros
+    ----------
+    df_ohlcv : DataFrame OHLCV hasta el timestamp actual (DateTime + OHLC + volumen)
+    soportes : lista de soportes activos del activo
+
+    Retorna dict[str, float] — una entrada por feature, sin 'datetime'.
+    Llamar con el slice completo hasta el ts de interés para garantizar
+    correctitud de indicadores con warm-up largo (EMA, RSI).
+    """
+    df = df_ohlcv.copy()
+    df['DateTime'] = pd.to_datetime(df['DateTime'])
+    df = (df.sort_values('DateTime')
+            .drop_duplicates('DateTime')
+            .reset_index(drop=True))
+
+    df_feat = _calcular_todos_indicadores(df, set(soportes))
+    return df_feat.iloc[-1].drop('datetime').to_dict()
+
+
 def actualizar_features(valor: str, df_ohlcv: pd.DataFrame, conjunto_N: set) -> None:
     """
     Actualiza resources/x3/{valor}.csv con las filas nuevas de df_ohlcv.
