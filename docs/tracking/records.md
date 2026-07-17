@@ -865,3 +865,14 @@ Claude: Leyó `X5_macro_brain.py` completo. Implementó tres cambios: (1) `CARPE
 Mauricio: Pidió agregar las métricas de performance (MAE, MSE, MAPE, R²) en `docs/plans/x5_plan.md`. Luego notó que las fórmulas se veían mal en el render (los `|` de valor absoluto se interpretaban como separadores de columna de tabla Markdown).
 Claude: Actualizó `x5_plan.md` con tres cambios: (1) carpeta `Performance/` en la estructura de archivos; (2) sección nueva "Métricas de performance del modelo" con tabla de 3 columnas (métrica, fórmula, descripción), schema JSON de ejemplo y señales de alerta; (3) referencia cruzada desde la sección 4 (degradación del modelo). Luego corrigió el render escapando los pipes con `\|` en MAE y MAPE, y reescribió la celda de R² usando `·` como separador en vez de texto prosa.
 (Cierre: 2026-07-16 00:17)
+
+## SECCIÓN 87
+Mauricio: Preguntó por qué X5 termina en menos de 5 segundos sin importar el modo de ejecución.
+Claude: Diagnosticó que el comportamiento es esperado: X5 busca `resources/x5/{ACTIVO}_store.csv`, no encuentra ninguno (la carpeta no existe), retorna `untrained` para todos los activos, escribe `active_parameters.json` con baseline y termina. La causa raíz es que el store lo genera el backtester, no X5 directamente.
+
+Mauricio: Preguntó cómo empezar a generar datos de entrenamiento.
+Claude: Explicó que X4 (ya implementado) es el generador de datos, pero su output (`trades.json`) no tiene las features que X5 necesita: `features_x2` y `features_x3` están como `None`. El gap es que X4 no captura el contexto X3/X2 en los momentos de OE y OA, ni escribe en el formato CSV por activo que X5 espera.
+
+Mauricio: Pidió planificar el pipeline completo X5→X4 en modo "backtesting para recolección de datos" y agregar items al TO DO de X5 con primera prioridad.
+Claude: Diseñó la arquitectura: `X5 --recolectar` lanza `X4 --x5` como subprocess; X4 simula trades vela a vela capturando X3 snapshot en OE y OA, lee X2 de historial, y escribe filas a `resources/x5/{ACTIVO}_store.csv`; multi-ciclo con 30% explore (params random) / 70% exploit (X5 --infer); X5 entrena automáticamente al cruzar el umbral de OC. Agregó 5 items al bloque X5 de `docs/tracking/todos.md`, ordenados por score: (1) ampliar config_V1 a 6 activos (8.49), (2) X3 `compute_snapshot` (4.47), (3) X5 `--recolectar` orquestador (2.67), (4) X4 multi-ciclo (1.87), (5) X4 `--x5` captura básica (1.80). La secuencia de implementación es 1→2→5→4→3.
+(Cierre: 2026-07-17 12:49)
