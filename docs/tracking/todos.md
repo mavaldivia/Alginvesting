@@ -32,7 +32,6 @@
 > Al cruzar `X5_MIN_TRADES_TRAIN`, X5 entrena automáticamente el modelo LGBM.
 > Items 1→2→5→4→3 son la secuencia de implementación; el orden de arriba es por score.
 
-- [ ] **1. Ampliar `config_V1.py` a los 6 activos**: agregar `TSLA`, `GOOGL`, `NVDA`, `AMZN` a `resources/x4/versionV1/config_V1.py` con sus `LOTAJES`, `UNITS`, `APALANCAMIENTO` y `n_sizes` (tomar valores de `config.py`). Agregar parámetros de recolección: `EXPLORATION_RATE = 0.30` (fracción de ciclos con params aleatorios) y `N_CICLOS_BT = 10` (ciclos del loop explore/exploit). Sin este paso, X4 --x5 solo genera datos de 2 activos. (I:8 C:1 H:9 → 8.49)
 
 - [ ] **2. X3: exponer `compute_snapshot(df_ohlcv, soportes)`**: nueva función pública en `X3_technical_features.py` que recibe un slice OHLCV (todas las velas hasta el timestamp actual) y una lista de soportes, y retorna `dict[str, float]` con los valores de features de la última fila, sin escribir a disco. Internamente llama a `_calcular_todos_indicadores` y extrae la última fila como dict. X4 la llama en OE y en OA para capturar el estado del mercado en cada momento. (I:8 C:2 H:10 → 4.47)
 

@@ -876,3 +876,11 @@ Claude: Explicó que X4 (ya implementado) es el generador de datos, pero su outp
 Mauricio: Pidió planificar el pipeline completo X5→X4 en modo "backtesting para recolección de datos" y agregar items al TO DO de X5 con primera prioridad.
 Claude: Diseñó la arquitectura: `X5 --recolectar` lanza `X4 --x5` como subprocess; X4 simula trades vela a vela capturando X3 snapshot en OE y OA, lee X2 de historial, y escribe filas a `resources/x5/{ACTIVO}_store.csv`; multi-ciclo con 30% explore (params random) / 70% exploit (X5 --infer); X5 entrena automáticamente al cruzar el umbral de OC. Agregó 5 items al bloque X5 de `docs/tracking/todos.md`, ordenados por score: (1) ampliar config_V1 a 6 activos (8.49), (2) X3 `compute_snapshot` (4.47), (3) X5 `--recolectar` orquestador (2.67), (4) X4 multi-ciclo (1.87), (5) X4 `--x5` captura básica (1.80). La secuencia de implementación es 1→2→5→4→3.
 (Cierre: 2026-07-17 12:49)
+
+## SECCIÓN 88
+Mauricio: Invocó `/todos`, eligió la sección X5, y cuestionó por qué el ítem 1 referenciaba `config_V1.py` — aclaró que para X5 se necesita un config completamente diferente al de los escenarios de backtesting de X4.
+Claude: Revisó `config_V1.py` y `x5_plan.md`. Explicó que `config_V*.py` son configs congeladas de escenarios X4 y no aplican para X5. Propuso tres niveles de config: `config.py` (producción), `config_V*.py` (escenarios X4) y un nuevo `resources/x5/config_x5.py` dedicado al pipeline de recolección de X5.
+
+Mauricio: Confirmó la propuesta y pidió corregir el ítem en `todos.md` y luego implementarlo.
+Claude: Corrigió el ítem 1 en `todos.md` para apuntar a la creación de `config_x5.py`. Implementó el archivo en `resources/x5/config_x5.py` — autocontenido (sin imports de `config.py`), con los 6 activos, todos los parámetros de trading como dicts por activo (`A`, `B`, `PERDIDA_MAX_BT`, `LOTAJES_M`, `UNITS`, `APALANCAMIENTO`, `n_sizes`), parámetros de recolección (`EXPLORATION_RATE`, `N_CICLOS_BT`), `X5_PARAM_RANGES` por activo y rutas propias en `resources/x5/`. Creó también las carpetas `models/`, `conjuntos_N/` y `Performance/`. Marcó el ítem como completado en `done.md`.
+(Cierre: 2026-07-17 19:43)
