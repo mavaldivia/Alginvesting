@@ -238,3 +238,8 @@ entendibles para poder imprimirlo y leerlo
 Recuerda mis limitaciones técnicas e intenta explicar con peras y manzanas sabiendo que tengo conocimientos en modelos de ML básicos, Redes Neuronales (FFNN y LSTM - Convolucionales)
 + train / test + gradient descent + backpropagation, etc...pero eso nomás. Necesito entender muy bien esta etapa para poder ir iterando, ya que es el cerebro del funcionamiento
 
+
+/new_todo
+X1: si tengo algun SL ya activado en alguna orden cuyo valor (tsla, btc, etc)
+esté con mercado abierto en ese momento, entonces olvidarse de eliminar y declarar nuevos buy limits (soportes / resistencias)
+hasta que eso se cierre. Esto debe mejorar significativamente la frecuencia de revisión de SL

@@ -243,9 +243,13 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
         Pi = orden.price_open
         cambios = False
 
+        sl_nuevo = P0 - b / L
+        ganancia = (P0 - Pi) * L
+        print(f'{valor} - revision cambio SL - {time.strftime("%H:%M:%S")} | '
+              f'P0={P0:.2f} ganancia={ganancia:.2f} SL_actual={sl:.2f} SL_nuevo={sl_nuevo:.2f}')
+
         if sl == 0:
-            if (P0 - Pi) * L >= a:
-                sl_nuevo = P0 - b / L
+            if ganancia >= a:
                 sl_ok = cambiar_SL(orden, valor, sl_nuevo)
                 # Repone la orden de compra en el mismo soporte para mantener el nivel activo
                 request = generate_request_buy_limit(
@@ -257,7 +261,6 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
                 ejecutar_orden(request, symbol=valor, volumen=lotajes[valor], precio=Pi)
                 cambios = sl_ok
         else:
-            sl_nuevo = P0 - b / L
             if sl_nuevo > sl:
                 print(f'  Trailing stop: {valor} P0={P0:.2f} SL {sl:.2f} → {sl_nuevo:.2f}')
                 if cambiar_SL(orden, valor, sl_nuevo):

@@ -168,7 +168,7 @@ X3_VENTANAS = {
 A = 4
 B = 1.5
 
-TS = 0.05  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
+TS = 0.01  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
 
 PERDIDA_MAX = 120  # USD — si la pérdida de una posición abierta supera este valor, se cierra
 
