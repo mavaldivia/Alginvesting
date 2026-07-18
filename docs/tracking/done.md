@@ -15,6 +15,7 @@
 
 ### X4 — X4_backtester.py
 
+- [x] **X4: multi-ciclo explore/exploit en modo `--x5`**: `ejecutar_x5_ciclo` corre el backtest completo desde `cfg.fecha_inicio`, sortea explore vs. exploit por ciclo (`random() < X5_EXPLORATION_RATE`), genera params aleatorios (`_generar_params_explore`) o llama `X5 --infer` (`_generar_params_exploit`), aplica los params y repite. Emite markers `[MES_BT]` por mes simulado para que `X5 --recolectar` monitoree el progreso. Implementado en commit `de83d6b`.
 - [x] **X4B_crear_version_backtesting.py**: script con un único input `nombre_version` que crea la infraestructura completa de una versión (`resources/x4/version{V}/`, `config_{V}.py`, `resources_{V}/conjuntos_N/`, `resources_{V}/logs/`). Si la versión ya existe, pregunta si reiniciar. Al terminar muestra la ruta del `config_{V}.py`. También registra la versión en la sección X4 de `config.py` (`X4_VERSION_ACTIVA`, `X4_VERSIONES`). Validado creando V1.
 
 ### Transversal

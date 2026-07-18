@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-17** — fix: skill /record usa cat >> en vez de Edit para append
 - **2026-07-17** — feat: X4 --x5 modo explore/exploit + [MES_BT] markers
 - **2026-07-17** — docs: cerrar X5 --recolectar en tracking + fix skill /todos
 - **2026-07-17** — feat: X5 --recolectar orquestador del pipeline
