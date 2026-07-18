@@ -965,3 +965,8 @@ Mauricio: Pidió que el print "revision cambio SL" sea una sola línea por valor
 Claude: Diagnóstico: `mercado_abierto` comparaba solo `trade_mode == SYMBOL_TRADE_MODE_FULL`, que es el permiso del símbolo, no el estado de la sesión — los brokers lo dejan en FULL 24/7. Con bolsa cerrada devolvía True igual, corriendo A/B (~200 order_send por acción por ciclo) → el minuto.
 Claude: Fix 1 — trailing_stop imprime una línea de resumen por valor (P0, SL_nuevo, OA=n, ganancia_max), hoisteando sl_nuevo/P0 fuera del loop. Fix 2 — `mercado_abierto` ahora suma un chequeo de frescura del tick (`_servidor_ahora` usa el tick más reciente entre símbolos como reloj; crypto siempre fresco): si el último tick del símbolo está atrasado >300s, la sesión está cerrada. Degrada a permitir si todos los ticks estuvieran atrasados. Pendiente validar en Windows.
 (Cierre: 2026-07-18 16:32)
+
+## SECCIÓN 100
+Mauricio: Confirmó que con el fix de mercado_abierto la frecuencia mejoró brutalmente. Pidió eliminar el print de resumen "revision cambio SL", y luego también los "{valor}: mercado cerrado — OE existentes mantenidas".
+Claude: Quitó el print de resumen en trailing_stop (quedan solo los prints por evento real: "Trailing stop: ... SL →" y "SL actualizado"). Quitó el print de mercado cerrado colapsando el branch a `if mercado_abierto(valor) and not sl_activo_global:` — misma lógica, A/B se saltan en silencio.
+(Cierre: 2026-07-18 16:36)

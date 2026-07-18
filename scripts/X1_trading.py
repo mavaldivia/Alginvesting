@@ -261,11 +261,6 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
     P0 = obtener_precio_actual(valor, modo='B')
     sl_nuevo = P0 - b / L
 
-    ganancias = [(P0 - o.price_open) * L for o in actual_OA]
-    print(f'{valor} - revision cambio SL - {time.strftime("%H:%M:%S")} | '
-          f'P0={P0:.2f} SL_nuevo={sl_nuevo:.2f} | OA={len(actual_OA)} '
-          f'ganancia_max={max(ganancias):.2f}')
-
     for orden in actual_OA:
         sl = orden.sl
         Pi = orden.price_open
@@ -420,9 +415,7 @@ if __name__ == '__main__':
                     # no eliminar las OE existentes porque no se pueden reponer.
                     # Si hay un SL activo en el sistema (sl_activo_global), se saltan
                     # A/B para priorizar la revisión del trailing stop.
-                    if not mercado_abierto(valor):
-                        print(f'  {valor}: mercado cerrado — OE existentes mantenidas')
-                    elif not sl_activo_global:
+                    if mercado_abierto(valor) and not sl_activo_global:
                         limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
                         crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
 

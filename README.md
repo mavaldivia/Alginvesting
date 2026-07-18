@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-18** — chore: X1 elimina prints ruidosos por ciclo (resumen revisión SL y mercado cerrado) tras mejora de frecuencia
 - **2026-07-18** — feat: X1 pausa gestión de buy limits con SL activo (foco trailing) + fix: mercado_abierto detecta sesión cerrada por frescura de tick + print revisión SL 1 línea/valor
 - **2026-07-18** — fix: X1 print de diagnóstico en trailing stop (revisión cambio SL con timestamp) + fix TS syntax error en config
 - **2026-07-18** — fix: consola UTF-8 en Windows para prints con glifos → ═ ✔ (config reconfigura stdout + encoding en subprocess X4/X5)
