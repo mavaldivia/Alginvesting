@@ -889,3 +889,11 @@ Claude: Corrigió el ítem 1 en `todos.md` para apuntar a la creación de `confi
 Mauricio: Invocó `/guardar` para cerrar la sesión.
 Claude: No hubo trabajo nuevo — sesión de cierre puro.
 (Cierre: 2026-07-17 19:51)
+
+## SECCIÓN 90
+
+Mauricio: Inicio de sesión con `/todos`. Eligió trabajar en la sección X5 y seleccionó el ítem 3: `X5 --recolectar` (orquestador del pipeline de recolección de datos). Clarificó que el resumen de progreso debe mostrarse cada mes simulado de backtesting, no al final de cada ciclo.
+
+Claude: Leyó `X5_macro_brain.py`, `x5_plan.md` y `config.py` para entender el estado actual. Implementó el modo `--recolectar` en `X5_macro_brain.py`: nuevo CLI `--recolectar [--version V1]`, función `_imprimir_progreso()`, y función `_recolectar()` que lanza X4 con `Popen`, parsea marcadores `[MES_BT] YYYY-MM` del stdout de X4 para imprimir tabla por mes simulado, auto-entrena activos que cruzan `X5_MIN_TRADES_TRAIN`, y para al agotar `X5_N_CICLOS_BT` ciclos o cuando todos los activos están listos. Agregó `X5_N_CICLOS_BT = 20` a `config.py`. Definió el contrato con X4: al implementar `--x5`, X4 debe emitir `[MES_BT] YYYY-MM` al cerrar cada mes simulado.
+
+(Cierre: 2026-07-17 20:00)

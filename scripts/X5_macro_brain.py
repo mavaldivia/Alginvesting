@@ -24,6 +24,7 @@ Fases de rollout:
 import argparse
 import json
 import pickle
+import subprocess
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -924,6 +925,97 @@ def _mostrar_status() -> None:
                 print(f'    {activo}: status={s:<9}  N={n_sz}  LM={lm}  K={k}')
     print(f'{"═" * 72}\n')
 
+# ─── Recolectar ───────────────────────────────────────────────────────────────
+
+def _imprimir_progreso(activos: list, n_oc: dict, delta: dict) -> None:
+    umbral = cfg.X5_MIN_TRADES_TRAIN
+    print(f'  {"Activo":<8}  {"OC":>6}  {"Δ":>6}  {"umbral":>6}  estado')
+    for a in activos:
+        n   = n_oc[a]
+        d   = delta.get(a, 0)
+        d_s = f'+{d}' if d > 0 else str(d)
+        estado = 'LISTO' if n >= umbral else f'faltan {umbral - n}'
+        print(f'  {a:<8}  {n:>6}  {d_s:>6}  {umbral:>6}  {estado}')
+
+
+_MES_BT_MARKER = '[MES_BT]'  # marcador que X4 --x5 emite al cerrar cada mes simulado
+
+
+def _recolectar(version: str) -> None:
+    """
+    Orquesta la generación de datos para X5:
+    1. Lanza X4 --x5 en ciclos sucesivos.
+    2. Detecta marcadores [MES_BT] YYYY-MM en stdout de X4 e imprime
+       un resumen de progreso por mes simulado.
+    3. Auto-entrena los activos que cruzan X5_MIN_TRADES_TRAIN.
+    4. Termina cuando todos los activos superan X5_MIN_TRADES_TRAIN
+       o se agotan X5_N_CICLOS_BT ciclos.
+
+    Contrato con X4: X4_backtester.py --x5 debe imprimir una línea
+    "[MES_BT] YYYY-MM" al cerrar cada mes simulado. El resto de su
+    stdout es descartado por X5.
+    """
+    x4_path = Path(__file__).parent / 'X4_backtester.py'
+    if not x4_path.exists():
+        print(f'  X4_backtester.py no encontrado en {x4_path}')
+        return
+
+    activos    = cfg.VALORES
+    n_oc_base  = {a: _n_oc(_cargar_store(a)) for a in activos}
+    entrenados: set = {a for a in activos if n_oc_base[a] >= cfg.X5_MIN_TRADES_TRAIN}
+
+    print(f'\n{"═" * 72}')
+    print(f'  X5 --recolectar  |  versión: {version}  |  ciclos máx: {cfg.X5_N_CICLOS_BT}')
+    print(f'{"═" * 72}\n  Estado inicial:')
+    _imprimir_progreso(activos, n_oc_base, {a: 0 for a in activos})
+
+    for ciclo in range(1, cfg.X5_N_CICLOS_BT + 1):
+        print(f'\n─── Ciclo {ciclo}/{cfg.X5_N_CICLOS_BT} ──────────────────────────────────────')
+        n_oc_ciclo = {a: _n_oc(_cargar_store(a)) for a in activos}  # referencia inicial del ciclo
+        n_oc_mes   = dict(n_oc_ciclo)
+
+        cmd  = [sys.executable, str(x4_path), '--version', version, '--x5']
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        assert proc.stdout is not None
+
+        for raw_line in proc.stdout:
+            line = raw_line.rstrip()
+            if not line.startswith(_MES_BT_MARKER):
+                continue
+            # "[MES_BT] YYYY-MM"
+            parts = line.split()
+            mes   = parts[1] if len(parts) >= 2 else '?'
+            n_oc_ahora = {a: _n_oc(_cargar_store(a)) for a in activos}
+            delta_mes  = {a: n_oc_ahora[a] - n_oc_mes[a] for a in activos}
+            print(f'\n  Mes {mes}:')
+            _imprimir_progreso(activos, n_oc_ahora, delta_mes)
+            n_oc_mes = n_oc_ahora
+
+        proc.wait()
+        if proc.returncode != 0:
+            print(f'  X4 terminó con error (código {proc.returncode}).')
+            break
+
+        n_oc_fin    = {a: _n_oc(_cargar_store(a)) for a in activos}
+        delta_ciclo = {a: n_oc_fin[a] - n_oc_ciclo[a] for a in activos}
+        print(f'\n  Resumen ciclo {ciclo}:')
+        _imprimir_progreso(activos, n_oc_fin, delta_ciclo)
+
+        nuevos = {a for a in activos
+                  if a not in entrenados and n_oc_fin[a] >= cfg.X5_MIN_TRADES_TRAIN}
+        if nuevos:
+            print(f'\n  Auto-entrenamiento: {", ".join(sorted(nuevos))}')
+            for activo in sorted(nuevos):
+                _entrenar(activo)
+            entrenados |= nuevos
+
+        if all(n_oc_fin[a] >= cfg.X5_MIN_TRADES_TRAIN for a in activos):
+            print(f'\n  Todos los activos superaron {cfg.X5_MIN_TRADES_TRAIN} OC. Fin.')
+            break
+
+    print(f'\n{"═" * 72}\n')
+
+
 # ─── CLI ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -931,16 +1023,20 @@ def main():
         description='X5 Surrogate Model — ajusta config_params dinámicamente por activo'
     )
     grp = parser.add_mutually_exclusive_group(required=True)
-    grp.add_argument('--vela',   action='store_true',
+    grp.add_argument('--vela',      action='store_true',
                      help='Inferir params con el modelo actual (producción, cada vela H1)')
-    grp.add_argument('--train',  action='store_true',
+    grp.add_argument('--train',     action='store_true',
                      help='Reentrenar modelo desde cero con el store acumulado')
-    grp.add_argument('--infer',  action='store_true',
+    grp.add_argument('--infer',     action='store_true',
                      help='Solo inferir params sin reentrenar')
-    grp.add_argument('--status', action='store_true',
+    grp.add_argument('--status',    action='store_true',
                      help='Diagnóstico: n_trades y modelo activo por activo')
+    grp.add_argument('--recolectar', action='store_true',
+                     help='Orquestar pipeline: lanza X4 --x5 en ciclos y auto-entrena')
     parser.add_argument('--activo', default=None,
                         help='Procesar solo este activo (ej. BTCUSD)')
+    parser.add_argument('--version', default='V1',
+                        help='Versión de config X4 a usar con --recolectar (default: V1)')
     args = parser.parse_args()
 
     if args.status:
@@ -953,6 +1049,10 @@ def main():
         print('\n─── Reentrenamiento ──────────────────────────────────────')
         for activo in activos:
             _entrenar(activo)
+
+    if args.recolectar:
+        _recolectar(args.version)
+        return
 
     if args.train or args.infer or args.vela:
         print('\n─── Inferencia ───────────────────────────────────────────')

@@ -223,6 +223,7 @@ X5_CAPITAL_BT            = 1_000_000  # capital virtual por activo (sin restricc
 X5_FREQ_REGISTRO_PERIODICO = 4    # snapshot periódico cada N velas H1 (si hay OA)
 X5_CKPT_INTERVAL         = 100    # guardar checkpoint cada N velas del ciclo actual
 X5_RECALC_SOPORTES_CADA  = 168    # actualizar soportes del bt cache cada N velas H1 (≈1 semana)
+X5_N_CICLOS_BT           = 20     # máx de ciclos de backtesting en --recolectar
 
 # Umbrales de modelo
 X5_MIN_TRADES_TRAIN      = 500    # mínimo de OC para entrenar (menor → untrained)
