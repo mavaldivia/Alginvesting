@@ -41,22 +41,22 @@ n_sizes = {
 """
 
 n_sizes = {
-    'BTCUSD': [150],
-    'ETHUSD': [150],
-    'TSLA':   [150],
-    'GOOGL':  [150],
-    'NVDA':   [150],
-    'AMZN':   [150],
+    'BTCUSD': [200],
+    'ETHUSD': [200],
+    'TSLA':   [200],
+    'GOOGL':  [200],
+    'NVDA':   [200],
+    'AMZN':   [200],
 }
 
 # Cantidad de soportes activos en producción, usada por X1
 n_sizes_ejecucion = {
-    'BTCUSD': 150,
-    'ETHUSD': 150,
-    'TSLA': 150,
-    'GOOGL': 150,
-    'NVDA': 150,
-    'AMZN': 150,
+    'BTCUSD': 200,
+    'ETHUSD': 200,
+    'TSLA': 200,
+    'GOOGL': 200,
+    'NVDA': 200,
+    'AMZN': 200,
 }
 
 # ─── Datos históricos ─────────────────────────────────────────────────────────
@@ -154,8 +154,8 @@ X3_VENTANAS = {
 
 # a: ganancia mínima en USD para activar el primer SL ganador
 # b: distancia en USD (normalizada por L) que mantiene el SL bajo el precio actual
-A = 6
-B = 2
+A = 4
+B = 1.5
 
 TS = 0.5  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
 

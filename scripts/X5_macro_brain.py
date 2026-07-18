@@ -237,6 +237,23 @@ def _features_temporales_ahora() -> dict:
     }
 
 
+def _fecha_x2(e: dict) -> str:
+    """Fecha efectiva de una entrada de x2_history (formato periodo o legacy 'date')."""
+    return e.get('periodo_inicio') or e.get('date') or e.get('periodo_fin') or ''
+
+
+def _extraer_x2(e: dict) -> dict:
+    """Features de X2: scores + componentes aplanados (descarta raw/metadata).
+
+    Debe producir las MISMAS claves que _extraer_x2 en X4 para que las columnas
+    x2_* de inferencia coincidan con las del store.
+    """
+    out = {k: e[k] for k in ('score', 'score_cross', 'score_tendencia') if k in e}
+    for k, v in (e.get('components') or {}).items():
+        out[f'comp_{k}'] = v
+    return out
+
+
 def _x2_actual(activo: str) -> dict:
     """Último snapshot de X2 disponible para el activo."""
     path = cfg.CARPETA_FUNDAMENTALS / 'x2_history.json'
@@ -244,11 +261,11 @@ def _x2_actual(activo: str) -> dict:
         return {}
     with open(path) as f:
         hist = json.load(f)
-    entradas = hist.get(activo, [])
+    entradas = [e for e in hist if e.get('activo') == activo]
     if not entradas:
         return {}
-    ultima = max(entradas, key=lambda e: e.get('fecha', ''))
-    return {k: v for k, v in ultima.items() if k != 'fecha'}
+    ultima = max(entradas, key=_fecha_x2)
+    return _extraer_x2(ultima)
 
 
 def _x3_actual(activo: str) -> dict:
@@ -974,8 +991,8 @@ def _worker_recolectar_activo(activo: str, version: str, x4_path: Path) -> tuple
         proc = subprocess.run(cmd, capture_output=True, text=True)
         n = _n_oc(_cargar_store(activo))
         if proc.returncode != 0:
-            tail = (proc.stdout or '')[-300:]
-            print(f'  [{activo}] ciclo {ciclo}: X4 error (cód {proc.returncode}). {tail}')
+            tail = ((proc.stderr or '') or (proc.stdout or ''))[-500:]
+            print(f'  [{activo}] ciclo {ciclo}: X4 error (cód {proc.returncode}).\n{tail}')
             break
         print(f'  [{activo}] ciclo {ciclo}/{cfg.X5_N_CICLOS_BT}: {n} OC '
               f'(Δ{n - n_ini:+d} desde el inicio)')

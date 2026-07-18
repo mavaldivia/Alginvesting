@@ -626,18 +626,35 @@ def _features_temporales_ts(ts: pd.Timestamp) -> dict:
     }
 
 
+def _fecha_x2(e: dict) -> str:
+    """Fecha efectiva de una entrada de x2_history (formato periodo o legacy 'date')."""
+    return e.get('periodo_inicio') or e.get('date') or e.get('periodo_fin') or ''
+
+
+def _extraer_x2(e: dict) -> dict:
+    """Features de X2: scores + componentes aplanados (descarta raw/metadata).
+
+    Debe producir las MISMAS claves que _x2_actual en X5 para que las columnas
+    x2_* del store coincidan con las de inferencia.
+    """
+    out = {k: e[k] for k in ('score', 'score_cross', 'score_tendencia') if k in e}
+    for k, v in (e.get('components') or {}).items():
+        out[f'comp_{k}'] = v
+    return out
+
+
 def _leer_x2_bt(activo: str, fecha_str: str, carpeta_fundamentals: Path) -> dict:
     path = carpeta_fundamentals / 'x2_history.json'
     if not path.exists():
         return {}
     with open(path) as f:
         hist = json.load(f)
-    entradas = hist.get(activo, [])
-    if not entradas:
+    entradas = [e for e in hist if e.get('activo') == activo]
+    candidatas = [e for e in entradas if _fecha_x2(e) <= fecha_str] or entradas
+    if not candidatas:
         return {}
-    candidatas = [e for e in entradas if e.get('fecha', '') <= fecha_str] or entradas
-    ultima = max(candidatas, key=lambda e: e.get('fecha', ''))
-    return {k: v for k, v in ultima.items() if k != 'fecha'}
+    ultima = max(candidatas, key=_fecha_x2)
+    return _extraer_x2(ultima)
 
 
 def _compute_x5_snapshot(activo: str, df_activo: pd.DataFrame,

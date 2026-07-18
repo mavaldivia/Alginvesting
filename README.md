@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-18** — fix: X4/X5 leen x2_history como lista (corrige AttributeError en --recolectar) + tuning config n_sizes/A/B
 - **2026-07-18** — feat: X5 pipeline de targets, recolección paralela por activo, CLI 3 modos + docs/PDF extendido
 - **2026-07-17** — feat: X4 --x5 captura X3/X2 y escritura al store
 - **2026-07-17** — fix: skill /record usa cat >> en vez de Edit para append
