@@ -116,3 +116,27 @@
 **Razón:** cuando un combo (valor, N) ya tiene un warm start cargado desde `{valor}_{N}_beta.json` (conjunto de soportes cercano al óptimo), el optimizador parte con menos margen de mejora por recorrer, así que exigir una mejora relativa cada vez más chica (`delta` decreciente) no dispara un costo proporcional en iteraciones — se puede "presionar" la precisión sin pagar el precio que pagaría un cold start. Multiplicar siempre por `LAMBDA_DELTA ∈ (0,1)` garantiza `delta >= 0` por construcción (decae asintóticamente a 0, nunca lo cruza).
 **Descartado:** guardar `delta_inicial` junto a `conjunto_N` en el mismo JSON (cambiaba su estructura de lista a dict, obligando a tocar `json_act`, `promover_a_productivo`, `leer_lista_N` y la lectura en X1 — mayor radio de impacto sobre el flujo productivo de trading). También un único archivo de estado consolidado para todos los combos: con `ProcessPoolExecutor` corriendo en paralelo, escrituras concurrentes sobre un solo archivo introducen riesgo de carrera; un archivo por combo lo evita naturalmente, igual que ya hace `{valor}_{N}_beta.json`.
 **Nota:** esto deja pendiente el ítem original del TO DO (schedule decreciente *dentro* de una misma corrida, partiendo alto y bajando si nada supera el umbral) — lo implementado es un mecanismo distinto y complementario, a nivel de corridas sucesivas, no de iteraciones dentro de una corrida.
+
+## 2026-07-18 — X5: pipeline de targets, recolección paralela y CLI simplificada
+
+Revisión completa de `X5_macro_brain.py` (ver `docs/plans/x5_opus_review.md`). Cuatro decisiones:
+
+**1. Pipeline de targets completo.**
+**Decisión:** X4 (`_construir_fila_oc`/`_construir_fila_periodica`) ahora escribe los 3 targets: `retorno_pct`, `pnl_flotante_activo` (P&L flotante de las OA, calculado en `_contexto_portfolio_x5`) y `pnl_cerrado_activo` (= `est_a['GC']`). X5 alinea `TARGET_CERRADO='pnl_cerrado_activo'`.
+**Razón:** antes X4 solo escribía `retorno_pct`; los targets `pnl_flotante`/`pnl_cerrado` no existían en el store → en LightGBM se omitían (0 filas) y en FTT se entrenaban contra `np.zeros` (ruido). Los registros periódicos quedaban inertes (sin su Y `pnl_flotante_activo`).
+**Alcance:** el head `flotante` de LightGBM entrena con `('oc','periodico')`; en FTT los 3 heads comparten el tensor de filas `oc` (periódicas para flotante en FTT quedan como TO DO — los heads no pueden usar subconjuntos de filas distintos con un X compartido).
+
+**2. Recolección paralela por activo.**
+**Decisión:** `X5 --recolectar` lanza un worker por activo (`ThreadPoolExecutor`), cada uno corre ciclos de `X4 --x5 --activo {activo}` y auto-entrena al cruzar `X5_MIN_TRADES_TRAIN`. X4 aísla los recursos por activo en `resources_{version}_{activo}` (checkpoint/equity), evitando colisión entre procesos.
+**Razón:** el diseño anterior corría los activos secuencialmente dentro de un proceso. El usuario quería backtesting paralelo con corrección de params por activo. El store (`{ACTIVO}_store.csv`) ya es por activo; solo faltaba aislar checkpoint/equity de X4.
+**Descartado:** paralelizar con `multiprocessing` los entrenamientos — el grueso del trabajo (backtest) ya está en subprocess de X4, así que threads bastan (GIL liberado en subprocess y en rutinas nativas de LGBM/torch).
+
+**3. CLI simplificada (3 modos + casilla).**
+**Decisión:** de 5 flags a 3 modos mutuamente excluyentes (`--recolectar`, `--infer`, `--status`) + casilla `--train` (solo con `--infer`). Se eliminó `--vela`.
+**Razón:** `--vela` era un alias exacto de `--infer` (su lógica de captura/online nunca se implementó). `--train` era "entrena+infiere" → se vuelve modificador de `--infer`.
+
+**4. Merge en `active_parameters.json`.**
+**Decisión:** `_escribir_active_parameters` hace read-modify-write (merge por activo) con escritura atómica (tmp + replace), en vez de overwrite total.
+**Razón:** en EXPLOIT paralelo varios procesos llaman `--infer --activo X`; el overwrite borraría los demás activos. Merge + escritura atómica lo evita (carrera residual benigna: peor caso, un ciclo usa baseline).
+
+**Otros:** `config/active_parameters.json` agregado a `.gitignore` (output generado, como `resources/`). Documento LaTeX `docs/plans/x5_documento.tex` (+PDF) que fusiona ambos planes con diagramas TikZ, compilable con tectonic.

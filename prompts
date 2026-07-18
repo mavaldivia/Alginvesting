@@ -218,6 +218,11 @@ Guarda estos registros en resources/x5 de la forma que te parezca conveniente (p
 
 
 - Voy a ejecutar con opus 
+
+MANDATORIO: Como puede que me quede sin tokens, lo primero que debes hacer es crear en plans un md que se llame
+x5_opus_review y planificar. Se parar toda la pedida en puntos concretos de tal forma que los hagas de 
+manera secuencial y los vayas marcando como done. Al comienzo de ese md, copia este propmt tal cual te lo estoy entregando
+
 Básicamente quiero que revises x5_macro_brain.py, corrijas detalles si los encuentras, además de actualizar plans/x5_plan.md,
 plans/x5_plan_redes_neuronales.md en base a este código y cosas que tengan sentido que puedan faltar (crea en ese caso
 un TO DO en x5_plan.md
@@ -232,3 +237,4 @@ entendibles para poder imprimirlo y leerlo
 
 Recuerda mis limitaciones técnicas e intenta explicar con peras y manzanas sabiendo que tengo conocimientos en modelos de ML básicos, Redes Neuronales (FFNN y LSTM - Convolucionales)
 + train / test + gradient descent + backpropagation, etc...pero eso nomás. Necesito entender muy bien esta etapa para poder ir iterando, ya que es el cerebro del funcionamiento
+

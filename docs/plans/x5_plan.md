@@ -1,7 +1,10 @@
 # X5 — X5_macro_brain.py: Plan de implementación
 
-> Fusiona los roles originales de X5 y X5 (ver `docs/context/decisiones.md` 2026-06-26).
-> Estado: diseño en curso — pendiente de implementación.
+> Fusiona los roles originales de X5 y X6 (ver `docs/context/decisiones.md` 2026-06-26).
+> Estado: **pipeline V1 implementado** (`scripts/X5_macro_brain.py` + captura en `X4_backtester.py --x5`).
+> En fase de **recolección de datos** (store aún vacío → todos los activos en `untrained`).
+> Última revisión: `docs/plans/x5_opus_review.md` (esta sesión). Para ejecutar, ver
+> **"Paso a paso de ejecución"** al final de este documento.
 
 ---
 
@@ -158,6 +161,19 @@ Estos deltas son la variable objetivo que el modelo (X6) aprenderá a predecir c
 ---
 
 ## Store de trades — dataset de entrenamiento
+
+> **Schema real implementado** (lo escribe `X4_backtester.py --x5`; puede diferir del diseño aspiracional de abajo). Columnas efectivas por fila:
+>
+> - **Identificadores**: `tipo_registro` (`oc`|`periodico`), `activo`, `timestamp_oe`, `timestamp_oa`, `timestamp_oc`.
+> - **Config activa (OE)**: `n_ejecucion`, `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M`, `PERDIDA_MAX`.
+> - **Temporales (OE)** + **X2 (OE)** (`x2_*`) + **X3 (OE)** (`x3_*`).
+> - **Portfolio (OE/momento)**: `n_ordenes_abiertas`, `n_ordenes_espera`, `exposicion_usd`, `mean_retorno_pct_abierto`, `std_retorno_pct_abierto`, `retorno_promedio_ultimas_5_oc`, `pnl_flotante_activo`.
+> - **Temporales/X2/X3 (OA)**: sufijo `_oa` (vacías en filas `periodico`).
+> - **Targets (Y)**: `pnl_cerrado_activo`, `retorno_pct`. En filas `periodico`, `retorno_pct` va vacío y el target es `pnl_flotante_activo`.
+>
+> **No implementado** (del diseño aspiracional): `ticket`, `precio_entrada`, `precio_salida`, `pnl_usd`, columnas `_oc` de X2/X3. Ver TO DOs si se decide agregarlos.
+>
+> **3 targets efectivos** que el modelo predice: `retorno_pct` (filas `oc`), `pnl_flotante_activo` (filas `oc` + `periodico`), `pnl_cerrado_activo` (filas `oc`).
 
 ### Dos tipos de registro
 
@@ -512,124 +528,71 @@ for activo in VALORES:
     # ... etc.
 ```
 
-### Estructura del código (`X5_macro_brain.py`)
+### Estructura del código (`X5_macro_brain.py`) — implementación real
 
-El script tiene cuatro modos de uso:
-
-```
-python X5_macro_brain.py --vela      # ciclo completo por vela: capturar + actualizar modelo + inferir params
-python X5_macro_brain.py --train     # reentrenamiento profundo (solo LightGBM o cuando se quiere forzar)
-python X5_macro_brain.py --infer     # solo inferir params (sin capturar ni entrenar)
-python X5_macro_brain.py --status    # mostrar n_trades por activo y modelo activo
-```
-
-**¿Qué hace cada modo?**
-
-- **`--vela`** — Es el modo normal de producción. Corre al cierre de cada vela H1 y realiza los 4 pasos del ciclo:
-  1. Captura P&L flotante + trades cerrados → escribe nuevos registros en el store
-  2. Lee contexto actual (X2 + X3)
-  3. Actualiza el modelo con los nuevos datos (online si Red Neuronal, batch ligero si LightGBM)
-  4. Infiere los mejores params para el activo y escribe `config/active_parameters.json`
-
-  En Fase 2, X1 llama a `--vela` automáticamente en cada cierre de vela. En Fase 1, se llama manualmente (o via cron).
-
-- **`--train`** — Reentrenamiento profundo (completo, desde cero con todos los datos del store). Útil cuando se quiere mejorar el modelo con una corrida más costosa y exhaustiva. Solo necesario en LightGBM cuando el dataset ha crecido mucho; con Red Neuronal el aprendizaje online del `--vela` ya lo hace continuamente.
-
-- **`--infer`** — Solo inferir params con el modelo ya cargado, sin capturar datos ni actualizar el modelo. Útil para recalcular params sin esperar al cierre de vela (p.ej. al arrancar el sistema en medio de la sesión).
-
-- **`--status`** — Dashboard de diagnóstico. Muestra en pantalla cuántos registros tiene el store por activo y qué modelo está activo para cada uno. No escribe nada.
-
-**Ejemplo concreto de uso típico (Fase 1 — manual):**
+El script tiene **3 modos + 1 casilla** (simplificado en `x5_opus_review.md`; antes eran 5).
+`--vela` fue **eliminado** (era un alias exacto de `--infer`).
 
 ```
-Lunes 09:00  → python X5_macro_brain.py --vela    # vela de las 08:00 cerró → captura + infiere
-Lunes 10:00  → python X5_macro_brain.py --vela    # siguiente vela
-Lunes 11:00  → python X5_macro_brain.py --vela    # siguiente vela
-...
-Cuando el store creció mucho:
-               python X5_macro_brain.py --train   # reentrenamiento profundo ocasional
+python X5_macro_brain.py --recolectar       # genera datos: backtesting paralelo por activo + auto-entrena
+python X5_macro_brain.py --infer            # recomienda params con el modelo actual → active_parameters.json
+python X5_macro_brain.py --infer --train    # reentrena desde el store y luego recomienda
+python X5_macro_brain.py --status           # diagnóstico: n_trades y modelo activo por activo
+python X5_macro_brain.py --infer --activo BTCUSD   # solo un activo (merge en active_parameters.json)
 ```
 
-**Ejemplo en Fase 2 (automático desde X1):**
+**¿Qué hace cada modo?** (analogía del chef en `x5_plan_redes_neuronales.md`)
 
-```
-X1 detecta cierre de vela H1
-  → llama X5_macro_brain.py --vela en subprocess
-  → X5 actualiza store + modelo + params
-  → X1 lee config/active_parameters.json para la siguiente vela
-```
+- **`--recolectar`** — *"practica cocinando para llenar el cuaderno"*. Es el modo de **Fase 1** cuando el store está vacío. Lanza un **worker por activo en paralelo** (`ThreadPoolExecutor`), y cada worker corre ciclos de `X4_backtester.py --x5 --activo {activo}` — un backtest completo desde `fecha_inicio` que simula la lógica de X1 vela a vela y captura snapshots (OE/OA/OC + periódicos) al store. Al cerrar cada ciclo, si el activo superó `X5_MIN_TRADES_TRAIN` OC, **auto-entrena** su modelo. Los activos avanzan a distinto ritmo, en paralelo.
 
-**Funciones principales:**
+- **`--infer`** — *"con lo que ya estudiaste, dame la mejor receta para hoy"*. Carga el modelo guardado de cada activo, infiere los params que maximizan `retorno_pct` para el contexto actual (X2+X3) y escribe `config/active_parameters.json`. No entrena ni captura datos. Es rápido.
+  - `--infer --train`: reentrena desde el store antes de recomendar (la casilla `--train`).
+  - `--infer --activo X`: infiere solo ese activo y hace **merge** en el JSON (preserva los demás). Usado por X4 en modo EXPLOIT.
+
+- **`--status`** — *"muéstrame cómo va el chef"*. Imprime, por activo: nº de OC en el store, nº total de filas, tipo de modelo activo (`untrained`/`lgbm`/`ftt`) y qué recomendó la última vez. Solo lectura.
+
+**Casilla `--train`**: no es un modo. Solo tiene efecto junto a `--infer`. `--recolectar` ya entrena por su cuenta.
+
+**Funciones principales (nombres reales del código):**
 
 ```python
-_cargar_store(activo: str) -> pd.DataFrame
-    # Lee resources/x5/{ACTIVO}_store.csv. Retorna DataFrame vacío si no existe.
+_cargar_store(activo) -> pd.DataFrame       # lee resources/x5/{ACTIVO}_store.csv
+_n_oc(store) -> int                         # cuenta filas con tipo_registro == 'oc'
+_seleccionar_tipo(n_oc) -> str              # 'untrained' | 'lgbm' | 'ftt' según umbrales
 
-_seleccionar_tipo_modelo(n_trades: int) -> str
-    # 'untrained' si n_trades < X5_MIN_TRADES_TRAIN
-    # 'lgbm'      si X5_MIN_TRADES_TRAIN <= n_trades < X5_MIN_TRADES_FTT
-    # 'ftt'       si n_trades >= X5_MIN_TRADES_FTT
+_feature_cols_de_store(store) -> list       # orden reproducible del vector de features
+                                            # (excluye columnas _oc: info del futuro)
+_preparar_features(store, feature_cols, target, tipos_registro=('oc',)) -> (X, y, w)
+    # Filtra por tipos_registro; aplica ventana X5_WINDOW_TRAIN y decay temporal
+    # exponencial (X5_LAMBDA_DECAY) como sample_weight.
 
-_preparar_features(store: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]
-    # Separa X (features) e Y (retorno_pct) del store.
-    # Aplica ponderación temporal exponencial (sample_weight).
-    # Mismo preproceso para lgbm y ftt — misma tabla, mismo contrato.
+# Entrenamiento (elige LGBM o FTT según _seleccionar_tipo)
+_entrenar(activo) -> str                    # entrena el modelo apropiado; retorna el tipo
+_entrenar_lgbm(activo, store) -> bool       # 3 LightGBMRegressor: retorno/flotante/cerrado
+_entrenar_ftt(activo, store) -> bool        # 1 FT-Transformer con 3 heads
 
-_entrenar(activo: str, store: pd.DataFrame, tipo: str) -> modelo
-    # Entrena lgbm o ftt según tipo. Guarda en resources/x5/models/.
-    # Si tipo == 'lgbm': LightGBMRegressor; si 'ftt': FTTransformer.
+# Inferencia
+_inferir_params(activo) -> (params, status) # carga modelo y optimiza params
+_inferir_lgbm(...)                          # Optuna (X5_N_OPTUNA_TRIALS trials)
+_inferir_ftt(...)                           # gradient ascent (X5_ASCENT_* configs)
+_aplicar_airbag(activo, params) -> dict     # regla dura: fuerza N y lote mínimos si caída > umbral
+_leer_contexto_actual(activo) -> dict       # X2 (x2_history.json) + X3 (última fila) + temporal
 
-_inferir_params(activo: str, modelo, contexto_x2_x3: dict) -> dict
-    # Fija el vector de contexto y busca los config_params que maximizan retorno_pct.
-    # lgbm: búsqueda con Optuna (N_OPTUNA_TRIALS evaluaciones). Optuna es un optimizador
-    #        bayesiano: aprende qué zonas del espacio de params son prometedoras y concentra
-    #        los intentos ahí, en vez de probar todas las combinaciones posibles.
-    # ftt:  gradient ascent sobre los inputs de params: el gradiente se propaga desde la
-    #        salida del modelo hacia los valores de params de entrada (no hacia los pesos).
-    # Aplica airbag si drawdown_4_velas < -AIRBAG_THRESHOLD[activo].
-    # Retorna dict con los params optimizados para ese activo.
-
-_leer_contexto_actual(activo: str) -> dict
-    # Lee el snapshot más reciente de X2 (resources/x2/scores.json)
-    # y X3 (resources/x3/{ACTIVO}.csv, última fila).
-
-_escribir_active_parameters(params_por_activo: dict, model_status: dict)
-    # Escribe config/active_parameters.json con los params por activo
-    # y el campo model_status por activo ('untrained'|'lgbm'|'ftt').
+# Salida y orquestación
+_escribir_active_parameters(resultados)     # merge + escritura atómica del JSON
+_recolectar(version)                        # Fase 1: paralelo por activo (ver arriba)
+_worker_recolectar_activo(activo, version, x4_path)   # bucle de ciclos de 1 activo
+_mostrar_status()                           # dashboard --status
 ```
 
-**Flujo principal (`--train` + `--infer`) — Fase 1:**
+**Métricas de ML calculadas** — `_calcular_metricas(y_true, y_pred)` devuelve `MAE`, `MSE`,
+`MAPE` (None si `|y|≈0`) y `R²` (None si `SS_tot≈0`). Se guardan por entrenamiento en
+`resources/x5/Performance/{ACTIVO}_performance.json` (historial, split 80/20 cronológico),
+para cada target (`retorno`/`flotante`/`cerrado`) y cada set (train/test).
 
-En Fase 1 X5 se ejecuta manualmente. X1 no lo llama ni lee su output.
-
-```python
-params_por_activo = {}
-model_status = {}
-
-for activo in VALORES:
-    store = _cargar_store(activo)
-    n = len(store)
-    tipo = _seleccionar_tipo_modelo(n)   # 'untrained' | 'lgbm' | 'ftt'
-
-    if tipo == 'untrained':
-        params_por_activo[activo] = _params_baseline(activo)   # desde config.py
-        model_status[activo] = 'untrained'
-        continue
-
-    modelo = _entrenar(activo, store, tipo)                    # solo en --train
-    contexto = _leer_contexto_actual(activo)
-    params = _inferir_params(activo, modelo, contexto)         # solo en --infer
-    params_por_activo[activo] = params
-    model_status[activo] = tipo
-
-_escribir_active_parameters(params_por_activo, model_status)
-# En Fase 1, este JSON se escribe pero X1/X0 no lo leen todavía.
-# La activación por activo (Fase 2) es una decisión manual.
-```
-
-Cada activo es completamente independiente. Si BTCUSD ya tiene 6000 trades y usa FTT, y TSLA tiene 400 y está UNTRAINED, cada uno sigue su propio camino. En Fase 2, X1 chequeará `model_status[activo]` para decidir si usa `config.py` o el JSON — activo por activo, sin afectar a los demás.
-
-**Frecuencia de reentrenamiento en Fase 1:** manual o por cron externo. En Fase 2, el ciclo `--vela` actualiza el modelo en cada vela (online para NN, batch ligero para LightGBM). El `--train` profundo es opcional y se corre manualmente cuando el dataset creció significativamente.
+**Independencia por activo:** cada activo tiene su propio store, su propio modelo
+(`resources/x5/models/{ACTIVO}/`) y su propia fase. BTCUSD puede estar en `ftt` mientras
+TSLA sigue en `untrained`, dentro de la misma corrida.
 
 ---
 
@@ -755,13 +718,22 @@ X5_PARAM_RANGES = {
 
 ---
 
-## Decisiones pendientes
+## TO DO (derivados de la revisión `x5_opus_review.md`)
 
-- [ ] Frecuencia de ejecución
-- [ ] Variable objetivo principal para optimizar en inferencia (`retorno_pct` vs portfolio P&L)
-- [ ] Arquitectura del modelo (Gradient Boosting vs NN) — decidir con datos reales
-- [ ] Mínimo de filas en el store para que el modelo sea útil (estimación: ≥500 trades cerrados)
-- [ ] Estrategia de actualización del modelo: ¿reentrenar completo periódicamente, o fine-tune incremental?
+**Pendientes técnicos concretos:**
+
+- [ ] **Head `flotante` con filas periódicas en FTT**: hoy en LightGBM el target `pnl_flotante_activo` entrena con `('oc','periodico')`, pero en FT-Transformer los 3 heads comparten el mismo tensor `X` (solo filas `oc`), así que las filas periódicas no llegan al head flotante. Incorporarlas vía un pase separado o Deep Sets en V2.
+- [ ] **`_features_temporales_ahora()` usa `pd.Timestamp.now()`**: correcto para inferencia en vivo (Fase 2), pero no reconstruye el timestamp histórico del contexto. Si se quiere inferencia offline reproducible, parametrizar el timestamp.
+- [ ] **Coherencia `n_ejecucion` vs `n_sizes_ejecucion`**: X4 registra en el store `n_ejecucion = cfg.n_sizes[activo]` (el N aplicado en el backtest), mientras el baseline/rango de X5 usan `n_sizes_ejecucion`. Verificar que el parámetro registrado sea el mismo que se optimiza.
+- [ ] **Eficiencia de `_recolectar`**: cada worker recarga el CSV completo del store por ciclo. Aceptable a esta escala; si el store crece a decenas de miles de filas, contar OC incrementalmente.
+- [ ] **(Opcional) Columnas de análisis del store**: decidir si vale agregar `ticket`, `precio_entrada/salida`, `pnl_usd` y features `_oc` (X2/X3 al cierre) — solo para análisis, no entran al modelo.
+- [ ] **Contención de `active_parameters.json` en EXPLOIT paralelo**: mitigada con merge + escritura atómica (read-modify-write). Si se observa pérdida de actualizaciones bajo alta concurrencia, agregar file lock.
+
+**Decisiones de modelado (se cierran con datos reales, no antes):**
+
+- [ ] Variable objetivo principal para optimizar en inferencia (`retorno_pct` es la actual).
+- [ ] Confirmar umbrales `X5_MIN_TRADES_TRAIN=500` / `X5_MIN_TRADES_FTT=5000` con las métricas de `Performance/`.
+- [ ] Estrategia de reentrenamiento en Fase 2 (completo vs incremental).
 
 ---
 
@@ -940,3 +912,124 @@ Las siguientes columnas se agregan al snapshot **al momento de OE** (sección "C
 | `std_retorno_pct_abierto` | Desviación estándar del retorno flotante de las OA del activo |
 | `exposicion_pct_cuenta` | `exposicion_usd_activo / capital_cuenta` — normalizado por capital |
 | `retorno_promedio_ultimas_5_oc` | Promedio de `retorno_pct` de las últimas 5 OC cerradas del activo en la sesión |
+
+---
+
+# Paso a paso de ejecución (desde cero, con peras y manzanas)
+
+> Esta sección responde: **"tengo cero datos de entrenamiento, ¿cómo pongo a funcionar el cerebro (X5)?"**.
+> Se ejecuta en **Windows** (donde están los datos y MT5). En Mac solo se desarrolla.
+
+## El mapa mental en una frase
+
+X5 es un chef que aún **no sabe cocinar** (no hay datos). Para que aprenda hay que **hacerlo cocinar miles de platos simulados** sobre la historia de precios (backtesting), anotar cada resultado en su cuaderno (el *store*), y recién ahí **estudiar** ese cuaderno (entrenar el modelo). Después le podemos preguntar **"¿qué receta uso hoy?"** (inferir params). Todo esto ocurre **en paralelo para los 6 activos**, cada uno con su propio cuaderno y su propio chef.
+
+```
+   SIN DATOS                CON DATOS                 MODELO LISTO
+  ┌─────────┐   recolectar  ┌─────────┐   (auto)    ┌──────────┐   infer   ┌──────────────────────┐
+  │ store   │ ────────────► │ store   │ ──train───► │ modelo   │ ────────► │ active_parameters.json│
+  │ vacío   │  BT paralelo  │ 500+ OC │             │ lgbm/ftt │           │ (params por activo)   │
+  └─────────┘               └─────────┘             └──────────┘           └──────────────────────┘
+```
+
+## Requisitos previos (una sola vez)
+
+1. **Datos de precios** en `Data/{ACTIVO}.csv` (H1) y `Data_minuto/{ACTIVO}.csv` (M1). Los genera X0 al ejecutarse en Windows. Sin ellos el backtesting no tiene sobre qué correr.
+2. **Scores fundamentales** en `resources/x2/x2_history.json` (los genera X2). Si faltan, X5 usa el contexto X2 vacío (no rompe, pero el modelo aprende con menos señal).
+3. **Config de la versión de backtesting** en `resources/x4/version{V}/config_{V}.py` (define `valores`, `fecha_inicio`, capital, etc.).
+4. **Dependencias Python**: `lightgbm`, `torch`, `optuna` (además de numpy/pandas). Si falta alguna, X5 lo avisa y ese pedazo se omite (no crashea).
+
+## Paso 1 — Ver el estado inicial (opcional, para orientarse)
+
+```bash
+python scripts/X5_macro_brain.py --status
+```
+
+Muestra, por activo, cuántas OC hay en el store y qué modelo está activo. Al principio verás **0 OC** y **`untrained`** en los 6 — es lo esperado: el chef todavía no cocinó nada.
+
+## Paso 2 — Recolectar datos (backtesting paralelo) + auto-entrenar
+
+**Este es el paso principal de la Fase 1.** Un solo comando:
+
+```bash
+python scripts/X5_macro_brain.py --recolectar --version V1
+```
+
+**Qué pasa por dentro (peras y manzanas):**
+
+- X5 lanza **6 workers en paralelo**, uno por activo. Cada worker es como un chef independiente cocinando en su propia cocina.
+- Cada worker corre un **ciclo** = un backtest completo desde `fecha_inicio` hasta el final de los datos, simulando la lógica de X1 vela a vela (coloca buy limits, abre/cierra posiciones, trailing stop). Cada vez que una orden cierra (OC) o cada 4 velas con posiciones abiertas (registro periódico), **anota una fila en el cuaderno** (`resources/x5/{ACTIVO}_store.csv`).
+- **Cuando un worker termina su ciclo, vuelve a empezar desde `fecha_inicio`** (reset), pero con parámetros distintos (ver "explore/exploit" abajo). Así acumula variedad de experiencias.
+- Cada worker corre hasta `X5_N_CICLOS_BT` ciclos (config) o hasta juntar `X5_MIN_TRADES_FTT` OC.
+- **Apenas un activo cruza `X5_MIN_TRADES_TRAIN` (500) OC, ese worker entrena su modelo** (`_entrenar`) sin esperar a los demás. Desde ese momento, sus ciclos "EXPLOIT" ya usan el modelo recién entrenado → **los params se van corrigiendo por activo**, que es exactamente lo que buscamos.
+
+**Aislamiento (por qué no chocan los 6 en paralelo):** cada worker usa su propia carpeta de trabajo de X4 (`resources/x4/version{V}/resources_{V}_{ACTIVO}/`) para el checkpoint y el equity. El cuaderno (`{ACTIVO}_store.csv`) ya es por activo. Así 6 procesos escriben sin pisarse.
+
+**Explore vs Exploit (por qué los params varían entre ciclos):**
+
+```
+Ciclo EXPLORE  (prob. X5_EXPLORATION_RATE = 30%): params ALEATORIOS dentro de los rangos.
+Ciclo EXPLOIT  (70%): params = lo que recomienda el modelo (o baseline si aún no hay modelo).
+```
+
+Los ciclos EXPLORE generan peor P&L a propósito — su valor es **enseñarle al modelo qué NO funciona** en cada tipo de mercado. Sin exploración, el chef solo probaría sus recetas favoritas y nunca sabría si hay mejores (el "sesgo de selección", ver `x5_plan_redes_neuronales.md`).
+
+**Qué verás en pantalla:** líneas prefijadas por activo, ej.:
+
+```
+  [BTCUSD] ciclo 1/20: 320 OC (Δ+320 desde el inicio)
+  [ETHUSD] ciclo 1/20: 410 OC (Δ+410 desde el inicio)
+  [BTCUSD] ciclo 2/20: 660 OC (Δ+660 desde el inicio)   ← cruzó 500 → entrena solo
+  ...
+  ✔ [BTCUSD] terminó: 0 → 5200 OC
+```
+
+> **Nota de tiempo**: el **primer ciclo de cada activo es lento** porque hace *cold start* (recalcula soportes desde cero). Los siguientes reutilizan la cache de soportes del activo.
+
+## Paso 3 — Confirmar que hay modelos entrenados
+
+```bash
+python scripts/X5_macro_brain.py --status
+```
+
+Ahora deberías ver activos en `lgbm` (500–5000 OC) o `ftt` (>5000 OC), con "modelo ok". Las métricas de cada entrenamiento quedan en `resources/x5/Performance/{ACTIVO}_performance.json` (MAE, MSE, MAPE, R² para train y test).
+
+## Paso 4 — Pedir la recomendación de params (inferir)
+
+```bash
+python scripts/X5_macro_brain.py --infer
+```
+
+Lee el contexto actual (X2+X3), busca los params que maximizan `retorno_pct` predicho y los escribe en `config/active_parameters.json`. Un activo que siga en `untrained` sale con sus valores de `config.py` (baseline) — X1 los ignorará y usará `config.py` para ese activo.
+
+- Reentrenar antes de inferir: `python scripts/X5_macro_brain.py --infer --train`
+- Un solo activo: `python scripts/X5_macro_brain.py --infer --activo BTCUSD`
+
+## Paso 5 — Activar Fase 2 (cuando confíes en el modelo)
+
+Recién cuando las métricas de `Performance/` sean razonables (R² test positivo, MAE estable), cambiar en `config.py`:
+
+```python
+TIPO_EJECUCION = "din"   # antes "est"
+```
+
+Con esto, X1 lee `active_parameters.json` y aplica los params por activo. Los activos en `untrained` caen back a `config.py` automáticamente — la transición es por activo, no todo-o-nada.
+
+## Resumen ultra-corto
+
+```bash
+# 1. ¿cómo estoy?
+python scripts/X5_macro_brain.py --status
+# 2. generar datos + entrenar (el paso largo; corre en paralelo los 6 activos)
+python scripts/X5_macro_brain.py --recolectar --version V1
+# 3. recomendar params
+python scripts/X5_macro_brain.py --infer
+# 4. (cuando confíes) activar Fase 2 en config.py: TIPO_EJECUCION = "din"
+```
+
+## Preguntas frecuentes
+
+- **¿Tengo que llamar `--train` aparte?** No. `--recolectar` ya entrena solo cuando cada activo cruza el umbral. `--train` es solo la casilla de `--infer` para forzar un reentreno puntual.
+- **¿`--recolectar` borra lo anterior?** No borra el store (acumula). Cada ciclo de backtest sí parte de cero en la simulación (reset del checkpoint de X4), pero las filas del cuaderno se **agregan**, no se reemplazan.
+- **¿Puedo cortar y retomar?** Sí. El store persiste en disco. Al relanzar `--recolectar`, cada worker sigue sumando OC sobre lo que ya había.
+- **¿Por qué en paralelo y no uno por uno?** Para que los 6 activos avancen a la vez y cada uno corrija sus params apenas tenga datos, en vez de esperar a que termine BTCUSD para empezar ETHUSD.

@@ -2,6 +2,24 @@
 
 > Complemento de `x5_plan.md`. Este documento explica el diseño del modelo en lenguaje llano, con analogías y glosario. No reemplaza el plan técnico — lo hace legible.
 
+> ### Estado de implementación (diseño conceptual → código real)
+>
+> Este documento describe el **diseño completo** (incluida la visión de Fase 2). Lo que
+> hoy está implementado en `scripts/X5_macro_brain.py` y `X4_backtester.py --x5`:
+>
+> | Concepto en este doc | Estado real | Nota |
+> |---|---|---|
+> | Generar datos (backtesting) | ✅ `--recolectar` (paralelo por activo) | Los datos vienen de X4, no de un loop live |
+> | LightGBM (V1) — 3 modelos | ✅ implementado | targets: `retorno_pct`, `pnl_flotante_activo`, `pnl_cerrado_activo` |
+> | FT-Transformer (V2) — multi-head | ✅ implementado | se activa >5000 OC; heads sobre filas `oc` |
+> | Inferencia Optuna (LGBM) / gradient ascent (FTT) | ✅ implementado | |
+> | Airbag | ✅ implementado | `_aplicar_airbag` |
+> | Registros periódicos | ✅ se escriben y ⚠️ se usan **solo en LightGBM** (head flotante) | en FTT es un TO DO |
+> | "Ciclo por vela" con aprendizaje **online** (`--vela`) | ❌ **no implementado** | es visión Fase 2; `--vela` fue eliminado. Hoy el aprendizaje es **batch** dentro de `--recolectar` |
+> | 3 targets nombrados `pnl_abierto_activo_oc` / `pnl_cerrado_activo_oc` | 🔁 renombrados | en el código son `pnl_flotante_activo` / `pnl_cerrado_activo` |
+>
+> Para ejecutarlo, ver **"Paso a paso de ejecución"** en `x5_plan.md`.
+
 ---
 
 ## El problema en una línea
@@ -659,6 +677,12 @@ Donde `λ` controla qué tan rápido decae el peso. Con `λ` alto, el modelo "ol
 
 ## El ciclo por vela — cómo aprende el modelo "en todo momento"
 
+> ⚠️ **Esta sección describe la visión de Fase 2 (aún NO implementada).** Hoy el modo `--vela`
+> no existe y el aprendizaje online por vela no está codificado. En su lugar, los datos se
+> generan por lotes con `--recolectar` (backtesting) y el modelo se entrena en batch cuando
+> cada activo cruza el umbral. Lee esta sección como el **objetivo** del ciclo cerrado, no
+> como lo que corre hoy.
+
 Esta sección responde a la pregunta: ¿cómo funciona exactamente el loop de aprendizaje continuo?
 
 ### El ciclo completo (4 pasos, cada hora)
@@ -813,7 +837,8 @@ Cada activo avanza de forma independiente: BTCUSD puede estar en `lgbm` mientras
 | **pnl_flotante_activo** | P&L flotante (no realizado) de todas las posiciones abiertas de un activo en un momento dado. Variable objetivo de los registros periódicos. Negativo = posiciones en pérdida. |
 | **Aprendizaje online** | El modelo actualiza sus pesos con cada nuevo dato (o mini-lote pequeño), sin esperar a acumular un dataset grande. Natural en Redes Neuronales vía un paso de gradiente por vela. |
 | **Aprendizaje batch** | El modelo se reentrena sobre todo el dataset acumulado en una sola sesión. LightGBM usa este modo; el reentrenamiento completo ocurre cada `X5_RETRAIN_EVERY_N_VELAS` velas. |
-| **`--vela`** | Modo normal de producción de X5: ejecuta los 4 pasos del ciclo por vela (capturar → actualizar modelo → inferir params → escribir active_parameters.json). Llamado por X1 en Fase 2 al cierre de cada vela H1. |
+| **`--recolectar`** | Modo Fase 1: genera datos con backtesting paralelo por activo (X4 --x5) y auto-entrena al cruzar el umbral. Es el modo que se usa cuando el store está vacío. |
+| **`--infer`** | Recomienda params con el modelo actual y escribe `active_parameters.json`. Con la casilla `--train` reentrena antes. Reemplaza al antiguo `--vela` (que fue eliminado por redundante). |
 | **Airbag** | Regla explícita (no aprendida) que anula la recomendación del modelo cuando el precio cae más de un umbral en las últimas 4 velas H1. Fuerza params mínimos de seguridad independientemente de lo que X5 recomiende. |
 | **model_status** | Campo en `config/active_parameters.json` que indica el estado del modelo por activo: `"untrained"` (sin datos suficientes), `"lgbm"` (V1 activo), `"ftt"` (V2 activo). X1 lo lee para decidir si usar los params del modelo o caer back a `config.py`. |
 | **UNTRAINED** | Estado inicial de X5 para un activo cuando el store tiene menos de ~500 trades. En este estado X5 devuelve los params de `config.py` sin modificar. |

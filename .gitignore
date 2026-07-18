@@ -5,6 +5,8 @@ Data_minuto/
 
 # Archivos generados en ejecución
 resources/
+config/active_parameters.json
+config/active_parameters.json.tmp
 
 # Python
 __pycache__/

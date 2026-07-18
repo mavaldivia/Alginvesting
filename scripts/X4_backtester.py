@@ -661,6 +661,8 @@ def _contexto_portfolio_x5(est_a: dict, precio_cierre: float,
               if len(retornos_pct) > 1 else 0.0
     oc_rec = est_a.get('oc_recientes', [])
     ret_ult5 = sum(oc_rec[-5:]) / len(oc_rec[-5:]) if oc_rec else 0.0
+    # P&L flotante (no realizado) en USD de las OA aún abiertas del activo.
+    pnl_flotante = sum((precio_cierre - p) * lote * units for p in OA)
     return {
         'n_ordenes_abiertas':            len(OA),
         'n_ordenes_espera':              len(est_a['OE']),
@@ -668,6 +670,7 @@ def _contexto_portfolio_x5(est_a: dict, precio_cierre: float,
         'mean_retorno_pct_abierto':      round(mean_ret, 6),
         'std_retorno_pct_abierto':       round(std_ret, 6),
         'retorno_promedio_ultimas_5_oc': round(ret_ult5, 6),
+        'pnl_flotante_activo':           round(pnl_flotante, 4),
     }
 
 
@@ -705,6 +708,8 @@ def _construir_fila_oc(activo: str, pos: dict, trade: dict,
     fila.update({f'{k}_oa': v for k, v in temp_oa.items()})
     fila.update({f'x2_{k}_oa': v for k, v in x2_oa.items()})
     fila.update({f'x3_{k}_oa': v for k, v in x3_oa.items()})
+    # Targets del modelo X5
+    fila['pnl_cerrado_activo'] = round(est_a.get('GC', 0.0), 4)  # P&L cerrado acumulado del activo
     fila['retorno_pct'] = trade['retorno_pct']
     return fila
 
@@ -728,10 +733,13 @@ def _construir_fila_periodica(activo: str, ts: pd.Timestamp, est_a: dict,
     fila.update(temp)
     fila.update({f'x2_{k}': v for k, v in x2.items()})
     fila.update({f'x3_{k}': v for k, v in x3.items()})
-    fila.update(portfolio)
+    fila.update(portfolio)  # incluye pnl_flotante_activo (target Y de las filas periódicas)
     fila.update({f'{k}_oa': '' for k in temp})
     fila.update({f'x2_{k}_oa': '' for k in x2})
     fila.update({f'x3_{k}_oa': '' for k in x3})
+    # Targets: pnl_flotante_activo (en portfolio) es el Y del registro periódico.
+    # pnl_cerrado_activo se registra para consistencia de columnas; retorno_pct no aplica.
+    fila['pnl_cerrado_activo'] = round(est_a.get('GC', 0.0), 4)
     fila['retorno_pct'] = ''
     return fila
 
@@ -1007,17 +1015,20 @@ def _generar_params_explore(cfg, cfg_global) -> dict:
     return result
 
 
-def _generar_params_exploit(cfg, base_dir: Path, baseline: dict) -> dict:
+def _generar_params_exploit(cfg, base_dir: Path, baseline: dict, activo=None) -> dict:
     """
     Llama a X5 --infer y lee active_parameters.json.
     Activos con model_status='untrained' usan baseline (config_V1).
+    Si `activo` está dado (modo paralelo por activo), infiere solo ese activo.
     """
     x5_path = base_dir / 'scripts' / 'X5_macro_brain.py'
     active_params_path = base_dir / 'config' / 'active_parameters.json'
+    cmd = [sys.executable, str(x5_path), '--infer']
+    if activo is not None:
+        cmd += ['--activo', activo]
     try:
         proc = subprocess.run(
-            [sys.executable, str(x5_path), '--infer'],
-            capture_output=True, text=True, timeout=180,
+            cmd, capture_output=True, text=True, timeout=180,
         )
         if proc.returncode != 0 or not active_params_path.exists():
             print(f'  X5 --infer falló (código {proc.returncode}) → fallback a baseline')
@@ -1081,15 +1092,28 @@ def _imprimir_ciclo_x5(tipo: str, params: dict, cfg):
     print(f'{"─"*60}')
 
 
-def ejecutar_x5_ciclo(cfg):
+def ejecutar_x5_ciclo(cfg, activo=None):
     """
     Un ciclo de X5 backtesting: decide explore/exploit, aplica params,
     corre el backtest desde cero emitiendo [MES_BT] markers en stdout.
     Llamado una vez por X5 --recolectar para cada ciclo externo.
+
+    Si `activo` está dado, el ciclo corre SOLO ese activo con recursos X4
+    aislados (`resources_{version}_{activo}`), de modo que X5 --recolectar
+    pueda lanzar un proceso por activo en paralelo sin colisionar en el
+    checkpoint/equity compartido de la versión.
     """
     import config as cfg_global
 
     base_dir = Path(__file__).parent.parent
+
+    if activo is not None:
+        cfg.valores = [activo]
+        base_res = cfg.CARPETA_RESOURCES
+        cfg.CARPETA_RESOURCES = base_res.parent / f'{base_res.name}_{activo}'
+        cfg.CARPETA_N_BT      = cfg.CARPETA_RESOURCES / 'conjuntos_N'
+        cfg.CARPETA_LOGS_BT   = cfg.CARPETA_RESOURCES / 'logs'
+
     min_lotajes = dict(cfg.LOTAJES)  # capturar antes de mutar
 
     baseline = {
@@ -1112,7 +1136,7 @@ def ejecutar_x5_ciclo(cfg):
     if es_explore:
         params = _generar_params_explore(cfg, cfg_global)
     else:
-        params = _generar_params_exploit(cfg, base_dir, baseline)
+        params = _generar_params_exploit(cfg, base_dir, baseline, activo=activo)
 
     _aplicar_params_x5(cfg, params, min_lotajes)
     _imprimir_ciclo_x5(tipo, params, cfg)
@@ -1131,10 +1155,12 @@ if __name__ == '__main__':
                         help='Ignorar checkpoint existente y partir de cero')
     parser.add_argument('--x5', action='store_true',
                         help='Modo X5: explore/exploit de params, emite [MES_BT] markers para X5 --recolectar')
+    parser.add_argument('--activo', type=str, default=None,
+                        help='En modo --x5: correr solo este activo con recursos aislados (paralelismo de X5 --recolectar)')
     args = parser.parse_args()
 
     cfg = _cargar_config(args.version)
     if args.x5:
-        ejecutar_x5_ciclo(cfg)
+        ejecutar_x5_ciclo(cfg, activo=args.activo)
     else:
         ejecutar_backtest(cfg, reset=args.reset)

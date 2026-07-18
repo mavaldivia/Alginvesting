@@ -5,20 +5,22 @@ Surrogate model de Alginvesting. Aprende la relación:
     f(contexto X2+X3, config_params) → retorno_esperado
 y optimiza config_params en inferencia para cada activo.
 
-Modos:
-  python scripts/X5_macro_brain.py --vela   # inferir params con modelo actual (cada vela H1)
-  python scripts/X5_macro_brain.py --train  # reentrenar desde cero con el store acumulado
-  python scripts/X5_macro_brain.py --infer  # inferir sin reentrenar
-  python scripts/X5_macro_brain.py --status # diagnóstico: n_trades, modelo activo por activo
+Modos (3 + casilla --train):
+  python scripts/X5_macro_brain.py --recolectar   # genera datos: backtesting paralelo por activo + auto-entrena
+  python scripts/X5_macro_brain.py --infer         # recomienda params con el modelo actual → active_parameters.json
+  python scripts/X5_macro_brain.py --infer --train # reentrena desde el store y luego recomienda
+  python scripts/X5_macro_brain.py --status        # diagnóstico: n_trades y modelo activo por activo
+
+`--train` es una casilla, no un modo: solo tiene efecto junto a `--infer`
+(reentrena antes de recomendar). `--recolectar` ya entrena por su cuenta.
 
 Fases de rollout:
-  Fase 1 (TIPO_EJECUCION="est"): --train entrena el modelo sobre el store generado
-    por x5_macrobrain.py (backtester). --vela y --infer solo infieren params y
-    escriben active_parameters.json. X1 no lee ese archivo todavía.
-  Fase 2 (TIPO_EJECUCION="din"): X1 escribe la OC al store y llama --vela al
-    cierre de cada vela H1. X5 actualiza el modelo e infiere. X1 lee
-    active_parameters.json por activo; activos con model_status="untrained"
-    hacen fallback automático a config.py.
+  Fase 1 (TIPO_EJECUCION="est"): --recolectar llena el store con backtesting
+    (X4 --x5) y entrena los modelos por activo. --infer recomienda params y
+    escribe active_parameters.json. X1 no lee ese archivo todavía.
+  Fase 2 (TIPO_EJECUCION="din"): X1 escribe la OC al store y llama --infer al
+    cierre de cada vela H1. X1 lee active_parameters.json por activo; activos
+    con model_status="untrained" hacen fallback automático a config.py.
 """
 
 import argparse
@@ -101,9 +103,9 @@ PORTFOLIO_COLS = [
     'retorno_promedio_ultimas_5_oc',
 ]
 
-TARGET_RETORNO  = 'retorno_pct'
-TARGET_FLOTANTE = 'pnl_flotante_activo'
-TARGET_CERRADO  = 'pnl_cerrado_activo_sesion'
+TARGET_RETORNO  = 'retorno_pct'            # Y de filas 'oc'
+TARGET_FLOTANTE = 'pnl_flotante_activo'    # Y de filas 'oc' y 'periodico'
+TARGET_CERRADO  = 'pnl_cerrado_activo'     # Y de filas 'oc'
 
 # ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -172,16 +174,20 @@ def _preparar_features(
     store: pd.DataFrame,
     feature_cols: list,
     target: str = TARGET_RETORNO,
-    tipo_registro: str = 'oc',
+    tipos_registro: tuple = ('oc',),
 ) -> tuple:
     """
     Retorna (X, y, sample_weight) para el target indicado.
     Aplica ponderación temporal exponencial: registros recientes pesan más.
+
+    `tipos_registro` permite mezclar filas: p.ej. el head 'flotante'
+    (pnl_flotante_activo) entrena con ('oc', 'periodico') porque ese target
+    existe en ambos tipos; 'retorno' y 'cerrado' solo con ('oc',).
     """
     if store.empty:
         return np.array([]), np.array([]), np.array([])
 
-    df = store[store['tipo_registro'] == tipo_registro].copy()
+    df = store[store['tipo_registro'].isin(tipos_registro)].copy()
     target_num = pd.to_numeric(df.get(target, pd.Series(dtype=float)), errors='coerce')
     df = df[target_num.notna()]
     if df.empty:
@@ -358,17 +364,19 @@ def _entrenar_lgbm(activo: str, store: pd.DataFrame) -> bool:
     out = _model_dir(activo)
     out.mkdir(parents=True, exist_ok=True)
 
+    # 'flotante' (pnl_flotante_activo) aprovecha además las filas periódicas:
+    # capturan el deterioro del portfolio durante rachas bajistas sin OC.
     targets = {
-        'retorno':  (TARGET_RETORNO,  'oc'),
-        'flotante': (TARGET_FLOTANTE, 'oc'),
-        'cerrado':  (TARGET_CERRADO,  'oc'),
+        'retorno':  (TARGET_RETORNO,  ('oc',)),
+        'flotante': (TARGET_FLOTANTE, ('oc', 'periodico')),
+        'cerrado':  (TARGET_CERRADO,  ('oc',)),
     }
 
     exito = True
     metricas: dict = {}
     n_train_total = n_test_total = 0
-    for key, (target_col, tipo_reg) in targets.items():
-        X, y, w = _preparar_features(store, feature_cols, target_col, tipo_reg)
+    for key, (target_col, tipos_reg) in targets.items():
+        X, y, w = _preparar_features(store, feature_cols, target_col, tipos_reg)
         if len(X) < 20:
             print(f'  [{activo}] LightGBM {key}: solo {len(X)} filas — omitido.')
             exito = False
@@ -518,14 +526,17 @@ def _entrenar_ftt(activo: str, store: pd.DataFrame) -> bool:
     out = _model_dir(activo)
     out.mkdir(parents=True, exist_ok=True)
 
-    X, y_r, w = _preparar_features(store, feature_cols, TARGET_RETORNO, 'oc')
+    X, y_r, w = _preparar_features(store, feature_cols, TARGET_RETORNO, ('oc',))
     if len(X) < 50:
         print(f'  [{activo}] FTT: solo {len(X)} filas OC — insuficientes.')
         return False
 
     n = len(X)
-    _, y_f, _ = _preparar_features(store, feature_cols, TARGET_FLOTANTE, 'oc')
-    _, y_c, _ = _preparar_features(store, feature_cols, TARGET_CERRADO, 'oc')
+    # Los 3 heads del FTT comparten el mismo tensor X (filas OC), así que los
+    # 3 targets se leen sobre 'oc'. El aprovechamiento de filas periódicas para
+    # el head 'flotante' (vía Deep Sets / pase separado) queda como TO DO en V2.
+    _, y_f, _ = _preparar_features(store, feature_cols, TARGET_FLOTANTE, ('oc',))
+    _, y_c, _ = _preparar_features(store, feature_cols, TARGET_CERRADO, ('oc',))
     # Alinear longitud con X (mismas filas OC)
     y_f = y_f[:n] if len(y_f) >= n else np.zeros(n, dtype=np.float32)
     y_c = y_c[:n] if len(y_c) >= n else np.zeros(n, dtype=np.float32)
@@ -872,15 +883,28 @@ def _inferir_params(activo: str) -> tuple:
 
 def _escribir_active_parameters(resultados: dict) -> None:
     """
-    Escribe config/active_parameters.json.
+    Escribe config/active_parameters.json haciendo *merge* (no overwrite):
+    actualiza solo las claves de los activos en `resultados` y preserva las
+    demás. Necesario para el modo paralelo (--infer --activo X), donde varios
+    procesos actualizan cada uno su activo. Escritura atómica (tmp + replace).
+
     resultados: {activo: (params_dict, model_status)}
     """
     ACTIVE_PARAMS.parent.mkdir(parents=True, exist_ok=True)
-    out: dict = {'generated_at': datetime.now().isoformat(timespec='seconds')}
+    out: dict = {}
+    if ACTIVE_PARAMS.exists():
+        try:
+            with open(ACTIVE_PARAMS) as f:
+                out = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            out = {}
+    out['generated_at'] = datetime.now().isoformat(timespec='seconds')
     for activo, (params, status) in resultados.items():
         out[activo] = {'model_status': status, **params}
-    with open(ACTIVE_PARAMS, 'w') as f:
+    tmp = ACTIVE_PARAMS.with_suffix('.json.tmp')
+    with open(tmp, 'w') as f:
         json.dump(out, f, indent=2)
+    tmp.replace(ACTIVE_PARAMS)
     print(f'\n  → {ACTIVE_PARAMS}')
 
 # ─── Status ───────────────────────────────────────────────────────────────────
@@ -927,93 +951,86 @@ def _mostrar_status() -> None:
 
 # ─── Recolectar ───────────────────────────────────────────────────────────────
 
-def _imprimir_progreso(activos: list, n_oc: dict, delta: dict) -> None:
-    umbral = cfg.X5_MIN_TRADES_TRAIN
-    print(f'  {"Activo":<8}  {"OC":>6}  {"Δ":>6}  {"umbral":>6}  estado')
-    for a in activos:
-        n   = n_oc[a]
-        d   = delta.get(a, 0)
-        d_s = f'+{d}' if d > 0 else str(d)
-        estado = 'LISTO' if n >= umbral else f'faltan {umbral - n}'
-        print(f'  {a:<8}  {n:>6}  {d_s:>6}  {umbral:>6}  {estado}')
+def _worker_recolectar_activo(activo: str, version: str, x4_path: Path) -> tuple:
+    """
+    Worker de UN activo (corre en su propio hilo, en paralelo con los demás).
 
+    Bucle de ciclos independientes:
+      1. Lanza X4 --x5 --activo {activo}: un backtest completo desde
+         `fecha_inicio`, con recursos X4 aislados (`resources_{version}_{activo}`).
+      2. Al terminar el ciclo, cuenta las OC del store del activo.
+      3. Si ya superó X5_MIN_TRADES_TRAIN, entrena/reentrena el modelo del
+         activo → los ciclos EXPLOIT siguientes ya usan el modelo recién
+         entrenado (los params se van corrigiendo por activo).
+      4. Reinicia el ciclo (X4 con reset=True vuelve a partir de `fecha_inicio`).
 
-_MES_BT_MARKER = '[MES_BT]'  # marcador que X4 --x5 emite al cerrar cada mes simulado
+    Termina al agotar X5_N_CICLOS_BT ciclos o alcanzar X5_MIN_TRADES_FTT OC.
+    El stdout de X4 se captura (descarta) para no entrelazar 6 salidas.
+    """
+    n_ini = _n_oc(_cargar_store(activo))
+    for ciclo in range(1, cfg.X5_N_CICLOS_BT + 1):
+        cmd = [sys.executable, str(x4_path),
+               '--version', version, '--x5', '--activo', activo]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        n = _n_oc(_cargar_store(activo))
+        if proc.returncode != 0:
+            tail = (proc.stdout or '')[-300:]
+            print(f'  [{activo}] ciclo {ciclo}: X4 error (cód {proc.returncode}). {tail}')
+            break
+        print(f'  [{activo}] ciclo {ciclo}/{cfg.X5_N_CICLOS_BT}: {n} OC '
+              f'(Δ{n - n_ini:+d} desde el inicio)')
+        if n >= cfg.X5_MIN_TRADES_TRAIN:
+            _entrenar(activo)  # entrena/reentrena → EXPLOIT usa el modelo actualizado
+        if n >= cfg.X5_MIN_TRADES_FTT:
+            print(f'  [{activo}] alcanzó {cfg.X5_MIN_TRADES_FTT} OC (umbral FTT). Fin del activo.')
+            break
+    return activo, _n_oc(_cargar_store(activo))
 
 
 def _recolectar(version: str) -> None:
     """
-    Orquesta la generación de datos para X5:
-    1. Lanza X4 --x5 en ciclos sucesivos.
-    2. Detecta marcadores [MES_BT] YYYY-MM en stdout de X4 e imprime
-       un resumen de progreso por mes simulado.
-    3. Auto-entrena los activos que cruzan X5_MIN_TRADES_TRAIN.
-    4. Termina cuando todos los activos superan X5_MIN_TRADES_TRAIN
-       o se agotan X5_N_CICLOS_BT ciclos.
+    Orquesta la generación de datos para X5 con **backtesting paralelo por activo**.
 
-    Contrato con X4: X4_backtester.py --x5 debe imprimir una línea
-    "[MES_BT] YYYY-MM" al cerrar cada mes simulado. El resto de su
-    stdout es descartado por X5.
+    Lanza un worker por activo (ThreadPoolExecutor). Cada worker corre sus
+    ciclos de X4 --x5 de forma independiente y entrena su propio modelo al
+    cruzar el umbral. Los activos avanzan en paralelo y a distinto ritmo.
+
+    Aislamiento: cada worker usa `resources_{version}_{activo}` para el
+    checkpoint/equity de X4 (no colisionan). El store por activo
+    (`resources/x5/{ACTIVO}_store.csv`) ya es independiente por activo.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     x4_path = Path(__file__).parent / 'X4_backtester.py'
     if not x4_path.exists():
         print(f'  X4_backtester.py no encontrado en {x4_path}')
         return
 
-    activos    = cfg.VALORES
-    n_oc_base  = {a: _n_oc(_cargar_store(a)) for a in activos}
-    entrenados: set = {a for a in activos if n_oc_base[a] >= cfg.X5_MIN_TRADES_TRAIN}
+    activos = cfg.VALORES
+    n_ini   = {a: _n_oc(_cargar_store(a)) for a in activos}
 
     print(f'\n{"═" * 72}')
-    print(f'  X5 --recolectar  |  versión: {version}  |  ciclos máx: {cfg.X5_N_CICLOS_BT}')
-    print(f'{"═" * 72}\n  Estado inicial:')
-    _imprimir_progreso(activos, n_oc_base, {a: 0 for a in activos})
+    print(f'  X5 --recolectar (paralelo)  |  versión: {version}  '
+          f'|  ciclos máx/activo: {cfg.X5_N_CICLOS_BT}')
+    print(f'{"═" * 72}')
+    print(f'  Estado inicial (OC en store):')
+    for a in activos:
+        print(f'    {a:<8}  {n_ini[a]:>6} OC  (umbral train: {cfg.X5_MIN_TRADES_TRAIN})')
+    print(f'\n  Lanzando {len(activos)} workers en paralelo...\n')
 
-    for ciclo in range(1, cfg.X5_N_CICLOS_BT + 1):
-        print(f'\n─── Ciclo {ciclo}/{cfg.X5_N_CICLOS_BT} ──────────────────────────────────────')
-        n_oc_ciclo = {a: _n_oc(_cargar_store(a)) for a in activos}  # referencia inicial del ciclo
-        n_oc_mes   = dict(n_oc_ciclo)
+    with ThreadPoolExecutor(max_workers=len(activos)) as ex:
+        futs = {ex.submit(_worker_recolectar_activo, a, version, x4_path): a
+                for a in activos}
+        for fut in as_completed(futs):
+            a = futs[fut]
+            try:
+                _, n_fin = fut.result()
+                print(f'  ✔ [{a}] terminó: {n_ini[a]} → {n_fin} OC')
+            except Exception as e:
+                print(f'  [ERROR] [{a}] worker falló: {e}')
 
-        cmd  = [sys.executable, str(x4_path), '--version', version, '--x5']
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        assert proc.stdout is not None
-
-        for raw_line in proc.stdout:
-            line = raw_line.rstrip()
-            if not line.startswith(_MES_BT_MARKER):
-                continue
-            # "[MES_BT] YYYY-MM"
-            parts = line.split()
-            mes   = parts[1] if len(parts) >= 2 else '?'
-            n_oc_ahora = {a: _n_oc(_cargar_store(a)) for a in activos}
-            delta_mes  = {a: n_oc_ahora[a] - n_oc_mes[a] for a in activos}
-            print(f'\n  Mes {mes}:')
-            _imprimir_progreso(activos, n_oc_ahora, delta_mes)
-            n_oc_mes = n_oc_ahora
-
-        proc.wait()
-        if proc.returncode != 0:
-            print(f'  X4 terminó con error (código {proc.returncode}).')
-            break
-
-        n_oc_fin    = {a: _n_oc(_cargar_store(a)) for a in activos}
-        delta_ciclo = {a: n_oc_fin[a] - n_oc_ciclo[a] for a in activos}
-        print(f'\n  Resumen ciclo {ciclo}:')
-        _imprimir_progreso(activos, n_oc_fin, delta_ciclo)
-
-        nuevos = {a for a in activos
-                  if a not in entrenados and n_oc_fin[a] >= cfg.X5_MIN_TRADES_TRAIN}
-        if nuevos:
-            print(f'\n  Auto-entrenamiento: {", ".join(sorted(nuevos))}')
-            for activo in sorted(nuevos):
-                _entrenar(activo)
-            entrenados |= nuevos
-
-        if all(n_oc_fin[a] >= cfg.X5_MIN_TRADES_TRAIN for a in activos):
-            print(f'\n  Todos los activos superaron {cfg.X5_MIN_TRADES_TRAIN} OC. Fin.')
-            break
-
-    print(f'\n{"═" * 72}\n')
+    print(f'\n{"═" * 72}\n  Recolección finalizada. Estado final:')
+    _mostrar_status()
 
 
 # ─── CLI ──────────────────────────────────────────────────────────────────────
@@ -1023,16 +1040,14 @@ def main():
         description='X5 Surrogate Model — ajusta config_params dinámicamente por activo'
     )
     grp = parser.add_mutually_exclusive_group(required=True)
-    grp.add_argument('--vela',      action='store_true',
-                     help='Inferir params con el modelo actual (producción, cada vela H1)')
-    grp.add_argument('--train',     action='store_true',
-                     help='Reentrenar modelo desde cero con el store acumulado')
-    grp.add_argument('--infer',     action='store_true',
-                     help='Solo inferir params sin reentrenar')
-    grp.add_argument('--status',    action='store_true',
-                     help='Diagnóstico: n_trades y modelo activo por activo')
     grp.add_argument('--recolectar', action='store_true',
-                     help='Orquestar pipeline: lanza X4 --x5 en ciclos y auto-entrena')
+                     help='Genera datos: backtesting paralelo por activo (X4 --x5) + auto-entrena')
+    grp.add_argument('--infer',      action='store_true',
+                     help='Recomienda params con el modelo actual → active_parameters.json')
+    grp.add_argument('--status',     action='store_true',
+                     help='Diagnóstico: n_trades y modelo activo por activo')
+    parser.add_argument('--train',   action='store_true',
+                        help='Casilla: con --infer, reentrena antes de recomendar')
     parser.add_argument('--activo', default=None,
                         help='Procesar solo este activo (ej. BTCUSD)')
     parser.add_argument('--version', default='V1',
@@ -1043,6 +1058,11 @@ def main():
         _mostrar_status()
         return
 
+    if args.recolectar:
+        _recolectar(args.version)
+        return
+
+    # --infer (único modo de inferencia). --train (opcional) reentrena antes.
     activos = [args.activo] if args.activo else cfg.VALORES
 
     if args.train:
@@ -1050,21 +1070,16 @@ def main():
         for activo in activos:
             _entrenar(activo)
 
-    if args.recolectar:
-        _recolectar(args.version)
-        return
-
-    if args.train or args.infer or args.vela:
-        print('\n─── Inferencia ───────────────────────────────────────────')
-        resultados: dict = {}
-        for activo in activos:
-            params, status = _inferir_params(activo)
-            resultados[activo] = (params, status)
-            n_sz = params.get('n_sizes_ejecucion', '?')
-            lm   = params.get('LOTAJES_M', '?')
-            k    = params.get('K', '?')
-            print(f'  [{activo}]  {status:<9}  N={n_sz}  K={k}  LM={lm}')
-        _escribir_active_parameters(resultados)
+    print('\n─── Inferencia ───────────────────────────────────────────')
+    resultados: dict = {}
+    for activo in activos:
+        params, status = _inferir_params(activo)
+        resultados[activo] = (params, status)
+        n_sz = params.get('n_sizes_ejecucion', '?')
+        lm   = params.get('LOTAJES_M', '?')
+        k    = params.get('K', '?')
+        print(f'  [{activo}]  {status:<9}  N={n_sz}  K={k}  LM={lm}')
+    _escribir_active_parameters(resultados)
 
 
 if __name__ == '__main__':
