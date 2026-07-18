@@ -897,3 +897,11 @@ Mauricio: Inicio de sesión con `/todos`. Eligió trabajar en la sección X5 y s
 Claude: Leyó `X5_macro_brain.py`, `x5_plan.md` y `config.py` para entender el estado actual. Implementó el modo `--recolectar` en `X5_macro_brain.py`: nuevo CLI `--recolectar [--version V1]`, función `_imprimir_progreso()`, y función `_recolectar()` que lanza X4 con `Popen`, parsea marcadores `[MES_BT] YYYY-MM` del stdout de X4 para imprimir tabla por mes simulado, auto-entrena activos que cruzan `X5_MIN_TRADES_TRAIN`, y para al agotar `X5_N_CICLOS_BT` ciclos o cuando todos los activos están listos. Agregó `X5_N_CICLOS_BT = 20` a `config.py`. Definió el contrato con X4: al implementar `--x5`, X4 debe emitir `[MES_BT] YYYY-MM` al cerrar cada mes simulado.
 
 (Cierre: 2026-07-17 20:00)
+
+## SECCIÓN 91
+
+Mauricio: Invocó `/todos` → eligió sección X5. Notó que la lista mostraba doble prefijo numérico ("1. 3. X5:...") y pidió que se eliminara el ordinal interno. Luego confirmó avanzar en el ítem 1 (X5: `--recolectar`).
+
+Claude: Corrigió la skill `/todos` (`~/.claude/skills/todos/SKILL.md`) para hacer strip del prefijo numérico inicial del nombre del ítem antes de mostrarlo. Guardó memory de respaldo. Al revisar `X5_macro_brain.py` y `config.py`, detectó que el ítem `--recolectar` ya estaba completamente implementado (commit `a09e23b`). Lo marcó como hecho: eliminado de `todos.md`, agregado a `done.md` en sección X5.
+
+(Cierre: 2026-07-17 20:09)

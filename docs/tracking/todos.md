@@ -34,7 +34,6 @@
 
 
 
-- [ ] **3. X5: `--recolectar` — orquestador del pipeline**: nuevo modo CLI en `X5_macro_brain.py`. Lanza `X4_backtester.py --version V1 --x5` como subprocess. Monitorea `resources/x5/{ACTIVO}_store.csv` (n OC por activo) e imprime progreso al terminar cada ciclo. Al cruzar `X5_MIN_TRADES_TRAIN` por primer activo entrenado, llama `--train` automáticamente y sigue recolectando. Termina al agotar `N_CICLOS_BT` o si todos los activos superaron `X5_MIN_TRADES_TRAIN`. CLI: `python X5_macro_brain.py --recolectar [--version V1]`. (I:8 C:3 H:6 → 2.67)
 
 - [ ] **4. X4: multi-ciclo explore/exploit en modo `--x5`**: al terminar el historial en modo `--x5`, reiniciar el loop desde `cfg.fecha_inicio` con nuevos params. En cada ciclo: sortear si es exploración (`random() < cfg.EXPLORATION_RATE`) → params aleatorios uniformes dentro de `X5_PARAM_RANGES`; o explotación → llamar `X5_macro_brain.py --infer` para obtener los mejores params actuales (fallback a `config_V1` si modelo no entrenado). Imprimir al inicio de cada ciclo qué params se usan y si es explore/exploit. Checkpoint se resetea entre ciclos (nueva simulación desde cero cada vez). (I:8 C:4 H:7 → 1.87)
 
