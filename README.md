@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-18** — fix: consola UTF-8 en Windows para prints con glifos → ═ ✔ (config reconfigura stdout + encoding en subprocess X4/X5)
 - **2026-07-18** — fix: X4/X5 leen x2_history como lista (corrige AttributeError en --recolectar) + tuning config n_sizes/A/B
 - **2026-07-18** — feat: X5 pipeline de targets, recolección paralela por activo, CLI 3 modos + docs/PDF extendido
 - **2026-07-17** — feat: X4 --x5 captura X3/X2 y escritura al store

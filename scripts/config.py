@@ -6,7 +6,18 @@ datos históricos, calidad del algoritmo, velocidad, visualizaciones, trading)
 en vez de por script (X0/X1) — varios temas son usados por ambos.
 """
 
+import sys
 from pathlib import Path
+
+# ─── Consola UTF-8 (Windows) ──────────────────────────────────────────────────
+# La consola/pipe de Windows usa cp1252 y no puede imprimir glifos como → ═ ✔
+# presentes en los prints de X0–X5 (UnicodeEncodeError →). Todos los scripts
+# importan config, así que forzar UTF-8 en stdout/stderr aquí lo cubre en un punto.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8')
+    except (AttributeError, ValueError):
+        pass
 
 # ─── Rutas ────────────────────────────────────────────────────────────────────
 
@@ -157,7 +168,7 @@ X3_VENTANAS = {
 A = 4
 B = 1.5
 
-TS = 0.5  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
+TS = 0.05  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
 
 PERDIDA_MAX = 120  # USD — si la pérdida de una posición abierta supera este valor, se cierra
 

@@ -988,7 +988,8 @@ def _worker_recolectar_activo(activo: str, version: str, x4_path: Path) -> tuple
     for ciclo in range(1, cfg.X5_N_CICLOS_BT + 1):
         cmd = [sys.executable, str(x4_path),
                '--version', version, '--x5', '--activo', activo]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                               encoding='utf-8', errors='replace')
         n = _n_oc(_cargar_store(activo))
         if proc.returncode != 0:
             tail = ((proc.stderr or '') or (proc.stdout or ''))[-500:]

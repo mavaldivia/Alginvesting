@@ -1046,6 +1046,7 @@ def _generar_params_exploit(cfg, base_dir: Path, baseline: dict, activo=None) ->
     try:
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=180,
+            encoding='utf-8', errors='replace',
         )
         if proc.returncode != 0 or not active_params_path.exists():
             print(f'  X5 --infer falló (código {proc.returncode}) → fallback a baseline')
