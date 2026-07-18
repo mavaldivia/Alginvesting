@@ -27,6 +27,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 from X0_data_supports import _procesar_valor_N, _bt_warm_start
+from X3_technical_features import compute_snapshot
 
 
 # ─── Config ───────────────────────────────────────────────────────────────────
@@ -262,7 +263,8 @@ def _margen_libre_actual(estado: dict, precios: dict, cfg, extra_usado: float = 
 
 
 def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
-            capital_ap: float, cfg, events: list, trades: list, usa_iv: bool = False):
+            capital_ap: float, cfg, events: list, trades: list, usa_iv: bool = False,
+            x5_ctx=None):
     """Ejecuta OE. Detecta gap de mercado."""
     lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
@@ -282,14 +284,22 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
                                    precio=precio_oe, motivo='margen_insuficiente'))
                 del est_a['OE'][precio_oe]
                 continue
-            ts_creacion = est_a['OE'].pop(precio_oe).get('ts_creacion', ts.isoformat())
-            est_a['OA'][precio_gap] = {
+            _oe_d = est_a['OE'].pop(precio_oe)
+            ts_creacion = _oe_d.get('ts_creacion', ts.isoformat())
+            _oa_entry = {
                 'lote': lote, 'sl': 0,
                 'ts_apertura': ts.isoformat(),
                 'capital_apertura': estado['capital'],
                 'ganancia_max': 0.0, 'drawdown_max': 0.0,
                 'usa_intravela': usa_iv, 'duracion_velas': 0,
             }
+            if x5_ctx is not None:
+                _oa_entry['ts_oe_creacion'] = ts_creacion
+                _oa_entry['x3_oe'] = _oe_d.get('x3_oe', {})
+                _oa_entry['x2_oe'] = _oe_d.get('x2_oe', {})
+                _oa_entry['x3_oa'] = x5_ctx['x3']
+                _oa_entry['x2_oa'] = x5_ctx['x2']
+            est_a['OA'][precio_gap] = _oa_entry
             events.append(_evt('OE_ejecutada', activo, ts, cfg, usa_iv,
                                precio=precio_oe, precio_ejecucion=precio_gap,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=True))
@@ -305,14 +315,22 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
                                    precio=precio_oe, motivo='margen_insuficiente'))
                 del est_a['OE'][precio_oe]
                 continue
-            ts_creacion = est_a['OE'].pop(precio_oe).get('ts_creacion', ts.isoformat())
-            est_a['OA'][precio_oe] = {
+            _oe_d = est_a['OE'].pop(precio_oe)
+            ts_creacion = _oe_d.get('ts_creacion', ts.isoformat())
+            _oa_entry = {
                 'lote': lote, 'sl': 0,
                 'ts_apertura': ts.isoformat(),
                 'capital_apertura': estado['capital'],
                 'ganancia_max': 0.0, 'drawdown_max': 0.0,
                 'usa_intravela': usa_iv, 'duracion_velas': 0,
             }
+            if x5_ctx is not None:
+                _oa_entry['ts_oe_creacion'] = ts_creacion
+                _oa_entry['x3_oe'] = _oe_d.get('x3_oe', {})
+                _oa_entry['x2_oe'] = _oe_d.get('x2_oe', {})
+                _oa_entry['x3_oa'] = x5_ctx['x3']
+                _oa_entry['x2_oa'] = x5_ctx['x2']
+            est_a['OA'][precio_oe] = _oa_entry
             events.append(_evt('OE_ejecutada', activo, ts, cfg, usa_iv,
                                precio=precio_oe, precio_ejecucion=precio_oe,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=False))
@@ -349,7 +367,8 @@ def _paso_C(est_a: dict, precio_max: float, activo: str, ts, cfg, events: list, 
 
 
 def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
-            capital_ap: float, N: int, cfg, events: list, trades: list, usa_iv: bool = False):
+            capital_ap: float, N: int, cfg, events: list, trades: list, usa_iv: bool = False,
+            x5_ctx=None):
     """Cierra posiciones cuya pérdida supera PERDIDA_MAX_BT."""
     lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
@@ -366,15 +385,22 @@ def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
         retorno_usd = (precio_cierre - precio_ap) * L
         estado['capital'] += retorno_usd
         estado['por_activo'][activo]['GC'] += retorno_usd
-        trades.append(_registrar_trade(pos, precio_ap, precio_cierre, 'perdida_max',
-                                       ts, activo, N, capital_ap, cfg))
+        _trade = _registrar_trade(pos, precio_ap, precio_cierre, 'perdida_max',
+                                  ts, activo, N, capital_ap, cfg)
+        trades.append(_trade)
+        if x5_ctx is not None and not usa_iv:
+            _fila = _construir_fila_oc(activo, pos, _trade, ts, est_a,
+                                        precio_cierre, cfg, x5_ctx['min_lotajes'])
+            _append_x5_store(activo, _fila)
+            est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='perdida_max', retorno_usd=round(retorno_usd, 4), lote=lote))
 
 
 def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
-            capital_ap: float, N: int, cfg, events: list, trades: list, usa_iv: bool = False):
+            capital_ap: float, N: int, cfg, events: list, trades: list, usa_iv: bool = False,
+            x5_ctx=None):
     """Cierra posiciones cuyo SL fue tocado."""
     lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
@@ -390,15 +416,21 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
         retorno_usd = (precio_cierre - precio_ap) * L
         estado['capital'] += retorno_usd
         estado['por_activo'][activo]['GC'] += retorno_usd
-        trades.append(_registrar_trade(pos, precio_ap, precio_cierre, 'trailing_stop',
-                                       ts, activo, N, capital_ap, cfg))
+        _trade = _registrar_trade(pos, precio_ap, precio_cierre, 'trailing_stop',
+                                  ts, activo, N, capital_ap, cfg)
+        trades.append(_trade)
+        if x5_ctx is not None and not usa_iv:
+            _fila = _construir_fila_oc(activo, pos, _trade, ts, est_a,
+                                        precio_cierre, cfg, x5_ctx['min_lotajes'])
+            _append_x5_store(activo, _fila)
+            est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='trailing_stop', retorno_usd=round(retorno_usd, 4), lote=lote))
 
 
 def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
-            precios: dict, cfg, events: list, usa_iv: bool = False):
+            precios: dict, cfg, events: list, usa_iv: bool = False, x5_ctx=None):
     """Crea OE en soportes con distancia suficiente, respetando el guard de margen."""
     lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
@@ -416,7 +448,11 @@ def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
                 < cfg.MARGEN_LIBRE_MIN_BT):
             continue
         margen_comprometido += margen_nueva
-        est_a['OE'][soporte] = {'lote': lote, 'ts_creacion': ts.isoformat()}
+        _oe_entry = {'lote': lote, 'ts_creacion': ts.isoformat()}
+        if x5_ctx is not None:
+            _oe_entry['x3_oe'] = x5_ctx['x3']
+            _oe_entry['x2_oe'] = x5_ctx['x2']
+        est_a['OE'][soporte] = _oe_entry
         events.append(_evt('OE_creada', activo, ts, cfg, usa_iv, precio=soporte, lote=lote))
 
 
@@ -487,7 +523,7 @@ def _simular_intravela(est_a: dict, candle_h1, activo: str, ts, estado: dict,
 
 def _procesar_candle(ts, candle, activo: str, est_a: dict, estado: dict,
                      datos_m1, precios: dict, N: int,
-                     cfg, events: list, trades: list):
+                     cfg, events: list, trades: list, x5_ctx=None):
     lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
     L = lote * units
@@ -509,11 +545,11 @@ def _procesar_candle(ts, candle, activo: str, est_a: dict, estado: dict,
     else:
         if usar_iv:
             print(f'  [{ts}] {activo}: intra-vela necesaria pero sin datos M1, degradando a H1.')
-        _paso_B(est_a, candle, activo, ts, estado, precios, capital_ap, cfg, events, trades)
+        _paso_B(est_a, candle, activo, ts, estado, precios, capital_ap, cfg, events, trades, x5_ctx=x5_ctx)
         _paso_C(est_a, candle['High'], activo, ts, cfg, events)
-        _paso_D(est_a, candle['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades)
-        _paso_E(est_a, candle['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades)
-        _paso_F(est_a, candle['Close'], activo, ts, estado, precios, cfg, events)
+        _paso_D(est_a, candle['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, x5_ctx=x5_ctx)
+        _paso_E(est_a, candle['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, x5_ctx=x5_ctx)
+        _paso_F(est_a, candle['Close'], activo, ts, estado, precios, cfg, events, x5_ctx=x5_ctx)
 
 
 # ─── Equity CSV ───────────────────────────────────────────────────────────────
@@ -568,9 +604,154 @@ def _flush_json_list(items: list, path: Path):
     items.clear()
 
 
+# ─── X5 — Captura y escritura al store ───────────────────────────────────────
+
+def _features_temporales_ts(ts: pd.Timestamp) -> dict:
+    import config as _gc
+    from datetime import date as _date
+    hdays = {_date.fromisoformat(d) for d in _gc.X5_US_HOLIDAYS}
+    d, dw, m = ts.date(), ts.dayofweek, ts.month
+    fut = sorted(h for h in hdays if h >= d)
+    pas = sorted((h for h in hdays if h <= d), reverse=True)
+    dh = (fut[0] - d).days if fut else 30
+    dd = (d - pas[0]).days if pas else 30
+    return {
+        'hora': ts.hour, 'dia_semana': dw, 'dia_mes': ts.day, 'mes': m,
+        'ds_lun': int(dw == 0), 'ds_mar': int(dw == 1), 'ds_mie': int(dw == 2),
+        'ds_jue': int(dw == 3), 'ds_vie': int(dw == 4),
+        'ds_sab': int(dw == 5), 'ds_dom': int(dw == 6),
+        **{f'mes_{i}': int(m == i) for i in range(1, 13)},
+        'dias_hasta_festivo': min(dh, 30), 'dias_desde_festivo': min(dd, 30),
+        'es_vispera_festivo': int(dh <= 1), 'es_post_festivo': int(dd <= 1),
+    }
+
+
+def _leer_x2_bt(activo: str, fecha_str: str, carpeta_fundamentals: Path) -> dict:
+    path = carpeta_fundamentals / 'x2_history.json'
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        hist = json.load(f)
+    entradas = hist.get(activo, [])
+    if not entradas:
+        return {}
+    candidatas = [e for e in entradas if e.get('fecha', '') <= fecha_str] or entradas
+    ultima = max(candidatas, key=lambda e: e.get('fecha', ''))
+    return {k: v for k, v in ultima.items() if k != 'fecha'}
+
+
+def _compute_x5_snapshot(activo: str, df_activo: pd.DataFrame,
+                          ts: pd.Timestamp, soportes: list,
+                          carpeta_fundamentals: Path) -> tuple:
+    df_hasta = df_activo[df_activo.index <= ts].reset_index()
+    try:
+        x3 = compute_snapshot(df_hasta, soportes)
+    except Exception:
+        x3 = {}
+    x2 = _leer_x2_bt(activo, ts.date().isoformat(), carpeta_fundamentals)
+    return x3, x2
+
+
+def _contexto_portfolio_x5(est_a: dict, precio_cierre: float,
+                            lote: float, units: int) -> dict:
+    OA = est_a['OA']
+    retornos_pct = [(precio_cierre - p) / p for p in OA] if OA else []
+    mean_ret = sum(retornos_pct) / len(retornos_pct) if retornos_pct else 0.0
+    std_ret = (sum((r - mean_ret) ** 2 for r in retornos_pct) / len(retornos_pct)) ** 0.5 \
+              if len(retornos_pct) > 1 else 0.0
+    oc_rec = est_a.get('oc_recientes', [])
+    ret_ult5 = sum(oc_rec[-5:]) / len(oc_rec[-5:]) if oc_rec else 0.0
+    return {
+        'n_ordenes_abiertas':            len(OA),
+        'n_ordenes_espera':              len(est_a['OE']),
+        'exposicion_usd':                round(sum(p * lote * units for p in OA), 4),
+        'mean_retorno_pct_abierto':      round(mean_ret, 6),
+        'std_retorno_pct_abierto':       round(std_ret, 6),
+        'retorno_promedio_ultimas_5_oc': round(ret_ult5, 6),
+    }
+
+
+def _construir_fila_oc(activo: str, pos: dict, trade: dict,
+                        ts_oc: pd.Timestamp, est_a: dict, precio_cierre: float,
+                        cfg, min_lotajes: dict) -> dict:
+    lote, units = cfg.LOTAJES[activo], cfg.UNITS[activo]
+    base_l = min_lotajes.get(activo, lote)
+    lotajes_m = max(1, round(lote / base_l)) if base_l > 0 else 1
+
+    ts_oe = pd.Timestamp(pos.get('ts_oe_creacion', ts_oc.isoformat()))
+    ts_oa = pd.Timestamp(pos.get('ts_apertura', ts_oc.isoformat()))
+    temp_oe = _features_temporales_ts(ts_oe)
+    temp_oa = _features_temporales_ts(ts_oa)
+    x3_oe = pos.get('x3_oe', {})
+    x2_oe = pos.get('x2_oe', {})
+    x3_oa = pos.get('x3_oa', {})
+    x2_oa = pos.get('x2_oa', {})
+    portfolio = _contexto_portfolio_x5(est_a, precio_cierre, lote, units)
+
+    fila: dict = {
+        'tipo_registro': 'oc', 'activo': activo,
+        'timestamp_oe': ts_oe.isoformat(),
+        'timestamp_oa': ts_oa.isoformat(),
+        'timestamp_oc': ts_oc.isoformat(),
+        'n_ejecucion': cfg.n_sizes[activo], 'K': cfg.K,
+        'N_EXP': cfg.N_EXP, 'LAMBDA': cfg.LAMBDA,
+        'A': cfg.A, 'B': cfg.B,
+        'LOTAJES_M': lotajes_m, 'PERDIDA_MAX': cfg.PERDIDA_MAX_BT,
+    }
+    fila.update(temp_oe)
+    fila.update({f'x2_{k}': v for k, v in x2_oe.items()})
+    fila.update({f'x3_{k}': v for k, v in x3_oe.items()})
+    fila.update(portfolio)
+    fila.update({f'{k}_oa': v for k, v in temp_oa.items()})
+    fila.update({f'x2_{k}_oa': v for k, v in x2_oa.items()})
+    fila.update({f'x3_{k}_oa': v for k, v in x3_oa.items()})
+    fila['retorno_pct'] = trade['retorno_pct']
+    return fila
+
+
+def _construir_fila_periodica(activo: str, ts: pd.Timestamp, est_a: dict,
+                               x3: dict, x2: dict, precio_cierre: float,
+                               cfg, min_lotajes: dict) -> dict:
+    lote, units = cfg.LOTAJES[activo], cfg.UNITS[activo]
+    base_l = min_lotajes.get(activo, lote)
+    lotajes_m = max(1, round(lote / base_l)) if base_l > 0 else 1
+    temp = _features_temporales_ts(ts)
+    portfolio = _contexto_portfolio_x5(est_a, precio_cierre, lote, units)
+    fila: dict = {
+        'tipo_registro': 'periodico', 'activo': activo,
+        'timestamp_oe': '', 'timestamp_oa': '', 'timestamp_oc': ts.isoformat(),
+        'n_ejecucion': cfg.n_sizes[activo], 'K': cfg.K,
+        'N_EXP': cfg.N_EXP, 'LAMBDA': cfg.LAMBDA,
+        'A': cfg.A, 'B': cfg.B,
+        'LOTAJES_M': lotajes_m, 'PERDIDA_MAX': cfg.PERDIDA_MAX_BT,
+    }
+    fila.update(temp)
+    fila.update({f'x2_{k}': v for k, v in x2.items()})
+    fila.update({f'x3_{k}': v for k, v in x3.items()})
+    fila.update(portfolio)
+    fila.update({f'{k}_oa': '' for k in temp})
+    fila.update({f'x2_{k}_oa': '' for k in x2})
+    fila.update({f'x3_{k}_oa': '' for k in x3})
+    fila['retorno_pct'] = ''
+    return fila
+
+
+def _append_x5_store(activo: str, fila: dict) -> None:
+    import config as _gc
+    store_path = _gc.CARPETA_X5 / f'{activo}_store.csv'
+    store_path.parent.mkdir(parents=True, exist_ok=True)
+    write_hdr = not store_path.exists()
+    with open(store_path, 'a', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=list(fila.keys()), extrasaction='ignore')
+        if write_hdr:
+            w.writeheader()
+        w.writerow(fila)
+
+
 # ─── Loop principal ───────────────────────────────────────────────────────────
 
-def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False):
+def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
+                      min_lotajes: dict | None = None):
     t_inicio = time.time()
     print(f'\n{"═"*60}')
     print(f' X4 Backtester — versión {cfg.version}')
@@ -579,6 +760,16 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False):
     cfg.CARPETA_RESOURCES.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_LOGS_BT.mkdir(parents=True, exist_ok=True)
+
+    if x5_mode:
+        import config as _gc_x5
+        _carpeta_fundamentals_x5 = _gc_x5.CARPETA_FUNDAMENTALS
+        _min_lotajes_x5 = min_lotajes if min_lotajes is not None else dict(cfg.LOTAJES)
+        _freq_periodico = _gc_x5.X5_FREQ_REGISTRO_PERIODICO
+    else:
+        _carpeta_fundamentals_x5 = None
+        _min_lotajes_x5 = {}
+        _freq_periodico = 0
 
     print('\nCargando datos H1...')
     datos_h1 = _cargar_datos_h1(cfg)
@@ -691,13 +882,37 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False):
                 continue
             candle = df.loc[ts]
             N = cfg.n_sizes[activo]
+
+            x5_ctx_a = None
+            if x5_mode:
+                _x3, _x2 = _compute_x5_snapshot(
+                    activo, df, ts,
+                    estado['por_activo'][activo]['soportes'],
+                    _carpeta_fundamentals_x5,
+                )
+                x5_ctx_a = {'x3': _x3, 'x2': _x2, 'min_lotajes': _min_lotajes_x5}
+
             _procesar_candle(
                 ts, candle, activo,
                 estado['por_activo'][activo],
                 estado, datos_m1.get(activo), precios_ts, N,
-                cfg, events_log, trades_log,
+                cfg, events_log, trades_log, x5_ctx_a,
             )
             cierre_previo[activo] = candle['Close']
+
+            # Registro periódico: cada _freq_periodico velas con al menos 1 OA
+            if x5_mode and x5_ctx_a is not None and _freq_periodico > 0:
+                est_a_p = estado['por_activo'][activo]
+                if est_a_p['OA']:
+                    cnt = est_a_p.get('x5_velas_cnt', 0) + 1
+                    est_a_p['x5_velas_cnt'] = cnt
+                    if cnt % _freq_periodico == 0:
+                        _fila_p = _construir_fila_periodica(
+                            activo, ts, est_a_p,
+                            x5_ctx_a['x3'], x5_ctx_a['x2'],
+                            candle['Close'], cfg, _min_lotajes_x5,
+                        )
+                        _append_x5_store(activo, _fila_p)
 
         # Paso G: snapshot equity
         mc = _append_equity(ts, estado, precios_ts, cfg)
@@ -901,7 +1116,7 @@ def ejecutar_x5_ciclo(cfg):
 
     _aplicar_params_x5(cfg, params, min_lotajes)
     _imprimir_ciclo_x5(tipo, params, cfg)
-    ejecutar_backtest(cfg, reset=True, x5_mode=True)
+    ejecutar_backtest(cfg, reset=True, x5_mode=True, min_lotajes=min_lotajes)
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

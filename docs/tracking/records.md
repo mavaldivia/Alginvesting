@@ -919,3 +919,8 @@ Mauricio: Preguntó por qué `/guardar` siempre falla con "Error editing file" a
 Claude: Diagnosticó que la skill `/record` usaba `Edit` para hacer append a `records.md`, lo que falla en archivos largos con formato repetitivo porque `Edit` requiere un `old_string` único. Corrigió la skill (`~/.claude/skills/record/SKILL.md`) para usar `Bash` con `cat >>` heredoc en vez de `Edit`. Luego verificó que el ítem 1 de X5 ya estaba implementado en commit `de83d6b` (funciones `ejecutar_x5_ciclo`, `_generar_params_explore`, `_generar_params_exploit` en `X4_backtester.py`). Lo marcó como hecho: eliminado de `todos.md`, agregado a `done.md` bajo `### X4 — X4_backtester.py`.
 
 (Cierre: 2026-07-17 20:30)
+
+## SECCIÓN 94
+Mauricio: Abrió sesión con `/todos`, eligió sección X5, ítem 1 ("X4: modo `--x5` — captura X3/X2 y escritura al store").
+Claude: Leyó X4_backtester.py, X3_technical_features.py, X5_macro_brain.py y config.py para entender el estado actual. Implementó el ítem completo en `scripts/X4_backtester.py`: (a) nueva sección de helpers X5 (`_features_temporales_ts`, `_leer_x2_bt`, `_compute_x5_snapshot`, `_contexto_portfolio_x5`, `_construir_fila_oc`, `_construir_fila_periodica`, `_append_x5_store`); (b) modificaciones a `_paso_F`, `_paso_B`, `_paso_D`, `_paso_E`, `_procesar_candle` y `ejecutar_backtest` con parámetro `x5_ctx=None` — sin impacto en ejecución normal; (c) loop principal computa snapshot X3/X2 por activo en modo `--x5` y escribe filas periódicas; (d) `min_lotajes` propagado desde `ejecutar_x5_ciclo` para calcular `LOTAJES_M` correctamente. Ítem movido a `docs/done.md` (sección creada). Cerró con `/guardar`.
+(Cierre: 2026-07-17 20:50)
