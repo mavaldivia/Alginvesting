@@ -74,12 +74,34 @@ def obtener_precio_actual(valor: str, modo: str = 'B') -> float:
     return tick.bid if modo == 'B' else tick.ask
 
 
-def mercado_abierto(valor: str) -> bool:
-    """Retorna True si el mercado permite colocar nuevas órdenes pendientes."""
+def _servidor_ahora() -> int:
+    """Aproxima la hora del servidor MT5 como el tick más reciente entre todos los
+    símbolos. Los 24/7 (crypto) siempre están frescos, así que su timestamp sirve
+    de reloj para medir cuán atrasado está el último tick de un símbolo cerrado."""
+    ultimo = 0
+    for v in VALORES:
+        t = mt5.symbol_info_tick(v)
+        if t is not None and t.time > ultimo:
+            ultimo = t.time
+    return ultimo
+
+
+def mercado_abierto(valor: str, max_staleness_s: int = 300) -> bool:
+    """True si el símbolo permite operar Y su sesión está abierta ahora.
+
+    `trade_mode` es solo el permiso de trading del símbolo — los brokers lo dejan
+    en FULL fuera del horario de la bolsa, así que no distingue sesión abierta de
+    cerrada. Se compara además la frescura del último tick contra la hora del
+    servidor (`_servidor_ahora`): si el último tick del símbolo está más de
+    `max_staleness_s` atrasado, la sesión está cerrada aunque `trade_mode` sea FULL.
+    Si todos los ticks estuvieran atrasados (broker caído), degrada a permitir."""
     info = mt5.symbol_info(valor)
-    if info is None:
+    if info is None or info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
         return False
-    return info.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL
+    tick = mt5.symbol_info_tick(valor)
+    if tick is None or tick.time == 0:
+        return False
+    return (_servidor_ahora() - tick.time) <= max_staleness_s
 
 
 def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
@@ -237,16 +259,18 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
         return
 
     P0 = obtener_precio_actual(valor, modo='B')
+    sl_nuevo = P0 - b / L
+
+    ganancias = [(P0 - o.price_open) * L for o in actual_OA]
+    print(f'{valor} - revision cambio SL - {time.strftime("%H:%M:%S")} | '
+          f'P0={P0:.2f} SL_nuevo={sl_nuevo:.2f} | OA={len(actual_OA)} '
+          f'ganancia_max={max(ganancias):.2f}')
 
     for orden in actual_OA:
         sl = orden.sl
         Pi = orden.price_open
         cambios = False
-
-        sl_nuevo = P0 - b / L
         ganancia = (P0 - Pi) * L
-        print(f'{valor} - revision cambio SL - {time.strftime("%H:%M:%S")} | '
-              f'P0={P0:.2f} ganancia={ganancia:.2f} SL_actual={sl:.2f} SL_nuevo={sl_nuevo:.2f}')
 
         if sl == 0:
             if ganancia >= a:
@@ -363,11 +387,25 @@ if __name__ == '__main__':
     print('\nInicio del loop de trading')
     t0 = time.time()
     dic_seguimiento = {}
+    sl_activo_global_prev = None
     i = 0
 
     try:
         while True:
             time_sleep = True
+
+            # Si hay alguna posición con SL activo (sl≠0) en un activo con mercado
+            # abierto, este ciclo se saltan A) limpiar OE y B) crear buy limits en
+            # TODOS los activos para acelerar la revisión del trailing stop, hasta
+            # que esa posición cierre.
+            posiciones_todas = mt5.positions_get() or []
+            sl_activo_global = any(p.sl != 0 and mercado_abierto(p.symbol) for p in posiciones_todas)
+            if sl_activo_global != sl_activo_global_prev:
+                if sl_activo_global:
+                    print('  SL activo con mercado abierto → pausando gestión de buy limits (foco en trailing stop)')
+                else:
+                    print('  Sin SL activo → reanudando gestión de buy limits')
+                sl_activo_global_prev = sl_activo_global
 
             for valor in VALORES:
                 try:
@@ -379,12 +417,14 @@ if __name__ == '__main__':
                     lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
 
                     # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
-                    # no eliminar las OE existentes porque no se pueden reponer
-                    if mercado_abierto(valor):
+                    # no eliminar las OE existentes porque no se pueden reponer.
+                    # Si hay un SL activo en el sistema (sl_activo_global), se saltan
+                    # A/B para priorizar la revisión del trailing stop.
+                    if not mercado_abierto(valor):
+                        print(f'  {valor}: mercado cerrado — OE existentes mantenidas')
+                    elif not sl_activo_global:
                         limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
                         crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
-                    else:
-                        print(f'  {valor}: mercado cerrado — OE existentes mantenidas')
 
                     # C: Trailing stop en posiciones abiertas
                     trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)
