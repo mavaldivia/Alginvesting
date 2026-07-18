@@ -905,3 +905,10 @@ Mauricio: Invocó `/todos` → eligió sección X5. Notó que la lista mostraba 
 Claude: Corrigió la skill `/todos` (`~/.claude/skills/todos/SKILL.md`) para hacer strip del prefijo numérico inicial del nombre del ítem antes de mostrarlo. Guardó memory de respaldo. Al revisar `X5_macro_brain.py` y `config.py`, detectó que el ítem `--recolectar` ya estaba completamente implementado (commit `a09e23b`). Lo marcó como hecho: eliminado de `todos.md`, agregado a `done.md` en sección X5.
 
 (Cierre: 2026-07-17 20:09)
+
+## SECCIÓN 92
+Mauricio: Invocó `/todos` al inicio → eligió sección X5 → confirmó avanzar en ítem 1: "X4: multi-ciclo explore/exploit en modo `--x5`".
+
+Claude: Leyó `X4_backtester.py`, `x4_plan.md`, `X5_macro_brain.py`, `x5_plan.md` y `config.py` para entender el contrato entre X4 y X5 (`_recolectar` lanza X4 una vez por ciclo externo y escucha `[MES_BT] YYYY-MM` en stdout). Implementó en `X4_backtester.py`: (1) `import subprocess`, (2) param `x5_mode=False` en `ejecutar_backtest` con tracking de mes y emisión de markers `[MES_BT]` al cruzar cada mes y al final, (3) cinco funciones nuevas en sección `X5 — modo explore/exploit` (`_generar_params_explore`, `_generar_params_exploit`, `_aplicar_params_x5`, `_imprimir_ciclo_x5`, `ejecutar_x5_ciclo`), (4) flag `--x5` en argparse que llama `ejecutar_x5_ciclo`. Params escalares (K, N_EXP, LAMBDA, A, B, PERDIDA_MAX_BT) se toman del primer activo; `n_sizes` y `LOTAJES` se varían por activo. Verificación de sintaxis pasó sin errores.
+
+(Cierre: 2026-07-17 20:21)

@@ -215,3 +215,20 @@ X2
 (MAE, MSE, MAPE, R2) tanto para train como para test en la performance y evlocución de lo
 que se hace en X5, para cada valor.
 Guarda estos registros en resources/x5 de la forma que te parezca conveniente (puede ser un archivo para cada valor, dentro de una carpeta llamada Performance)
+
+
+- Voy a ejecutar con opus 
+Básicamente quiero que revises x5_macro_brain.py, corrijas detalles si los encuentras, además de actualizar plans/x5_plan.md,
+plans/x5_plan_redes_neuronales.md en base a este código y cosas que tengan sentido que puedan faltar (crea en ese caso
+un TO DO en x5_plan.md
+
+-Además, crea en x5_plan.md, un paso a paso (al final) para entender como ejecutar exte código (porque sigo medio confundido), considerando
+que no existe ahora ningun dato de entrenamiento y espero primero un modo que haga backtesting paralelos en todos los valore sy vaya recopilando datos para despues entrenar los modelos
+de ML definidos. Estas ejecuciones deben ser ciclicas y se deben ir corrigiendo (en verdad la recoleccion de datos y en el entrenamiento deben ser paralelos, para que los parametros
+se vayan corrigiendo en cada valor). Cuando un ciclo se acaba en un valor, comienza nuevamente el backtesting desde la fecha inicial
+
+- Finalmente, crea un PDF que contenga toda la info de x5_plan y x5_plan_redes_neuronales que sea basado en latex y con diagramas / dibujos perfectamente
+entendibles para poder imprimirlo y leerlo
+
+Recuerda mis limitaciones técnicas e intenta explicar con peras y manzanas sabiendo que tengo conocimientos en modelos de ML básicos, Redes Neuronales (FFNN y LSTM - Convolucionales)
++ train / test + gradient descent + backpropagation, etc...pero eso nomás. Necesito entender muy bien esta etapa para poder ir iterando, ya que es el cerebro del funcionamiento

@@ -17,6 +17,7 @@ import csv
 import importlib.util
 import json
 import random
+import subprocess
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -569,7 +570,7 @@ def _flush_json_list(items: list, path: Path):
 
 # ─── Loop principal ───────────────────────────────────────────────────────────
 
-def ejecutar_backtest(cfg, reset: bool = False):
+def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False):
     t_inicio = time.time()
     print(f'\n{"═"*60}')
     print(f' X4 Backtester — versión {cfg.version}')
@@ -632,6 +633,7 @@ def ejecutar_backtest(cfg, reset: bool = False):
     events_log: list = []
     velas_procesadas = 0
     cierre_previo: dict = {a: None for a in cfg.valores}
+    mes_actual: str | None = None  # para [MES_BT] markers en x5_mode
 
     # Timestamps unión de todos los activos
     all_ts = sorted(set().union(*[set(df.index) for df in datos_h1.values()]))
@@ -703,6 +705,13 @@ def ejecutar_backtest(cfg, reset: bool = False):
         estado['ts_ultimo_procesado'] = ts.isoformat()
         velas_procesadas += 1
 
+        # [MES_BT] marker — X5 --recolectar escucha estas líneas en stdout
+        if x5_mode:
+            mes_ts = ts.strftime('%Y-%m')
+            if mes_actual is not None and mes_ts != mes_actual:
+                print(f'[MES_BT] {mes_actual}', flush=True)
+            mes_actual = mes_ts
+
         # Stop-out: equity <= 0 o margin level bajo el umbral con posiciones abiertas
         stop_out_level = getattr(cfg, 'STOP_OUT_LEVEL', 50)
         ml = mc['margin_level']
@@ -744,6 +753,9 @@ def ejecutar_backtest(cfg, reset: bool = False):
     _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
     _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
 
+    if x5_mode and mes_actual is not None:
+        print(f'[MES_BT] {mes_actual}', flush=True)
+
     dur = time.time() - t_inicio
     print(f'\n{"═"*60}')
     if estado.get('stop_out'):
@@ -758,6 +770,140 @@ def ejecutar_backtest(cfg, reset: bool = False):
     print(f'{"═"*60}')
 
 
+# ─── X5 — modo explore/exploit ───────────────────────────────────────────────
+
+def _generar_params_explore(cfg, cfg_global) -> dict:
+    """Params aleatorios por activo dentro de X5_PARAM_RANGES."""
+    ranges = cfg_global.X5_PARAM_RANGES
+    result = {}
+    for activo in cfg.valores:
+        n_lo, n_hi = ranges['n_sizes_ejecucion'][activo]
+        lm_lo, lm_hi = ranges['LOTAJES_M'][activo]
+        result[activo] = {
+            'n_sizes_ejecucion': random.randint(int(n_lo), int(n_hi)),
+            'K':           random.uniform(*ranges['K'][activo]),
+            'N_EXP':       random.uniform(*ranges['N_EXP'][activo]),
+            'LAMBDA':      random.uniform(*ranges['LAMBDA'][activo]),
+            'A':           random.uniform(*ranges['A'][activo]),
+            'B':           random.uniform(*ranges['B'][activo]),
+            'LOTAJES_M':   random.randint(int(lm_lo), int(lm_hi)),
+            'PERDIDA_MAX': random.uniform(*ranges['PERDIDA_MAX'][activo]),
+        }
+    return result
+
+
+def _generar_params_exploit(cfg, base_dir: Path, baseline: dict) -> dict:
+    """
+    Llama a X5 --infer y lee active_parameters.json.
+    Activos con model_status='untrained' usan baseline (config_V1).
+    """
+    x5_path = base_dir / 'scripts' / 'X5_macro_brain.py'
+    active_params_path = base_dir / 'config' / 'active_parameters.json'
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(x5_path), '--infer'],
+            capture_output=True, text=True, timeout=180,
+        )
+        if proc.returncode != 0 or not active_params_path.exists():
+            print(f'  X5 --infer falló (código {proc.returncode}) → fallback a baseline')
+            return baseline
+        with open(active_params_path) as f:
+            ap = json.load(f)
+    except Exception as e:
+        print(f'  X5 --infer error: {e} → fallback a baseline')
+        return baseline
+
+    result = {}
+    for activo in cfg.valores:
+        b = baseline[activo]
+        if activo not in ap or ap[activo].get('model_status') == 'untrained':
+            result[activo] = b
+            continue
+        d = ap[activo]
+        result[activo] = {
+            'n_sizes_ejecucion': int(d.get('n_sizes_ejecucion', b['n_sizes_ejecucion'])),
+            'K':           float(d.get('K',           b['K'])),
+            'N_EXP':       float(d.get('N_EXP',       b['N_EXP'])),
+            'LAMBDA':      float(d.get('LAMBDA',       b['LAMBDA'])),
+            'A':           float(d.get('A',            b['A'])),
+            'B':           float(d.get('B',            b['B'])),
+            'LOTAJES_M':   int(d.get('LOTAJES_M',     b['LOTAJES_M'])),
+            'PERDIDA_MAX': float(d.get('PERDIDA_MAX',  b['PERDIDA_MAX'])),
+        }
+    return result
+
+
+def _aplicar_params_x5(cfg, params: dict, min_lotajes: dict):
+    """
+    Muta cfg con los params del ciclo.
+    Params escalares (K, N_EXP, LAMBDA, A, B, PERDIDA_MAX_BT): usa primer activo.
+    Params por activo (n_sizes, LOTAJES): aplica individualmente.
+    """
+    p0 = params[cfg.valores[0]]
+    cfg.K             = p0['K']
+    cfg.N_EXP         = p0['N_EXP']
+    cfg.LAMBDA        = p0['LAMBDA']
+    cfg.A             = p0['A']
+    cfg.B             = p0['B']
+    cfg.PERDIDA_MAX_BT = p0['PERDIDA_MAX']
+    for activo in cfg.valores:
+        p = params[activo]
+        cfg.n_sizes[activo] = p['n_sizes_ejecucion']
+        base = min_lotajes.get(activo, cfg.LOTAJES[activo])
+        cfg.LOTAJES[activo] = p['LOTAJES_M'] * base
+
+
+def _imprimir_ciclo_x5(tipo: str, params: dict, cfg):
+    p0 = params[cfg.valores[0]]
+    print(f'\n{"─"*60}')
+    print(f' {tipo}  |  K={p0["K"]:.4f}  N_EXP={p0["N_EXP"]:.4f}'
+          f'  LAMBDA={p0["LAMBDA"]:.6f}')
+    print(f'         A={p0["A"]:.2f}  B={p0["B"]:.2f}'
+          f'  PERDIDA_MAX={p0["PERDIDA_MAX"]:.1f}')
+    for activo in cfg.valores:
+        p = params[activo]
+        print(f'  {activo}: N={p["n_sizes_ejecucion"]}  LOTAJES_M={p["LOTAJES_M"]}')
+    print(f'{"─"*60}')
+
+
+def ejecutar_x5_ciclo(cfg):
+    """
+    Un ciclo de X5 backtesting: decide explore/exploit, aplica params,
+    corre el backtest desde cero emitiendo [MES_BT] markers en stdout.
+    Llamado una vez por X5 --recolectar para cada ciclo externo.
+    """
+    import config as cfg_global
+
+    base_dir = Path(__file__).parent.parent
+    min_lotajes = dict(cfg.LOTAJES)  # capturar antes de mutar
+
+    baseline = {
+        activo: {
+            'n_sizes_ejecucion': cfg.n_sizes[activo],
+            'K':           cfg.K,
+            'N_EXP':       cfg.N_EXP,
+            'LAMBDA':      cfg.LAMBDA,
+            'A':           cfg.A,
+            'B':           cfg.B,
+            'LOTAJES_M':   1,
+            'PERDIDA_MAX': cfg.PERDIDA_MAX_BT,
+        }
+        for activo in cfg.valores
+    }
+
+    es_explore = random.random() < cfg_global.X5_EXPLORATION_RATE
+    tipo = 'EXPLORE' if es_explore else 'EXPLOIT'
+
+    if es_explore:
+        params = _generar_params_explore(cfg, cfg_global)
+    else:
+        params = _generar_params_exploit(cfg, base_dir, baseline)
+
+    _aplicar_params_x5(cfg, params, min_lotajes)
+    _imprimir_ciclo_x5(tipo, params, cfg)
+    ejecutar_backtest(cfg, reset=True, x5_mode=True)
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
@@ -768,7 +914,12 @@ if __name__ == '__main__':
                         help=f'Versión a ejecutar (default: {X4_VERSION_ACTIVA})')
     parser.add_argument('--reset', action='store_true',
                         help='Ignorar checkpoint existente y partir de cero')
+    parser.add_argument('--x5', action='store_true',
+                        help='Modo X5: explore/exploit de params, emite [MES_BT] markers para X5 --recolectar')
     args = parser.parse_args()
 
     cfg = _cargar_config(args.version)
-    ejecutar_backtest(cfg, reset=args.reset)
+    if args.x5:
+        ejecutar_x5_ciclo(cfg)
+    else:
+        ejecutar_backtest(cfg, reset=args.reset)
