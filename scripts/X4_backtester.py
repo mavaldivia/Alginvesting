@@ -265,12 +265,17 @@ def _registrar_trade(pos: dict, precio_ap: float, precio_cierre: float,
 # ─── Pasos A → F ──────────────────────────────────────────────────────────────
 
 def _paso_A(est_a: dict, activo: str, ts, cfg, events: list, usa_iv: bool = False):
-    """Cancela OE cuyo soporte ya no está en la lista actual."""
+    """Cancela OE cuyo soporte ya no está en la lista actual.
+
+    Retorna el precio más alto entre las OE canceladas (o None). _paso_F lo usa
+    para recuperar la cobertura cercana al precio del buy limit saliente (misma
+    regla de reemplazo que X1.crear_ordenes_espera)."""
     soportes_set = set(est_a['soportes'])
     a_eliminar = [p for p in list(est_a['OE'].keys()) if p not in soportes_set]
     for precio in a_eliminar:
         events.append(_evt('OE_eliminada', activo, ts, cfg, usa_iv, precio=precio, motivo='soporte_desactivado'))
         del est_a['OE'][precio]
+    return max(a_eliminar) if a_eliminar else None
 
 
 def _margen_libre_actual(estado: dict, precios: dict, cfg, extra_usado: float = 0.0) -> float:
@@ -446,18 +451,28 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
 
 
 def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
-            precios: dict, cfg, events: list, usa_iv: bool = False, x5_ctx=None):
-    """Crea OE en soportes con distancia suficiente, respetando el guard de margen."""
+            precios: dict, cfg, events: list, usa_iv: bool = False, x5_ctx=None,
+            precio_max_saliente: float = None):
+    """Crea OE en soportes con distancia suficiente, respetando el guard de margen.
+
+    Regla de reemplazo (paridad con X1.crear_ordenes_espera): si _paso_A canceló
+    un buy limit este ciclo (precio_max_saliente), un soporte también entra si queda
+    por debajo del promedio entre el precio y ese buy limit saliente."""
     lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
     apal = cfg.APALANCAMIENTO[activo]
     L = lote * units
     margen_comprometido = 0.0  # margen reservado dentro de este ciclo por nuevas OE
+    umbral_reemplazo = None
+    if precio_max_saliente is not None and precio_max_saliente < precio_ref:
+        umbral_reemplazo = (precio_ref + precio_max_saliente) / 2
 
     for soporte in sorted(est_a['soportes'], reverse=True):
         if soporte in est_a['OA'] or soporte in est_a['OE']:
             continue
-        if (precio_ref - soporte) * L < cfg.A:
+        distancia_ok = (precio_ref - soporte) * L >= cfg.A
+        reemplazo_ok = umbral_reemplazo is not None and soporte < umbral_reemplazo
+        if not (distancia_ok or reemplazo_ok):
             continue
         margen_nueva = soporte * lote * units / apal
         if (_margen_libre_actual(estado, precios, cfg, margen_comprometido) - margen_nueva
@@ -520,7 +535,7 @@ def _escalar_bloque_m1(bloque_raw: pd.DataFrame, candle_h1) -> pd.DataFrame:
 
 def _simular_intravela(est_a: dict, candle_h1, activo: str, ts, estado: dict,
                         precios: dict, capital_ap: float, N: int, datos_m1,
-                        cfg, events: list, trades: list):
+                        cfg, events: list, trades: list, precio_max_saliente: float = None):
     if datos_m1 is None or len(datos_m1) < 60:
         return
 
@@ -532,7 +547,7 @@ def _simular_intravela(est_a: dict, candle_h1, activo: str, ts, estado: dict,
         _paso_C(est_a, vela_m1['High'], activo, ts, cfg, events, usa_iv=True)
         _paso_D(est_a, vela_m1['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, usa_iv=True)
         _paso_E(est_a, vela_m1['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, usa_iv=True)
-        _paso_F(est_a, vela_m1['Close'], activo, ts, estado, precios, cfg, events, usa_iv=True)
+        _paso_F(est_a, vela_m1['Close'], activo, ts, estado, precios, cfg, events, usa_iv=True, precio_max_saliente=precio_max_saliente)
 
 
 # ─── Procesamiento por vela ───────────────────────────────────────────────────
@@ -552,12 +567,12 @@ def _procesar_candle(ts, candle, activo: str, est_a: dict, estado: dict,
         pos['drawdown_max'] = min(pos.get('drawdown_max', 0.0), dd_flotante)
 
     # Paso A: siempre primero
-    _paso_A(est_a, activo, ts, cfg, events)
+    precio_max_saliente = _paso_A(est_a, activo, ts, cfg, events)
 
     usar_iv = _necesita_intravela(est_a, candle, L, cfg)
 
     if usar_iv and datos_m1 is not None and len(datos_m1) >= 60:
-        _simular_intravela(est_a, candle, activo, ts, estado, precios, capital_ap, N, datos_m1, cfg, events, trades)
+        _simular_intravela(est_a, candle, activo, ts, estado, precios, capital_ap, N, datos_m1, cfg, events, trades, precio_max_saliente)
     else:
         if usar_iv:
             print(f'  [{ts}] {activo}: intra-vela necesaria pero sin datos M1, degradando a H1.')
@@ -565,7 +580,7 @@ def _procesar_candle(ts, candle, activo: str, est_a: dict, estado: dict,
         _paso_C(est_a, candle['High'], activo, ts, cfg, events)
         _paso_D(est_a, candle['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, x5_ctx=x5_ctx)
         _paso_E(est_a, candle['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, x5_ctx=x5_ctx)
-        _paso_F(est_a, candle['Close'], activo, ts, estado, precios, cfg, events, x5_ctx=x5_ctx)
+        _paso_F(est_a, candle['Close'], activo, ts, estado, precios, cfg, events, x5_ctx=x5_ctx, precio_max_saliente=precio_max_saliente)
 
 
 # ─── Equity CSV ───────────────────────────────────────────────────────────────

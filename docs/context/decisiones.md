@@ -140,3 +140,13 @@ Revisión completa de `X5_macro_brain.py` (ver `docs/plans/x5_opus_review.md`). 
 **Razón:** en EXPLOIT paralelo varios procesos llaman `--infer --activo X`; el overwrite borraría los demás activos. Merge + escritura atómica lo evita (carrera residual benigna: peor caso, un ciclo usa baseline).
 
 **Otros:** `config/active_parameters.json` agregado a `.gitignore` (output generado, como `resources/`). Documento LaTeX `docs/plans/x5_documento.tex` (+PDF) que fusiona ambos planes con diagramas TikZ, compilable con tectonic.
+
+## 2026-07-20 — X1/X4: regla de reemplazo de buy limits (lógica replicada, no compartida)
+
+Al reemplazar soportes, la OE más cercana al precio (aún no ejecutada) se cancelaba pero el primer soporte de reemplazo entraba al menos `a` bajo el precio (filtro de distancia), dejando un hueco de cobertura cerca del precio.
+
+**Decisión:** regla aditiva de reemplazo. `limpiar_ordenes_pendientes_no_validas` (X1) / `_paso_A` (X4) retornan el precio más alto entre las OE canceladas; el paso de creación (`crear_ordenes_espera` / `_paso_F`) coloca todo soporte bajo `umbral = (precio + max_saliente)/2`, además del filtro `a`. Tope en el punto medio para no colocar buy limits pegados al precio.
+
+**Decisión (deuda técnica):** la lógica quedó **replicada** en X1 y X4, no extraída a un módulo compartido. El usuario asumía que X4 se colgaba de funciones importadas de X1; no es así — X4 reimplementa `_paso_A`/`_paso_F` y no puede importar X1 porque X1 hace `import MetaTrader5` a nivel de módulo (no disponible en el entorno de backtest).
+
+**Descartado (por ahora):** extraer la lógica pura de buy limits a un módulo común que X1 y X4 importen, desacoplando el `import MetaTrader5` (lazy o inyectado). Es lo correcto a futuro pero toca arquitectura y agrega superficie de riesgo en código live. Costo de la deuda: cualquier cambio a la regla de buy limits debe editarse en dos lugares (X1 y X4) manteniéndolos en paridad, o X5 (vía X4) diverge de la ejecución real.

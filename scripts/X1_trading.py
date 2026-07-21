@@ -126,7 +126,12 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
 
 
 def limpiar_ordenes_pendientes_no_validas(valor: str, actual_OE: list, lista_N: list):
-    """Cancela órdenes pendientes cuyo precio ya no está en la lista de soportes válidos."""
+    """Cancela órdenes pendientes cuyo precio ya no está en la lista de soportes válidos.
+
+    Retorna el precio más alto entre las OE canceladas (la más cercana al precio
+    actual), o None si no se canceló ninguna. Lo usa crear_ordenes_espera para
+    recuperar la cobertura cercana al precio que deja el buy limit saliente.
+    """
     eliminadas = []
     for orden in actual_OE:
         precio_OE = round(orden.price_open, 2)
@@ -149,6 +154,8 @@ def limpiar_ordenes_pendientes_no_validas(valor: str, actual_OE: list, lista_N: 
                 eliminadas.append(precio_OE)
     if eliminadas:
         print(f'  {valor}: {len(eliminadas)} órdenes eliminadas desde {min(eliminadas)} hasta {max(eliminadas)}')
+        return max(eliminadas)
+    return None
 
 
 def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: float, sl: float = 0) -> dict:
@@ -195,19 +202,31 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
 
 
 def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
-                          valor: str, L: float, a: float, lotajes: dict):
+                          valor: str, L: float, a: float, lotajes: dict,
+                          precio_max_saliente: float = None):
     """
     Para cada soporte en lista_N que no tenga ya una orden activa o pendiente,
     crea una orden buy limit si el precio actual está al menos a distancia `a` USD por encima.
+
+    Regla de reemplazo: cuando este ciclo se canceló al menos un buy limit
+    (precio_max_saliente = el más cercano al precio), un soporte también entra si
+    queda por debajo del promedio entre el precio actual y ese buy limit saliente.
+    Recupera la cobertura cercana al precio que si no se perdería, porque el filtro
+    de distancia `a` deja el primer soporte de reemplazo al menos `a` bajo el precio.
     """
     P0 = obtener_precio_actual(valor, modo='B')
     lista_OAE = lista_OA + lista_OE
+    umbral_reemplazo = None
+    if precio_max_saliente is not None and precio_max_saliente < P0:
+        umbral_reemplazo = (P0 + precio_max_saliente) / 2
     ejecutadas = []
 
     for Pi in sorted(lista_N, reverse=True):
         if Pi in lista_OAE:
             continue
-        if (P0 - Pi) * L >= a:
+        distancia_ok = (P0 - Pi) * L >= a
+        reemplazo_ok = umbral_reemplazo is not None and Pi < umbral_reemplazo
+        if distancia_ok or reemplazo_ok:
             request = generate_request_buy_limit(
                 valor,
                 order_type=mt5.ORDER_TYPE_BUY_LIMIT,
@@ -416,8 +435,8 @@ if __name__ == '__main__':
                     # Si hay un SL activo en el sistema (sl_activo_global), se saltan
                     # A/B para priorizar la revisión del trailing stop.
                     if mercado_abierto(valor) and not sl_activo_global:
-                        limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
-                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES)
+                        precio_max_saliente = limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
+                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES, precio_max_saliente)
 
                     # C: Trailing stop en posiciones abiertas
                     trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)

@@ -983,3 +983,12 @@ Mauricio: Pidió cortar la recolección y cerrar con /guardar.
 Mauricio: Vía /new_todo pidió que X1, al colocar nuevos buy limits, los ponga de mayor a menor en vez de menor a mayor.
 Claude: En `crear_ordenes_espera` (X1_trading.py:207) cambió el loop a `sorted(lista_N, reverse=True)` — las buy limits se colocan desde el soporte más alto (más cercano al precio) hacia el más bajo. Registrado en done.md sección X1.
 (Cierre: 2026-07-20 23:16)
+
+## SECCIÓN 103
+Mauricio: Vía /new_todo pidió corregir un hueco en X1: al reemplazar buy limits, la OE más cercana al precio (no ejecutada) sale, pero el reemplazo entra al menos `a` bajo el precio → se pierde cobertura. Regla: deben entrar todos los buy limits bajo el promedio entre precio y el max buy limit que sale. Pidió confirmar que X5 (vía X4) use la misma lógica, "colgándose de las mismas funciones importadas".
+Claude: Exploró X1 (limpiar_ordenes_pendientes_no_validas / crear_ordenes_espera) y X4 (_paso_A / _paso_F). Hallazgo: X4 no importa de X1 — reimplementa la lógica y no puede importarlo por el `import MetaTrader5` a nivel de módulo. Confirmó regla aditiva: umbral = (precio + max_saliente)/2, un soporte entra si cumple filtro `a` o queda bajo el umbral.
+Mauricio: Ante la pregunta de paridad, eligió replicar la regla en X4 (no extraer módulo compartido).
+Claude: Implementó en X1 (retorno del max saliente + umbral en creación + enlace en el caller) y replicó en X4 (_paso_A retorna max, _paso_F aplica umbral, threaded por _procesar_candle/_simular_intravela). Ambos compilan. Registró el ítem en done.md (sección X1).
+Mauricio: Preguntó dónde quedaba la deuda técnica.
+Claude: Reconoció que solo la había mencionado en el chat (no persiste). La registró en docs/context/decisiones.md (sección 2026-07-20): decisión de replicar, descarte del módulo compartido, y costo (mantener la regla en dos lugares en paridad o X5 diverge de la ejecución real).
+(Cierre: 2026-07-20 23:32)
