@@ -43,6 +43,22 @@ def _cargar_config(version: str):
     return cfg
 
 
+def _cargar_config_x5():
+    """
+    Config dedicada del pipeline de recolección de X5 (los 6 activos, rangos de
+    exploración, baselines). Independiente de las versiones V0/V1/... de X4:
+    la recolección de X5 no tiene relación con ellas.
+    """
+    base_dir = Path(__file__).parent.parent
+    config_path = base_dir / 'resources' / 'x5' / 'config_x5.py'
+    if not config_path.exists():
+        raise FileNotFoundError(f'Config X5 no encontrada: {config_path}')
+    spec = importlib.util.spec_from_file_location('config_x5', config_path)
+    cfg = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cfg)
+    return cfg
+
+
 # ─── Carga de datos ───────────────────────────────────────────────────────────
 
 def _cargar_datos_h1(cfg) -> dict:
@@ -1012,9 +1028,9 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
 
 # ─── X5 — modo explore/exploit ───────────────────────────────────────────────
 
-def _generar_params_explore(cfg, cfg_global) -> dict:
-    """Params aleatorios por activo dentro de X5_PARAM_RANGES."""
-    ranges = cfg_global.X5_PARAM_RANGES
+def _generar_params_explore(cfg) -> dict:
+    """Params aleatorios por activo dentro de X5_PARAM_RANGES (de config_x5)."""
+    ranges = cfg.X5_PARAM_RANGES
     result = {}
     for activo in cfg.valores:
         n_lo, n_hi = ranges['n_sizes_ejecucion'][activo]
@@ -1035,7 +1051,7 @@ def _generar_params_explore(cfg, cfg_global) -> dict:
 def _generar_params_exploit(cfg, base_dir: Path, baseline: dict, activo=None) -> dict:
     """
     Llama a X5 --infer y lee active_parameters.json.
-    Activos con model_status='untrained' usan baseline (config_V1).
+    Activos con model_status='untrained' usan baseline (config_x5).
     Si `activo` está dado (modo paralelo por activo), infiere solo ese activo.
     """
     x5_path = base_dir / 'scripts' / 'X5_macro_brain.py'
@@ -1117,12 +1133,9 @@ def ejecutar_x5_ciclo(cfg, activo=None):
     Llamado una vez por X5 --recolectar para cada ciclo externo.
 
     Si `activo` está dado, el ciclo corre SOLO ese activo con recursos X4
-    aislados (`resources_{version}_{activo}`), de modo que X5 --recolectar
-    pueda lanzar un proceso por activo en paralelo sin colisionar en el
-    checkpoint/equity compartido de la versión.
+    aislados (`bt_{activo}`), de modo que X5 --recolectar pueda lanzar un
+    proceso por activo en paralelo sin colisionar en checkpoint/equity.
     """
-    import config as cfg_global
-
     base_dir = Path(__file__).parent.parent
 
     if activo is not None:
@@ -1131,6 +1144,12 @@ def ejecutar_x5_ciclo(cfg, activo=None):
         cfg.CARPETA_RESOURCES = base_res.parent / f'{base_res.name}_{activo}'
         cfg.CARPETA_N_BT      = cfg.CARPETA_RESOURCES / 'conjuntos_N'
         cfg.CARPETA_LOGS_BT   = cfg.CARPETA_RESOURCES / 'logs'
+        # config_x5 define A/B/PERDIDA_MAX_BT por activo; el core de X4 los usa
+        # como escalares. Como cada proceso corre un solo activo, se colapsan.
+        for _p in ('A', 'B', 'PERDIDA_MAX_BT'):
+            _v = getattr(cfg, _p)
+            if isinstance(_v, dict):
+                setattr(cfg, _p, _v[activo])
 
     min_lotajes = dict(cfg.LOTAJES)  # capturar antes de mutar
 
@@ -1148,11 +1167,11 @@ def ejecutar_x5_ciclo(cfg, activo=None):
         for activo in cfg.valores
     }
 
-    es_explore = random.random() < cfg_global.X5_EXPLORATION_RATE
+    es_explore = random.random() < cfg.EXPLORATION_RATE
     tipo = 'EXPLORE' if es_explore else 'EXPLOIT'
 
     if es_explore:
-        params = _generar_params_explore(cfg, cfg_global)
+        params = _generar_params_explore(cfg)
     else:
         params = _generar_params_exploit(cfg, base_dir, baseline, activo=activo)
 
@@ -1177,8 +1196,10 @@ if __name__ == '__main__':
                         help='En modo --x5: correr solo este activo con recursos aislados (paralelismo de X5 --recolectar)')
     args = parser.parse_args()
 
-    cfg = _cargar_config(args.version)
     if args.x5:
+        # Modo X5: usa su config dedicada, no las versiones de X4 (--version se ignora).
+        cfg = _cargar_config_x5()
         ejecutar_x5_ciclo(cfg, activo=args.activo)
     else:
+        cfg = _cargar_config(args.version)
         ejecutar_backtest(cfg, reset=args.reset)

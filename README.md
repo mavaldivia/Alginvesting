@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-20** — fix: X5 --recolectar desacople de versiones X4 (usa config_x5 con 6 activos, corrige KeyError GOOGL/TSLA/NVDA/AMZN)
 - **2026-07-18** — chore: X1 elimina prints ruidosos por ciclo (resumen revisión SL y mercado cerrado) tras mejora de frecuencia
 - **2026-07-18** — feat: X1 pausa gestión de buy limits con SL activo (foco trailing) + fix: mercado_abierto detecta sesión cerrada por frescura de tick + print revisión SL 1 línea/valor
 - **2026-07-18** — fix: X1 print de diagnóstico en trailing stop (revisión cambio SL con timestamp) + fix TS syntax error en config

@@ -968,26 +968,25 @@ def _mostrar_status() -> None:
 
 # ─── Recolectar ───────────────────────────────────────────────────────────────
 
-def _worker_recolectar_activo(activo: str, version: str, x4_path: Path) -> tuple:
+def _worker_recolectar_activo(activo: str, x4_path: Path, n_ciclos: int) -> tuple:
     """
     Worker de UN activo (corre en su propio hilo, en paralelo con los demás).
 
     Bucle de ciclos independientes:
       1. Lanza X4 --x5 --activo {activo}: un backtest completo desde
-         `fecha_inicio`, con recursos X4 aislados (`resources_{version}_{activo}`).
+         `fecha_inicio`, con recursos X4 aislados (`bt_{activo}`).
       2. Al terminar el ciclo, cuenta las OC del store del activo.
       3. Si ya superó X5_MIN_TRADES_TRAIN, entrena/reentrena el modelo del
          activo → los ciclos EXPLOIT siguientes ya usan el modelo recién
          entrenado (los params se van corrigiendo por activo).
       4. Reinicia el ciclo (X4 con reset=True vuelve a partir de `fecha_inicio`).
 
-    Termina al agotar X5_N_CICLOS_BT ciclos o alcanzar X5_MIN_TRADES_FTT OC.
-    El stdout de X4 se captura (descarta) para no entrelazar 6 salidas.
+    Termina al agotar `n_ciclos` (config_x5.N_CICLOS_BT) ciclos o alcanzar
+    X5_MIN_TRADES_FTT OC. El stdout de X4 se captura para no entrelazar salidas.
     """
     n_ini = _n_oc(_cargar_store(activo))
-    for ciclo in range(1, cfg.X5_N_CICLOS_BT + 1):
-        cmd = [sys.executable, str(x4_path),
-               '--version', version, '--x5', '--activo', activo]
+    for ciclo in range(1, n_ciclos + 1):
+        cmd = [sys.executable, str(x4_path), '--x5', '--activo', activo]
         proc = subprocess.run(cmd, capture_output=True, text=True,
                                encoding='utf-8', errors='replace')
         n = _n_oc(_cargar_store(activo))
@@ -995,7 +994,7 @@ def _worker_recolectar_activo(activo: str, version: str, x4_path: Path) -> tuple
             tail = ((proc.stderr or '') or (proc.stdout or ''))[-500:]
             print(f'  [{activo}] ciclo {ciclo}: X4 error (cód {proc.returncode}).\n{tail}')
             break
-        print(f'  [{activo}] ciclo {ciclo}/{cfg.X5_N_CICLOS_BT}: {n} OC '
+        print(f'  [{activo}] ciclo {ciclo}/{n_ciclos}: {n} OC '
               f'(Δ{n - n_ini:+d} desde el inicio)')
         if n >= cfg.X5_MIN_TRADES_TRAIN:
             _entrenar(activo)  # entrena/reentrena → EXPLOIT usa el modelo actualizado
@@ -1005,7 +1004,19 @@ def _worker_recolectar_activo(activo: str, version: str, x4_path: Path) -> tuple
     return activo, _n_oc(_cargar_store(activo))
 
 
-def _recolectar(version: str) -> None:
+def _cargar_config_x5():
+    """Config dedicada del pipeline X5 (independiente de las versiones de X4)."""
+    import importlib.util
+    p = cfg.BASE_DIR / 'resources' / 'x5' / 'config_x5.py'
+    if not p.exists():
+        raise FileNotFoundError(f'Config X5 no encontrada: {p}')
+    spec = importlib.util.spec_from_file_location('config_x5', p)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def _recolectar() -> None:
     """
     Orquesta la generación de datos para X5 con **backtesting paralelo por activo**.
 
@@ -1013,9 +1024,9 @@ def _recolectar(version: str) -> None:
     ciclos de X4 --x5 de forma independiente y entrena su propio modelo al
     cruzar el umbral. Los activos avanzan en paralelo y a distinto ritmo.
 
-    Aislamiento: cada worker usa `resources_{version}_{activo}` para el
-    checkpoint/equity de X4 (no colisionan). El store por activo
-    (`resources/x5/{ACTIVO}_store.csv`) ya es independiente por activo.
+    Aislamiento: cada worker usa `bt_{activo}` para el checkpoint/equity de X4
+    (no colisionan). El store por activo (`resources/x5/{ACTIVO}_store.csv`) ya
+    es independiente por activo. Los activos y N_CICLOS_BT salen de config_x5.
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -1024,12 +1035,14 @@ def _recolectar(version: str) -> None:
         print(f'  X4_backtester.py no encontrado en {x4_path}')
         return
 
-    activos = cfg.VALORES
-    n_ini   = {a: _n_oc(_cargar_store(a)) for a in activos}
+    cfg_x5   = _cargar_config_x5()
+    activos  = cfg_x5.valores
+    n_ciclos = cfg_x5.N_CICLOS_BT
+    n_ini    = {a: _n_oc(_cargar_store(a)) for a in activos}
 
     print(f'\n{"═" * 72}')
-    print(f'  X5 --recolectar (paralelo)  |  versión: {version}  '
-          f'|  ciclos máx/activo: {cfg.X5_N_CICLOS_BT}')
+    print(f'  X5 --recolectar (paralelo)  |  config: config_x5  '
+          f'|  ciclos máx/activo: {n_ciclos}')
     print(f'{"═" * 72}')
     print(f'  Estado inicial (OC en store):')
     for a in activos:
@@ -1037,7 +1050,7 @@ def _recolectar(version: str) -> None:
     print(f'\n  Lanzando {len(activos)} workers en paralelo...\n')
 
     with ThreadPoolExecutor(max_workers=len(activos)) as ex:
-        futs = {ex.submit(_worker_recolectar_activo, a, version, x4_path): a
+        futs = {ex.submit(_worker_recolectar_activo, a, x4_path, n_ciclos): a
                 for a in activos}
         for fut in as_completed(futs):
             a = futs[fut]
@@ -1068,8 +1081,6 @@ def main():
                         help='Casilla: con --infer, reentrena antes de recomendar')
     parser.add_argument('--activo', default=None,
                         help='Procesar solo este activo (ej. BTCUSD)')
-    parser.add_argument('--version', default='V1',
-                        help='Versión de config X4 a usar con --recolectar (default: V1)')
     args = parser.parse_args()
 
     if args.status:
@@ -1077,7 +1088,7 @@ def main():
         return
 
     if args.recolectar:
-        _recolectar(args.version)
+        _recolectar()
         return
 
     # --infer (único modo de inferencia). --train (opcional) reentrena antes.

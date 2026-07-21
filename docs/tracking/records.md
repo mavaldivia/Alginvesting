@@ -970,3 +970,11 @@ Claude: Fix 1 — trailing_stop imprime una línea de resumen por valor (P0, SL_
 Mauricio: Confirmó que con el fix de mercado_abierto la frecuencia mejoró brutalmente. Pidió eliminar el print de resumen "revision cambio SL", y luego también los "{valor}: mercado cerrado — OE existentes mantenidas".
 Claude: Quitó el print de resumen en trailing_stop (quedan solo los prints por evento real: "Trailing stop: ... SL →" y "SL actualizado"). Quitó el print de mercado cerrado colapsando el branch a `if mercado_abierto(valor) and not sl_activo_global:` — misma lógica, A/B se saltan en silencio.
 (Cierre: 2026-07-18 16:36)
+
+## SECCIÓN 101
+Mauricio: Pidió ejecutar X5 --recolectar para cazar errores; si faltaba algún archivo en resources, crear uno por defecto. Reportó KeyError: 'GOOGL' en n_sizes_ejecucion. Luego preguntó por qué se usaba versión V1 si X5 no tiene relación con las versiones de X4. Pidió resumen en docs/context/correcciones_x5.md.
+Claude: Rastreó la causa raíz: X5 --recolectar pasaba --version V1 a X4, que en modo --x5 cargaba config_V1.py (congelado a BTCUSD/ETHUSD) → KeyError en los otros 4 activos. Descubrió que ya existía resources/x5/config_x5.py (6 activos, rangos, baselines) pensado para esto pero nunca cableado. Propuso desacoplar X5 de las versiones de X4.
+Mauricio: Aprobó el plan y pidió ir ejecutando X5 para revisar funcionamiento.
+Claude: Implementó el desacople en 3 archivos: config_x5.py (agregó version='x5' y rutas de aislamiento bt_{activo}); X4_backtester.py (nuevo _cargar_config_x5, __main__ usa config_x5 en modo --x5, _generar_params_explore lee cfg.X5_PARAM_RANGES, colapso de A/B/PERDIDA_MAX dict→escalar por activo); X5_macro_brain.py (eliminó --version, lee valores y N_CICLOS_BT de config_x5). Verificó: GOOGL aislado corre sin KeyError; --recolectar con los 6 workers en paralelo, 0 errores; GOOGL ciclo 1/10 pasó de 18→83 OC. Escribió el resumen en docs/context/correcciones_x5.md.
+Mauricio: Pidió cortar la recolección y cerrar con /guardar.
+(Cierre: 2026-07-20 23:13)
