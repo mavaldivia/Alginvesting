@@ -978,3 +978,8 @@ Mauricio: Aprobó el plan y pidió ir ejecutando X5 para revisar funcionamiento.
 Claude: Implementó el desacople en 3 archivos: config_x5.py (agregó version='x5' y rutas de aislamiento bt_{activo}); X4_backtester.py (nuevo _cargar_config_x5, __main__ usa config_x5 en modo --x5, _generar_params_explore lee cfg.X5_PARAM_RANGES, colapso de A/B/PERDIDA_MAX dict→escalar por activo); X5_macro_brain.py (eliminó --version, lee valores y N_CICLOS_BT de config_x5). Verificó: GOOGL aislado corre sin KeyError; --recolectar con los 6 workers en paralelo, 0 errores; GOOGL ciclo 1/10 pasó de 18→83 OC. Escribió el resumen en docs/context/correcciones_x5.md.
 Mauricio: Pidió cortar la recolección y cerrar con /guardar.
 (Cierre: 2026-07-20 23:13)
+
+## SECCIÓN 102
+Mauricio: Vía /new_todo pidió que X1, al colocar nuevos buy limits, los ponga de mayor a menor en vez de menor a mayor.
+Claude: En `crear_ordenes_espera` (X1_trading.py:207) cambió el loop a `sorted(lista_N, reverse=True)` — las buy limits se colocan desde el soporte más alto (más cercano al precio) hacia el más bajo. Registrado en done.md sección X1.
+(Cierre: 2026-07-20 23:16)

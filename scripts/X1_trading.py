@@ -204,7 +204,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     lista_OAE = lista_OA + lista_OE
     ejecutadas = []
 
-    for Pi in lista_N:
+    for Pi in sorted(lista_N, reverse=True):
         if Pi in lista_OAE:
             continue
         if (P0 - Pi) * L >= a:

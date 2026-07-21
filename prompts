@@ -242,4 +242,15 @@ Recuerda mis limitaciones técnicas e intenta explicar con peras y manzanas sabi
 /new_todo
 X1: si tengo algun SL ya activado en alguna orden cuyo valor (tsla, btc, etc)
 esté con mercado abierto en ese momento, entonces olvidarse de eliminar y declarar nuevos buy limits (soportes / resistencias)
-hasta que eso se cierre. Esto debe mejorar significativamente la frecuencia de revisión de SL
+hasta que eso se cierre. Esto debe mejorar significativamente la frecuencia de revisión de SL (trailing stop)
+
+----------------
+/new_todo
+X1: Al colocar nuevos buy limits, que se hagan de mayor a menor (y no de menor a mayor como ahora)
+
+/new_todo
+X1: cuando se reemplazan buy limits, eventualmente hay uno cerca del precio no activado por abajo que sale, y el máximo que entra está al menos “a” unidades abajo, por lo tanto, se pierde.
+Regla
+Deben entrar todos los buy limits menores a:
+Promedio entre precio y Max buy limit que sale
+*Confirma que x5.py (mediante x4.py) esté usando la misma lógica (debería colgarse de las mismas funciones importadas)
