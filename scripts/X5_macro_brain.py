@@ -1005,11 +1005,22 @@ def _worker_recolectar_activo(activo: str, x4_path: Path, n_ciclos: int) -> tupl
 
 
 def _cargar_config_x5():
-    """Config dedicada del pipeline X5 (independiente de las versiones de X4)."""
-    import importlib.util
+    """Config dedicada del pipeline X5 (independiente de las versiones de X4).
+
+    resources/x5/config_x5.py está en .gitignore. En una máquina recién clonada
+    no existe, así que se crea por defecto copiando la plantilla versionada
+    scripts/config_x5_default.py (junto con la carpeta resources/x5/).
+    """
+    import importlib.util, shutil
     p = cfg.BASE_DIR / 'resources' / 'x5' / 'config_x5.py'
     if not p.exists():
-        raise FileNotFoundError(f'Config X5 no encontrada: {p}')
+        plantilla = Path(__file__).parent / 'config_x5_default.py'
+        if not plantilla.exists():
+            raise FileNotFoundError(
+                f'Config X5 no encontrada y sin plantilla por defecto: {plantilla}')
+        p.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(plantilla, p)
+        print(f'  Config X5 no existía; creada por defecto desde plantilla → {p}')
     spec = importlib.util.spec_from_file_location('config_x5', p)
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)

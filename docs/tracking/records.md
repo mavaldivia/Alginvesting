@@ -992,3 +992,11 @@ Claude: Implementó en X1 (retorno del max saliente + umbral en creación + enla
 Mauricio: Preguntó dónde quedaba la deuda técnica.
 Claude: Reconoció que solo la había mencionado en el chat (no persiste). La registró en docs/context/decisiones.md (sección 2026-07-20): decisión de replicar, descarte del módulo compartido, y costo (mantener la regla en dos lugares en paridad o X5 diverge de la ejecución real).
 (Cierre: 2026-07-20 23:32)
+
+## SECCIÓN 104
+Mauricio: Reportó que al llevar X5 recién creado de Mac a Windows por GitHub (con .gitignore), `X5_macro_brain.py --recolectar` falla desde el arranque porque no encuentra `config_x5`. Pidió: si falta, crear el archivo por defecto (y la carpeta); y revisar si pasa lo mismo con otro archivo necesario, creando defaults.
+Claude: Diagnosticó la causa raíz: `resources/x5/config_x5.py` está en `.gitignore` (toda `resources/` lo está), por eso no llega al clonar. Lo cargan de forma independiente `_cargar_config_x5` en X5 (línea 1007) y en X4 modo `--x5` (línea 46), ambos lanzando `FileNotFoundError`.
+Claude: Creó `scripts/config_x5_default.py` como plantilla versionada (tracked, byte-copia del config actual con cabecera aclaratoria). Modificó ambos `_cargar_config_x5` para que, si falta el archivo, creen la carpeta `resources/x5/` y copien la plantilla en vez de fallar. Import local de `shutil`.
+Claude: Revisó el resto del arranque de `--recolectar`: no hay otro archivo que bloquee. Carpetas `bt_{activo}/conjuntos_N/logs/models/Performance` y stores `{ACTIVO}_store.csv` ya se autocrean con `mkdir(parents=True, exist_ok=True)`; los CSV de precios (H1/M1) y `x2_history.json` degradan con warning/default y no son defaulteables (datos reales de X0/X2). En modo `--x5`, X4 solo carga config_x5 (no las config de versión), así que esas no bloquean.
+Claude: Verificó simulando clone fresco (borró config, se recreó idéntico desde plantilla, cargó `valores`/`N_CICLOS_BT`/rutas OK) y restauró la copia original en Mac. `py_compile` OK en los 3 archivos. Registró el ítem en done.md → sección X5.
+(Cierre: 2026-07-22 22:33)

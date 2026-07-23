@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-22** — fix: X5/X4 crean config_x5.py por defecto desde plantilla versionada (scripts/config_x5_default.py) si falta en clone fresco
 - **2026-07-20** — fix: X1/X4 recupera cobertura cercana al precio al reemplazar buy limits (umbral promedio)
 - **2026-07-20** — fix: X1 coloca nuevos buy limits de mayor a menor (soporte más alto primero)
 - **2026-07-20** — fix: X5 --recolectar desacople de versiones X4 (usa config_x5 con 6 activos, corrige KeyError GOOGL/TSLA/NVDA/AMZN)
