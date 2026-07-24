@@ -148,7 +148,7 @@ def _guardar_checkpoint(estado: dict, cfg):
 # ─── Recálculo de soportes ────────────────────────────────────────────────────
 
 def _worker_recalcular(args):
-    activo, N, carpeta_data, carpeta_n_prod, carpeta_n_bt, ts_actual, oa_bt = args
+    activo, N, carpeta_data, carpeta_n_prod, carpeta_n_bt, ts_actual, oa_bt, params_soporte, cold_start = args
     _procesar_valor_N(
         activo, N,
         carpeta_data,
@@ -159,18 +159,25 @@ def _worker_recalcular(args):
         None,        # estado_compartido
         False,       # verbose
         oa_bt,       # ordenes_abiertas_bt
+        params_soporte,  # K/N_EXP/LAMBDA del ciclo (None → globales de config.py)
+        cold_start,      # x5: re-optimiza desde cero con los params del momento
     )
 
 
-def _recalcular_soportes(estado: dict, ts_actual, cfg):
+def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False):
     carpeta_n_prod = Path(__file__).parent.parent / 'resources' / 'conjuntos_N'
+    # En x5, los soportes se calculan con los params explorados del ciclo (ya
+    # aplicados a cfg por _aplicar_params_x5) y sin heredar cache/warm start.
+    params_soporte = ({'K': cfg.K, 'N_EXP': cfg.N_EXP, 'LAMBDA': cfg.LAMBDA}
+                      if x5_mode else None)
     tasks = []
     for activo in cfg.valores:
         if activo not in estado['por_activo']:
             continue
         N = cfg.n_sizes[activo]
         oa_bt = list(estado['por_activo'][activo]['OA'].keys())
-        tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT, ts_actual, oa_bt))
+        tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT,
+                      ts_actual, oa_bt, params_soporte, x5_mode))
 
     n_workers = min(len(tasks), 4)
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
@@ -808,11 +815,20 @@ def _append_x5_store(activo: str, fila: dict) -> None:
     store_path = _gc.CARPETA_X5 / f'{activo}_store.csv'
     store_path.parent.mkdir(parents=True, exist_ok=True)
     write_hdr = not store_path.exists()
+    # Si una ejecución previa se cortó a mitad de fila, el archivo puede quedar
+    # sin '\n' final; sin este guard la próxima fila se concatena y corrompe el CSV.
+    if not write_hdr and store_path.stat().st_size > 0:
+        with open(store_path, 'rb') as fr:
+            fr.seek(-1, 2)
+            if fr.read(1) not in (b'\n', b'\r'):
+                with open(store_path, 'a', newline='') as fa:
+                    fa.write('\n')
     with open(store_path, 'a', newline='') as f:
         w = csv.DictWriter(f, fieldnames=list(fila.keys()), extrasaction='ignore')
         if write_hdr:
             w.writeheader()
         w.writerow(fila)
+        f.flush()
 
 
 # ─── Loop principal ───────────────────────────────────────────────────────────
@@ -827,6 +843,12 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
     cfg.CARPETA_RESOURCES.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_LOGS_BT.mkdir(parents=True, exist_ok=True)
+
+    # En x5, cada ciclo re-optimiza soportes con sus propios params: se descarta
+    # el cache bt del ciclo anterior para no heredar soportes ni delta adaptado.
+    if x5_mode and reset:
+        for _f in list(cfg.CARPETA_N_BT.glob('*_bt.json')) + list(cfg.CARPETA_N_BT.glob('*_bt_delta.json')):
+            _f.unlink()
 
     if x5_mode:
         import config as _gc_x5
@@ -880,7 +902,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         ts_cold = pd.Timestamp(cfg.fecha_inicio)
         print(f'\nCold start: recalculando soportes hasta {ts_cold} ...')
         print('(puede tardar varios minutos)')
-        _recalcular_soportes(estado, ts_cold, cfg)
+        _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
         _guardar_checkpoint(estado, cfg)
         print('Cold start completado.\n')
 
@@ -926,7 +948,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                 disparar = horas >= umbral
             if disparar:
                 print(f'  [{ts}] Recalculando soportes...')
-                _recalcular_soportes(estado, ts, cfg)
+                _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
                 estado['ts_ultimo_procesado'] = ts.isoformat()
                 _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
                 _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')

@@ -150,3 +150,15 @@ Al reemplazar soportes, la OE más cercana al precio (aún no ejecutada) se canc
 **Decisión (deuda técnica):** la lógica quedó **replicada** en X1 y X4, no extraída a un módulo compartido. El usuario asumía que X4 se colgaba de funciones importadas de X1; no es así — X4 reimplementa `_paso_A`/`_paso_F` y no puede importar X1 porque X1 hace `import MetaTrader5` a nivel de módulo (no disponible en el entorno de backtest).
 
 **Descartado (por ahora):** extraer la lógica pura de buy limits a un módulo común que X1 y X4 importen, desacoplando el `import MetaTrader5` (lazy o inyectado). Es lo correcto a futuro pero toca arquitectura y agrega superficie de riesgo en código live. Costo de la deuda: cualquier cambio a la regla de buy limits debe editarse en dos lugares (X1 y X4) manteniéndolos en paridad, o X5 (vía X4) diverge de la ejecución real.
+
+## 2026-07-23 — X5 --recolectar: soportes se recalculan con los params del ciclo, sin cache
+
+Al revisar por qué `--recolectar` avanzaba tan rápido se detectaron dos desconexiones: (1) `_procesar_valor_N` (X0) calculaba soportes con las globales `K/N_EXP/LAMBDA` importadas de `config.py` producción, de modo que los params que X5 explora por ciclo nunca afectaban el cálculo de soportes; (2) el cache bt (`_bt_warm_start`) se heredaba entre ciclos, arrancando el optimizador ya convergido con soportes de params distintos.
+
+**Decisión:** cada ciclo de X5 re-optimiza los soportes desde cero con sus propios params. `_procesar_valor_N` acepta `params_soporte={K,N_EXP,LAMBDA}` (override de las globales) y `cold_start` (ignora warm start del cache/JSON y el delta adaptado, parte de inicialización inteligente con delta semilla). `_recalcular_soportes`/`_worker_recalcular` (X4) los pasan en modo x5; `ejecutar_backtest` borra el cache bt (`*_bt.json`, `*_bt_delta.json`) al inicio de cada ciclo con reset. El cache bt sigue existiendo solo como canal worker→proceso principal dentro del recálculo del día actual. X0 producción no pasa los args nuevos → comportamiento idéntico.
+
+**Trade-off aceptado:** la recolección es mucho más lenta (cada recálculo diario vuelve a converger desde cold start, ×días ×ciclos), pero los datos del store quedan consistentes: los soportes de cada fila reflejan los params K/N_EXP/LAMBDA que se registran junto a ella.
+
+**Elegido sobre warm start intra-ciclo:** se descartó reusar el soporte del día anterior dentro del mismo ciclo (params constantes, sería correcto y más rápido) porque el usuario pidió explícitamente que todo se recalcule fresco con los params del momento.
+
+**Implicación operativa:** el store `{ACTIVO}_store.csv` generado antes de este fix está contaminado (params de soporte registrados no corresponden a los soportes usados). Recomendado regenerar desde cero antes de entrenar.

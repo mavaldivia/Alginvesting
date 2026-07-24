@@ -1000,3 +1000,14 @@ Claude: Creó `scripts/config_x5_default.py` como plantilla versionada (tracked,
 Claude: Revisó el resto del arranque de `--recolectar`: no hay otro archivo que bloquee. Carpetas `bt_{activo}/conjuntos_N/logs/models/Performance` y stores `{ACTIVO}_store.csv` ya se autocrean con `mkdir(parents=True, exist_ok=True)`; los CSV de precios (H1/M1) y `x2_history.json` degradan con warning/default y no son defaulteables (datos reales de X0/X2). En modo `--x5`, X4 solo carga config_x5 (no las config de versión), así que esas no bloquean.
 Claude: Verificó simulando clone fresco (borró config, se recreó idéntico desde plantilla, cargó `valores`/`N_CICLOS_BT`/rutas OK) y restauró la copia original en Mac. `py_compile` OK en los 3 archivos. Registró el ítem en done.md → sección X5.
 (Cierre: 2026-07-22 22:33)
+
+## SECCIÓN 105
+Mauricio: Inició X5 en Windows, detuvo la ejecución y al reiniciar `--recolectar` falló con `ParserError: Expected 76 fields in line 4, saw 160`. Pidió causa y fix.
+Claude: Diagnóstico: interrumpir X5 a mitad de escritura dejó una fila parcial sin `\n` en `{ACTIVO}_store.csv`; al reanudar la nueva fila se concatenó (160 campos). Fix doble: `_cargar_store` lee con `on_bad_lines='skip'` (auto-sana) y `_append_x5_store` cierra la línea pendiente con `\n` + `f.flush()` antes de appendear. Verificado que filas oc/periodico comparten columnas.
+Mauricio: Preguntó cómo reporta X5 y por qué aparece "ciclo {i}/10".
+Claude: Explicó el reporte de `--recolectar`: un worker por activo, cada uno corre hasta `N_CICLOS_BT=10` ciclos (cada ciclo = un backtest completo de X4), reporta `[activo] ciclo n/10: N OC (Δ)`, entrena al cruzar 500 OC, corta al llegar a 5000. Señaló la discrepancia entre `config.py` (20) y `config_x5.py` (10, el que manda).
+Mauricio: Le llamó la atención lo rápido que avanzó vs. un X4 corrido antes. Preguntó si se toman tal cual las lógicas del backtester.
+Claude: Confirmó que es el mismo binario X4 sin lógica simplificada. La velocidad viene del cache bt de soportes (warm start reutilizado entre ciclos) + paralelización por activo. Detectó y advirtió un problema mayor: los params K/N_EXP/LAMBDA explorados no afectaban los soportes.
+Mauricio: "Todo debe ser nuevo, con los parámetros actualizados a ese momento, no cacheado." Ante la pregunta de warm start intra-ciclo, eligió cold start puro siempre.
+Claude: Diagnóstico completo: (1) `_procesar_valor_N` usaba globales de `config.py` producción, ignorando lo que X5 explora; (2) cache bt heredado entre ciclos. Implementó: `params_soporte`+`cold_start` opcionales en `_procesar_valor_N` (X0), propagación desde `_recalcular_soportes`/`_worker_recalcular` en modo x5, y borrado del cache bt al inicio de cada ciclo con reset. X0 producción intacto. Advirtió el trade-off (recolección más lenta) y que el store ya generado quedó contaminado → recomendó regenerarlo desde cero. Registrado en done.md y decisiones.md.
+(Cierre: 2026-07-23 21:20)

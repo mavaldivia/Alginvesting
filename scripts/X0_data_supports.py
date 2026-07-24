@@ -723,16 +723,25 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
                       carpeta_n_prod: Path, carpeta_n_bt: Path,
                       ordenes_activas: list = [], fecha_hora_max=None,
                       estado_compartido=None, verbose: bool = True,
-                      ordenes_abiertas_bt: list = []):
+                      ordenes_abiertas_bt: list = [],
+                      params_soporte: dict = None, cold_start: bool = False):
     """Worker para ProcessPoolExecutor: procesa un único par (valor, N).
 
     fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
                    esa fecha/hora y usa/actualiza el cache _bt.json en lugar de producción.
     ordenes_abiertas_bt: en modo bt, precios de posiciones abiertas (OA) que no deben moverse.
                          Son buy limits que ya se ejecutaron y siguen activas en la simulación.
+    params_soporte: dict opcional {K, N_EXP, LAMBDA} que sobrescribe las globales de config.py.
+                    Lo usa X4 --x5 para calcular soportes con los params explorados del ciclo.
+    cold_start: si True, ignora todo warm start (cache bt y JSON prod) y el delta previo;
+                parte de inicialización inteligente con delta semilla. X4 --x5 lo activa para
+                que cada recálculo re-optimice desde cero con los params del momento.
     """
     t_inicio = time.time()
     es_bt = fecha_hora_max is not None
+    K_      = params_soporte['K']      if params_soporte else K
+    N_EXP_  = params_soporte['N_EXP']  if params_soporte else N_EXP
+    LAMBDA_ = params_soporte['LAMBDA'] if params_soporte else LAMBDA
     llave = f'{valor}_{N}'
     if verbose:
         print(f'\n{"="*55}\nProcesando {valor} N={N}' + (f' [bt hasta {fecha_hora_max}]' if es_bt else ''))
@@ -772,13 +781,17 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     df['t'] = df['t'] / df['t'].max()
 
     # Warm start
-    if es_bt:
+    json_path = carpeta_n_prod / f'{valor}_{N}'  # ruta de guardado en producción
+    if cold_start:
+        conjunto_N_prev = set()
+        if verbose:
+            print('  Cold start forzado (x5): sin warm start')
+    elif es_bt:
         conjunto_N_prev = _bt_warm_start(carpeta_n_bt, valor, N, fecha_hora_max)
         if verbose:
             print(f'  Warm start bt: {len(conjunto_N_prev)} soportes' if conjunto_N_prev
                   else '  Warm start bt: cold start')
     else:
-        json_path = carpeta_n_prod / f'{valor}_{N}'
         conjunto_N_prev = set()
         if Path(f'{json_path}.json').exists():
             conjunto_N_prev = set(json_act(str(json_path)))
@@ -789,7 +802,11 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     delta_path = (carpeta_n_bt if es_bt else carpeta_n_prod) / (
         f'{valor}_{N}_bt_delta.json' if es_bt else f'{valor}_{N}_delta.json'
     )
-    if delta_path.exists():
+    if cold_start:
+        delta_actual = DELTA_INICIAL
+        if verbose:
+            print(f'  delta_inicial semilla (cold start): {notacion_cientifica(delta_actual)}')
+    elif delta_path.exists():
         with open(delta_path) as f:
             delta_actual = json.load(f)['delta_inicial']
         if verbose:
@@ -803,9 +820,9 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         print('  Calculando distancias...')
     if estado_compartido is not None:
         estado_compartido[llave] = (0, 0, 0.0, 'calc. distancias')
-    df_extremos, conjunto_N = obtener_df_extremos(df, K, N_EXP, N, conjunto_N_prev, verbose=verbose)
+    df_extremos, conjunto_N = obtener_df_extremos(df, K_, N_EXP_, N, conjunto_N_prev, verbose=verbose)
 
-    FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
+    FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA_)
     if verbose:
         print(f'  FO inicial: {notacion_cientifica(FO_ref)}')
     if estado_compartido is not None:
@@ -816,13 +833,13 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         print(f'  Órdenes activas fijas: {[round(p, 2) for p in oa]}')
     # Fase 1: exploración barata con M_COARSE
     conjunto_N, df_extremos, df_FO_1, _, cambios_1, max_pasos_1 = nuevo_optimizador_2(
-        N, df_extremos, conjunto_N, LAMBDA,
+        N, df_extremos, conjunto_N, LAMBDA_,
         ordenes_activas=oa, M=M_COARSE, max_iters=MAX_ITERS, delta_inicial=delta_actual,
         estado_compartido=estado_compartido, llave=llave, verbose=verbose,
     )
     # Fase 2: refinamiento fino con M (warm start desde resultado de fase 1)
     conjunto_N, df_extremos, df_FO_2, convergio, cambios_2, max_pasos_2 = nuevo_optimizador_2(
-        N, df_extremos, conjunto_N, LAMBDA,
+        N, df_extremos, conjunto_N, LAMBDA_,
         ordenes_activas=oa, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
         estado_compartido=estado_compartido, llave=llave, verbose=verbose,
     )
@@ -851,7 +868,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         if verbose:
             print(f'  Guardado: {json_path}.json')
 
-    FO_final, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA)
+    FO_final, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA_)
 
     # Si la mejora neta es menor que delta_actual, el warm start era esencialmente óptimo:
     # el optimizador cicló sin ganar terreno real (inner loop rompe al primer vecino mejorable,
