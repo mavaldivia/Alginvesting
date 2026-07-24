@@ -137,7 +137,7 @@ Alginvesting_base/       # Versión anterior Windows/notebooks (solo lectura, re
 
 | Parámetro | Valor producción | Efecto |
 |-----------|-----------------|--------|
-| `N` (n_sizes) | 130 BTC/ETH, 120 resto | Cantidad de soportes activos por activo |
+| `N` (n_sizes) | 250 (todos los activos) | Cantidad de soportes activos por activo |
 | `K` | 1 | Peso aislamiento futuro vs. pasado |
 | `N_EXP` | 1.3 | Exponente de recencia |
 | `M` | 30 | Candidatos evaluados por soporte en cada paso |
@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-24** — feat: X5 `--recolectar --demo` — recorrido guiado paso a paso de 1 activo (lo pregunta al inicio; IDs D01-D09 con pausa en la 1a aparición + banner "se repetirá hasta la convergencia"; store/modelo demo aislado `_demo`; reanudable por activo vía estado persistente) + módulo compartido `scripts/x5_demo.py`; X4 emite D01-D07 desde el backtest
 - **2026-07-23** — config X1 por activo + N=250: A/B/PERDIDA_MAX pasan a dict por activo (formato X5), n_sizes/n_sizes_ejecucion → 250; X1 y X5._params_baseline indexan por activo; TIPO_EJECUCION queda "est"
 - **2026-07-23** — chore: alinea guardar/update-push a master + registro sesión (diagnóstico gráfico GitHub, replicación dev→master)
 - **2026-07-23** — feat: X5 --recolectar regenera params cada N días (default 5) dentro del backtest — EXPLORE aleatorio / EXPLOIT inferencia as-of-t, acoplado a recálculo cold-start de soportes; mantiene EXPLORATION_RATE

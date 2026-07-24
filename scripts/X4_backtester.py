@@ -16,6 +16,7 @@ import argparse
 import csv
 import importlib.util
 import json
+import os
 import random
 import sys
 import time
@@ -27,6 +28,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 from X0_data_supports import _procesar_valor_N, _bt_warm_start
 from X3_technical_features import compute_snapshot
+import x5_demo
 
 
 # ─── Config ───────────────────────────────────────────────────────────────────
@@ -341,6 +343,9 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
             events.append(_evt('OE_ejecutada', activo, ts, cfg, usa_iv,
                                precio=precio_oe, precio_ejecucion=precio_gap,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=True))
+            if x5_demo.esta_activo():
+                x5_demo.evento('D04', activo=activo, ts=str(ts),
+                               precio_ejecucion=precio_gap, es_gap=True)
 
     # Caso normal: OEs por debajo del Open
     for precio_oe in sorted([p for p in list(est_a['OE'].keys()) if p < candle['Open']]):
@@ -372,6 +377,9 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
             events.append(_evt('OE_ejecutada', activo, ts, cfg, usa_iv,
                                precio=precio_oe, precio_ejecucion=precio_oe,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=False))
+            if x5_demo.esta_activo():
+                x5_demo.evento('D04', activo=activo, ts=str(ts),
+                               precio_ejecucion=precio_oe, es_gap=False)
 
 
 def _paso_C(est_a: dict, precio_max: float, activo: str, ts, cfg, events: list, usa_iv: bool = False):
@@ -431,6 +439,10 @@ def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
+            if x5_demo.esta_activo():
+                x5_demo.evento('D05', activo=activo, ts=str(ts),
+                               motivo=_trade['motivo_cierre'],
+                               retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='perdida_max', retorno_usd=round(retorno_usd, 4), lote=lote))
@@ -462,6 +474,10 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
+            if x5_demo.esta_activo():
+                x5_demo.evento('D05', activo=activo, ts=str(ts),
+                               motivo=_trade['motivo_cierre'],
+                               retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='trailing_stop', retorno_usd=round(retorno_usd, 4), lote=lote))
@@ -502,6 +518,8 @@ def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
             _oe_entry['x2_oe'] = x5_ctx['x2']
         est_a['OE'][soporte] = _oe_entry
         events.append(_evt('OE_creada', activo, ts, cfg, usa_iv, precio=soporte, lote=lote))
+        if x5_demo.esta_activo():
+            x5_demo.evento('D03', activo=activo, ts=str(ts), soporte=soporte, lote=lote)
 
 
 # ─── Intra-vela ───────────────────────────────────────────────────────────────
@@ -811,7 +829,8 @@ def _construir_fila_periodica(activo: str, ts: pd.Timestamp, est_a: dict,
 
 def _append_x5_store(activo: str, fila: dict) -> None:
     import config as _gc
-    store_path = _gc.CARPETA_X5 / f'{activo}_store.csv'
+    suf = os.environ.get('X5_DEMO_SUFFIX', '')  # store demo aislado ({activo}_store_demo.csv)
+    store_path = _gc.CARPETA_X5 / f'{activo}_store{suf}.csv'
     store_path.parent.mkdir(parents=True, exist_ok=True)
     write_hdr = not store_path.exists()
     # Si una ejecución previa se cortó a mitad de fila, el archivo puede quedar
@@ -909,6 +928,9 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
         _guardar_checkpoint(estado, cfg)
         print('Cold start completado.\n')
+        if x5_demo.esta_activo():
+            _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
+            x5_demo.evento('D01', tipo='cold_start', hasta=str(ts_cold), n_soportes=_n_sop)
 
     ts_ultimo = (pd.Timestamp(estado['ts_ultimo_procesado'])
                  if estado['ts_ultimo_procesado'] else None)
@@ -959,6 +981,9 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                                           _min_lotajes_x5)
                 print(f'  [{ts}] Recalculando soportes...')
                 _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
+                if x5_demo.esta_activo():
+                    _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
+                    x5_demo.evento('D01', tipo='periodico', hasta=str(ts), n_soportes=_n_sop)
                 estado['ts_ultimo_procesado'] = ts.isoformat()
                 _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
                 _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
@@ -1024,6 +1049,8 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
             mes_ts = ts.strftime('%Y-%m')
             if mes_actual is not None and mes_ts != mes_actual:
                 print(f'[MES_BT] {mes_actual}', flush=True)
+                if x5_demo.esta_activo():
+                    x5_demo.evento('D07', mes_completado=mes_actual, siguiente=mes_ts)
             mes_actual = mes_ts
 
         # Stop-out: equity <= 0 o margin level bajo el umbral con posiciones abiertas
@@ -1173,6 +1200,12 @@ def _aplicar_seleccion_x5(cfg, estado: dict, ts: pd.Timestamp, datos_h1: dict,
         print(f'  [{ts}] {tipos[activo]:<13} {activo}: N={p["n_sizes_ejecucion"]} '
               f'K={p["K"]:.3f} N_EXP={p["N_EXP"]:.3f} LAMBDA={p["LAMBDA"]:.5f} '
               f'A={p["A"]:.2f} B={p["B"]:.2f} LM={p["LOTAJES_M"]} PMAX={p["PERDIDA_MAX"]:.0f}')
+        if x5_demo.esta_activo():
+            eid = 'D02' if tipos[activo] == 'EXPLORE' else 'D06'
+            x5_demo.evento(eid, activo=activo, ts=str(ts), modo=tipos[activo],
+                           N=p['n_sizes_ejecucion'], K=round(p['K'], 3),
+                           A=round(p['A'], 2), B=round(p['B'], 2),
+                           PERDIDA_MAX=round(p['PERDIDA_MAX'], 0))
 
 
 def _aplicar_params_x5(cfg, params: dict, min_lotajes: dict):
@@ -1249,6 +1282,10 @@ if __name__ == '__main__':
     if args.x5:
         # Modo X5: usa su config dedicada, no las versiones de X4 (--version se ignora).
         cfg = _cargar_config_x5()
+        # Modo demo (X5 --recolectar --demo): activa el narrador guiado en el
+        # subproceso; el activo y el sufijo del store demo llegan por env.
+        if os.environ.get('X5_DEMO_ACTIVO'):
+            x5_demo.activar(os.environ['X5_DEMO_ACTIVO'])
         ejecutar_x5_ciclo(cfg, activo=args.activo)
     else:
         cfg = _cargar_config(args.version)

@@ -25,6 +25,7 @@ Fases de rollout:
 
 import argparse
 import json
+import os
 import pickle
 import subprocess
 import sys
@@ -36,6 +37,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 import config as cfg
+import x5_demo
 
 # ─── Imports opcionales ──────────────────────────────────────────────────────
 
@@ -109,8 +111,14 @@ TARGET_CERRADO  = 'pnl_cerrado_activo'     # Y de filas 'oc'
 
 # ─── Store ───────────────────────────────────────────────────────────────────
 
+def _demo_suf() -> str:
+    """Sufijo del namespace demo ('_demo' o ''). En X5 --recolectar --demo el
+    store y el modelo se aíslan de producción vía env X5_DEMO_SUFFIX."""
+    return os.environ.get('X5_DEMO_SUFFIX', '')
+
+
 def _cargar_store(activo: str) -> pd.DataFrame:
-    path = CARPETA_X5 / f'{activo}_store.csv'
+    path = CARPETA_X5 / f'{activo}_store{_demo_suf()}.csv'
     if not path.exists():
         return pd.DataFrame()
     # on_bad_lines='skip': una ejecución interrumpida a mitad de fila puede dejar
@@ -371,7 +379,7 @@ def _guardar_performance(activo: str, tipo_modelo: str, n_train: int, n_test: in
 # ─── Model directories ────────────────────────────────────────────────────────
 
 def _model_dir(activo: str) -> Path:
-    return CARPETA_MODELS / activo
+    return CARPETA_MODELS / f'{activo}{_demo_suf()}'
 
 # ─── LightGBM ────────────────────────────────────────────────────────────────
 
@@ -1104,6 +1112,119 @@ def _recolectar() -> None:
     _mostrar_status()
 
 
+# ─── Recolectar demo (guiado, 1 activo) ───────────────────────────────────────
+
+def _demo_pedir_activo(activos: list) -> str | None:
+    """Muestra los activos disponibles numerados y devuelve el elegido."""
+    if not sys.stdin or not sys.stdin.isatty():
+        print('  El modo demo es interactivo: requiere una terminal (stdin TTY).')
+        return None
+    print('\n  Activos disponibles:')
+    for i, a in enumerate(activos, 1):
+        print(f'    {i}. {a}')
+    while True:
+        sel = input('\n  Ingresa el número del activo para el demo '
+                    '(q para salir): ').strip()
+        if sel.lower() in ('q', 'quit', 'salir'):
+            return None
+        if sel.isdigit() and 1 <= int(sel) <= len(activos):
+            return activos[int(sel) - 1]
+        print('  Entrada inválida. Intenta de nuevo.')
+
+
+def _recolectar_demo() -> None:
+    """
+    Recorrido guiado y detallado de X5 --recolectar sobre UN solo activo.
+
+    A diferencia de `_recolectar` (paralelo, silencioso), el demo:
+      - pregunta al inicio qué activo usar (lista numerada);
+      - corre los ciclos de forma SECUENCIAL, con el stdout/stdin de X4
+        heredado, para que el narrador (x5_demo) pueda pausar en cada suceso
+        nuevo (D01..D09) y explicarlo en detalle;
+      - trabaja sobre un store y un modelo DEMO aislados ({activo}_store_demo.csv
+        y models/{activo}_demo), sin tocar los datos reales;
+      - es reanudable: el estado de qué se explicó y el store demo persisten, así
+        que si se pausa y se retoma, vuelve donde quedó ese activo sin re-explicar.
+    """
+    import shutil
+
+    x4_path = Path(__file__).parent / 'X4_backtester.py'
+    if not x4_path.exists():
+        print(f'  X4_backtester.py no encontrado en {x4_path}')
+        return
+
+    cfg_x5   = _cargar_config_x5()
+    activos  = cfg_x5.valores
+    n_ciclos = cfg_x5.N_CICLOS_BT
+
+    print(f'\n{"═" * 72}')
+    print(f'  X5 --recolectar --demo  |  recorrido guiado paso a paso (1 activo)')
+    print(f'{"═" * 72}')
+    print('  Cada suceso nuevo del pipeline se explica con un ID único (D01..D09)')
+    print('  y se pausa la primera vez que aparece. Una vez visto el bucle')
+    print('  recurrente completo, deja de pausar salvo en hitos nuevos.')
+
+    activo = _demo_pedir_activo(activos)
+    if activo is None:
+        print('  Demo cancelado.')
+        return
+
+    # Namespace demo aislado (store + modelo). El env lo hereda el subproceso X4.
+    os.environ['X5_DEMO_SUFFIX'] = '_demo'
+    os.environ['X5_DEMO_ACTIVO'] = activo
+
+    store_demo = CARPETA_X5 / f'{activo}_store_demo.csv'
+    state_demo = CARPETA_X5 / f'{activo}_demo_state.json'
+    n_prev = _n_oc(_cargar_store(activo))
+
+    if store_demo.exists() or state_demo.exists():
+        print(f'\n  Existe un demo previo de {activo}: {n_prev} OC en el store demo.')
+        resp = input('  ¿(c)ontinuar donde quedó o (r)einiciar desde cero? '
+                     '[c/r]: ').strip().lower()
+        if resp == 'r':
+            for p in (store_demo, state_demo):
+                if p.exists():
+                    p.unlink()
+            md = _model_dir(activo)
+            if md.exists():
+                shutil.rmtree(md)
+            print(f'  Demo de {activo} reiniciado desde cero.')
+        else:
+            print(f'  Reanudando el demo de {activo} desde donde quedó.')
+
+    x5_demo.activar(activo)
+
+    print(f'\n  Activo demo: {activo}  |  ciclos máx: {n_ciclos}  '
+          f'|  umbral train: {cfg.X5_MIN_TRADES_TRAIN} OC')
+    print(f'  Store demo: {store_demo.name}\n')
+
+    for ciclo in range(1, n_ciclos + 1):
+        print(f'\n{"─" * 72}')
+        print(f'  [demo] Iniciando ciclo {ciclo}/{n_ciclos} de {activo} '
+              f'(X4 backtest desde el inicio)')
+        print(f'{"─" * 72}')
+        cmd = [sys.executable, str(x4_path), '--x5', '--activo', activo]
+        proc = subprocess.run(cmd)  # stdio heredado → pausas del narrador en X4
+        n = _n_oc(_cargar_store(activo))
+        if proc.returncode != 0:
+            print(f'  [demo] ciclo {ciclo}: X4 terminó con error (cód {proc.returncode}).')
+            break
+        print(f'\n  [demo] ciclo {ciclo}/{n_ciclos} completado: {n} OC en el store demo.')
+        if n >= cfg.X5_MIN_TRADES_TRAIN:
+            x5_demo.evento('D08', activo=activo, n_oc=n,
+                           umbral=cfg.X5_MIN_TRADES_TRAIN)
+            _entrenar(activo)
+        if n >= cfg.X5_MIN_TRADES_FTT:
+            break
+
+    n_fin = _n_oc(_cargar_store(activo))
+    x5_demo.evento('D09', activo=activo, n_oc=n_fin, store_demo=store_demo.name)
+    print(f'\n{"═" * 72}')
+    print(f'  Demo finalizado para {activo}: {n_fin} OC en {store_demo.name}')
+    print(f'  (store y modelo demo aislados; tus datos reales quedaron intactos)')
+    print(f'{"═" * 72}\n')
+
+
 # ─── CLI ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -1119,6 +1240,8 @@ def main():
                      help='Diagnóstico: n_trades y modelo activo por activo')
     parser.add_argument('--train',   action='store_true',
                         help='Casilla: con --infer, reentrena antes de recomendar')
+    parser.add_argument('--demo',    action='store_true',
+                        help='Con --recolectar: recorrido guiado paso a paso de UN activo (lo pregunta al inicio)')
     parser.add_argument('--activo', default=None,
                         help='Procesar solo este activo (ej. BTCUSD)')
     args = parser.parse_args()
@@ -1128,7 +1251,10 @@ def main():
         return
 
     if args.recolectar:
-        _recolectar()
+        if args.demo:
+            _recolectar_demo()
+        else:
+            _recolectar()
         return
 
     # --infer (único modo de inferencia). --train (opcional) reentrena antes.

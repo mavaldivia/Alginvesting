@@ -35,7 +35,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. Con `TIPO_EJECUCION="est"` usa params de `config.py`; con `"din"` lee `config/active_parameters.json` generado por X5 (por activo, con fallback automático si `model_status="untrained"`). En Fase 2, cada OC cerrada alimenta el store de X5. |
 | `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X5. Output: `resources/x2/`. |
 | `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `resources/x3/{VALOR}.csv`. Alimenta X5. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/plans/x3_plan.md`. |
-| `X5_macro_brain.py` | Surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia. Output: `config/active_parameters.json`. **En Fase 1**: se entrena con datos de X5 backtesters dedicados (por activo). **En Fase 2**: X1 live con `TIPO_EJECUCION="din"` alimenta el store directamente → ciclo de retroalimentación cerrado. Plan: `docs/plans/x5_plan.md`. |
+| `X5_macro_brain.py` | Surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia. Output: `config/active_parameters.json`. **En Fase 1**: se entrena con datos de X5 backtesters dedicados (por activo). **En Fase 2**: X1 live con `TIPO_EJECUCION="din"` alimenta el store directamente → ciclo de retroalimentación cerrado. `--recolectar --demo` es un recorrido guiado interactivo de UN activo (lo pregunta al inicio): corre los ciclos secuencialmente sobre store/modelo demo aislados (`_demo`) y explica cada suceso nuevo (IDs D01–D09) pausando la primera vez, vía el módulo compartido `scripts/x5_demo.py`; reanudable por activo. Plan: `docs/plans/x5_plan.md`. |
 | `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, configuración de X0 (algoritmo) y X1 (trading). `TIPO_EJECUCION = "est" \| "din"` controla si X1/X0/X4 usan params estáticos o los recomendados por X5. |
 
 ### Directorios de datos
@@ -55,7 +55,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 
 ## Conceptos clave del dominio
 
-- **N (n_sizes)**: Cantidad de soportes a mantener activos por activo. Varía por activo: BTCUSD/ETHUSD=130, resto=120.
+- **N (n_sizes)**: Cantidad de soportes a mantener activos por activo. Actualmente 250 para todos los activos.
 - **M**: Número de precios candidatos evaluados por soporte en cada paso del optimizador (linspace equidistante entre soportes vecinos). Controla la granularidad de la búsqueda local — mayor M, barrido más fino pero más evaluaciones de FO por iteración.
 - **Conjunto N**: Los N soportes óptimos elegidos por el algoritmo de optimización.
 - **OE / OA / OC**: OE = Orden en Espera (buy limit colocada en un soporte, esperando que el precio baje hasta ella) / OA = Orden Abierta (posición activa; la OE fue ejecutada) / OC = Orden Cerrada (posición que ya cerró por trailing stop, PERDIDA_MAX o stop loss).
@@ -103,7 +103,7 @@ Versión activa: `nuevo_optimizador_2`.
 
 Definidos en `scripts/config.py:42-55`. Valores listados = los usados en producción (no los defaults de las funciones, que pueden diferir).
 
-### N — cantidad de soportes (`config.py`: 130 BTCUSD/ETHUSD, 120 el resto)
+### N — cantidad de soportes (`config.py`: 250 para todos los activos)
 - **↑ N**: más cobertura del rango de precios y entradas más finas, pero capital más fragmentado por posición y mayor costo computacional (`calcular_FO` se llama del orden de N×M veces por iteración del optimizador).
 - **↓ N**: posiciones más concentradas (mayor peso por entrada), optimización más rápida, cobertura más gruesa del rango.
 
