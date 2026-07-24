@@ -275,7 +275,7 @@ COn estos nuevos parámetros debe recalcular soportes hasta el día t. SIEMPRE C
 Después de entrenar, esos modelos de predicción son los que deben guiar los parámetros, siempre
 manteniendolos dentro de su rango
 
-/new_todo
+[OK] /new_todo
 X1: Es momento de alinear el config de X1 con el de X5 (separado por activo)
 deja por defecto: N = 250 en busqueda de soportes y ejecucion por activo
 Todos los demás parámetros que se abran por activo, mantenlos con el valor que tienen ahora en cada activo
@@ -283,9 +283,7 @@ Todos los config: X1, X4 y X5 deben estar alineados al formato de X5. Los script
 tambien deben considerar este nuevo formato
 Deja config de X1 en versión fija (sin dinamismo...para eso necesito entrenar suficiente y validar el funcionamiento de X5 primero)
 quita el config de X1 del gitignore para que se actualice en windows 
-
-/new_todo
-agrega el config de X1 al gitignore
+--------------
 
 /new_todo
 X5: Con todos los cambios y basado en x5_documento_extendido.pdf, genera 

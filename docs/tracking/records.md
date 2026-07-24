@@ -1029,3 +1029,10 @@ Claude: Seteó git config --global user.email al noreply de GitHub (30674373+mav
 Mauricio: Pidió cambiar las skills para que guardar/update-push suban a master en vez de dev, y replicar dev en master.
 Claude: Editó update-push (verifica y pushea a master). Detectó que el único commit de master ausente en dev era un merge commit sin código propio. Preguntó merge vs reset exacto; Mauricio eligió reset exacto (force push). Ejecutó variante segura sin reset --hard (git branch -f master dev + push --force origin master + checkout master) para conservar el cambio sin commitear en prompts. Resultado: master == dev == 041a975 local y remoto. Dejó pendientes a Mauricio: re-sincronizar Windows con reset --hard origin/master, verificar gmail en GitHub, y configurar user.email global en Windows.
 (Cierre: 2026-07-23 22:00)
+
+## SECCIÓN 108
+Mauricio: Vía /new_todo pidió alinear el config de X1 al formato de X5 (por activo): N=250 por defecto en búsqueda de soportes y ejecución, abrir el resto de params por activo manteniendo su valor actual, dejar X1 fija (sin dinamismo) y quitar el config de X1 del gitignore.
+Claude: Exploró los tres configs. Encontró que config.py ya está trackeado y no en .gitignore (ya sincroniza a Windows). Preguntó por eso y por el alcance de N=250.
+Mauricio: Confirmó no tocar gitignore y aplicar el cambio solo en config.py (X0/X1); X4 y X5 quedan igual (ya en formato X5).
+Claude: En config.py subió n_sizes y n_sizes_ejecucion a 250 y convirtió A/B/PERDIDA_MAX de escalar a dict por activo (4/1.5/120). Actualizó X1_trading.py para indexar A[valor]/B[valor]/PERDIDA_MAX[valor] en crear_ordenes_espera, trailing_stop, controlar_perdida_max e informacion. Ajustó X5_macro_brain._params_baseline a cfg.A[activo]/B/PERDIDA_MAX. TIPO_EJECUCION queda "est". Verificó sintaxis de los tres archivos y registró el ítem en docs/done.md (sección X1).
+(Cierre: 2026-07-23 22:20)

@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-23** — config X1 por activo + N=250: A/B/PERDIDA_MAX pasan a dict por activo (formato X5), n_sizes/n_sizes_ejecucion → 250; X1 y X5._params_baseline indexan por activo; TIPO_EJECUCION queda "est"
 - **2026-07-23** — chore: alinea guardar/update-push a master + registro sesión (diagnóstico gráfico GitHub, replicación dev→master)
 - **2026-07-23** — feat: X5 --recolectar regenera params cada N días (default 5) dentro del backtest — EXPLORE aleatorio / EXPLOIT inferencia as-of-t, acoplado a recálculo cold-start de soportes; mantiene EXPLORATION_RATE
 - **2026-07-23** — fix: X5 --recolectar recalcula soportes con los params del ciclo (cold start, sin cache heredado) + store CSV robusto a interrupción (on_bad_lines skip + cierre de línea)

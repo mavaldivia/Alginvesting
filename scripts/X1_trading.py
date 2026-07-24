@@ -348,7 +348,7 @@ def controlar_perdida_max(actual_OA: list, valor: str, L: float,
             cerrar_posicion(orden, valor, lotajes)
 
 
-def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: float):
+def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dict):
     """Muestra el estado actual de soportes y distancias para todos los activos."""
     print('\n─── Información ───────────────────────────────────────────')
     for valor in valores:
@@ -356,17 +356,18 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: flo
         N = n_sizes[valor]
         lista_N = leer_lista_N(valor, N)
         L = lotajes[valor] * units[valor]
+        a_valor = a[valor]
 
         df = pd.DataFrame(lista_N, columns=['Precio'])
         df['Distancia_USD'] = (P0 - df['Precio']) * L
         df = df[df['Distancia_USD'] >= 0].sort_values('Distancia_USD').reset_index(drop=True)
 
-        por_declarar = df[df['Distancia_USD'] < a].copy()
-        declarados = df[df['Distancia_USD'] >= a].copy()
+        por_declarar = df[df['Distancia_USD'] < a_valor].copy()
+        declarados = df[df['Distancia_USD'] >= a_valor].copy()
 
         print(f'\n{valor} | P0={P0:.2f} | N={N}')
         if len(por_declarar):
-            por_declarar['Falta_USD'] = (a - por_declarar['Distancia_USD']).round(2)
+            por_declarar['Falta_USD'] = (a_valor - por_declarar['Distancia_USD']).round(2)
             print('  Por declarar (muy cerca):')
             print(por_declarar.head(5).to_string(index=False))
         if len(declarados):
@@ -436,13 +437,13 @@ if __name__ == '__main__':
                     # A/B para priorizar la revisión del trailing stop.
                     if mercado_abierto(valor) and not sl_activo_global:
                         precio_max_saliente = limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
-                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A, LOTAJES, precio_max_saliente)
+                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, precio_max_saliente)
 
                     # C: Trailing stop en posiciones abiertas
-                    trailing_stop(actual_OA, valor, L, A, B, LOTAJES, dic_seguimiento)
+                    trailing_stop(actual_OA, valor, L, A[valor], B[valor], LOTAJES, dic_seguimiento)
 
                     # D: Cierre por pérdida máxima
-                    controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX)
+                    controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX[valor])
 
                 except Exception as e:
                     print(f'  [X1] Error en {valor}: {e} — saltando activo este ciclo')

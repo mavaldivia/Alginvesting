@@ -141,10 +141,10 @@ def _params_baseline(activo: str) -> dict:
         'K':           cfg.K,
         'N_EXP':       cfg.N_EXP,
         'LAMBDA':      cfg.LAMBDA,
-        'A':           cfg.A,
-        'B':           cfg.B,
+        'A':           cfg.A[activo],
+        'B':           cfg.B[activo],
         'LOTAJES_M':   cfg.LOTAJES_M[activo],
-        'PERDIDA_MAX': cfg.PERDIDA_MAX,
+        'PERDIDA_MAX': cfg.PERDIDA_MAX[activo],
     }
 
 # ─── Feature columns ─────────────────────────────────────────────────────────

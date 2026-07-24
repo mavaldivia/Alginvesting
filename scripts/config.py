@@ -52,22 +52,22 @@ n_sizes = {
 """
 
 n_sizes = {
-    'BTCUSD': [200],
-    'ETHUSD': [200],
-    'TSLA':   [200],
-    'GOOGL':  [200],
-    'NVDA':   [200],
-    'AMZN':   [200],
+    'BTCUSD': [250],
+    'ETHUSD': [250],
+    'TSLA':   [250],
+    'GOOGL':  [250],
+    'NVDA':   [250],
+    'AMZN':   [250],
 }
 
 # Cantidad de soportes activos en producción, usada por X1
 n_sizes_ejecucion = {
-    'BTCUSD': 200,
-    'ETHUSD': 200,
-    'TSLA': 200,
-    'GOOGL': 200,
-    'NVDA': 200,
-    'AMZN': 200,
+    'BTCUSD': 250,
+    'ETHUSD': 250,
+    'TSLA': 250,
+    'GOOGL': 250,
+    'NVDA': 250,
+    'AMZN': 250,
 }
 
 # ─── Datos históricos ─────────────────────────────────────────────────────────
@@ -163,14 +163,38 @@ X3_VENTANAS = {
 
 # ─── Trading: ejecución y gestión de riesgo (X1) ──────────────────────────────
 
-# a: ganancia mínima en USD para activar el primer SL ganador
-# b: distancia en USD (normalizada por L) que mantiene el SL bajo el precio actual
-A = 4
-B = 1.5
+# Parámetros por activo (formato alineado con config_x5). X1 los indexa por activo.
+# A: ganancia mínima en USD para activar el primer SL ganador
+# B: distancia en USD (normalizada por L) que mantiene el SL bajo el precio actual
+A = {
+    'BTCUSD': 4,
+    'ETHUSD': 4,
+    'TSLA':   4,
+    'GOOGL':  4,
+    'NVDA':   4,
+    'AMZN':   4,
+}
+
+B = {
+    'BTCUSD': 1.5,
+    'ETHUSD': 1.5,
+    'TSLA':   1.5,
+    'GOOGL':  1.5,
+    'NVDA':   1.5,
+    'AMZN':   1.5,
+}
 
 TS = 0.01  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
 
-PERDIDA_MAX = 120  # USD — si la pérdida de una posición abierta supera este valor, se cierra
+# USD — si la pérdida de una posición abierta supera este valor, se cierra
+PERDIDA_MAX = {
+    'BTCUSD': 120,
+    'ETHUSD': 120,
+    'TSLA':   120,
+    'GOOGL':  120,
+    'NVDA':   120,
+    'AMZN':   120,
+}
 
 # Tamaño mínimo de lote por activo (granularidad del broker)
 MIN_LOTAJES = {
