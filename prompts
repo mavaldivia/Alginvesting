@@ -268,7 +268,7 @@ crea las versiones por defecto
 X1: si no se puede colocar el nuevo set de buy limits, 
 entonces que tampoco se pueda eliminar el existente (para cada activo)
 -------------------------------
-/new_todo
+[OK] /new_todo
 X5: antes de entrenar, el sistema cada X (días), por defecto 5, debe generar parámetros aleatorios
 dentro de rangos (si no están definidos en config, definamoslos)
 COn estos nuevos parámetros debe recalcular soportes hasta el día t. SIEMPRE COLD-STAR
