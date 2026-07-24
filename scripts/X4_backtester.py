@@ -17,7 +17,6 @@ import csv
 import importlib.util
 import json
 import random
-import subprocess
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -900,6 +899,11 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
     )
     if necesita_cold:
         ts_cold = pd.Timestamp(cfg.fecha_inicio)
+        # x5: el primer tramo también elige params (explore/exploit as-of-t) antes
+        # de calcular soportes, para que estos reflejen los params vigentes.
+        if x5_mode:
+            _aplicar_seleccion_x5(cfg, estado, ts_cold, datos_h1,
+                                  {}, _carpeta_fundamentals_x5, _min_lotajes_x5)
         print(f'\nCold start: recalculando soportes hasta {ts_cold} ...')
         print('(puede tardar varios minutos)')
         _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
@@ -947,6 +951,12 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
             else:
                 disparar = horas >= umbral
             if disparar:
+                # x5: cada tramo (acoplado a la cadencia de recálculo) regenera
+                # params antes de recalcular soportes cold-start hasta t.
+                if x5_mode:
+                    _aplicar_seleccion_x5(cfg, estado, ts, datos_h1,
+                                          cierre_previo, _carpeta_fundamentals_x5,
+                                          _min_lotajes_x5)
                 print(f'  [{ts}] Recalculando soportes...')
                 _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
                 estado['ts_ultimo_procesado'] = ts.isoformat()
@@ -1076,69 +1086,93 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
 
 # ─── X5 — modo explore/exploit ───────────────────────────────────────────────
 
-def _generar_params_explore(cfg) -> dict:
-    """Params aleatorios por activo dentro de X5_PARAM_RANGES (de config_x5)."""
-    ranges = cfg.X5_PARAM_RANGES
-    result = {}
-    for activo in cfg.valores:
-        n_lo, n_hi = ranges['n_sizes_ejecucion'][activo]
-        lm_lo, lm_hi = ranges['LOTAJES_M'][activo]
-        result[activo] = {
-            'n_sizes_ejecucion': random.randint(int(n_lo), int(n_hi)),
-            'K':           random.uniform(*ranges['K'][activo]),
-            'N_EXP':       random.uniform(*ranges['N_EXP'][activo]),
-            'LAMBDA':      random.uniform(*ranges['LAMBDA'][activo]),
-            'A':           random.uniform(*ranges['A'][activo]),
-            'B':           random.uniform(*ranges['B'][activo]),
-            'LOTAJES_M':   random.randint(int(lm_lo), int(lm_hi)),
-            'PERDIDA_MAX': random.uniform(*ranges['PERDIDA_MAX'][activo]),
-        }
-    return result
+def _params_explore_activo(cfg, activo: str) -> dict:
+    """Params aleatorios de UN activo dentro de X5_PARAM_RANGES (de config_x5)."""
+    r = cfg.X5_PARAM_RANGES
+    n_lo, n_hi = r['n_sizes_ejecucion'][activo]
+    lm_lo, lm_hi = r['LOTAJES_M'][activo]
+    return {
+        'n_sizes_ejecucion': random.randint(int(n_lo), int(n_hi)),
+        'K':           random.uniform(*r['K'][activo]),
+        'N_EXP':       random.uniform(*r['N_EXP'][activo]),
+        'LAMBDA':      random.uniform(*r['LAMBDA'][activo]),
+        'A':           random.uniform(*r['A'][activo]),
+        'B':           random.uniform(*r['B'][activo]),
+        'LOTAJES_M':   random.randint(int(lm_lo), int(lm_hi)),
+        'PERDIDA_MAX': random.uniform(*r['PERDIDA_MAX'][activo]),
+    }
 
 
-def _generar_params_exploit(cfg, base_dir: Path, baseline: dict, activo=None) -> dict:
+def _contexto_inferencia_x5(cfg, activo: str, df, ts: pd.Timestamp,
+                            soportes: list, precio_cierre: float, est_a: dict,
+                            carpeta_fund) -> dict:
+    """Contexto de mercado as-of-t para la inferencia del modelo dentro del backtest.
+
+    Mismo schema que _leer_contexto_actual de X5 (temporal/x2/x3 OE + proxy _oa +
+    portfolio), pero con datos al día t simulado y el portfolio real del momento.
     """
-    Llama a X5 --infer y lee active_parameters.json.
-    Activos con model_status='untrained' usan baseline (config_x5).
-    Si `activo` está dado (modo paralelo por activo), infiere solo ese activo.
-    """
-    x5_path = base_dir / 'scripts' / 'X5_macro_brain.py'
-    active_params_path = base_dir / 'config' / 'active_parameters.json'
-    cmd = [sys.executable, str(x5_path), '--infer']
-    if activo is not None:
-        cmd += ['--activo', activo]
-    try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=180,
-            encoding='utf-8', errors='replace',
-        )
-        if proc.returncode != 0 or not active_params_path.exists():
-            print(f'  X5 --infer falló (código {proc.returncode}) → fallback a baseline')
-            return baseline
-        with open(active_params_path) as f:
-            ap = json.load(f)
-    except Exception as e:
-        print(f'  X5 --infer error: {e} → fallback a baseline')
-        return baseline
+    if df is not None:
+        x3, x2 = _compute_x5_snapshot(activo, df, ts, soportes, carpeta_fund)
+    else:
+        x3, x2 = {}, {}
+    temp = _features_temporales_ts(ts)
+    lote, units = cfg.LOTAJES[activo], cfg.UNITS[activo]
+    portfolio = _contexto_portfolio_x5(est_a, precio_cierre, lote, units)
+    ctx: dict = {}
+    ctx.update(temp)
+    ctx.update({f'x2_{k}': v for k, v in x2.items()})
+    ctx.update({f'x3_{k}': v for k, v in x3.items()})
+    ctx.update(portfolio)
+    ctx.update({f'{k}_oa': v for k, v in temp.items()})
+    ctx.update({f'x2_{k}_oa': v for k, v in x2.items()})
+    ctx.update({f'x3_{k}_oa': v for k, v in x3.items()})
+    return ctx
 
-    result = {}
+
+def _seleccionar_params_x5(cfg, estado: dict, ts: pd.Timestamp, datos_h1: dict,
+                           cierre_previo: dict, carpeta_fund) -> tuple:
+    """Elige params del próximo tramo (explore/exploit), por activo.
+
+    - Sin modelo entrenado → EXPLORE (aleatorio dentro de rangos).
+    - Con modelo → EXPLOIT con prob (1 - EXPLORATION_RATE): infiere con el contexto
+      as-of-t; en caso contrario EXPLORE. Mantener exploración incluso con modelo
+      evita el sesgo de selección observacional del store.
+    Retorna (params: {activo: dict}, tipos: {activo: str}).
+    """
+    bundles = getattr(cfg, '_x5_bundles', {})
+    params, tipos = {}, {}
     for activo in cfg.valores:
-        b = baseline[activo]
-        if activo not in ap or ap[activo].get('model_status') == 'untrained':
-            result[activo] = b
+        tipo, bundle = bundles.get(activo, ('untrained', None))
+        es_explore = (bundle is None) or (random.random() < cfg.EXPLORATION_RATE)
+        if es_explore:
+            params[activo] = _params_explore_activo(cfg, activo)
+            tipos[activo] = 'EXPLORE'
             continue
-        d = ap[activo]
-        result[activo] = {
-            'n_sizes_ejecucion': int(d.get('n_sizes_ejecucion', b['n_sizes_ejecucion'])),
-            'K':           float(d.get('K',           b['K'])),
-            'N_EXP':       float(d.get('N_EXP',       b['N_EXP'])),
-            'LAMBDA':      float(d.get('LAMBDA',       b['LAMBDA'])),
-            'A':           float(d.get('A',            b['A'])),
-            'B':           float(d.get('B',            b['B'])),
-            'LOTAJES_M':   int(d.get('LOTAJES_M',     b['LOTAJES_M'])),
-            'PERDIDA_MAX': float(d.get('PERDIDA_MAX',  b['PERDIDA_MAX'])),
-        }
-    return result
+        df = datos_h1.get(activo)
+        est_a = estado['por_activo'][activo]
+        if df is not None and ts in df.index:
+            precio = float(df.loc[ts, 'Close'])
+        else:
+            precio = float(cierre_previo.get(activo) or 0.0)
+        ctx = _contexto_inferencia_x5(cfg, activo, df, ts,
+                                      est_a['soportes'], precio, est_a, carpeta_fund)
+        import X5_macro_brain as X5
+        params[activo] = X5.inferir_con_contexto(
+            activo, tipo, bundle, ctx, cfg.X5_PARAM_RANGES)
+        tipos[activo] = f'EXPLOIT/{tipo}'
+    return params, tipos
+
+
+def _aplicar_seleccion_x5(cfg, estado: dict, ts: pd.Timestamp, datos_h1: dict,
+                          cierre_previo: dict, carpeta_fund, min_lotajes: dict) -> None:
+    """Selecciona y aplica params del tramo (explore/exploit) y loguea una línea/activo."""
+    params, tipos = _seleccionar_params_x5(cfg, estado, ts, datos_h1, cierre_previo, carpeta_fund)
+    _aplicar_params_x5(cfg, params, min_lotajes)
+    for activo in cfg.valores:
+        p = params[activo]
+        print(f'  [{ts}] {tipos[activo]:<13} {activo}: N={p["n_sizes_ejecucion"]} '
+              f'K={p["K"]:.3f} N_EXP={p["N_EXP"]:.3f} LAMBDA={p["LAMBDA"]:.5f} '
+              f'A={p["A"]:.2f} B={p["B"]:.2f} LM={p["LOTAJES_M"]} PMAX={p["PERDIDA_MAX"]:.0f}')
 
 
 def _aplicar_params_x5(cfg, params: dict, min_lotajes: dict):
@@ -1161,31 +1195,20 @@ def _aplicar_params_x5(cfg, params: dict, min_lotajes: dict):
         cfg.LOTAJES[activo] = p['LOTAJES_M'] * base
 
 
-def _imprimir_ciclo_x5(tipo: str, params: dict, cfg):
-    p0 = params[cfg.valores[0]]
-    print(f'\n{"─"*60}')
-    print(f' {tipo}  |  K={p0["K"]:.4f}  N_EXP={p0["N_EXP"]:.4f}'
-          f'  LAMBDA={p0["LAMBDA"]:.6f}')
-    print(f'         A={p0["A"]:.2f}  B={p0["B"]:.2f}'
-          f'  PERDIDA_MAX={p0["PERDIDA_MAX"]:.1f}')
-    for activo in cfg.valores:
-        p = params[activo]
-        print(f'  {activo}: N={p["n_sizes_ejecucion"]}  LOTAJES_M={p["LOTAJES_M"]}')
-    print(f'{"─"*60}')
-
-
 def ejecutar_x5_ciclo(cfg, activo=None):
     """
-    Un ciclo de X5 backtesting: decide explore/exploit, aplica params,
-    corre el backtest desde cero emitiendo [MES_BT] markers en stdout.
-    Llamado una vez por X5 --recolectar para cada ciclo externo.
+    Un ciclo de X5 backtesting. Los params ya no se eligen una vez por ciclo:
+    se regeneran cada `delta_recalculo_soportes` días DENTRO del backtest
+    (explore aleatorio o exploit con inferencia as-of-t), acoplados al recálculo
+    cold-start de soportes. Ver `_aplicar_seleccion_x5` / `ejecutar_backtest`.
+
+    El modelo se carga una sola vez acá (fijo durante el ciclo; el reentrenamiento
+    ocurre entre ciclos, en X5 --recolectar) y se deja en `cfg._x5_bundles`.
 
     Si `activo` está dado, el ciclo corre SOLO ese activo con recursos X4
     aislados (`bt_{activo}`), de modo que X5 --recolectar pueda lanzar un
     proceso por activo en paralelo sin colisionar en checkpoint/equity.
     """
-    base_dir = Path(__file__).parent.parent
-
     if activo is not None:
         cfg.valores = [activo]
         base_res = cfg.CARPETA_RESOURCES
@@ -1199,33 +1222,12 @@ def ejecutar_x5_ciclo(cfg, activo=None):
             if isinstance(_v, dict):
                 setattr(cfg, _p, _v[activo])
 
-    min_lotajes = dict(cfg.LOTAJES)  # capturar antes de mutar
+    import X5_macro_brain as X5
+    cfg._x5_bundles = {a: X5.cargar_modelo_para_activo(a) for a in cfg.valores}
+    for a in cfg.valores:
+        print(f'  [{a}] modelo del ciclo: {cfg._x5_bundles[a][0]}')
 
-    baseline = {
-        activo: {
-            'n_sizes_ejecucion': cfg.n_sizes[activo],
-            'K':           cfg.K,
-            'N_EXP':       cfg.N_EXP,
-            'LAMBDA':      cfg.LAMBDA,
-            'A':           cfg.A,
-            'B':           cfg.B,
-            'LOTAJES_M':   1,
-            'PERDIDA_MAX': cfg.PERDIDA_MAX_BT,
-        }
-        for activo in cfg.valores
-    }
-
-    es_explore = random.random() < cfg.EXPLORATION_RATE
-    tipo = 'EXPLORE' if es_explore else 'EXPLOIT'
-
-    if es_explore:
-        params = _generar_params_explore(cfg)
-    else:
-        params = _generar_params_exploit(cfg, base_dir, baseline, activo=activo)
-
-    _aplicar_params_x5(cfg, params, min_lotajes)
-    _imprimir_ciclo_x5(tipo, params, cfg)
-    ejecutar_backtest(cfg, reset=True, x5_mode=True, min_lotajes=min_lotajes)
+    ejecutar_backtest(cfg, reset=True, x5_mode=True, min_lotajes=dict(cfg.LOTAJES))
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

@@ -1011,3 +1011,12 @@ Claude: Confirmó que es el mismo binario X4 sin lógica simplificada. La veloci
 Mauricio: "Todo debe ser nuevo, con los parámetros actualizados a ese momento, no cacheado." Ante la pregunta de warm start intra-ciclo, eligió cold start puro siempre.
 Claude: Diagnóstico completo: (1) `_procesar_valor_N` usaba globales de `config.py` producción, ignorando lo que X5 explora; (2) cache bt heredado entre ciclos. Implementó: `params_soporte`+`cold_start` opcionales en `_procesar_valor_N` (X0), propagación desde `_recalcular_soportes`/`_worker_recalcular` en modo x5, y borrado del cache bt al inicio de cada ciclo con reset. X0 producción intacto. Advirtió el trade-off (recolección más lenta) y que el store ya generado quedó contaminado → recomendó regenerarlo desde cero. Registrado en done.md y decisiones.md.
 (Cierre: 2026-07-23 21:20)
+
+## SECCIÓN 106
+Mauricio: Vía /new_todo pidió que X5, antes de entrenar, genere cada X días (default 5) params aleatorios dentro de rangos, recalcule soportes hasta t siempre cold-start, y que tras entrenar los modelos guíen los params dentro de rango.
+Claude: Exploró X5/X4/config_x5. Detectó que hoy los params se eligen una vez por ciclo (todo el run con un set) y que los rangos ya están completos en X5_PARAM_RANGES. Al ser cambio arquitectural, propuso 3 decisiones vía preguntas estructuradas.
+Mauricio: Pidió aclarar primero; tanteó "cadencias separadas" y luego preguntó cuál era la más sólida.
+Claude: Recomendó la combinación más sólida con fundamento: acoplar regen+recálculo a 5 días (consistencia de datos), inferencia histórica as-of-t (la opción "now" está semánticamente rota para un backtest pasado), y mantener EXPLORATION_RATE (evita sesgo de selección/feedback loop).
+Mauricio: "mantén la opción más sólida".
+Claude: Implementó. X4: params se regeneran cada delta_recalculo_soportes días (subido 1→5 en config_x5), acoplado al recálculo cold-start; nuevos _params_explore_activo, _contexto_inferencia_x5, _seleccionar_params_x5, _aplicar_seleccion_x5 llamados en cold start y en cada trigger. Sin modelo → EXPLORE; con modelo → EXPLOIT (1-rate) as-of-t manteniendo 30% exploración. X5: nuevas cargar_modelo_para_activo e inferir_con_contexto (rangos inyectables vía _RANGES_OVERRIDE, sin airbag en recolección); _inferir_params acepta contexto opcional (live intacto). Eliminados _generar_params_exploit, _imprimir_ciclo_x5 e import subprocess huérfano. Docs actualizadas (decisiones, x5_plan, done). Compila + smoke test del path explore OK.
+(Cierre: 2026-07-23 21:49)

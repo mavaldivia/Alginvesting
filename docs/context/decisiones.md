@@ -162,3 +162,19 @@ Al revisar por qué `--recolectar` avanzaba tan rápido se detectaron dos descon
 **Elegido sobre warm start intra-ciclo:** se descartó reusar el soporte del día anterior dentro del mismo ciclo (params constantes, sería correcto y más rápido) porque el usuario pidió explícitamente que todo se recalcule fresco con los params del momento.
 
 **Implicación operativa:** el store `{ACTIVO}_store.csv` generado antes de este fix está contaminado (params de soporte registrados no corresponden a los soportes usados). Recomendado regenerar desde cero antes de entrenar.
+
+## 2026-07-23 — X5 --recolectar: regeneración de params cada N días dentro del backtest (explore/exploit as-of-t)
+
+Antes los params de un ciclo se elegían **una sola vez** (`ejecutar_x5_ciclo`) y todo el run desde `fecha_inicio` a hoy usaba ese set. Eso da poca variedad de tuplas (contexto, params, resultado) por pasada. Se movió la selección de params al **interior del backtest**, acoplada a la cadencia de recálculo de soportes.
+
+**Decisión:** cada `delta_recalculo_soportes` días (default subido de 1 → 5 en config_x5) se regeneran los params y se recalculan los soportes cold-start hasta t con ellos. Por activo, en cada punto:
+- **Sin modelo entrenado** → EXPLORE: params aleatorios uniformes dentro de `X5_PARAM_RANGES` (config_x5).
+- **Con modelo** → EXPLOIT con prob. `(1 - EXPLORATION_RATE)`: inferencia **as-of-t** (el modelo ve el contexto X2/X3/temporal/portfolio del día simulado, que X4 ya computa por vela), si no EXPLORE. Se mantiene `EXPLORATION_RATE` (30%) aun con modelo para no colapsar el store sobre la propia política del modelo (sesgo de selección; Sugerencia 1 de `x5_plan.md`).
+
+**Elegido sobre alternativas:**
+- *Cadencias separadas (recálculo diario, params cada 5 días)* → descartado: los soportes de una fila quedarían calculados con params distintos a los que el store le atribuye (inconsistencia de datos).
+- *Recomendación única por ciclo con `X5 --infer`* → descartado: `--infer` usa contexto "now", semánticamente inválido para un tramo simulado en el pasado.
+
+**Implementación:** X5 expone `cargar_modelo_para_activo` (carga el modelo 1 vez por ciclo, fijo durante el ciclo) e `inferir_con_contexto(activo, tipo, bundle, contexto, param_ranges)` (rangos inyectables de config_x5 vía `_RANGES_OVERRIDE`; **sin airbag** en recolección, para que el store capture también las consecuencias de regímenes de caída). `_inferir_params` acepta ahora `contexto` opcional (el path live no cambia: contexto "now" + airbag). X4 arma el contexto con `_contexto_inferencia_x5` y decide en `_seleccionar_params_x5`/`_aplicar_seleccion_x5`, llamado en el cold start y en cada trigger de recálculo. Eliminados `_generar_params_exploit` (shell-out a `--infer`) y `_imprimir_ciclo_x5`.
+
+**Trade-off aceptado:** el EXPLOIT in-loop infiere en cada punto de 5 días (Optuna/gradient ascent × ~150 puntos por pasada). Aceptable porque los ciclos tempranos son 100% EXPLORE (barato) y el EXPLOIT solo entra una vez entrenado. Si escala mal, bajar `X5_N_OPTUNA_TRIALS` para la inferencia in-loop.

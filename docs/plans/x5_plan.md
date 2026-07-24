@@ -145,7 +145,9 @@ En cada vuelta el proceso:
 2. Simula la lógica de X1 (colocación de buy limits, apertura/cierre de posiciones, trailing stop)
 3. **En cada vela H1**: si es múltiplo de `X5_FREQ_REGISTRO_PERIODICO`, registra un snapshot periódico (`tipo_registro="periodico"`) con el estado actual del portfolio y el contexto X2+X3
 4. **Al cerrar una orden**: registra un snapshot de OC (`tipo_registro="oc"`) con el resultado de la operación
-5. Al terminar el recorrido, actualiza los parámetros y reinicia desde el día 0 con el set actualizado
+5. Al terminar el recorrido, reinicia desde el día 0 (nuevo ciclo)
+
+> **Actualización 2026-07-23 (implementado).** Los params ya **no** se eligen una vez por ciclo. Se **regeneran cada `delta_recalculo_soportes` días** (default 5, config_x5) DENTRO del recorrido, acoplados al recálculo cold-start de soportes hasta t. En cada punto, por activo: sin modelo → EXPLORE (aleatorio dentro de `X5_PARAM_RANGES`); con modelo → EXPLOIT con prob. `(1 - EXPLORATION_RATE)` mediante **inferencia as-of-t** (el modelo ve el contexto X2/X3/temporal/portfolio del día simulado), si no EXPLORE. Esto multiplica la variedad de tuplas (contexto, params, resultado) por pasada. Ver `docs/context/decisiones.md` 2026-07-23. El modelo se carga una vez por ciclo (`X5.cargar_modelo_para_activo`) y se infiere in-process (`X5.inferir_con_contexto`, sin airbag, rangos de config_x5).
 
 **Acumulación de datos**: el store acumula todas las vueltas sin truncar. Los registros de ciclos con params peores son igualmente valiosos — más variedad de (contexto, params, resultado) = más relaciones causa-efecto que B puede aprender.
 

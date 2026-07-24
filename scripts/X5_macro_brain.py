@@ -683,10 +683,17 @@ def _aplicar_airbag(activo: str, params: dict) -> dict:
 
 # ─── Inferencia: helpers de rangos ────────────────────────────────────────────
 
+# Rangos inyectables desde X4 (--x5). Si está seteado, _rango lo usa en vez de
+# cfg.X5_PARAM_RANGES, de modo que explore (config_x5) y exploit muestreen del
+# mismo espacio de params. None → usa los rangos globales de config.py (live).
+_RANGES_OVERRIDE = None
+
+
 def _rango(param_store: str, activo: str) -> tuple:
     """Rango de búsqueda para el param (nombre de store) del activo dado."""
+    ranges = _RANGES_OVERRIDE if _RANGES_OVERRIDE is not None else cfg.X5_PARAM_RANGES
     range_key = _PARAM_TO_RANGE_KEY.get(param_store, param_store)
-    return cfg.X5_PARAM_RANGES[range_key][activo]
+    return ranges[range_key][activo]
 
 # ─── Inferencia LightGBM (Optuna) ────────────────────────────────────────────
 
@@ -865,37 +872,56 @@ def _entrenar(activo: str) -> str:
     return tipo
 
 
-def _inferir_params(activo: str) -> tuple:
-    """
-    Carga el modelo guardado e infiere los params óptimos para el contexto actual.
-    Retorna (params_dict_json, model_status).
-    En Fase 1 = solo inferencia (pasos 2-4 del ciclo por vela). No hay captura live.
-    """
-    store = _cargar_store(activo)
-    n     = _n_oc(store)
-    tipo  = _seleccionar_tipo(n)
+def cargar_modelo_para_activo(activo: str) -> tuple:
+    """Carga el modelo del activo una sola vez, para reuso externo (X4 --x5).
 
+    Retorna (tipo, bundle):
+      - tipo: 'untrained' | 'lgbm' | 'ftt'
+      - bundle: lo que devuelve _cargar_lgbm/_cargar_ftt, o None si no hay modelo
+        entrenado (cuenta insuficiente o archivo ausente).
+    """
+    tipo = _seleccionar_tipo(_n_oc(_cargar_store(activo)))
+    if tipo == 'untrained':
+        return 'untrained', None
+    bundle = _cargar_lgbm(activo) if tipo == 'lgbm' else _cargar_ftt(activo)
+    if bundle is None:
+        return 'untrained', None
+    return tipo, bundle
+
+
+def inferir_con_contexto(activo: str, tipo: str, bundle, contexto: dict,
+                         param_ranges: dict | None = None) -> dict:
+    """Infiere params con un contexto inyectado (as-of-t histórico), sin leer 'now'.
+
+    No aplica airbag: en recolección se busca variedad causal en el store,
+    incluida la de regímenes de caída (el airbag es una capa de seguridad live,
+    no de datos). `param_ranges` (config_x5) asegura que explore y exploit
+    muestreen del mismo espacio; None → rangos globales de config.py.
+    """
+    global _RANGES_OVERRIDE
+    _RANGES_OVERRIDE = param_ranges
+    try:
+        if tipo == 'lgbm':
+            models, feature_cols = bundle
+            return _inferir_lgbm(activo, models, contexto, feature_cols)
+        model, scaler, feature_cols = bundle
+        return _inferir_ftt(activo, model, scaler, contexto, feature_cols)
+    finally:
+        _RANGES_OVERRIDE = None
+
+
+def _inferir_params(activo: str, contexto: dict | None = None) -> tuple:
+    """
+    Carga el modelo guardado e infiere los params óptimos.
+    contexto=None → usa el contexto actual (live, Fase 2). Si se inyecta un
+    contexto (backtest as-of-t), se usa ese. Retorna (params_dict_json, model_status).
+    """
+    tipo, bundle = cargar_modelo_para_activo(activo)
     if tipo == 'untrained':
         return _params_baseline(activo), 'untrained'
-
-    contexto = _leer_contexto_actual(activo)
-
-    if tipo == 'lgbm':
-        loaded = _cargar_lgbm(activo)
-        if loaded is None:
-            print(f'  [{activo}] Modelo LGBM no encontrado → ejecutar --train primero.')
-            return _params_baseline(activo), 'untrained'
-        models, feature_cols = loaded
-        params = _inferir_lgbm(activo, models, contexto, feature_cols)
-
-    else:  # ftt
-        loaded = _cargar_ftt(activo)
-        if loaded is None:
-            print(f'  [{activo}] Modelo FTT no encontrado → ejecutar --train primero.')
-            return _params_baseline(activo), 'untrained'
-        model, scaler, feature_cols = loaded
-        params = _inferir_ftt(activo, model, scaler, contexto, feature_cols)
-
+    if contexto is None:
+        contexto = _leer_contexto_actual(activo)
+    params = inferir_con_contexto(activo, tipo, bundle, contexto)
     params = _aplicar_airbag(activo, params)
     return params, tipo
 

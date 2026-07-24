@@ -60,8 +60,11 @@ PERDIDA_MAX_BT = {
 }
 
 # ─── Recálculo de soportes ───────────────────────────────────────────────────
+# En modo --x5 esta cadencia también gobierna la REGENERACIÓN de params: cada
+# `delta_recalculo_soportes` días se eligen params nuevos (explore aleatorio o
+# exploit as-of-t) y se recalculan los soportes cold-start hasta t con ellos.
 
-delta_recalculo_soportes = 1    # días
+delta_recalculo_soportes = 5    # días
 hora_recalculo           = 23   # hora UTC
 
 # ─── Algoritmo de soportes — baseline ────────────────────────────────────────

@@ -206,6 +206,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-07-23** — feat: X5 --recolectar regenera params cada N días (default 5) dentro del backtest — EXPLORE aleatorio / EXPLOIT inferencia as-of-t, acoplado a recálculo cold-start de soportes; mantiene EXPLORATION_RATE
 - **2026-07-23** — fix: X5 --recolectar recalcula soportes con los params del ciclo (cold start, sin cache heredado) + store CSV robusto a interrupción (on_bad_lines skip + cierre de línea)
 - **2026-07-22** — fix: X5/X4 crean config_x5.py por defecto desde plantilla versionada (scripts/config_x5_default.py) si falta en clone fresco
 - **2026-07-20** — fix: X1/X4 recupera cobertura cercana al precio al reemplazar buy limits (umbral promedio)
