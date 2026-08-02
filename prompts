@@ -285,12 +285,15 @@ Deja config de X1 en versión fija (sin dinamismo...para eso necesito entrenar s
 quita el config de X1 del gitignore para que se actualice en windows 
 --------------
 
+[OK]
 /new_todo
 X1: cuando dice "posicion cerrada externamente", muestra de que activo (valor) es
 
+[PROXIMO]
 /new_todo
 X5: en recolectar / demo, despues de preguntarme al comienzo que valor quiero elegir (del 1 al 6), preguntame de nuevo (0 o 1) si quiero reiniciar o no
-Si quiero reiniciar, entonces que todo lo asociado a ese valor, comience de nuevo (que se borren todos los checkpoints)
+Si quiero reiniciar, entonces que todo lo asociado a ese valor, comience de nuevo (que se borren todos los checkpoints).
+
 
 /new_todo
 X5: en recolectar / demo, en los prints quiero ver un resumen cada vez que hay cambio en los sopres (incluido inputs de parámetros, t y t0-tf para el rango de cálculo de sopres),

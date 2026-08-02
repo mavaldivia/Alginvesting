@@ -1058,3 +1058,8 @@ Claude: detectó de paso un problema de aislamiento — con el cache bt persisti
 
 Claude: validó end-to-end con datos reales en el entorno revenAI. Camino bt: primera corrida sin solución previa, segunda warm-starteando desde t*, tercera con warm_start=False ignorando el cache; PNG generados y revisados visualmente. Camino producción: dos corridas de `buscar_soportes` con BTCUSD N=8 sobre 38.730 velas — 15,3s sin solución previa vs. 6,5s con warm start desde t*, mismo FO. Documentó en CLAUDE.md (nueva subsección "Warm start — solución inicial por combo"), docs/context/decisiones.md (entrada del 2026-08-01 con el porqué de la reversión parcial y el riesgo asumido) y docs/tracking/done.md.
 (Cierre: 2026-08-01 20:17)
+
+## SECCIÓN 111
+Mauricio: pidió, vía `/new_todo`, que en X1 el mensaje "posición cerrada externamente" indique de qué activo se trata.
+Claude: agregó `valor={valor}` al print en `obtener_conjuntos_actuales` (X1_trading.py:122) y registró el ítem en docs/tracking/done.md → sección X1.
+(Cierre: 2026-08-01 20:23)

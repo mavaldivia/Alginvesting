@@ -119,7 +119,7 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
         actual_tickets = {p.ticket for p in actual_OA}
         for ticket in list(dic_seguimiento[valor]):
             if ticket not in actual_tickets:
-                print(f'Posición cerrada externamente, eliminando de seguimiento: ticket={ticket}')
+                print(f'Posición cerrada externamente, eliminando de seguimiento: valor={valor}, ticket={ticket}')
                 dic_seguimiento[valor].remove(ticket)
 
     return lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento
