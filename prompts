@@ -289,14 +289,14 @@ quita el config de X1 del gitignore para que se actualice en windows
 /new_todo
 X1: cuando dice "posicion cerrada externamente", muestra de que activo (valor) es
 
-[PROXIMO]
+[WIP]
 /new_todo
 X5: en recolectar / demo, despues de preguntarme al comienzo que valor quiero elegir (del 1 al 6), preguntame de nuevo (0 o 1) si quiero reiniciar o no
 Si quiero reiniciar, entonces que todo lo asociado a ese valor, comience de nuevo (que se borren todos los checkpoints).
-
+Si no quiero reiniciar, entonces debe haber ckeckpoint acumulativo
 
 /new_todo
-X5: en recolectar / demo, en los prints quiero ver un resumen cada vez que hay cambio en los sopres (incluido inputs de parámetros, t y t0-tf para el rango de cálculo de sopres),
+X5: en recolectar / demo, en los prints quiero ver un resumen cada vez que hay cambio en los soportes / resistencias (incluido inputs de parámetros, t y t0-tf para el rango de cálculo de sopres),
 quiero ver un print cada vez que una orden OE para a ser OA (con un id) y cada vez que una orden pasa de OA a OC (con su mismo id)
 Además, manten en los prints todo lo que está actualmente. Necesito que el modo demo me "cuente toda la hostoria"
 

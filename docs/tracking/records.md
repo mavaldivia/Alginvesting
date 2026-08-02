@@ -1063,3 +1063,9 @@ Claude: validó end-to-end con datos reales en el entorno revenAI. Camino bt: pr
 Mauricio: pidió, vía `/new_todo`, que en X1 el mensaje "posición cerrada externamente" indique de qué activo se trata.
 Claude: agregó `valor={valor}` al print en `obtener_conjuntos_actuales` (X1_trading.py:122) y registró el ítem en docs/tracking/done.md → sección X1.
 (Cierre: 2026-08-01 20:23)
+
+## SECCIÓN 112
+Mauricio: pidió (vía /new_todo) que en X5 `--recolectar --demo`, después de elegir el activo (1-6), se pregunte de nuevo (0 o 1) si reiniciar o no; si reinicia, debe borrarse todo lo asociado a ese activo (todos los checkpoints); si no reinicia, debe acumular.
+Claude: revisó `_recolectar_demo` en X5_macro_brain.py — ya existía una pregunta condicional c/r que solo aparecía si había demo previo, y que al reiniciar solo borraba store/estado del narrador/modelo, dejando huérfanos el checkpoint/cache/logs del backtest demo (`resources/x5/bt_{activo}_demo/`) y los gráficos (`resources/x5/demo_plots/{activo}/`).
+Claude: implementó `_demo_preguntar_reinicio()` (pregunta 0/1 siempre, ya no condicional) y `_demo_borrar_checkpoints(activo, cfg_x5)` que borra TODO lo asociado al activo en el namespace demo, incluyendo lo que antes quedaba huérfano. Registrado en `docs/tracking/done.md` sección X5.
+(Cierre: 2026-08-01 20:28)
