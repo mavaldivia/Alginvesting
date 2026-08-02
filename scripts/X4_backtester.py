@@ -1203,17 +1203,24 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
 # ─── X5 — modo explore/exploit ───────────────────────────────────────────────
 
 def _params_explore_activo(cfg, activo: str) -> dict:
-    """Params aleatorios de UN activo dentro de X5_PARAM_RANGES (de config_x5)."""
+    """Params aleatorios de UN activo dentro de X5_PARAM_RANGES (de config_x5).
+
+    B se samplea como alpha * A (alpha ~ U(0.3, 0.7)) en vez de independiente:
+    B es la distancia del SL bajo el precio y A la ganancia mínima que activa el
+    trailing, por lo que B debe quedar por debajo de A para ser coherente.
+    """
     r = cfg.X5_PARAM_RANGES
     n_lo, n_hi = r['n_sizes_ejecucion'][activo]
     lm_lo, lm_hi = r['LOTAJES_M'][activo]
+    a = random.uniform(*r['A'][activo])
+    alpha = random.uniform(0.3, 0.7)
     return {
         'n_sizes_ejecucion': random.randint(int(n_lo), int(n_hi)),
         'K':           random.uniform(*r['K'][activo]),
         'N_EXP':       random.uniform(*r['N_EXP'][activo]),
         'LAMBDA':      random.uniform(*r['LAMBDA'][activo]),
-        'A':           random.uniform(*r['A'][activo]),
-        'B':           random.uniform(*r['B'][activo]),
+        'A':           a,
+        'B':           alpha * a,
         'LOTAJES_M':   random.randint(int(lm_lo), int(lm_hi)),
         'PERDIDA_MAX': random.uniform(*r['PERDIDA_MAX'][activo]),
     }

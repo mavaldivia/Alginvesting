@@ -212,6 +212,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-01** — fix: B como fracción de A en sampling aleatorio de X5
 - **2026-08-01** — feat: X5 demo — prints por cada cambio de soportes y ciclo OE→OA→OC
 - **2026-08-01** — feat: X5 demo — pregunta reinicio 0/1 y borra todos los checkpoints
 - **2026-08-01** — fix: X1 indica activo en cierre externo
