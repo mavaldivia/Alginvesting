@@ -311,12 +311,12 @@ b debe ser alpha * a, con alpha entre 0.3 y 0.7 >>> Es decir, samplea primero a 
 /new_todo
 X5: en general, explica con peras y manzanas en los prints del modo demo (si hay una fecha o un valor, señala entre parentesis como se llama ese parametro en config_X5.py, etc)
 La idea es que el modo demo me ayude a entender super bien el funcionamiento
-----------------------
+
 [OK]
 /new_todo
 X5: homologar el modo demo con el modo productivo en --recolectar (asegurar, si es que ya está correcto)
 
-
+[OK]
 /new_todo
 X5: Cuando muestres "soportes recalculados" muestra
 OA: minimo y máximo precio
@@ -327,6 +327,8 @@ Definamos además O0 como las ordenes en sopres que están más arriba del preci
 O0* > OE > OA > OC
 O0* tiene un * porque una orden puede o no pasar por ese estado.
 Cambia la definición en readme y en claude.md
+
+----------------------
 
 /new_todo
 X5: Con todos los cambios y basado en x5_documento_extendido.pdf, genera 

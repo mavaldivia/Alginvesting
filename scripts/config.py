@@ -206,7 +206,7 @@ MIN_LOTAJES = {
     'AMZN':   0.01,
 }
 
-# Multiplicador de lote por activo — X6 ajusta este valor; siempre entero >= 1
+# Multiplicador de lote por activo — fijo en 1 (X5 siempre opera a lotaje mínimo)
 LOTAJES_M = {
     'BTCUSD': 1,
     'ETHUSD': 1,
@@ -308,7 +308,8 @@ X5_PARAM_RANGES = {
         'BTCUSD': (50, 200), 'ETHUSD': (50, 200),
         'TSLA': (40, 180), 'GOOGL': (40, 180), 'NVDA': (40, 180), 'AMZN': (40, 180),
     },
-    'LOTAJES_M': {v: (1, 5) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
+    # Fijo en 1: X5 siempre opera a lotaje mínimo, no se explora/infiere.
+    'LOTAJES_M': {v: (1, 1) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
     'PERDIDA_MAX': {v: (100, 300) for v in ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']},
 }
 

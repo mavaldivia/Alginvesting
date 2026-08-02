@@ -1073,6 +1073,19 @@ def _cargar_config_x5():
     return m
 
 
+def _recolectar_preguntar_reinicio_todos(activos: list, cfg_x5) -> None:
+    """Pregunta reinicio por cada activo antes de lanzar la recolección paralela
+    (item 3/4: mismo inicio y mismo significado de 'reiniciar' que el modo
+    guiado). Sin TTY (cron / no interactivo) no pregunta nada — comportamiento
+    histórico intacto, ningún activo se toca."""
+    if not sys.stdin or not sys.stdin.isatty():
+        return
+    os.environ.pop('X5_DEMO_SUFFIX', None)  # namespace producción
+    for a in activos:
+        if _demo_preguntar_reinicio(a):
+            _borrar_checkpoints_activo(a, cfg_x5, '')
+
+
 def _recolectar() -> None:
     """
     Orquesta la generación de datos para X5 con **backtesting paralelo por activo**.
@@ -1095,6 +1108,9 @@ def _recolectar() -> None:
     cfg_x5   = _cargar_config_x5()
     activos  = cfg_x5.valores
     n_ciclos = cfg_x5.N_CICLOS_BT
+
+    _recolectar_preguntar_reinicio_todos(activos, cfg_x5)
+
     n_ini    = {a: _n_oc(_cargar_store(a)) for a in activos}
 
     print(f'\n{"═" * 72}')
@@ -1141,46 +1157,53 @@ def _demo_pedir_activo(activos: list) -> str | None:
         print('  Entrada inválida. Intenta de nuevo.')
 
 
-def _demo_preguntar_reinicio() -> bool:
-    """Pregunta si reiniciar el demo del activo elegido desde cero.
+def _demo_preguntar_reinicio(activo: str | None = None) -> bool:
+    """Pregunta si reiniciar `activo` desde cero (mismo significado en demo y
+    en oficial: ver `_borrar_checkpoints_activo`).
 
     Devuelve True si el usuario elige reiniciar (se deben borrar todos los
     checkpoints), False si elige continuar (checkpoint acumulativo)."""
+    etiqueta = f'[{activo}] ' if activo else ''
     while True:
-        resp = input('\n  ¿Reiniciar este activo desde cero? '
+        resp = input(f'\n  {etiqueta}¿Reiniciar este activo desde cero? '
                      '(0 = no, acumular  |  1 = sí, borrar checkpoints) [0/1]: ').strip()
         if resp in ('0', '1'):
             return resp == '1'
         print('  Entrada inválida. Ingresa 0 o 1.')
 
 
-def _demo_borrar_checkpoints(activo: str, cfg_x5) -> None:
-    """Borra TODO lo asociado al demo de `activo`: store demo, estado del
-    narrador, modelo demo, checkpoint/cache/logs del backtest demo y los
-    gráficos de búsqueda de soportes. Todo vive aislado bajo sufijo/carpeta
-    `_demo`, así que nunca toca datos de producción."""
+def _borrar_checkpoints_activo(activo: str, cfg_x5, suf: str) -> None:
+    """Borra TODO lo asociado a `activo` en el namespace `suf` ('' = producción/
+    oficial, '_demo' = demo): store, estado del narrador, modelo, historial de
+    performance, checkpoint/cache/logs/equity del backtest (bt_{activo}{suf}/,
+    incluye conjuntos_N/) y los gráficos de búsqueda de soportes.
+
+    Mismo alcance en ambos namespaces (item 4 — reiniciar = como si el activo
+    nunca se hubiera procesado): en oficial esto borra datos reales acumulados,
+    no solo los del demo."""
     import shutil
 
-    for p in (CARPETA_X5 / f'{activo}_store_demo.csv',
-              CARPETA_X5 / f'{activo}_demo_state.json',
-              CARPETA_PERFORMANCE / f'{activo}_demo_performance.json'):
+    for p in (CARPETA_X5 / f'{activo}_store{suf}.csv',
+              CARPETA_X5 / f'{activo}{suf}_state.json',
+              CARPETA_PERFORMANCE / f'{activo}{suf}_performance.json'):
         if p.exists():
             p.unlink()
 
-    md = _model_dir(activo)
+    md = CARPETA_MODELS / f'{activo}{suf}'
     if md.exists():
         shutil.rmtree(md)
 
     base_res = cfg_x5.CARPETA_RESOURCES
-    bt_demo = base_res.parent / f'{base_res.name}_{activo}_demo'
-    if bt_demo.exists():
-        shutil.rmtree(bt_demo)
+    bt_dir = base_res.parent / f'{base_res.name}_{activo}{suf}'
+    if bt_dir.exists():
+        shutil.rmtree(bt_dir)
 
-    plots_demo = CARPETA_X5 / 'demo_plots' / activo
-    if plots_demo.exists():
-        shutil.rmtree(plots_demo)
+    plots_dir = CARPETA_X5 / 'demo_plots' / activo
+    if plots_dir.exists():
+        shutil.rmtree(plots_dir)
 
-    print(f'  Demo de {activo} reiniciado desde cero: store, modelo, '
+    etiqueta = 'demo' if suf else 'oficial'
+    print(f'  {activo} ({etiqueta}) reiniciado desde cero: store, modelo, '
           f'checkpoint/cache de backtest y gráficos borrados.')
 
 
@@ -1211,12 +1234,13 @@ def _recolectar_guiado(activo: str, cfg_x5, n_ciclos: int, *, oficial: bool) -> 
         suceso nuevo (D01..D09) y guarde el gráfico de cada búsqueda de
         soportes;
       - en --demo (oficial=False): trabaja sobre un store y modelo DEMO
-        aislados ({activo}_store_demo.csv y models/{activo}_demo), pregunta
-        si reiniciar desde cero, y PAUSA (Enter) en cada suceso nuevo;
+        aislados ({activo}_store_demo.csv y models/{activo}_demo) y PAUSA
+        (Enter) en cada suceso nuevo;
       - en recolección oficial de un activo (oficial=True): trabaja sobre el
-        store y modelo REALES del activo (sin sufijo, sin preguntar reinicio
-        — no se borra producción) y nunca pausa: --recolectar debe correr
-        hasta el final sin esperar input.
+        store y modelo REALES del activo (sin sufijo) y nunca pausa:
+        --recolectar debe correr hasta el final sin esperar input.
+      En ambos casos se pregunta si reiniciar desde cero (mismo significado
+      en los dos namespaces — ver `_borrar_checkpoints_activo`).
     """
     x4_path = Path(__file__).parent / 'X4_backtester.py'
     if not x4_path.exists():
@@ -1252,13 +1276,12 @@ def _recolectar_guiado(activo: str, cfg_x5, n_ciclos: int, *, oficial: bool) -> 
     n_prev = _n_oc(_cargar_store(activo))
     print(f'\n  Estado actual de {activo}: {n_prev} OC en el {etiqueta_store}.')
 
-    if not oficial:
-        if _demo_preguntar_reinicio():
-            _demo_borrar_checkpoints(activo, cfg_x5)
-            n_prev = 0
-        else:
-            print(f'  Continuando: se acumulará sobre el checkpoint existente '
-                  f'({n_prev} OC en el store demo).')
+    if _demo_preguntar_reinicio():
+        _borrar_checkpoints_activo(activo, cfg_x5, _demo_suf())
+        n_prev = 0
+    else:
+        print(f'  Continuando: se acumulará sobre el checkpoint existente '
+              f'({n_prev} OC en el {etiqueta_store}).')
 
     x5_demo.activar(activo, pausar=not oficial)
 

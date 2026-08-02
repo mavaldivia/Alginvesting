@@ -104,10 +104,35 @@ def mercado_abierto(valor: str, max_staleness_s: int = 300) -> bool:
     return (_servidor_ahora() - tick.time) <= max_staleness_s
 
 
-def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
+def _precio_cierre_historico(ticket: int) -> float | None:
+    """Precio de cierre real de una posición ya cerrada, vía el historial de
+    deals de MT5 (el deal de salida, DEAL_ENTRY_OUT)."""
+    deals = mt5.history_deals_get(position=ticket)
+    if not deals:
+        return None
+    salidas = [d for d in deals if d.entry == mt5.DEAL_ENTRY_OUT]
+    if not salidas:
+        return None
+    return salidas[-1].price
+
+
+def _informar_cierre(valor: str, ticket: int, info: dict) -> None:
+    """Imprime lotaje, precio de apertura y precio de cierre al detectar que una
+    posición pasó de Activa (A) a Cerrada (C) — por perdida_max, trailing stop
+    (SL ejecutado por el broker) o cierre externo. Única fuente para esta
+    transición: cubre las tres causas sin duplicar el print entre ellas."""
+    precio_cierre = _precio_cierre_historico(ticket)
+    pc_str = f'{precio_cierre:.2f}' if precio_cierre is not None else 'desconocido'
+    print(f'  [A→C] {valor}  ticket={ticket}  lotaje={info["lote"]}  '
+          f'precio_apertura={info["precio_apertura"]:.2f}  precio_cierre={pc_str}')
+
+
+def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict) -> tuple:
     """
     Devuelve las posiciones abiertas (OA) y órdenes pendientes (OE) actuales en MT5.
     Limpia dic_seguimiento de posiciones que ya fueron cerradas externamente.
+    `pos_info` (ticket → lote/precio_apertura) se actualiza con las OA vivas y,
+    al detectar que un ticket ya no está abierto, informa la transición A→C.
     """
     actual_OA = mt5.positions_get(symbol=valor) or []
     actual_OE = mt5.orders_get(symbol=valor) or []
@@ -115,8 +140,16 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict) -> tuple:
     lista_OA = [p.price_open for p in actual_OA]
     lista_OE = [o.price_open for o in actual_OE]
 
+    actual_tickets = {p.ticket for p in actual_OA}
+    for p in actual_OA:
+        pos_info.setdefault(p.ticket, {'valor': valor, 'lote': p.volume, 'precio_apertura': p.price_open})
+
+    tickets_previos = [t for t, info in pos_info.items() if info['valor'] == valor]
+    for ticket in tickets_previos:
+        if ticket not in actual_tickets:
+            _informar_cierre(valor, ticket, pos_info.pop(ticket))
+
     if valor in dic_seguimiento:
-        actual_tickets = {p.ticket for p in actual_OA}
         for ticket in list(dic_seguimiento[valor]):
             if ticket not in actual_tickets:
                 print(f'Posición cerrada externamente, eliminando de seguimiento: valor={valor}, ticket={ticket}')
@@ -402,6 +435,7 @@ if __name__ == '__main__':
     print('\nInicio del loop de trading')
     t0 = time.time()
     dic_seguimiento = {}
+    pos_info = {}
     sl_activo_global_prev = None
     i = 0
 
@@ -429,7 +463,7 @@ if __name__ == '__main__':
                     N = n_sizes[valor]
                     lista_N = leer_lista_N(valor, N)
 
-                    lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento)
+                    lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento, pos_info)
 
                     # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
                     # no eliminar las OE existentes porque no se pueden reponer.

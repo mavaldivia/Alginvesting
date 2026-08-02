@@ -521,17 +521,17 @@ def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
         _trade = _registrar_trade(pos, precio_ap, precio_cierre, 'perdida_max',
                                   ts, activo, N, capital_ap, cfg)
         trades.append(_trade)
-        if x5_ctx is not None and not usa_iv:
+        print(f'  [A→C] {activo}  id={_trade["id"]}  motivo=perdida_max  '
+              f'lote={lote}  precio_apertura={precio_ap:.2f}  precio_cierre={precio_cierre:.2f}  '
+              f'retorno=${retorno_usd:.2f}  ts={ts}')
+        if x5_ctx is not None:
             _fila = _construir_fila_oc(activo, pos, _trade, ts, est_a,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
-            if x5_demo.esta_activo():
-                print(f'  [OA→OC] {activo}  id={_trade["id"]}  motivo=perdida_max '
-                      f'retorno=${retorno_usd:.2f}  ts={ts}')
-                x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
-                               motivo=_trade['motivo_cierre'],
-                               retorno_usd=round(retorno_usd, 4))
+            x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
+                           motivo=_trade['motivo_cierre'],
+                           retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='perdida_max', retorno_usd=round(retorno_usd, 4), lote=lote))
@@ -558,17 +558,17 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
         _trade = _registrar_trade(pos, precio_ap, precio_cierre, 'trailing_stop',
                                   ts, activo, N, capital_ap, cfg)
         trades.append(_trade)
-        if x5_ctx is not None and not usa_iv:
+        print(f'  [A→C] {activo}  id={_trade["id"]}  motivo=trailing_stop  '
+              f'lote={lote}  precio_apertura={precio_ap:.2f}  precio_cierre={precio_cierre:.2f}  '
+              f'retorno=${retorno_usd:.2f}  ts={ts}')
+        if x5_ctx is not None:
             _fila = _construir_fila_oc(activo, pos, _trade, ts, est_a,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
-            if x5_demo.esta_activo():
-                print(f'  [OA→OC] {activo}  id={_trade["id"]}  motivo=trailing_stop '
-                      f'retorno=${retorno_usd:.2f}  ts={ts}')
-                x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
-                               motivo=_trade['motivo_cierre'],
-                               retorno_usd=round(retorno_usd, 4))
+            x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
+                           motivo=_trade['motivo_cierre'],
+                           retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='trailing_stop', retorno_usd=round(retorno_usd, 4), lote=lote))
@@ -620,7 +620,7 @@ def _necesita_intravela(est_a: dict, candle, L: float, cfg) -> bool:
     for precio_ap, pos in est_a['OA'].items():
         sl = pos['sl']
         if sl == 0:
-            if rango * L >= cfg.A and (precio_ap - candle['Low']) * L >= cfg.PERDIDA_MAX_BT:
+            if rango * L >= cfg.A or (precio_ap - candle['Low']) * L >= cfg.PERDIDA_MAX_BT:
                 return True
         else:
             sl_nuevo = candle['High'] - cfg.B / L
@@ -661,7 +661,8 @@ def _escalar_bloque_m1(bloque_raw: pd.DataFrame, candle_h1) -> pd.DataFrame:
 
 def _simular_intravela(est_a: dict, candle_h1, activo: str, ts, estado: dict,
                         precios: dict, capital_ap: float, N: int, datos_m1,
-                        cfg, events: list, trades: list, precio_max_saliente: float = None):
+                        cfg, events: list, trades: list, precio_max_saliente: float = None,
+                        x5_ctx=None):
     if datos_m1 is None or len(datos_m1) < 60:
         return
 
@@ -669,11 +670,11 @@ def _simular_intravela(est_a: dict, candle_h1, activo: str, ts, estado: dict,
     bloque = _escalar_bloque_m1(datos_m1.iloc[t: t + 60], candle_h1)
 
     for _, vela_m1 in bloque.iterrows():
-        _paso_B(est_a, vela_m1, activo, ts, estado, precios, capital_ap, cfg, events, trades, usa_iv=True)
+        _paso_B(est_a, vela_m1, activo, ts, estado, precios, capital_ap, cfg, events, trades, usa_iv=True, x5_ctx=x5_ctx)
         _paso_C(est_a, vela_m1['High'], activo, ts, cfg, events, usa_iv=True)
-        _paso_D(est_a, vela_m1['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, usa_iv=True)
-        _paso_E(est_a, vela_m1['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, usa_iv=True)
-        _paso_F(est_a, vela_m1['Close'], activo, ts, estado, precios, cfg, events, usa_iv=True, precio_max_saliente=precio_max_saliente)
+        _paso_D(est_a, vela_m1['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, usa_iv=True, x5_ctx=x5_ctx)
+        _paso_E(est_a, vela_m1['Low'], activo, ts, estado, capital_ap, N, cfg, events, trades, usa_iv=True, x5_ctx=x5_ctx)
+        _paso_F(est_a, vela_m1['Close'], activo, ts, estado, precios, cfg, events, usa_iv=True, x5_ctx=x5_ctx, precio_max_saliente=precio_max_saliente)
 
 
 # ─── Procesamiento por vela ───────────────────────────────────────────────────
@@ -698,7 +699,7 @@ def _procesar_candle(ts, candle, activo: str, est_a: dict, estado: dict,
     usar_iv = _necesita_intravela(est_a, candle, L, cfg)
 
     if usar_iv and datos_m1 is not None and len(datos_m1) >= 60:
-        _simular_intravela(est_a, candle, activo, ts, estado, precios, capital_ap, N, datos_m1, cfg, events, trades, precio_max_saliente)
+        _simular_intravela(est_a, candle, activo, ts, estado, precios, capital_ap, N, datos_m1, cfg, events, trades, precio_max_saliente, x5_ctx=x5_ctx)
     else:
         if usar_iv:
             print(f'  [{ts}] {activo}: intra-vela necesaria pero sin datos M1, degradando a H1.')

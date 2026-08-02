@@ -154,7 +154,10 @@ class DemoNarrator:
     def __init__(self, activo: str, pausar: bool = True):
         self.activo = activo
         self.pausar = pausar
-        self.path = cfg.CARPETA_X5 / f'{activo}_demo_state.json'
+        # Namespaced por X5_DEMO_SUFFIX ('_demo' o '') para no compartir estado
+        # entre una corrida --demo y una recolección oficial del mismo activo.
+        suf = os.environ.get('X5_DEMO_SUFFIX', '')
+        self.path = cfg.CARPETA_X5 / f'{activo}{suf}_state.json'
         self.seen: set[str] = set()
         self.announced = False
         self._load()
