@@ -180,7 +180,14 @@ def _ruta_plot_demo(activo: str, N: int, ts) -> Path | None:
     return carpeta / f'{activo}_c{ciclo}_N{N}_{stamp}.png'
 
 
-def _informar_recalculo(infos: list, ts_actual, demo: bool,
+def _rango_precios(precios) -> str:
+    precios = list(precios)
+    if not precios:
+        return 'sin órdenes'
+    return f'{min(precios):.2f} – {max(precios):.2f}  ({len(precios)})'
+
+
+def _informar_recalculo(infos: list, ts_actual, demo: bool, estado: dict,
                         params_soporte: dict | None = None) -> None:
     """Reporta el rango de precios (t0 → tf) que alimentó cada búsqueda de soportes."""
     for info in infos:
@@ -193,6 +200,7 @@ def _informar_recalculo(infos: list, ts_actual, demo: bool,
                   f'{info["t0"]} → {info["tf"]} ({info["n_velas"]} velas) | '
                   f'warm start: {ws} | {info["duracion"]}s')
             continue
+        est_a = estado['por_activo'].get(info['valor'], {})
         print()
         print(f'  ── Soportes recalculados: {info["valor"]} ' + '─' * 26)
         print(f'     t (backtest)   : {ts_actual}')
@@ -204,6 +212,8 @@ def _informar_recalculo(infos: list, ts_actual, demo: bool,
                   f'N_EXP={params_soporte["N_EXP"]:.4f}  '
                   f'LAMBDA={params_soporte["LAMBDA"]:.6f}')
         print(f'     warm start     : {ws}')
+        print(f'     OA (precio)    : {_rango_precios(est_a.get("OA", {}).keys())}')
+        print(f'     OE (precio)    : {_rango_precios(est_a.get("OE", {}).keys())}')
         print(f'     FO             : {info["FO_inicial"]:.4e} → {info["FO_final"]:.4e}'
               f'   ({"convergió" if info["convergio"] else "sin converger"}, {info["duracion"]}s)')
         if info.get('plot'):
@@ -244,7 +254,7 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
         infos = list(executor.map(_worker_recalcular, tasks))
 
-    _informar_recalculo(infos, ts_actual, demo, params_soporte)
+    _informar_recalculo(infos, ts_actual, demo, estado, params_soporte)
 
     # Cargar soportes recalculados desde cache bt
     for activo in cfg.valores:

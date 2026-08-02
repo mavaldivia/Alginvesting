@@ -323,7 +323,10 @@ OA: minimo y máximo precio
 OE: minimo y máximo precio
 En ese momento (t)
 
-
+Definamos además O0 como las ordenes en sopres que están más arriba del precio - margen (esperando convertirse en ordenes en espera)
+O0* > OE > OA > OC
+O0* tiene un * porque una orden puede o no pasar por ese estado.
+Cambia la definición en readme y en claude.md
 
 /new_todo
 X5: Con todos los cambios y basado en x5_documento_extendido.pdf, genera 

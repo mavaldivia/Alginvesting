@@ -42,7 +42,8 @@ X5 — Entrena modelo sobre el store → config/active_parameters.json
 
 ### Fase 2 — Dinámico con retroalimentación (`TIPO_EJECUCION = "din"`)
 
-> **OE** = Orden en Espera (buy limit en un soporte) · **OA** = Orden Abierta (posición activa) · **OC** = Orden Cerrada (trade finalizado)
+> **O0\*** = orden sobre un soporte por encima de precio − margen, aún sin convertirse en buy limit · **OE** = Orden en Espera (buy limit en un soporte) · **OA** = Orden Abierta (posición activa) · **OC** = Orden Cerrada (trade finalizado)
+> Progresión: **O0\* → OE → OA → OC** (el asterisco marca que O0 es un estado opcional: no todas las órdenes lo atraviesan).
 
 ```
          X0 (soportes óptimos)          X2 (fundamentales)   X3 (técnicas)
@@ -212,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-02** — feat: X5 muestra rango OA/OE en "Soportes recalculados" + define estado O0*
 - **2026-08-02** — feat: X5 recolectar oficial 1 activo (guiado, sin pausas)
 - **2026-08-01** — fix: recálculo X5 no disparaba en acciones (hora_recalculo)
 - **2026-08-01** — fix: X5 cold start + prints demo trazables a config_x5.py

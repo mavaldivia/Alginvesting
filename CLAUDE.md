@@ -58,7 +58,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 - **N (n_sizes)**: Cantidad de soportes a mantener activos por activo. Actualmente 250 para todos los activos.
 - **M**: Número de precios candidatos evaluados por soporte en cada paso del optimizador (linspace equidistante entre soportes vecinos). Controla la granularidad de la búsqueda local — mayor M, barrido más fino pero más evaluaciones de FO por iteración.
 - **Conjunto N**: Los N soportes óptimos elegidos por el algoritmo de optimización.
-- **OE / OA / OC**: OE = Orden en Espera (buy limit colocada en un soporte, esperando que el precio baje hasta ella) / OA = Orden Abierta (posición activa; la OE fue ejecutada) / OC = Orden Cerrada (posición que ya cerró por trailing stop, PERDIDA_MAX o stop loss).
+- **O0\* / OE / OA / OC** (progresión: `O0* > OE > OA > OC`): O0 = orden sobre un soporte que aún está por encima de precio − margen (`distancia_ok` de `crear_ordenes_espera` no se cumple todavía), a la espera de convertirse en OE / OE = Orden en Espera (buy limit colocada en un soporte, esperando que el precio baje hasta ella) / OA = Orden Abierta (posición activa; la OE fue ejecutada) / OC = Orden Cerrada (posición que ya cerró por trailing stop, PERDIDA_MAX o stop loss). El asterisco en O0\* indica que es un estado opcional: una orden puede pasar directo a OE sin haber estado nunca en O0 (ej. si su soporte ya nace fuera del margen).
 - **Trailing Stop**: SL que sigue el precio hacia arriba para proteger ganancias.
 - **Beta**: Riesgo por operación como % de cuenta.
 - **T**: Ventana de días históricos usada para calcular soportes (default: 60).
