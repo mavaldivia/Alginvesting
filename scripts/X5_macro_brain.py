@@ -36,6 +36,7 @@ import os
 import pickle
 import subprocess
 import sys
+import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -1172,6 +1173,20 @@ def _demo_preguntar_reinicio(activo: str | None = None) -> bool:
         print('  Entrada inválida. Ingresa 0 o 1.')
 
 
+def _borrar_resistente(fn, *args, intentos: int = 5, espera: float = 0.4) -> None:
+    """Reintenta un borrado (unlink/rmtree) que puede fallar transitoriamente
+    por locks de OneDrive/antivirus en Windows sobre archivos recién
+    modificados (PermissionError / WinError 5)."""
+    for i in range(intentos):
+        try:
+            fn(*args)
+            return
+        except PermissionError:
+            if i == intentos - 1:
+                raise
+            time.sleep(espera)
+
+
 def _borrar_checkpoints_activo(activo: str, cfg_x5, suf: str) -> None:
     """Borra TODO lo asociado a `activo` en el namespace `suf` ('' = producción/
     oficial, '_demo' = demo): store, estado del narrador, modelo, historial de
@@ -1187,20 +1202,20 @@ def _borrar_checkpoints_activo(activo: str, cfg_x5, suf: str) -> None:
               CARPETA_X5 / f'{activo}{suf}_state.json',
               CARPETA_PERFORMANCE / f'{activo}{suf}_performance.json'):
         if p.exists():
-            p.unlink()
+            _borrar_resistente(p.unlink)
 
     md = CARPETA_MODELS / f'{activo}{suf}'
     if md.exists():
-        shutil.rmtree(md)
+        _borrar_resistente(shutil.rmtree, md)
 
     base_res = cfg_x5.CARPETA_RESOURCES
     bt_dir = base_res.parent / f'{base_res.name}_{activo}{suf}'
     if bt_dir.exists():
-        shutil.rmtree(bt_dir)
+        _borrar_resistente(shutil.rmtree, bt_dir)
 
     plots_dir = CARPETA_X5 / 'demo_plots' / activo
     if plots_dir.exists():
-        shutil.rmtree(plots_dir)
+        _borrar_resistente(shutil.rmtree, plots_dir)
 
     etiqueta = 'demo' if suf else 'oficial'
     print(f'  {activo} ({etiqueta}) reiniciado desde cero: store, modelo, '

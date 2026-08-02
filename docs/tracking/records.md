@@ -1124,3 +1124,11 @@ Claude: implementó los 4 items — fix de intra-vela + threading de `x5_ctx` (X
 Mauricio: aclaró que el punto real del item 1 era otro: quiere que `LOTAJES_M` sea necesariamente 1 en X5 siempre (lotaje mínimo fijo), sin explorarlo/inferirlo como parámetro — y preguntó si eso ya estaba así antes.
 Claude: confirmó que el rango `(1, 5)` para `LOTAJES_M` en `X5_PARAM_RANGES` ya existía antes de esta sesión (en `config.py`, con comentario legado que mencionaba "X6"), tanto en producción/inferencia en vivo como en recolección. Cambió el rango a `(1, 1)` en `config.py`, `config_x5_default.py` y `resources/x5/config_x5.py`, sin tocar la lógica de explore/exploit (Optuna y gradient ascent convergen naturalmente a 1). Verificó con un import real que el lotaje efectivo queda en el mínimo por activo. Registró en `done.md`.
 (Cierre: 2026-08-02 19:22)
+
+## SECCIÓN 121
+Mauricio: reportó error de permiso denegado al correr `X5_macro_brain.py --recolectar` (sin --demo) en Windows, opciones 1/1/1 (uno solo activo, BTCUSD, reiniciar desde cero).
+Claude: descartó primero una teoría de permisos TCP de macOS (reproducción en Mac no mostró error); tras confirmar que la ejecución real es en Windows, pidió el traceback.
+Mauricio: pegó screenshot del traceback completo desde VSCode/terminal.
+Claude: identificó la causa real — `PermissionError: [WinError 5]` en `shutil.rmtree(plots_dir)` dentro de `_borrar_checkpoints_activo` (X5_macro_brain.py), por lock transitorio de OneDrive (el repo vive en una carpeta sincronizada) sobre `resources/x5/demo_plots/BTCUSD` recién modificada. Notó que el store/modelo/checkpoint reales de BTCUSD ya se habían borrado antes del crash (el reinicio sí corrió, solo falló el último paso cosmético). Aplicó fix: helper `_borrar_resistente` con reintento (5 intentos, 0.4s backoff) envolviendo todos los borrados de esa función, más el import de `time`.
+Mauricio: confirmó que el fix está listo y pidió avanzar a guardar la sesión.
+(Cierre: 2026-08-02 19:53)

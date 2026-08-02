@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-02** — fix: X5 reintento con backoff en borrado de checkpoints ante lock transitorio de OneDrive (WinError 5)
 - **2026-08-02** — fix: X5 lotaje mínimo fijo (LOTAJES_M=1), fixes intra-vela (store bias), print A→C y reinicio simétrico demo/oficial
 - **2026-08-02** — feat: X5 muestra rango OA/OE en "Soportes recalculados" + define estado O0*
 - **2026-08-02** — feat: X5 recolectar oficial 1 activo (guiado, sin pausas)
