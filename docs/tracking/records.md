@@ -1081,3 +1081,9 @@ Mauricio: pidió (vía /new_todo) que en X5, al inicializar params aleatorios (m
 Claude: ubicó el sampling en `_params_explore_activo` (X4_backtester.py:1205), llamada por ambos modos vía `X4 --x5` (confirmó que no hay una ruta de sampling separada para el modo demo). Verificó en `trailing_stop` (X1_trading.py) la semántica de A/B: A = ganancia mínima que activa el trailing, B = distancia del SL bajo el precio — B < A es coherente con el negocio.
 Claude: modificó la función para samplear `A` primero y derivar `B = alpha * A` con `alpha ~ U(0.3, 0.7)`, documentando el porqué en un comentario corto. Registrado en `docs/tracking/done.md` sección X5.
 (Cierre: 2026-08-01 20:37)
+
+## SECCIÓN 115
+Mauricio: invocó `/new_todo` — "X5: homologar el modo demo con el modo productivo en `--recolectar` (asegurar, si es que ya está correcto)".
+Claude: revisó todo el pipeline de aislamiento demo vs. producción en `--recolectar` (store, `_model_dir`, checkpoint/cache/equity de X4 vía `X5_DEMO_SUFFIX`, plots). Todo ya estaba correctamente aislado bajo sufijo `_demo`, excepto `_guardar_performance` en `X5_macro_brain.py`, que escribía siempre en `{activo}_performance.json` sin sufijo, mezclando el historial de métricas del demo con el de producción.
+Claude: corrigió `_guardar_performance` para usar `{activo}{_demo_suf()}_performance.json` (mismo patrón que `_model_dir`) y actualizó `_demo_borrar_checkpoints` para que también borre `{activo}_demo_performance.json` al reiniciar el demo. Verificó compilación (`py_compile`) y registró el hallazgo/fix en `docs/tracking/done.md` (sección X5).
+(Cierre: 2026-08-01 20:55)

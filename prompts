@@ -301,13 +301,13 @@ X5: en recolectar / demo, en los prints quiero ver un resumen cada vez que hay c
 quiero ver un print cada vez que una orden OE para a ser OA (con un id) y cada vez que una orden pasa de OA a OC (con su mismo id)
 Además, manten en los prints todo lo que está actualmente. Necesito que el modo demo me "cuente toda la historia"
 
-[SAVING]
+[OK]
 /new_todo
 X5: En los parámetros, al inicializar aleatorio, tanto en el modo recolectar y modo recolectar / demo,
 b debe ser alpha * a, con alpha entre 0.3 y 0.7 >>> Es decir, samplea primero a en su rango y luego b respetando esto
 
 ----------------------
-
+[WIP]
 /new_todo
 X5: homologar el modo demo con el modo productivo en --recolectar (asegurar, si es que ya está correcto)
 
@@ -315,4 +315,5 @@ X5: homologar el modo demo con el modo productivo en --recolectar (asegurar, si 
 X5: Con todos los cambios y basado en x5_documento_extendido.pdf, genera 
 la versión 2 del documento [x5_documento_extendido_v2.pdf] (usando los mismos formatos latex).
 Antes de iniciar el documento y post portada e indice agrega una sección que se llame. Nuevos cambios en esta versión
-donde resumas que cambios se hicieron (sección por sección)
+donde resumas que cambios se hicieron (sección por sección).
+Incluye todo lo que se ha hecho despues de generar la versión 1. Basate en los records para eso y en los archivos actuales

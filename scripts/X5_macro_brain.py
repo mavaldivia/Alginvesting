@@ -356,9 +356,11 @@ def _calcular_metricas(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
 
 def _guardar_performance(activo: str, tipo_modelo: str, n_train: int, n_test: int,
                          metricas: dict) -> None:
-    """Persiste métricas en resources/x5/Performance/{activo}_performance.json como historial."""
+    """Persiste métricas en resources/x5/Performance/{activo}_performance.json como historial.
+
+    Aislado del demo vía `_demo_suf()`, igual que el store y el modelo."""
     CARPETA_PERFORMANCE.mkdir(parents=True, exist_ok=True)
-    path = CARPETA_PERFORMANCE / f'{activo}_performance.json'
+    path = CARPETA_PERFORMANCE / f'{activo}{_demo_suf()}_performance.json'
     entrada = {
         'timestamp':   datetime.now().isoformat(timespec='seconds'),
         'tipo_modelo': tipo_modelo,
@@ -1153,7 +1155,8 @@ def _demo_borrar_checkpoints(activo: str, cfg_x5) -> None:
     import shutil
 
     for p in (CARPETA_X5 / f'{activo}_store_demo.csv',
-              CARPETA_X5 / f'{activo}_demo_state.json'):
+              CARPETA_X5 / f'{activo}_demo_state.json',
+              CARPETA_PERFORMANCE / f'{activo}_demo_performance.json'):
         if p.exists():
             p.unlink()
 
