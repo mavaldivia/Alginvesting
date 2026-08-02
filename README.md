@@ -20,8 +20,8 @@ El sistema está organizado en 6 módulos (X0→X5):
 | **X1** | Loop semi-automático de trading: buy limits, trailing stop, control de pérdida máxima. `TIPO_EJECUCION="est\|din"` | Operativo |
 | **X2** | Score fundamental por activo (yfinance + CoinGecko + Fear & Greed) con historial diario | Operativo |
 | **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) — alimenta X5 ([plan](docs/plans/x3_plan.md)) | Operativo |
-| **X4** | Backtester histórico sobre datos reales | En diseño ([plan](docs/plans/x4_plan.md)) |
-| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](docs/plans/x5_plan.md)) | En diseño |
+| **X4** | Backtester histórico sobre datos reales, vela a vela con simulación intra-vela M1 ([plan](docs/plans/x4_plan.md)) | Operativo |
+| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](docs/plans/x5_plan.md)) | Operativo (recolectando datos) |
 
 ---
 
@@ -31,7 +31,7 @@ El sistema está organizado en 6 módulos (X0→X5):
 
 ```
 X0 — Etapa 1: Descarga/actualiza CSVs OHLCV desde MT5
-X0 — Etapa 2: Búsqueda de N soportes óptimos por activo → conjuntos_N/prod/{VALOR}_{N}.json
+X0 — Etapa 2: Búsqueda de N soportes óptimos por activo → resources/conjuntos_N/{VALOR}_{N}.json
 X1 — Loop: Lee soportes → Gestiona buy limits → Trailing stop → Cierra si pérdida > PERDIDA_MAX
              (parámetros de config.py — estáticos)
 X2 — Diario: Score fundamental por activo → resources/x2/scores.json + x2_history.json
@@ -83,6 +83,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Priorización por historial** (`mejora_acumulada`): EMA de mejoras aceptadas por soporte — los más activos se evalúan primero.
 - **`DELTA_INICIAL` adaptativo**: se reduce (`* FACTOR_DELTA`) cada vez que converge, sin tocar el delta entre corridas cuando no converge.
 - **Paralelización por (valor, N)**: `ProcessPoolExecutor` corre todos los pares en paralelo; monitor en vivo muestra progreso, FO y estado por combo.
+- **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
 El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`.
 
@@ -108,26 +109,29 @@ scripts/
   X0_data_supports.py    # Descarga precios + algoritmo de soportes
   X1_trading.py          # Loop de trading semi-automático
   X2_fundamentals.py     # Score fundamental por activo
+  X3_technical_features.py  # Features técnicas incrementales por activo
+  X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
+  X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
+  X5_macro_brain.py      # Surrogate model: entrena sobre el store y optimiza params
+  x5_demo.py             # Narrador guiado del modo --recolectar --demo (IDs D01-D10)
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
-Data/                    # CSVs OHLCV H1 por activo — trackeados en git (desde 2024-01-01)
+  config_x5_default.py   # Plantilla versionada de resources/x5/config_x5.py
+Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
-conjuntos_N/
-  prod/                  # JSONs de soportes producción {VALOR}_{N}.json (X0 escribe, X1 lee)
-  bt/                    # Cache de soportes para backtesting {VALOR}_{N}_bt.json
-fundamentals/
-  scores.json            # Score actual por activo
-  x2_history.json        # Historial diario de scores y valores crudos
-  x2_last_run.json       # Guard de ejecución diaria
-plots/                   # Gráficos generados por X0 (Extremos, FO, Soportes, Zoom)
+config/
+  active_parameters.json # Params recomendados por X5, leídos por X1/X0 en modo "din"
+resources/               # Todo generado en Windows, fuera de git
+  conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
+  x0/logs/               # Logs de convergencia por combo {valor}_{N}.json
+  x0/plots/              # Gráficos de X0 (Extremos, FO, Soportes, Zoom)
+  x2/                    # scores.json, x2_history.json, x2_last_run.json
+  x3/                    # Features técnicas por activo {VALOR}.csv
+  x4/version{V}/         # Config y resultados por versión de backtesting
+  x5/                    # Store por activo, models/, config_x5.py, bt_{ACTIVO}/, demo_plots/
 docs/
-  X0/logs/              # Logs de convergencia por combo {valor}_{N}.json
-  decisiones.md          # Decisiones técnicas del proyecto
-  records.md             # Registro de sesiones de desarrollo
-  vision.md              # Arquitectura completa X0→X6
-  x2_plan.md             # Plan de implementación X2
-  x4_plan.md             # Plan de implementación X4 (backtester)
-  guia_git.md            # Flujo git Mac→Windows con Data/ trackeada
-  documentacion_V0.md    # Análisis de convergencia del optimizador
+  context/               # decisiones.md, vision.md, guías de git, documentacion_V0.md
+  plans/                 # Planes de implementación por módulo (x2, x3, x4, x5)
+  tracking/              # todos.md, done.md, records.md
 Alginvesting_base/       # Versión anterior Windows/notebooks (solo lectura, referencia)
 ```
 
@@ -141,10 +145,12 @@ Alginvesting_base/       # Versión anterior Windows/notebooks (solo lectura, re
 | `K` | 1 | Peso aislamiento futuro vs. pasado |
 | `N_EXP` | 1.3 | Exponente de recencia |
 | `M` | 30 | Candidatos evaluados por soporte en cada paso |
-| `LAMBDA` | 1/500 | Penalización por dispersión desigual |
+| `LAMBDA` | 1/5 | Penalización por dispersión desigual |
+| `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
 | `DELTA_INICIAL` | 1e-4 | Mejora relativa mínima para aceptar cambio |
 | `FACTOR_DELTA` | 0.7 | Factor de reducción del delta al converger |
-| `N_MAX_MODELS` | None | Top N combos a procesar (None = todos) |
+| `N_MAX_MODELS` | 6 | Top N combos a procesar por ciclo (None = todos) |
+| `FECHA_INICIAL` | 2022-01-01 | Inicio de la ventana de precios usada para buscar soportes |
 | `W_TENDENCIA` | 0.20 | Peso del score_tendencia en X2 |
 | `DIAS_TENDENCIA` | 30 | Ventana de comparación histórica en X2 |
 
@@ -161,7 +167,7 @@ Desarrollo + refactor  →  git push   →    git pull
                                           python scripts/X2_fundamentals.py
 ```
 
-MT5 solo disponible en Windows. El desarrollo ocurre en Mac. Ver [`docs/guia_git.md`](docs/guia_git.md) para manejo de `Data/` (trackeada en git).
+MT5 solo disponible en Windows. El desarrollo ocurre en Mac. `Data/`, `Data_minuto/` y `resources/` están fuera de git: se generan y mantienen desde Windows. Ver [`docs/context/guia_git.md`](docs/context/guia_git.md).
 
 ---
 
@@ -206,6 +212,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-01** — feat: warm start por combo (valor, N, t*) en X0 y X5 + gráfico de cada búsqueda de soportes y rango `t0 → tf` visible en el modo demo
 - **2026-07-24** — feat: X5 `--recolectar --demo` — recorrido guiado paso a paso de 1 activo (lo pregunta al inicio; IDs D01-D09 con pausa en la 1a aparición + banner "se repetirá hasta la convergencia"; store/modelo demo aislado `_demo`; reanudable por activo vía estado persistente) + módulo compartido `scripts/x5_demo.py`; X4 emite D01-D07 desde el backtest
 - **2026-07-23** — config X1 por activo + N=250: A/B/PERDIDA_MAX pasan a dict por activo (formato X5), n_sizes/n_sizes_ejecucion → 250; X1 y X5._params_baseline indexan por activo; TIPO_EJECUCION queda "est"
 - **2026-07-23** — chore: alinea guardar/update-push a master + registro sesión (diagnóstico gráfico GitHub, replicación dev→master)

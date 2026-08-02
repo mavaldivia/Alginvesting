@@ -1203,6 +1203,7 @@ def _recolectar_demo() -> None:
         print(f'  [demo] Iniciando ciclo {ciclo}/{n_ciclos} de {activo} '
               f'(X4 backtest desde el inicio)')
         print(f'{"─" * 72}')
+        os.environ['X5_DEMO_CICLO'] = str(ciclo)  # queda en el nombre de los PNG
         cmd = [sys.executable, str(x4_path), '--x5', '--activo', activo]
         proc = subprocess.run(cmd)  # stdio heredado → pausas del narrador en X4
         n = _n_oc(_cargar_store(activo))

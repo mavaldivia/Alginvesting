@@ -178,3 +178,23 @@ Antes los params de un ciclo se elegían **una sola vez** (`ejecutar_x5_ciclo`) 
 **Implementación:** X5 expone `cargar_modelo_para_activo` (carga el modelo 1 vez por ciclo, fijo durante el ciclo) e `inferir_con_contexto(activo, tipo, bundle, contexto, param_ranges)` (rangos inyectables de config_x5 vía `_RANGES_OVERRIDE`; **sin airbag** en recolección, para que el store capture también las consecuencias de regímenes de caída). `_inferir_params` acepta ahora `contexto` opcional (el path live no cambia: contexto "now" + airbag). X4 arma el contexto con `_contexto_inferencia_x5` y decide en `_seleccionar_params_x5`/`_aplicar_seleccion_x5`, llamado en el cold start y en cada trigger de recálculo. Eliminados `_generar_params_exploit` (shell-out a `--infer`) y `_imprimir_ciclo_x5`.
 
 **Trade-off aceptado:** el EXPLOIT in-loop infiere en cada punto de 5 días (Optuna/gradient ascent × ~150 puntos por pasada). Aceptable porque los ciclos tempranos son 100% EXPLORE (barato) y el EXPLOIT solo entra una vez entrenado. Si escala mal, bajar `X5_N_OPTUNA_TRIALS` para la inferencia in-loop.
+
+## 2026-08-01 — Warm start por combo (valor, N, t*) en X0 y X5 + visibilidad de la búsqueda de soportes
+
+Tres necesidades del modo demo de X5 y del algoritmo de soportes: (1) ver el gráfico de cada búsqueda, (2) saber con qué ventana de precios se buscó, (3) reusar soluciones previas como punto de partida.
+
+**Decisión 1 — warm start por (valor, N, t\*):** si existe una solución del combo `(valor, N)` calculada en un `t* <= t`, se usa como solución inicial del optimizador para resolver `t`. Aplica a X0 (producción: JSON `{VALOR}_{N}.json`, `t*` = mtime; backtesting: cache `{VALOR}_{N}_bt.json`, `t*` = clave más reciente ≤ t) y a X5, donde estaba desactivado.
+
+Esto **revierte parcialmente** la decisión del 2026-07-23 ("soportes se recalculan con los params del ciclo, sin cache"). Para no perder lo que esa decisión protegía, se separaron los dos efectos que estaban fusionados en el flag `cold_start`:
+- `warm_start` (nuevo, default `True`) → de dónde sale la **solución inicial**.
+- `cold_start` (ahora solo eso) → si se hereda el **delta adaptado** del combo. X5 lo mantiene en `True`: con params nuevos, heredar la presión acumulada dejaría al optimizador satisfecho de entrada y no re-optimizaría.
+
+Así el conjunto N sigue re-convergiendo con los params del tramo (la consistencia store↔soportes se mantiene), pero partiendo de un punto cercano en vez de aleatorio. Medido sobre BTCUSD N=8, 38.730 velas: 15,3s → 6,5s (mismo FO). `ejecutar_backtest` ya no borra `*_bt.json` entre ciclos (sí `*_bt_delta.json`). Reversible con `X5_WARM_START_SOPORTES = False` en `config_x5`.
+
+**Riesgo asumido:** la solución previa se calculó con otros `K/N_EXP/LAMBDA`, así que el punto de partida sesga hacia esa cuenca del óptimo. Se aceptó a cambio del costo: sin warm start, cada tramo (×días ×ciclos ×activos) vuelve a converger desde cero.
+
+**Decisión 2 — gráfico por búsqueda (solo demo):** `graficar_soportes_demo` en X0 guarda un PNG con los precios de `t0 → tf` y los N niveles, separados visualmente por dónde quedó el precio en `tf` (verde = soportes bajo el precio, rojo = resistencias sobre él). `_procesar_valor_N` acepta `ruta_plot` y grafica también en modo bt (antes solo producción). Se gatilla únicamente con el demo activo (`X5_DEMO_PLOTS`) para no pagar matplotlib por recálculo × activo × día en la recolección paralela. Archivos en `resources/x5/demo_plots/{ACTIVO}/{ACTIVO}_c{ciclo}_N{N}_{t}.png`; `x5_demo.abrir_archivo` los abre en el visor del sistema (`X5_DEMO_ABRIR_PLOTS`). Backend matplotlib fijado a `Agg` porque `_procesar_valor_N` corre en workers spawn.
+
+**Decisión 3 — metadata de la búsqueda:** `_procesar_valor_N` pasa de retornar `(duracion, convergio)` a un dict con `t0/tf/n_velas/warm_start_n/warm_start_t/FO/duracion/plot`. X4 lo reporta en cada recálculo (bloque detallado en demo, una línea si no) y X0 lo usa en su resumen final. Motivo: el `t` del backtest no dice con qué ventana de precios se buscó — `t0` viene de `FECHA_INICIAL` (config producción), no de `fecha_inicio` de X4.
+
+**Aislamiento del demo:** con el cache bt persistiendo entre ciclos, el demo habría sembrado el cache de la recolección real (ambos usaban `bt_{activo}`). `ejecutar_x5_ciclo` ahora sufija los recursos de X4 con `X5_DEMO_SUFFIX` → `bt_{activo}_demo`, en línea con el store y el modelo demo.

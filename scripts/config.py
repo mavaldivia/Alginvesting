@@ -260,6 +260,10 @@ X5_CKPT_INTERVAL         = 100    # guardar checkpoint cada N velas del ciclo ac
 X5_RECALC_SOPORTES_CADA  = 168    # actualizar soportes del bt cache cada N velas H1 (≈1 semana)
 X5_N_CICLOS_BT           = 20     # máx de ciclos de backtesting en --recolectar
 
+# Modo demo (--recolectar --demo)
+X5_DEMO_PLOTS       = True   # guardar PNG de precios + soportes en cada recálculo
+X5_DEMO_ABRIR_PLOTS = True   # además abrirlo en el visor del sistema al generarlo
+
 # Umbrales de modelo
 X5_MIN_TRADES_TRAIN      = 500    # mínimo de OC para entrenar (menor → untrained)
 X5_MIN_TRADES_FTT        = 5000   # a partir de aquí usa FT-Transformer en vez de LightGBM

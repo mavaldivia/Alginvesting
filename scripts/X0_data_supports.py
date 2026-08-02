@@ -32,6 +32,9 @@ import time
 import warnings
 from pathlib import Path
 
+import matplotlib
+matplotlib.use('Agg')  # los plots siempre se guardan a archivo, nunca se muestran;
+                       # sin esto los workers (spawn) intentan abrir un backend GUI
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import mplfinance as mpf
@@ -548,6 +551,66 @@ def graficar_soportes_all(df_0: pd.DataFrame, conjunto_N: set, valor: str = '', 
     _guardar_plot(subcarpeta, f'{valor}_{N}')
 
 
+def graficar_soportes_demo(df_0: pd.DataFrame, conjunto_N: set, ruta_png: Path,
+                            valor: str, N: int, ordenes_activas: list = []) -> Path:
+    """
+    Guarda en `ruta_png` el gráfico de los precios usados en esta búsqueda (t0 → tf)
+    con el conjunto N encontrado.
+
+    El algoritmo entrega una sola lista de niveles; acá se separan visualmente según
+    dónde quedó el precio en tf: los que están por debajo actúan como soportes
+    (zona de compra) y los que quedan por encima como resistencias.
+    """
+    precio_ref = float(df_0['Close'].iloc[-1])
+    t0, tf = df_0['DateTime'].iloc[0], df_0['DateTime'].iloc[-1]
+    p_min, p_max = df_0['Low'].min(), df_0['High'].max()
+    oa_set = set(ordenes_activas)
+
+    fig, ax = plt.subplots(figsize=(21, 8))
+    ax.plot(df_0['DateTime'], df_0['Low'], color='tab:blue', linewidth=0.8, label='Low')
+    ax.plot(df_0['DateTime'], df_0['High'], color='tab:green', linewidth=0.8, label='High')
+
+    n_sop = n_res = 0
+    for s in sorted(conjunto_N):
+        if not (p_min <= s <= p_max):
+            continue
+        if s in oa_set:
+            ax.axhline(y=s, color='black', linestyle='-', linewidth=1.2, alpha=0.9)
+            continue
+        es_soporte = s <= precio_ref
+        ax.axhline(y=s, color='tab:green' if es_soporte else 'tab:red',
+                   linestyle='--', linewidth=0.7, alpha=0.45)
+        n_sop += es_soporte
+        n_res += not es_soporte
+
+    ax.axhline(y=precio_ref, color='black', linestyle='-', linewidth=1.6)
+
+    handles = [
+        Line2D([0], [0], color='tab:blue', label='Low'),
+        Line2D([0], [0], color='tab:green', label='High'),
+        Line2D([0], [0], color='tab:green', linestyle='--',
+               label=f'Soportes — bajo el precio ({n_sop})'),
+        Line2D([0], [0], color='tab:red', linestyle='--',
+               label=f'Resistencias — sobre el precio ({n_res})'),
+        Line2D([0], [0], color='black', linewidth=1.6,
+               label=f'Precio en tf ({precio_ref:.2f})'),
+    ]
+    if oa_set:
+        handles.append(Line2D([0], [0], color='black', linewidth=1.2,
+                              label=f'OA — órdenes abiertas ({len(oa_set)})'))
+    ax.legend(handles=handles, loc='upper left', fontsize=9)
+    ax.set_title(f'{valor} — N={N} soportes/resistencias\n'
+                 f't0 = {t0}   →   tf = {tf}   ({len(df_0)} velas H1)')
+    ax.grid(alpha=0.3)
+    plt.tight_layout()
+
+    ruta_png = Path(ruta_png)
+    ruta_png.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(ruta_png, dpi=110)
+    plt.close(fig)
+    return ruta_png
+
+
 # ─── Etapa 1: Descarga de datos desde MT5 ────────────────────────────────────
 
 def obtener_ordenes_activas_mt5(valores: list) -> dict:
@@ -660,18 +723,29 @@ def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path):
 
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
-def _bt_warm_start(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> set:
-    """Retorna el conjunto_N del cache bt más reciente con timestamp <= fecha_hora_max."""
+def _bt_solucion_previa(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> tuple:
+    """
+    Solución previa del combo (valor, N) en el cache bt: la más reciente con
+    timestamp t* <= fecha_hora_max. Retorna (t*, conjunto_N); (None, set()) si no hay.
+
+    Es el warm start del backtesting: si ya se resolvió (valor, N) en un t anterior,
+    ese conjunto sirve como solución inicial para resolver el t actual.
+    """
     bt_path = carpeta_n_bt / f'{valor}_{N}_bt.json'
     if not bt_path.exists():
-        return set()
+        return None, set()
     with open(bt_path) as f:
         cache = json.load(f)
     candidatos = {k: v for k, v in cache.items() if pd.to_datetime(k) <= fecha_hora_max}
     if not candidatos:
-        return set()
+        return None, set()
     mejor_t = max(candidatos, key=lambda k: pd.to_datetime(k))
-    return set(candidatos[mejor_t])
+    return mejor_t, set(candidatos[mejor_t])
+
+
+def _bt_warm_start(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> set:
+    """Conjunto_N del cache bt más reciente con timestamp <= fecha_hora_max."""
+    return _bt_solucion_previa(carpeta_n_bt, valor, N, fecha_hora_max)[1]
 
 
 def _bt_guardar(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_clave, conjunto_N: set):
@@ -724,7 +798,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
                       ordenes_activas: list = [], fecha_hora_max=None,
                       estado_compartido=None, verbose: bool = True,
                       ordenes_abiertas_bt: list = [],
-                      params_soporte: dict = None, cold_start: bool = False):
+                      params_soporte: dict = None, cold_start: bool = False,
+                      warm_start: bool = True, ruta_plot=None):
     """Worker para ProcessPoolExecutor: procesa un único par (valor, N).
 
     fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
@@ -733,9 +808,17 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
                          Son buy limits que ya se ejecutaron y siguen activas en la simulación.
     params_soporte: dict opcional {K, N_EXP, LAMBDA} que sobrescribe las globales de config.py.
                     Lo usa X4 --x5 para calcular soportes con los params explorados del ciclo.
-    cold_start: si True, ignora todo warm start (cache bt y JSON prod) y el delta previo;
-                parte de inicialización inteligente con delta semilla. X4 --x5 lo activa para
-                que cada recálculo re-optimice desde cero con los params del momento.
+    cold_start: si True, ignora el delta adaptado del combo y parte del delta semilla
+                (DELTA_INICIAL). X4 --x5 lo activa: cambian los params en cada tramo, así que
+                heredar la presión acumulada dejaría al optimizador satisfecho de entrada.
+    warm_start: si True (default), usa como solución inicial la solución previa del mismo
+                combo (valor, N) — cache bt con t* <= fecha_hora_max en backtesting, JSON de
+                producción si no. Con False parte de puntos aleatorios.
+    ruta_plot:  si se pasa, guarda ahí el gráfico de precios (t0 → tf) con los soportes
+                encontrados. Usado por el modo demo de X5, donde también aplica en bt.
+
+    Retorna un dict con la metadata de la corrida (rango usado, warm start, FO, duración)
+    o None si el combo se saltó por falta de datos.
     """
     t_inicio = time.time()
     es_bt = fecha_hora_max is not None
@@ -780,23 +863,26 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     df['t'] = (df['DateTime'] - dt_min).dt.total_seconds() / 3600
     df['t'] = df['t'] / df['t'].max()
 
-    # Warm start
+    # Warm start: solución previa del mismo combo (valor, N) resuelta en un t* < t
     json_path = carpeta_n_prod / f'{valor}_{N}'  # ruta de guardado en producción
-    if cold_start:
+    ws_t = None
+    if not warm_start:
         conjunto_N_prev = set()
         if verbose:
-            print('  Cold start forzado (x5): sin warm start')
+            print('  Warm start desactivado: partiendo de puntos aleatorios')
     elif es_bt:
-        conjunto_N_prev = _bt_warm_start(carpeta_n_bt, valor, N, fecha_hora_max)
+        ws_t, conjunto_N_prev = _bt_solucion_previa(carpeta_n_bt, valor, N, fecha_hora_max)
         if verbose:
-            print(f'  Warm start bt: {len(conjunto_N_prev)} soportes' if conjunto_N_prev
-                  else '  Warm start bt: cold start')
+            print(f'  Warm start bt: {len(conjunto_N_prev)} soportes desde t*={ws_t}'
+                  if conjunto_N_prev else '  Warm start bt: sin solución previa')
     else:
         conjunto_N_prev = set()
         if Path(f'{json_path}.json').exists():
             conjunto_N_prev = set(json_act(str(json_path)))
+            ws_t = str(datetime.datetime.fromtimestamp(
+                Path(f'{json_path}.json').stat().st_mtime).replace(microsecond=0))
             if verbose:
-                print(f'  Warm start: {len(conjunto_N_prev)} soportes cargados desde JSON')
+                print(f'  Warm start: {len(conjunto_N_prev)} soportes desde JSON (t*={ws_t})')
 
     # Delta
     delta_path = (carpeta_n_bt if es_bt else carpeta_n_prod) / (
@@ -805,7 +891,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     if cold_start:
         delta_actual = DELTA_INICIAL
         if verbose:
-            print(f'  delta_inicial semilla (cold start): {notacion_cientifica(delta_actual)}')
+            print(f'  delta_inicial semilla (params nuevos): {notacion_cientifica(delta_actual)}')
     elif delta_path.exists():
         with open(delta_path) as f:
             delta_actual = json.load(f)['delta_inicial']
@@ -858,6 +944,14 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         graficar_soportes_all(df, conjunto_N, valor=valor, N=N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM,
                               ordenes_activas=oa)
 
+    plot_generado = None
+    if ruta_plot is not None:
+        try:
+            plot_generado = str(graficar_soportes_demo(df, conjunto_N, ruta_plot,
+                                                       valor, N, ordenes_activas=oa))
+        except Exception as e:
+            plot_generado = f'ERROR: {e}'
+
     # Guardar soportes
     if es_bt:
         _bt_guardar(carpeta_n_bt, valor, N, fecha_hora_clave, conjunto_N)
@@ -907,7 +1001,15 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     if estado_compartido is not None:
         estado_compartido[llave] = (cambios_netos, -1, FO_final, f'listo {round(duracion)}s')
 
-    return round(duracion, 1), convergio
+    return {
+        'valor': valor, 'N': N,
+        't0': str(df['DateTime'].iloc[0]), 'tf': str(fecha_hora_clave),
+        'n_velas': len(df),
+        'warm_start_n': len(conjunto_N_prev), 'warm_start_t': ws_t,
+        'FO_inicial': FO_ref, 'FO_final': FO_final,
+        'convergio': convergio, 'duracion': round(duracion, 1),
+        'plot': plot_generado,
+    }
 
 
 def _monitor_tabla(estado, tuplas, stop_event):
@@ -1002,9 +1104,11 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
         json_path = carpeta_n_prod / f'{v}_{n}'
         if Path(f'{json_path}.json').exists():
             prev = set(json_act(str(json_path)))
-            print(f'  Warm start: {len(prev)} soportes')
+            t_prev = datetime.datetime.fromtimestamp(
+                Path(f'{json_path}.json').stat().st_mtime).replace(microsecond=0)
+            print(f'  Warm start: {len(prev)} soportes desde la solución de t*={t_prev}')
         else:
-            print('  Warm start: cold start')
+            print('  Warm start: sin solución previa (arranque aleatorio)')
         delta_path = carpeta_n_prod / f'{v}_{n}_delta.json'
         if delta_path.exists():
             with open(delta_path) as f:
@@ -1038,8 +1142,7 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
             for future in concurrent.futures.as_completed(futures):
                 valor, N = futures[future]
                 try:
-                    duracion, convergio_flag = future.result()
-                    resultados_tiempo[f'{valor}_{N}'] = (duracion, convergio_flag)
+                    resultados_tiempo[f'{valor}_{N}'] = future.result()
                 except Exception as exc:
                     prev = estado.get(f'{valor}_{N}', (0, 0, None, 'ERROR'))
                     estado[f'{valor}_{N}'] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
@@ -1053,12 +1156,15 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
             res = resultados_tiempo.get(f'{v}_{n}')
             if res is None:
                 continue
-            dur, conv = res
+            dur = res['duracion']
             mins = int(dur // 60)
             segs = dur % 60
             tiempo_str = f'{mins}m {segs:.1f}s' if mins > 0 else f'{segs:.1f}s'
-            conv_str = 'convergió' if conv else 'no convergió'
-            print(f'  {v} N={n}: {tiempo_str} | {conv_str}')
+            conv_str = 'convergió' if res['convergio'] else 'no convergió'
+            ws = (f'warm start {res["warm_start_n"]} @ t*={res["warm_start_t"]}'
+                  if res['warm_start_n'] else 'sin solución previa')
+            print(f'  {v} N={n}: {tiempo_str} | {conv_str} | '
+                  f'precios {res["t0"]} → {res["tf"]} ({res["n_velas"]} velas) | {ws}')
 
 
 

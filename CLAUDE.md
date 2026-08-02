@@ -35,7 +35,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. Con `TIPO_EJECUCION="est"` usa params de `config.py`; con `"din"` lee `config/active_parameters.json` generado por X5 (por activo, con fallback automático si `model_status="untrained"`). En Fase 2, cada OC cerrada alimenta el store de X5. |
 | `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X5. Output: `resources/x2/`. |
 | `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `resources/x3/{VALOR}.csv`. Alimenta X5. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/plans/x3_plan.md`. |
-| `X5_macro_brain.py` | Surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia. Output: `config/active_parameters.json`. **En Fase 1**: se entrena con datos de X5 backtesters dedicados (por activo). **En Fase 2**: X1 live con `TIPO_EJECUCION="din"` alimenta el store directamente → ciclo de retroalimentación cerrado. `--recolectar --demo` es un recorrido guiado interactivo de UN activo (lo pregunta al inicio): corre los ciclos secuencialmente sobre store/modelo demo aislados (`_demo`) y explica cada suceso nuevo (IDs D01–D09) pausando la primera vez, vía el módulo compartido `scripts/x5_demo.py`; reanudable por activo. Plan: `docs/plans/x5_plan.md`. |
+| `X5_macro_brain.py` | Surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia. Output: `config/active_parameters.json`. **En Fase 1**: se entrena con datos de X5 backtesters dedicados (por activo). **En Fase 2**: X1 live con `TIPO_EJECUCION="din"` alimenta el store directamente → ciclo de retroalimentación cerrado. `--recolectar --demo` es un recorrido guiado interactivo de UN activo (lo pregunta al inicio): corre los ciclos secuencialmente sobre store/modelo/backtest demo aislados (`_demo`) y explica cada suceso nuevo (IDs D01–D10) pausando la primera vez, vía el módulo compartido `scripts/x5_demo.py`; reanudable por activo. Cada recálculo de soportes reporta `t` del backtest, el rango de precios usado (`t0 → tf`) y el warm start, y guarda/abre el gráfico de esa búsqueda en `resources/x5/demo_plots/`. Plan: `docs/plans/x5_plan.md`. |
 | `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, configuración de X0 (algoritmo) y X1 (trading). `TIPO_EJECUCION = "est" \| "din"` controla si X1/X0/X4 usan params estáticos o los recomendados por X5. |
 
 ### Directorios de datos
@@ -48,7 +48,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | `resources/x0/` | `logs/` (JSONs de convergencia por combo) y `plots/` (FO, Soportes) — generados en Windows, fuera de git |
 | `resources/x2/` | Scores fundamentales (`scores.json`), historial (`x2_history.json`), guard de día (`x2_last_run.json`) — generados en Windows, fuera de git |
 | `resources/x3/` | Features técnicas por activo (`{VALOR}.csv`) — generados, fuera de git |
-| `resources/x5/` | Store de trades por activo (`{ACTIVO}_store.csv`) + modelos entrenados (`models/{ACTIVO}_lgbm.pkl`, `models/{ACTIVO}_ftt.pt`) — generados, fuera de git |
+| `resources/x5/` | Store de trades por activo (`{ACTIVO}_store.csv`) + modelos entrenados (`models/{ACTIVO}_lgbm.pkl`, `models/{ACTIVO}_ftt.pt`) + `demo_plots/{ACTIVO}/` (gráficos de cada búsqueda de soportes del modo demo) — generados, fuera de git |
 | `config/` | `active_parameters.json` — escrito por X5, leído por X1/X0 cuando `TIPO_EJECUCION="din"` |
 
 ---
@@ -96,6 +96,22 @@ En cada iteración, para cada soporte `i` del conjunto N:
 Si ningún soporte mejora en la vuelta actual → expande a todos los soportes y reintenta. Si aún no hay mejora → convergencia.
 
 Versión activa: `nuevo_optimizador_2`.
+
+### Warm start — solución inicial por combo (valor, N, t*)
+
+Buscar los N soportes en `t` nunca parte de cero si el combo `(valor, N)` ya se resolvió en un `t* <= t`: esa solución es el punto de partida del optimizador. Aplica a X0 y X5:
+
+| Modo | Fuente de la solución previa | `t*` |
+|---|---|---|
+| X0 producción | `resources/conjuntos_N/{VALOR}_{N}.json` | mtime del JSON |
+| X0/X4 backtesting | `{VALOR}_{N}_bt.json` (cache indexado por datetime) | clave más reciente ≤ `t` |
+| X5 (`X4 --x5`) | mismo cache bt, aislado por activo en `resources/x5/bt_{ACTIVO}/` | ídem |
+
+`_procesar_valor_N` separa dos cosas que suenan parecidas:
+- **`warm_start`** (default `True`): de dónde sale la solución inicial. `False` → puntos aleatorios.
+- **`cold_start`**: si se hereda el `delta_inicial` adaptado del combo o se parte del semilla. X5 lo activa porque cada tramo cambia `K/N_EXP/LAMBDA`: heredar la presión acumulada dejaría al optimizador convergido de entrada sobre una FO que ya no es la misma.
+
+En X5 se desactiva con `X5_WARM_START_SOPORTES = False` (`config_x5`), a costa de re-converger desde cero en cada tramo.
 
 ---
 

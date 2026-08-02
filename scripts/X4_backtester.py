@@ -149,8 +149,9 @@ def _guardar_checkpoint(estado: dict, cfg):
 # ─── Recálculo de soportes ────────────────────────────────────────────────────
 
 def _worker_recalcular(args):
-    activo, N, carpeta_data, carpeta_n_prod, carpeta_n_bt, ts_actual, oa_bt, params_soporte, cold_start = args
-    _procesar_valor_N(
+    (activo, N, carpeta_data, carpeta_n_prod, carpeta_n_bt, ts_actual, oa_bt,
+     params_soporte, cold_start, warm_start, ruta_plot) = args
+    return _procesar_valor_N(
         activo, N,
         carpeta_data,
         carpeta_n_prod,
@@ -161,28 +162,84 @@ def _worker_recalcular(args):
         False,       # verbose
         oa_bt,       # ordenes_abiertas_bt
         params_soporte,  # K/N_EXP/LAMBDA del ciclo (None → globales de config.py)
-        cold_start,      # x5: re-optimiza desde cero con los params del momento
+        cold_start,      # x5: delta semilla, no hereda la presión adaptada del combo
+        warm_start,      # usa la solución de (valor, N) en t* <= t como punto de partida
+        ruta_plot,       # demo: PNG de precios + soportes de esta búsqueda
     )
 
 
-def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False):
+def _ruta_plot_demo(activo: str, N: int, ts) -> Path | None:
+    """Ruta del PNG de esta búsqueda de soportes en el modo demo (None si está apagado)."""
+    import config as _gc
+    if not getattr(_gc, 'X5_DEMO_PLOTS', True):
+        return None
+    ciclo = os.environ.get('X5_DEMO_CICLO', '0')
+    carpeta = _gc.CARPETA_X5 / 'demo_plots' / activo
+    carpeta.mkdir(parents=True, exist_ok=True)
+    stamp = pd.Timestamp(ts).strftime('%Y%m%dT%H%M')
+    return carpeta / f'{activo}_c{ciclo}_N{N}_{stamp}.png'
+
+
+def _informar_recalculo(infos: list, ts_actual, demo: bool) -> None:
+    """Reporta el rango de precios (t0 → tf) que alimentó cada búsqueda de soportes."""
+    for info in infos:
+        if not info:
+            continue
+        ws = (f'{info["warm_start_n"]} soportes desde t*={info["warm_start_t"]}'
+              if info['warm_start_n'] else 'sin solución previa (aleatorio)')
+        if not demo:
+            print(f'  [{ts_actual}] {info["valor"]} N={info["N"]}: precios '
+                  f'{info["t0"]} → {info["tf"]} ({info["n_velas"]} velas) | '
+                  f'warm start: {ws} | {info["duracion"]}s')
+            continue
+        print()
+        print(f'  ── Soportes recalculados: {info["valor"]} ' + '─' * 26)
+        print(f'     t (backtest)   : {ts_actual}')
+        print(f'     precios usados : t0 = {info["t0"]}')
+        print(f'                      tf = {info["tf"]}   ({info["n_velas"]} velas H1)')
+        print(f'     N soportes     : {info["N"]}')
+        print(f'     warm start     : {ws}')
+        print(f'     FO             : {info["FO_inicial"]:.4e} → {info["FO_final"]:.4e}'
+              f'   ({"convergió" if info["convergio"] else "sin converger"}, {info["duracion"]}s)')
+        if info.get('plot'):
+            print(f'     gráfico        : {info["plot"]}')
+            x5_demo.abrir_archivo(info['plot'])
+        print()
+
+
+def _demo_evento_plot(infos: list, ts_actual) -> None:
+    """Explica (una vez) el gráfico de soportes que acompaña a cada recálculo."""
+    info = next((i for i in infos if i and i.get('plot')), None)
+    if info is None:
+        return
+    x5_demo.evento('D10', activo=info['valor'], ts=str(ts_actual),
+                   t0=info['t0'], tf=info['tf'], n_velas=info['n_velas'],
+                   archivo=Path(info['plot']).name)
+
+
+def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) -> list:
     carpeta_n_prod = Path(__file__).parent.parent / 'resources' / 'conjuntos_N'
     # En x5, los soportes se calculan con los params explorados del ciclo (ya
-    # aplicados a cfg por _aplicar_params_x5) y sin heredar cache/warm start.
+    # aplicados a cfg por _aplicar_params_x5).
     params_soporte = ({'K': cfg.K, 'N_EXP': cfg.N_EXP, 'LAMBDA': cfg.LAMBDA}
                       if x5_mode else None)
+    warm_start = bool(getattr(cfg, 'X5_WARM_START_SOPORTES', True)) if x5_mode else True
+    demo = x5_demo.esta_activo()
     tasks = []
     for activo in cfg.valores:
         if activo not in estado['por_activo']:
             continue
         N = cfg.n_sizes[activo]
         oa_bt = list(estado['por_activo'][activo]['OA'].keys())
+        ruta_plot = _ruta_plot_demo(activo, N, ts_actual) if demo else None
         tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT,
-                      ts_actual, oa_bt, params_soporte, x5_mode))
+                      ts_actual, oa_bt, params_soporte, x5_mode, warm_start, ruta_plot))
 
     n_workers = min(len(tasks), 4)
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
-        list(executor.map(_worker_recalcular, tasks))
+        infos = list(executor.map(_worker_recalcular, tasks))
+
+    _informar_recalculo(infos, ts_actual, demo)
 
     # Cargar soportes recalculados desde cache bt
     for activo in cfg.valores:
@@ -194,6 +251,7 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False):
             print(f'  Advertencia: sin soportes para {activo} tras recálculo.')
 
     estado['ts_ultimo_recalculo'] = ts_actual.isoformat()
+    return [i for i in infos if i]
 
 
 # ─── Métricas de cuenta ───────────────────────────────────────────────────────
@@ -862,11 +920,17 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
     cfg.CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_LOGS_BT.mkdir(parents=True, exist_ok=True)
 
-    # En x5, cada ciclo re-optimiza soportes con sus propios params: se descarta
-    # el cache bt del ciclo anterior para no heredar soportes ni delta adaptado.
+    # En x5 cada ciclo re-optimiza con sus propios params: se descarta el delta
+    # adaptado del ciclo anterior (parte del delta semilla). El cache de soportes
+    # se conserva si X5_WARM_START_SOPORTES: la solución de (valor, N) en t* sirve
+    # como punto de partida, aunque los params del tramo hayan cambiado.
     if x5_mode and reset:
-        for _f in list(cfg.CARPETA_N_BT.glob('*_bt.json')) + list(cfg.CARPETA_N_BT.glob('*_bt_delta.json')):
-            _f.unlink()
+        patrones = ['*_bt_delta.json']
+        if not getattr(cfg, 'X5_WARM_START_SOPORTES', True):
+            patrones.append('*_bt.json')
+        for _pat in patrones:
+            for _f in cfg.CARPETA_N_BT.glob(_pat):
+                _f.unlink()
 
     if x5_mode:
         import config as _gc_x5
@@ -925,12 +989,13 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                                   {}, _carpeta_fundamentals_x5, _min_lotajes_x5)
         print(f'\nCold start: recalculando soportes hasta {ts_cold} ...')
         print('(puede tardar varios minutos)')
-        _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
+        _infos = _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
         _guardar_checkpoint(estado, cfg)
         print('Cold start completado.\n')
         if x5_demo.esta_activo():
             _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
             x5_demo.evento('D01', tipo='cold_start', hasta=str(ts_cold), n_soportes=_n_sop)
+            _demo_evento_plot(_infos, ts_cold)
 
     ts_ultimo = (pd.Timestamp(estado['ts_ultimo_procesado'])
                  if estado['ts_ultimo_procesado'] else None)
@@ -980,10 +1045,11 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                                           cierre_previo, _carpeta_fundamentals_x5,
                                           _min_lotajes_x5)
                 print(f'  [{ts}] Recalculando soportes...')
-                _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
+                _infos = _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
                 if x5_demo.esta_activo():
                     _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
                     x5_demo.evento('D01', tipo='periodico', hasta=str(ts), n_soportes=_n_sop)
+                    _demo_evento_plot(_infos, ts)
                 estado['ts_ultimo_procesado'] = ts.isoformat()
                 _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
                 _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
@@ -1245,7 +1311,10 @@ def ejecutar_x5_ciclo(cfg, activo=None):
     if activo is not None:
         cfg.valores = [activo]
         base_res = cfg.CARPETA_RESOURCES
-        cfg.CARPETA_RESOURCES = base_res.parent / f'{base_res.name}_{activo}'
+        # El demo también aísla checkpoint/equity/cache de soportes (sufijo _demo),
+        # igual que el store y el modelo: no puede sembrar el cache de producción.
+        suf = os.environ.get('X5_DEMO_SUFFIX', '')
+        cfg.CARPETA_RESOURCES = base_res.parent / f'{base_res.name}_{activo}{suf}'
         cfg.CARPETA_N_BT      = cfg.CARPETA_RESOURCES / 'conjuntos_N'
         cfg.CARPETA_LOGS_BT   = cfg.CARPETA_RESOURCES / 'logs'
         # config_x5 define A/B/PERDIDA_MAX_BT por activo; el core de X4 los usa

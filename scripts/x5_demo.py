@@ -4,14 +4,15 @@ x5_demo.py
 Narrador guiado del modo `X5 --recolectar --demo` (un solo activo).
 
 Se comparte entre X5 (orquestador) y X4 (backtest, corre como subproceso). Cada
-suceso relevante del pipeline tiene un ID único (D01, D02, ...). La PRIMERA vez
+suceso relevante del pipeline tiene un ID único (D01..D10). La PRIMERA vez
 que aparece un ID se imprime una explicación detallada de qué se hizo y se pausa
 (Enter). Las veces siguientes ese mismo evento no vuelve a imprimirse ni a
 pausar.
 
 Cuando ya se mostraron todos los eventos del BUCLE RECURRENTE (recálculo de
-soportes, elección de params EXPLORE, OE creadas, OA abiertas, OC cerradas y
-avance de mes) se anuncia que ese comportamiento se repetirá hasta la
+soportes, gráfico de la búsqueda, elección de params EXPLORE, OE creadas, OA
+abiertas, OC cerradas y avance de mes) se anuncia que ese comportamiento se
+repetirá hasta la
 convergencia; desde ahí solo los HITOS nuevos (EXPLOIT con modelo,
 entrenamiento, convergencia) vuelven a pausar.
 
@@ -22,6 +23,7 @@ lo ya visto.
 """
 import json
 import os
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -93,6 +95,16 @@ EVENTOS: dict[str, tuple] = {
         'primero y FT-Transformer al cruzar X5_MIN_TRADES_FTT.',
         'Desde el próximo ciclo, los tramos EXPLOIT ya usan este modelo recién '
         'entrenado: los params se van corrigiendo con lo aprendido.',
+    ]),
+    'D10': ('recurrente', 'Gráfico de soportes/resistencias de esta búsqueda', [
+        'Cada vez que se recalculan los soportes se guarda un PNG con los precios '
+        'que alimentaron la búsqueda (de t0 a tf, donde tf es el t simulado del '
+        'backtest) y los N niveles encontrados sobre ellos.',
+        'Los niveles bajo el precio de tf se dibujan en verde (soportes: ahí se '
+        'colocan los buy limit) y los que quedan sobre él en rojo (resistencias). '
+        'La línea negra es el precio en tf. El archivo queda en '
+        'resources/x5/demo_plots/{ACTIVO}/ con el ciclo, el N y el t en el nombre, '
+        'así que puedes revisar después cómo se movieron los soportes tramo a tramo.',
     ]),
     'D09': ('hito', 'Convergencia — fin del demo', [
         'El demo terminó: el activo alcanzó el umbral de OC objetivo o se '
@@ -190,8 +202,8 @@ class DemoNarrator:
         print()
         print(_DOBLE)
         print('  Ya viste todos los eventos del BUCLE RECURRENTE de X5:')
-        print('  recálculo de soportes, elección de params (EXPLORE), OE')
-        print('  creadas, OA abiertas, OC cerradas y avance de mes.')
+        print('  recálculo de soportes (con su gráfico), elección de params')
+        print('  (EXPLORE), OE creadas, OA abiertas, OC cerradas y avance de mes.')
         print()
         print('  Este comportamiento se repetirá durante las siguientes')
         print('  iteraciones hasta la convergencia. Desde aquí ya NO se pausará')
@@ -229,3 +241,26 @@ def esta_activo() -> bool:
 def evento(eid: str, **datos) -> None:
     if _NARRATOR is not None:
         _NARRATOR.evento(eid, **datos)
+
+
+def abrir_archivo(ruta) -> None:
+    """Abre un archivo generado por el demo (gráficos) en el visor del sistema.
+
+    Best-effort: si no hay entorno gráfico o el visor falla, el archivo igual quedó
+    guardado y su ruta ya se imprimió."""
+    if _NARRATOR is None or not getattr(cfg, 'X5_DEMO_ABRIR_PLOTS', True):
+        return
+    ruta = str(ruta)
+    if ruta.startswith('ERROR'):
+        return
+    try:
+        if sys.platform.startswith('win'):
+            os.startfile(ruta)  # noqa: S606 — visor por defecto de Windows
+        elif sys.platform == 'darwin':
+            subprocess.Popen(['open', ruta], stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        else:
+            subprocess.Popen(['xdg-open', ruta], stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+    except Exception:
+        pass

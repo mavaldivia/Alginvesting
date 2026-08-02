@@ -67,6 +67,12 @@ PERDIDA_MAX_BT = {
 delta_recalculo_soportes = 5    # días
 hora_recalculo           = 23   # hora UTC
 
+# Warm start: si ya existe una solución del combo (valor, N) en un t* <= t, se usa
+# como solución inicial del optimizador aunque los params del tramo hayan cambiado
+# (el delta adaptado NO se hereda: cada tramo parte del delta semilla).
+# False → cada recálculo arranca desde puntos aleatorios (mucho más lento).
+X5_WARM_START_SOPORTES = True
+
 # ─── Algoritmo de soportes — baseline ────────────────────────────────────────
 # K, N_EXP y LAMBDA son el punto de partida; X5 los varía dentro de X5_PARAM_RANGES.
 
