@@ -1387,10 +1387,13 @@ if __name__ == '__main__':
     if args.x5:
         # Modo X5: usa su config dedicada, no las versiones de X4 (--version se ignora).
         cfg = _cargar_config_x5()
-        # Modo demo (X5 --recolectar --demo): activa el narrador guiado en el
-        # subproceso; el activo y el sufijo del store demo llegan por env.
+        # Modo demo (X5 --recolectar --demo) o recolección oficial de un solo
+        # activo: activa el narrador guiado en el subproceso; el activo llega
+        # por env. X5_DEMO_PAUSAR='0' → mismos prints/gráficos pero sin pausas
+        # (recolección oficial, nunca debe detenerse esperando Enter).
         if os.environ.get('X5_DEMO_ACTIVO'):
-            x5_demo.activar(os.environ['X5_DEMO_ACTIVO'])
+            pausar = os.environ.get('X5_DEMO_PAUSAR', '1') != '0'
+            x5_demo.activar(os.environ['X5_DEMO_ACTIVO'], pausar=pausar)
         ejecutar_x5_ciclo(cfg, activo=args.activo)
     else:
         cfg = _cargar_config(args.version)

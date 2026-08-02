@@ -6,13 +6,20 @@ Surrogate model de Alginvesting. Aprende la relación:
 y optimiza config_params en inferencia para cada activo.
 
 Modos (3 + casilla --train):
-  python scripts/X5_macro_brain.py --recolectar   # genera datos: backtesting paralelo por activo + auto-entrena
+  python scripts/X5_macro_brain.py --recolectar   # genera datos + auto-entrena; pregunta el alcance al inicio
+  python scripts/X5_macro_brain.py --recolectar --demo  # recorrido guiado de 1 activo, store/modelo demo, con pausas
   python scripts/X5_macro_brain.py --infer         # recomienda params con el modelo actual → active_parameters.json
   python scripts/X5_macro_brain.py --infer --train # reentrena desde el store y luego recomienda
   python scripts/X5_macro_brain.py --status        # diagnóstico: n_trades y modelo activo por activo
 
 `--train` es una casilla, no un modo: solo tiene efecto junto a `--infer`
 (reentrena antes de recomendar). `--recolectar` ya entrena por su cuenta.
+
+`--recolectar` (sin --demo) pregunta al inicio el alcance: todos los activos
+en paralelo y en silencio (comportamiento histórico), o uno solo en un
+recorrido oficial guiado — mismos prints y gráficos detallados que --demo
+(D01..D09, narrador de x5_demo), pero sobre el store/modelo REALES del
+activo y sin pausas (Enter): nunca debe quedar esperando input.
 
 Fases de rollout:
   Fase 1 (TIPO_EJECUCION="est"): --recolectar llena el store con backtesting
@@ -1177,78 +1184,101 @@ def _demo_borrar_checkpoints(activo: str, cfg_x5) -> None:
           f'checkpoint/cache de backtest y gráficos borrados.')
 
 
-def _recolectar_demo() -> None:
+def _recolectar_preguntar_alcance() -> str:
+    """Al inicio de `--recolectar` (sin --demo): todos los activos en paralelo
+    y en silencio (comportamiento histórico), o uno solo en un recorrido
+    oficial guiado (mismos prints/gráficos que --demo, pero sin pausas).
+
+    Sin TTY (uso no interactivo / cron) cae a 'todos' para no romper ejecuciones
+    automatizadas existentes."""
+    if not sys.stdin or not sys.stdin.isatty():
+        return 'todos'
+    while True:
+        resp = input('\n  ¿Recolectar para todos los activos en paralelo, o '
+                     'para uno solo? (0 = todos, 1 = uno) [0/1]: ').strip()
+        if resp in ('0', '1'):
+            return 'todos' if resp == '0' else 'uno'
+        print('  Entrada inválida. Ingresa 0 o 1.')
+
+
+def _recolectar_guiado(activo: str, cfg_x5, n_ciclos: int, *, oficial: bool) -> None:
     """
     Recorrido guiado y detallado de X5 --recolectar sobre UN solo activo.
 
-    A diferencia de `_recolectar` (paralelo, silencioso), el demo:
-      - pregunta al inicio qué activo usar (lista numerada);
-      - luego pregunta siempre (0/1) si reiniciar ese activo desde cero o
-        continuar acumulando: reiniciar borra TODOS los checkpoints del
-        activo (store demo, estado del narrador, modelo demo, checkpoint/
-        cache/logs del backtest demo y gráficos); no reiniciar acumula sobre
-        lo que ya existía;
+    A diferencia de `_recolectar` (paralelo, silencioso), este recorrido:
       - corre los ciclos de forma SECUENCIAL, con el stdout/stdin de X4
-        heredado, para que el narrador (x5_demo) pueda pausar en cada suceso
-        nuevo (D01..D09) y explicarlo en detalle;
-      - trabaja sobre un store y un modelo DEMO aislados ({activo}_store_demo.csv
-        y models/{activo}_demo), sin tocar los datos reales.
+        heredado, para que el narrador (x5_demo) explique en detalle cada
+        suceso nuevo (D01..D09) y guarde el gráfico de cada búsqueda de
+        soportes;
+      - en --demo (oficial=False): trabaja sobre un store y modelo DEMO
+        aislados ({activo}_store_demo.csv y models/{activo}_demo), pregunta
+        si reiniciar desde cero, y PAUSA (Enter) en cada suceso nuevo;
+      - en recolección oficial de un activo (oficial=True): trabaja sobre el
+        store y modelo REALES del activo (sin sufijo, sin preguntar reinicio
+        — no se borra producción) y nunca pausa: --recolectar debe correr
+        hasta el final sin esperar input.
     """
     x4_path = Path(__file__).parent / 'X4_backtester.py'
     if not x4_path.exists():
         print(f'  X4_backtester.py no encontrado en {x4_path}')
         return
 
-    cfg_x5   = _cargar_config_x5()
-    activos  = cfg_x5.valores
-    n_ciclos = cfg_x5.N_CICLOS_BT
+    etiqueta_store = 'store' if oficial else 'store demo'
 
     print(f'\n{"═" * 72}')
-    print(f'  X5 --recolectar --demo  |  recorrido guiado paso a paso (1 activo)')
-    print(f'{"═" * 72}')
-    print('  Cada suceso nuevo del pipeline se explica con un ID único (D01..D09)')
-    print('  y se pausa la primera vez que aparece. Una vez visto el bucle')
-    print('  recurrente completo, deja de pausar salvo en hitos nuevos.')
-
-    activo = _demo_pedir_activo(activos)
-    if activo is None:
-        print('  Demo cancelado.')
-        return
-
-    # Namespace demo aislado (store + modelo). El env lo hereda el subproceso X4.
-    os.environ['X5_DEMO_SUFFIX'] = '_demo'
-    os.environ['X5_DEMO_ACTIVO'] = activo
-
-    store_demo = CARPETA_X5 / f'{activo}_store_demo.csv'
-    n_prev = _n_oc(_cargar_store(activo))
-    print(f'\n  Estado actual del demo de {activo}: {n_prev} OC en el store demo.')
-
-    if _demo_preguntar_reinicio():
-        _demo_borrar_checkpoints(activo, cfg_x5)
-        n_prev = 0
+    if oficial:
+        print(f'  X5 --recolectar (oficial, 1 activo)  |  activo: {activo}')
     else:
-        print(f'  Continuando: se acumulará sobre el checkpoint existente '
-              f'({n_prev} OC en el store demo).')
+        print(f'  X5 --recolectar --demo  |  recorrido guiado paso a paso (1 activo)')
+    print(f'{"═" * 72}')
+    if oficial:
+        print('  Mismo recorrido explicado que --demo (D01..D09): mismos prints')
+        print('  y gráficos, pero sobre datos reales y sin pausas (Enter).')
+    else:
+        print('  Cada suceso nuevo del pipeline se explica con un ID único (D01..D09)')
+        print('  y se pausa la primera vez que aparece. Una vez visto el bucle')
+        print('  recurrente completo, deja de pausar salvo en hitos nuevos.')
 
-    x5_demo.activar(activo)
+    # Namespace demo aislado (store + modelo) solo en --demo. El env lo hereda
+    # el subproceso X4; X5_DEMO_PAUSAR='0' → mismo narrador pero sin pausas.
+    if oficial:
+        os.environ.pop('X5_DEMO_SUFFIX', None)
+    else:
+        os.environ['X5_DEMO_SUFFIX'] = '_demo'
+    os.environ['X5_DEMO_ACTIVO'] = activo
+    os.environ['X5_DEMO_PAUSAR'] = '0' if oficial else '1'
 
-    print(f'\n  Activo demo: {activo}  |  ciclos máx: {n_ciclos}  '
+    store_path = CARPETA_X5 / f'{activo}_store{_demo_suf()}.csv'
+    n_prev = _n_oc(_cargar_store(activo))
+    print(f'\n  Estado actual de {activo}: {n_prev} OC en el {etiqueta_store}.')
+
+    if not oficial:
+        if _demo_preguntar_reinicio():
+            _demo_borrar_checkpoints(activo, cfg_x5)
+            n_prev = 0
+        else:
+            print(f'  Continuando: se acumulará sobre el checkpoint existente '
+                  f'({n_prev} OC en el store demo).')
+
+    x5_demo.activar(activo, pausar=not oficial)
+
+    print(f'\n  Activo: {activo}  |  ciclos máx: {n_ciclos}  '
           f'|  umbral train: {cfg.X5_MIN_TRADES_TRAIN} OC')
-    print(f'  Store demo: {store_demo.name}\n')
+    print(f'  {etiqueta_store.capitalize()}: {store_path.name}\n')
 
     for ciclo in range(1, n_ciclos + 1):
         print(f'\n{"─" * 72}')
-        print(f'  [demo] Iniciando ciclo {ciclo}/{n_ciclos} de {activo} '
+        print(f'  Iniciando ciclo {ciclo}/{n_ciclos} de {activo} '
               f'(X4 backtest desde el inicio)')
         print(f'{"─" * 72}')
         os.environ['X5_DEMO_CICLO'] = str(ciclo)  # queda en el nombre de los PNG
         cmd = [sys.executable, str(x4_path), '--x5', '--activo', activo]
-        proc = subprocess.run(cmd)  # stdio heredado → pausas del narrador en X4
+        proc = subprocess.run(cmd)  # stdio heredado → pausas del narrador en X4 (si aplica)
         n = _n_oc(_cargar_store(activo))
         if proc.returncode != 0:
-            print(f'  [demo] ciclo {ciclo}: X4 terminó con error (cód {proc.returncode}).')
+            print(f'  ciclo {ciclo}: X4 terminó con error (cód {proc.returncode}).')
             break
-        print(f'\n  [demo] ciclo {ciclo}/{n_ciclos} completado: {n} OC en el store demo.')
+        print(f'\n  ciclo {ciclo}/{n_ciclos} completado: {n} OC en el {etiqueta_store}.')
         if n >= cfg.X5_MIN_TRADES_TRAIN:
             x5_demo.evento('D08', activo=activo, n_oc=n,
                            umbral=cfg.X5_MIN_TRADES_TRAIN)
@@ -1257,11 +1287,32 @@ def _recolectar_demo() -> None:
             break
 
     n_fin = _n_oc(_cargar_store(activo))
-    x5_demo.evento('D09', activo=activo, n_oc=n_fin, store_demo=store_demo.name)
+    x5_demo.evento('D09', activo=activo, n_oc=n_fin, store_demo=store_path.name)
     print(f'\n{"═" * 72}')
-    print(f'  Demo finalizado para {activo}: {n_fin} OC en {store_demo.name}')
-    print(f'  (store y modelo demo aislados; tus datos reales quedaron intactos)')
+    if oficial:
+        print(f'  Recolección oficial finalizada para {activo}: '
+              f'{n_fin} OC en {store_path.name}')
+    else:
+        print(f'  Demo finalizado para {activo}: {n_fin} OC en {store_path.name}')
+        print(f'  (store y modelo demo aislados; tus datos reales quedaron intactos)')
     print(f'{"═" * 72}\n')
+
+
+def _recolectar_demo() -> None:
+    """Pregunta el activo (lista numerada) y corre el recorrido guiado en
+    modo --demo (store/modelo aislados, con pausas)."""
+    cfg_x5  = _cargar_config_x5()
+    activo = _demo_pedir_activo(cfg_x5.valores)
+    if activo is None:
+        print('  Demo cancelado.')
+        return
+    _recolectar_guiado(activo, cfg_x5, cfg_x5.N_CICLOS_BT, oficial=False)
+
+
+def _recolectar_uno_oficial(activo: str, cfg_x5) -> None:
+    """Corre el recorrido guiado sobre el store/modelo REALES de un activo
+    (sin pausas): misma narración y gráficos que --demo, en producción."""
+    _recolectar_guiado(activo, cfg_x5, cfg_x5.N_CICLOS_BT, oficial=True)
 
 
 # ─── CLI ──────────────────────────────────────────────────────────────────────
@@ -1272,7 +1323,8 @@ def main():
     )
     grp = parser.add_mutually_exclusive_group(required=True)
     grp.add_argument('--recolectar', action='store_true',
-                     help='Genera datos: backtesting paralelo por activo (X4 --x5) + auto-entrena')
+                     help='Genera datos (X4 --x5) + auto-entrena. Pregunta al inicio: '
+                          'todos los activos en paralelo, o uno solo en recorrido oficial guiado')
     grp.add_argument('--infer',      action='store_true',
                      help='Recomienda params con el modelo actual → active_parameters.json')
     grp.add_argument('--status',     action='store_true',
@@ -1292,8 +1344,15 @@ def main():
     if args.recolectar:
         if args.demo:
             _recolectar_demo()
-        else:
+        elif _recolectar_preguntar_alcance() == 'todos':
             _recolectar()
+        else:
+            cfg_x5 = _cargar_config_x5()
+            activo = _demo_pedir_activo(cfg_x5.valores)
+            if activo is None:
+                print('  Recolección cancelada.')
+            else:
+                _recolectar_uno_oficial(activo, cfg_x5)
         return
 
     # --infer (único modo de inferencia). --train (opcional) reentrena antes.

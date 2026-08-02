@@ -212,6 +212,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-02** — feat: X5 recolectar oficial 1 activo (guiado, sin pausas)
 - **2026-08-01** — fix: recálculo X5 no disparaba en acciones (hora_recalculo)
 - **2026-08-01** — fix: X5 cold start + prints demo trazables a config_x5.py
 - **2026-08-01** — fix: X5 demo — aísla Performance del namespace demo

@@ -106,11 +106,13 @@ EVENTOS: dict[str, tuple] = {
         'resources/x5/demo_plots/{ACTIVO}/ con el ciclo, el N y el t en el nombre, '
         'así que puedes revisar después cómo se movieron los soportes tramo a tramo.',
     ]),
-    'D09': ('hito', 'Convergencia — fin del demo', [
-        'El demo terminó: el activo alcanzó el umbral de OC objetivo o se '
-        'agotaron los ciclos configurados (N_CICLOS_BT).',
-        'El store demo y el modelo demo quedaron aislados de los datos reales '
-        '(sufijo _demo), así que nada de esto tocó tu store de producción.',
+    'D09': ('hito', 'Convergencia — fin de la recolección', [
+        'La recolección de este activo terminó: alcanzó el umbral de OC '
+        'objetivo o se agotaron los ciclos configurados (N_CICLOS_BT).',
+        'En --demo, el store y el modelo quedaron aislados de los datos reales '
+        '(sufijo _demo) y no tocaron tu store de producción. En recolección '
+        'oficial de un solo activo, en cambio, estos SÍ son el store y el '
+        'modelo reales del activo.',
     ]),
 }
 
@@ -149,8 +151,9 @@ def _fmt_datos(datos: dict) -> str:
 
 
 class DemoNarrator:
-    def __init__(self, activo: str):
+    def __init__(self, activo: str, pausar: bool = True):
         self.activo = activo
+        self.pausar = pausar
         self.path = cfg.CARPETA_X5 / f'{activo}_demo_state.json'
         self.seen: set[str] = set()
         self.announced = False
@@ -230,8 +233,11 @@ class DemoNarrator:
         sys.stdout.flush()
         self._pausa('  Presiona Enter para continuar sin pausas...')
 
-    @staticmethod
-    def _pausa(msg: str) -> None:
+    def _pausa(self, msg: str) -> None:
+        """En modo oficial (pausar=False) el narrador explica igual pero nunca
+        bloquea con input(): --recolectar de un activo no debe detenerse."""
+        if not self.pausar:
+            return
         if not sys.stdin or not sys.stdin.isatty():
             return
         try:
@@ -245,9 +251,9 @@ class DemoNarrator:
 _NARRATOR: DemoNarrator | None = None
 
 
-def activar(activo: str) -> DemoNarrator:
+def activar(activo: str, pausar: bool = True) -> DemoNarrator:
     global _NARRATOR
-    _NARRATOR = DemoNarrator(activo)
+    _NARRATOR = DemoNarrator(activo, pausar=pausar)
     return _NARRATOR
 
 

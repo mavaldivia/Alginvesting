@@ -312,9 +312,18 @@ b debe ser alpha * a, con alpha entre 0.3 y 0.7 >>> Es decir, samplea primero a 
 X5: en general, explica con peras y manzanas en los prints del modo demo (si hay una fecha o un valor, señala entre parentesis como se llama ese parametro en config_X5.py, etc)
 La idea es que el modo demo me ayude a entender super bien el funcionamiento
 ----------------------
-[WIP]
+[OK]
 /new_todo
 X5: homologar el modo demo con el modo productivo en --recolectar (asegurar, si es que ya está correcto)
+
+
+/new_todo
+X5: Cuando muestres "soportes recalculados" muestra
+OA: minimo y máximo precio
+OE: minimo y máximo precio
+En ese momento (t)
+
+
 
 /new_todo
 X5: Con todos los cambios y basado en x5_documento_extendido.pdf, genera 
