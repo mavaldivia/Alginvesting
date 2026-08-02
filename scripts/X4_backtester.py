@@ -180,7 +180,8 @@ def _ruta_plot_demo(activo: str, N: int, ts) -> Path | None:
     return carpeta / f'{activo}_c{ciclo}_N{N}_{stamp}.png'
 
 
-def _informar_recalculo(infos: list, ts_actual, demo: bool) -> None:
+def _informar_recalculo(infos: list, ts_actual, demo: bool,
+                        params_soporte: dict | None = None) -> None:
     """Reporta el rango de precios (t0 → tf) que alimentó cada búsqueda de soportes."""
     for info in infos:
         if not info:
@@ -198,6 +199,10 @@ def _informar_recalculo(infos: list, ts_actual, demo: bool) -> None:
         print(f'     precios usados : t0 = {info["t0"]}')
         print(f'                      tf = {info["tf"]}   ({info["n_velas"]} velas H1)')
         print(f'     N soportes     : {info["N"]}')
+        if params_soporte:
+            print(f'     params (tramo) : K={params_soporte["K"]:.4f}  '
+                  f'N_EXP={params_soporte["N_EXP"]:.4f}  '
+                  f'LAMBDA={params_soporte["LAMBDA"]:.6f}')
         print(f'     warm start     : {ws}')
         print(f'     FO             : {info["FO_inicial"]:.4e} → {info["FO_final"]:.4e}'
               f'   ({"convergió" if info["convergio"] else "sin converger"}, {info["duracion"]}s)')
@@ -239,7 +244,7 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
         infos = list(executor.map(_worker_recalcular, tasks))
 
-    _informar_recalculo(infos, ts_actual, demo)
+    _informar_recalculo(infos, ts_actual, demo, params_soporte)
 
     # Cargar soportes recalculados desde cache bt
     for activo in cfg.valores:
@@ -299,6 +304,16 @@ def _evt(tipo: str, activo: str, ts, cfg, usa_intravela: bool = False, **kwargs)
     return e
 
 
+def _id_orden(activo: str, ts_apertura, precio_ap: float) -> str:
+    """ID determinístico de una orden a partir de su momento y precio de apertura.
+
+    Se puede reconstruir tanto al abrir la OA (para el print OE→OA) como al
+    cerrarla (OA→OC, vía `_registrar_trade`) sin guardar estado adicional: mismo
+    `ts_apertura` + mismo `precio_ap` → mismo id."""
+    ts_ap = pd.Timestamp(ts_apertura)
+    return f"{activo}_{ts_ap.strftime('%Y%m%dT%H%M')}_{precio_ap:.1f}"
+
+
 def _registrar_trade(pos: dict, precio_ap: float, precio_cierre: float,
                      motivo: str, ts_cierre, activo: str, N: int,
                      capital_estado: float, cfg) -> dict:
@@ -308,8 +323,7 @@ def _registrar_trade(pos: dict, precio_ap: float, precio_cierre: float,
     units = cfg.UNITS[activo]
     L = lote * units
     retorno_usd = (precio_cierre - precio_ap) * L
-    ts_ap = pd.Timestamp(pos['ts_apertura'])
-    trade_id = f"{activo}_{ts_ap.strftime('%Y%m%dT%H%M')}_{precio_ap:.1f}"
+    trade_id = _id_orden(activo, pos['ts_apertura'], precio_ap)
     return {
         'id': trade_id,
         'version': cfg.version,
@@ -402,7 +416,10 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
                                precio=precio_oe, precio_ejecucion=precio_gap,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=True))
             if x5_demo.esta_activo():
-                x5_demo.evento('D04', activo=activo, ts=str(ts),
+                _id = _id_orden(activo, ts, precio_gap)
+                print(f'  [OE→OA] {activo}  id={_id}  ejecutada @ {precio_gap:.2f} '
+                      f'(gap)  ts={ts}')
+                x5_demo.evento('D04', activo=activo, ts=str(ts), id=_id,
                                precio_ejecucion=precio_gap, es_gap=True)
 
     # Caso normal: OEs por debajo del Open
@@ -436,7 +453,9 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
                                precio=precio_oe, precio_ejecucion=precio_oe,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=False))
             if x5_demo.esta_activo():
-                x5_demo.evento('D04', activo=activo, ts=str(ts),
+                _id = _id_orden(activo, ts, precio_oe)
+                print(f'  [OE→OA] {activo}  id={_id}  ejecutada @ {precio_oe:.2f}  ts={ts}')
+                x5_demo.evento('D04', activo=activo, ts=str(ts), id=_id,
                                precio_ejecucion=precio_oe, es_gap=False)
 
 
@@ -498,7 +517,9 @@ def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
             if x5_demo.esta_activo():
-                x5_demo.evento('D05', activo=activo, ts=str(ts),
+                print(f'  [OA→OC] {activo}  id={_trade["id"]}  motivo=perdida_max '
+                      f'retorno=${retorno_usd:.2f}  ts={ts}')
+                x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
                                motivo=_trade['motivo_cierre'],
                                retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
@@ -533,7 +554,9 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
             if x5_demo.esta_activo():
-                x5_demo.evento('D05', activo=activo, ts=str(ts),
+                print(f'  [OA→OC] {activo}  id={_trade["id"]}  motivo=trailing_stop '
+                      f'retorno=${retorno_usd:.2f}  ts={ts}')
+                x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
                                motivo=_trade['motivo_cierre'],
                                retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,

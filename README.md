@@ -212,6 +212,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-01** — feat: X5 demo — prints por cada cambio de soportes y ciclo OE→OA→OC
 - **2026-08-01** — feat: X5 demo — pregunta reinicio 0/1 y borra todos los checkpoints
 - **2026-08-01** — fix: X1 indica activo en cierre externo
 - **2026-08-01** — feat: warm start por combo (valor, N, t*) en X0 y X5 + gráfico de cada búsqueda de soportes y rango `t0 → tf` visible en el modo demo
