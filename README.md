@@ -212,6 +212,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-01** — fix: X5 cold start + prints demo trazables a config_x5.py
 - **2026-08-01** — fix: X5 demo — aísla Performance del namespace demo
 - **2026-08-01** — fix: B como fracción de A en sampling aleatorio de X5
 - **2026-08-01** — feat: X5 demo — prints por cada cambio de soportes y ciclo OE→OA→OC

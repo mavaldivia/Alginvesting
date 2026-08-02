@@ -116,6 +116,22 @@ EVENTOS: dict[str, tuple] = {
 
 RECURRENTES = {eid for eid, (cat, *_) in EVENTOS.items() if cat == 'recurrente'}
 
+# Referencia de dónde vive cada valor que puede aparecer en la línea "Datos:" de
+# un evento — para que un número o fecha impreso siempre se pueda rastrear hasta
+# el parámetro de configuración que lo produce.
+_PARAM_REF: dict[str, str] = {
+    'desde':         'config.py: FECHA_INICIAL',
+    'K':             'config_x5.py: K',
+    'N_EXP':         'config_x5.py: N_EXP',
+    'LAMBDA':        'config_x5.py: LAMBDA',
+    'A':             'config_x5.py: A',
+    'B':             'config_x5.py: B',
+    'N':             'config_x5.py: n_sizes_ejecucion (rango en X5_PARAM_RANGES)',
+    'PERDIDA_MAX':   'config_x5.py: X5_PARAM_RANGES["PERDIDA_MAX"] (baseline: PERDIDA_MAX_BT)',
+    'lote':          'config_x5.py: LOTAJES_M × MIN_LOTAJES',
+    'umbral':        'config.py: X5_MIN_TRADES_TRAIN',
+}
+
 
 def _envolver(txt: str) -> str:
     return textwrap.fill(txt, width=_ANCHO + 4,
@@ -127,7 +143,8 @@ def _fmt_datos(datos: dict) -> str:
     for k, v in datos.items():
         if isinstance(v, float):
             v = f'{v:.4f}'
-        partes.append(f'{k}={v}')
+        ref = _PARAM_REF.get(k)
+        partes.append(f'{k}={v}' + (f' ({ref})' if ref else ''))
     return '  '.join(partes)
 
 

@@ -306,6 +306,11 @@ Además, manten en los prints todo lo que está actualmente. Necesito que el mod
 X5: En los parámetros, al inicializar aleatorio, tanto en el modo recolectar y modo recolectar / demo,
 b debe ser alpha * a, con alpha entre 0.3 y 0.7 >>> Es decir, samplea primero a en su rango y luego b respetando esto
 
+
+[OK]
+/new_todo
+X5: en general, explica con peras y manzanas en los prints del modo demo (si hay una fecha o un valor, señala entre parentesis como se llama ese parametro en config_X5.py, etc)
+La idea es que el modo demo me ayude a entender super bien el funcionamiento
 ----------------------
 [WIP]
 /new_todo

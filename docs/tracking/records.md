@@ -1087,3 +1087,11 @@ Mauricio: invocó `/new_todo` — "X5: homologar el modo demo con el modo produc
 Claude: revisó todo el pipeline de aislamiento demo vs. producción en `--recolectar` (store, `_model_dir`, checkpoint/cache/equity de X4 vía `X5_DEMO_SUFFIX`, plots). Todo ya estaba correctamente aislado bajo sufijo `_demo`, excepto `_guardar_performance` en `X5_macro_brain.py`, que escribía siempre en `{activo}_performance.json` sin sufijo, mezclando el historial de métricas del demo con el de producción.
 Claude: corrigió `_guardar_performance` para usar `{activo}{_demo_suf()}_performance.json` (mismo patrón que `_model_dir`) y actualizó `_demo_borrar_checkpoints` para que también borre `{activo}_demo_performance.json` al reiniciar el demo. Verificó compilación (`py_compile`) y registró el hallazgo/fix en `docs/tracking/done.md` (sección X5).
 (Cierre: 2026-08-01 20:55)
+
+## SECCIÓN 116
+Mauricio: reportó vía `/new_todo` que en X5, el mensaje "Cold start: recalculando soportes hasta ..." solo mostraba el instante `hasta` (t del backtest), sin indicar desde cuándo se tomaban los precios.
+Claude: ubicó el print en `X4_backtester.py` (línea del cold start) y lo corrigió para mostrar también `desde {FECHA_INICIAL}` (constante global de `config.py`), igual que el rango que ya reporta X0. Registrado en `done.md` → X5.
+
+Mauricio: pidió, en general, que los prints del modo demo de X5 sean más didácticos — que cuando aparezca una fecha o un valor, se indique entre paréntesis a qué parámetro de `config_x5.py` (u otro config) corresponde, para entender mejor el funcionamiento.
+Claude: agregó un dict `_PARAM_REF` en `x5_demo.py` que anota automáticamente la línea "Datos:" de cada evento con su origen (`K`/`N_EXP`/`LAMBDA`/`A`/`B`/`N`/`PERDIDA_MAX`/`lote` → `config_x5.py`; `desde`/`umbral` → `config.py`). El evento D01 ahora incluye `desde=FECHA_INICIAL` en cold start y en recálculo periódico. La línea de progreso EXPLORE/EXPLOIT en `X4_backtester.py` (`_aplicar_seleccion_x5`) dejó las abreviaturas `LM`/`PMAX` por los nombres reales `LOTAJES_M`/`PERDIDA_MAX`. Registrado en `done.md` → X5.
+(Cierre: 2026-08-01 21:35)

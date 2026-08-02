@@ -1010,14 +1010,17 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         if x5_mode:
             _aplicar_seleccion_x5(cfg, estado, ts_cold, datos_h1,
                                   {}, _carpeta_fundamentals_x5, _min_lotajes_x5)
-        print(f'\nCold start: recalculando soportes hasta {ts_cold} ...')
+        import config as _gc
+        print(f'\nCold start: recalculando soportes desde {_gc.FECHA_INICIAL} '
+              f'hasta {ts_cold} ...')
         print('(puede tardar varios minutos)')
         _infos = _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
         _guardar_checkpoint(estado, cfg)
         print('Cold start completado.\n')
         if x5_demo.esta_activo():
             _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
-            x5_demo.evento('D01', tipo='cold_start', hasta=str(ts_cold), n_soportes=_n_sop)
+            x5_demo.evento('D01', tipo='cold_start', desde=_gc.FECHA_INICIAL,
+                           hasta=str(ts_cold), n_soportes=_n_sop)
             _demo_evento_plot(_infos, ts_cold)
 
     ts_ultimo = (pd.Timestamp(estado['ts_ultimo_procesado'])
@@ -1070,8 +1073,10 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                 print(f'  [{ts}] Recalculando soportes...')
                 _infos = _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
                 if x5_demo.esta_activo():
+                    import config as _gc
                     _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
-                    x5_demo.evento('D01', tipo='periodico', hasta=str(ts), n_soportes=_n_sop)
+                    x5_demo.evento('D01', tipo='periodico', desde=_gc.FECHA_INICIAL,
+                                   hasta=str(ts), n_soportes=_n_sop)
                     _demo_evento_plot(_infos, ts)
                 estado['ts_ultimo_procesado'] = ts.isoformat()
                 _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
@@ -1295,7 +1300,8 @@ def _aplicar_seleccion_x5(cfg, estado: dict, ts: pd.Timestamp, datos_h1: dict,
         p = params[activo]
         print(f'  [{ts}] {tipos[activo]:<13} {activo}: N={p["n_sizes_ejecucion"]} '
               f'K={p["K"]:.3f} N_EXP={p["N_EXP"]:.3f} LAMBDA={p["LAMBDA"]:.5f} '
-              f'A={p["A"]:.2f} B={p["B"]:.2f} LM={p["LOTAJES_M"]} PMAX={p["PERDIDA_MAX"]:.0f}')
+              f'A={p["A"]:.2f} B={p["B"]:.2f} LOTAJES_M={p["LOTAJES_M"]} '
+              f'PERDIDA_MAX={p["PERDIDA_MAX"]:.0f}')
         if x5_demo.esta_activo():
             eid = 'D02' if tipos[activo] == 'EXPLORE' else 'D06'
             x5_demo.evento(eid, activo=activo, ts=str(ts), modo=tipos[activo],
