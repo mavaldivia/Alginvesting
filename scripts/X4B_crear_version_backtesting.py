@@ -50,8 +50,9 @@ MARGEN_LIBRE_MIN_BT = 50.0     # USD — buffer mínimo de margen libre para abr
 STOP_OUT_LEVEL      = 50       # % — margin level mínimo antes de declarar stop-out y detener la simulación
 
 # ─── Recálculo de soportes ───────────────────────────────────────────────────
+# Dispara en la primera vela disponible tras cumplirse el umbral (no exige una
+# hora exacta: acciones sin sesión 24h no siempre tienen vela en cualquier hora).
 delta_recalculo_soportes = 1    # días (puede ser fraccionario, ej. 0.5 = 12h)
-hora_recalculo           = 23   # hora UTC (aplica solo cuando delta_recalculo_soportes es entero)
 
 # ─── Algoritmo de soportes (parámetros de X0 fijados para esta versión) ─────
 K     = 1

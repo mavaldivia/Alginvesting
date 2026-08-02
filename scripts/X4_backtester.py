@@ -1053,16 +1053,16 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         if ts_ultimo is not None and ts <= ts_ultimo:
             continue
 
-        # Check recálculo de soportes
+        # Check recálculo de soportes: dispara en la primera vela disponible tras
+        # cumplirse el umbral de días, sin exigir una hora exacta — activos sin
+        # sesión 24h (acciones) pueden no tener velas a una hora dada, y exigirla
+        # dejaba el recálculo sin disparar nunca para esos activos.
         ts_rec = (pd.Timestamp(estado['ts_ultimo_recalculo'])
                   if estado['ts_ultimo_recalculo'] else None)
         if ts_rec is not None:
             horas = (ts - ts_rec).total_seconds() / 3600
             umbral = cfg.delta_recalculo_soportes * 24
-            if cfg.delta_recalculo_soportes == int(cfg.delta_recalculo_soportes):
-                disparar = horas >= umbral and ts.hour == cfg.hora_recalculo
-            else:
-                disparar = horas >= umbral
+            disparar = horas >= umbral
             if disparar:
                 # x5: cada tramo (acoplado a la cadencia de recálculo) regenera
                 # params antes de recalcular soportes cold-start hasta t.

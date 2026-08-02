@@ -63,9 +63,10 @@ PERDIDA_MAX_BT = {
 # En modo --x5 esta cadencia también gobierna la REGENERACIÓN de params: cada
 # `delta_recalculo_soportes` días se eligen params nuevos (explore aleatorio o
 # exploit as-of-t) y se recalculan los soportes cold-start hasta t con ellos.
+# Dispara en la primera vela disponible tras cumplirse el umbral (no exige una
+# hora exacta: acciones sin sesión 24h no siempre tienen vela en cualquier hora).
 
 delta_recalculo_soportes = 5    # días
-hora_recalculo           = 23   # hora UTC
 
 # Warm start: si ya existe una solución del combo (valor, N) en un t* <= t, se usa
 # como solución inicial del optimizador aunque los params del tramo hayan cambiado
