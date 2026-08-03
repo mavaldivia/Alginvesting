@@ -272,9 +272,16 @@ def evento(eid: str, **datos) -> None:
 def abrir_archivo(ruta) -> None:
     """Abre un archivo generado por el demo (gráficos) en el visor del sistema.
 
+    Solo en modo pausado (--demo interactivo): en modo oficial (pausar=False)
+    los ciclos corren sin pausa y nadie mira cada gráfico en tiempo real, así
+    que abrirlos solo acumula ventanas de visor que quedan con lock sobre el
+    archivo — y eso rompe el `shutil.rmtree(demo_plots/{activo})` del próximo
+    reinicio (PermissionError / WinError 5, no relacionado con OneDrive).
+
     Best-effort: si no hay entorno gráfico o el visor falla, el archivo igual quedó
     guardado y su ruta ya se imprimió."""
-    if _NARRATOR is None or not getattr(cfg, 'X5_DEMO_ABRIR_PLOTS', True):
+    if (_NARRATOR is None or not _NARRATOR.pausar
+            or not getattr(cfg, 'X5_DEMO_ABRIR_PLOTS', True)):
         return
     ruta = str(ruta)
     if ruta.startswith('ERROR'):
