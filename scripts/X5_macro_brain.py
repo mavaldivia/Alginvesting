@@ -1054,20 +1054,14 @@ def _worker_recolectar_activo(activo: str, x4_path: Path, n_ciclos: int) -> tupl
 def _cargar_config_x5():
     """Config dedicada del pipeline X5 (independiente de las versiones de X4).
 
-    resources/x5/config_x5.py está en .gitignore. En una máquina recién clonada
-    no existe, así que se crea por defecto copiando la plantilla versionada
-    scripts/config_x5_default.py (junto con la carpeta resources/x5/).
+    Se carga directo desde scripts/config_x5_default.py (versionada en git,
+    igual que config.py) — sin copia a resources/x5/, para que un fix en la
+    plantilla llegue a todas las máquinas con un simple git pull.
     """
-    import importlib.util, shutil
-    p = cfg.BASE_DIR / 'resources' / 'x5' / 'config_x5.py'
+    import importlib.util
+    p = Path(__file__).parent / 'config_x5_default.py'
     if not p.exists():
-        plantilla = Path(__file__).parent / 'config_x5_default.py'
-        if not plantilla.exists():
-            raise FileNotFoundError(
-                f'Config X5 no encontrada y sin plantilla por defecto: {plantilla}')
-        p.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(plantilla, p)
-        print(f'  Config X5 no existía; creada por defecto desde plantilla → {p}')
+        raise FileNotFoundError(f'Config X5 no encontrada: {p}')
     spec = importlib.util.spec_from_file_location('config_x5', p)
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
@@ -1173,10 +1167,16 @@ def _demo_preguntar_reinicio(activo: str | None = None) -> bool:
         print('  Entrada inválida. Ingresa 0 o 1.')
 
 
-def _borrar_resistente(fn, *args, intentos: int = 5, espera: float = 0.4) -> None:
+def _borrar_resistente(fn, *args, intentos: int = 10, espera: float = 0.5,
+                        espera_max: float = 5.0) -> None:
     """Reintenta un borrado (unlink/rmtree) que puede fallar transitoriamente
     por locks de OneDrive/antivirus en Windows sobre archivos recién
-    modificados (PermissionError / WinError 5)."""
+    modificados (PermissionError / WinError 5).
+
+    Backoff exponencial (0.5s, 1s, 2s, 4s, 5s, 5s...) hasta ~35s totales: el
+    lock de OneDrive sobre un archivo recién escrito puede tardar bastante más
+    que 1-2s en soltarse (confirmado en la práctica: 5 intentos a 0.4s no
+    alcanzaban y solo se resolvía borrando manualmente minutos después)."""
     for i in range(intentos):
         try:
             fn(*args)
@@ -1184,7 +1184,7 @@ def _borrar_resistente(fn, *args, intentos: int = 5, espera: float = 0.4) -> Non
         except PermissionError:
             if i == intentos - 1:
                 raise
-            time.sleep(espera)
+            time.sleep(min(espera * (2 ** i), espera_max))
 
 
 def _borrar_checkpoints_activo(activo: str, cfg_x5, suf: str) -> None:

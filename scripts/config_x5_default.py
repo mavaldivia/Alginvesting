@@ -1,14 +1,12 @@
 # scripts/config_x5_default.py
-# PLANTILLA por defecto de la config del pipeline de X5 (versionada en git).
-# resources/x5/config_x5.py está en .gitignore, por lo que no llega al clonar en
-# otra máquina. X5/X4 copian este archivo a resources/x5/config_x5.py en el primer
-# arranque si no existe (las rutas basadas en __file__ se resuelven en el destino).
+# Config del pipeline de X5 (versionada en git — se carga directo desde aquí,
+# igual que config.py, sin copia a resources/x5/: cualquier fix llega a todas
+# las máquinas con un simple git pull).
 # No importa config.py — independiente de la config de producción.
-# X4 en modo --x5 lee exclusivamente el archivo copiado en resources/x5/.
 
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent.parent.parent  # raíz del proyecto
+BASE_DIR = Path(__file__).parent.parent  # raíz del proyecto
 
 # ─── Versión ─────────────────────────────────────────────────────────────────
 # Identificador del pipeline (X4 --x5 lo usa en prints/checkpoints). No es una
@@ -175,7 +173,7 @@ X5_PARAM_RANGES = {
 
 # ─── Rutas ───────────────────────────────────────────────────────────────────
 
-_X5_DIR             = Path(__file__).parent
+_X5_DIR             = BASE_DIR / 'resources' / 'x5'
 CARPETA_STORE       = _X5_DIR                    # {ACTIVO}_store.csv
 CARPETA_MODELOS     = _X5_DIR / 'models'
 CARPETA_N_BT        = _X5_DIR / 'conjuntos_N'   # cache de soportes BT para este pipeline

@@ -116,7 +116,7 @@ scripts/
   X5_macro_brain.py      # Surrogate model: entrena sobre el store y optimiza params
   x5_demo.py             # Narrador guiado del modo --recolectar --demo (IDs D01-D10)
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
-  config_x5_default.py   # Plantilla versionada de resources/x5/config_x5.py
+  config_x5_default.py   # Config del pipeline X5 (versionada, se carga directo — sin copia a resources/)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
@@ -128,7 +128,7 @@ resources/               # Todo generado en Windows, fuera de git
   x2/                    # scores.json, x2_history.json, x2_last_run.json
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
-  x5/                    # Store por activo, models/, config_x5.py, bt_{ACTIVO}/, demo_plots/
+  x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
 docs/
   context/               # decisiones.md, vision.md, guías de git, documentacion_V0.md
   plans/                 # Planes de implementación por módulo (x2, x3, x4, x5)
@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-02** — fix: config_x5_default.py se carga directo (sin copia a resources/x5/) + backoff exponencial en borrado de checkpoints ante lock de OneDrive
 - **2026-08-02** — fix: X5 no abre el visor de imágenes en modo oficial (evita locks de archivo que rompían el borrado de checkpoints)
 - **2026-08-02** — fix: X5 reintento con backoff en borrado de checkpoints ante lock transitorio de OneDrive (WinError 5)
 - **2026-08-02** — fix: X5 lotaje mínimo fijo (LOTAJES_M=1), fixes intra-vela (store bias), print A→C y reinicio simétrico demo/oficial

@@ -50,21 +50,13 @@ def _cargar_config_x5():
     exploración, baselines). Independiente de las versiones V0/V1/... de X4:
     la recolección de X5 no tiene relación con ellas.
 
-    resources/x5/config_x5.py está en .gitignore; si no existe (máquina recién
-    clonada) se crea por defecto desde la plantilla versionada
-    scripts/config_x5_default.py.
+    Se carga directo desde scripts/config_x5_default.py (versionada en git,
+    igual que config.py) — sin copia a resources/x5/, para que un fix en la
+    plantilla llegue a todas las máquinas con un simple git pull.
     """
-    import shutil
-    base_dir = Path(__file__).parent.parent
-    config_path = base_dir / 'resources' / 'x5' / 'config_x5.py'
+    config_path = Path(__file__).parent / 'config_x5_default.py'
     if not config_path.exists():
-        plantilla = Path(__file__).parent / 'config_x5_default.py'
-        if not plantilla.exists():
-            raise FileNotFoundError(
-                f'Config X5 no encontrada y sin plantilla por defecto: {plantilla}')
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(plantilla, config_path)
-        print(f'  Config X5 no existía; creada por defecto desde plantilla → {config_path}')
+        raise FileNotFoundError(f'Config X5 no encontrada: {config_path}')
     spec = importlib.util.spec_from_file_location('config_x5', config_path)
     cfg = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cfg)
