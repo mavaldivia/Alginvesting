@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-04** — fix: X1/X0 — json_act guarda de forma atómica (evita leer JSON truncado por escritura concurrente) + retry ante JSONDecodeError en X1
 - **2026-08-04** — fix: X5 --recolectar retoma el checkpoint si una pasada quedó interrumpida (antes reiniciaba a fecha_inicio siempre, ignorando la opción "no reiniciar") + persistir stop_out en checkpoint
 - **2026-08-02** — fix: config_x5_default.py se carga directo (sin copia a resources/x5/) + backoff exponencial en borrado de checkpoints ante lock de OneDrive
 - **2026-08-02** — fix: X5 no abre el visor de imágenes en modo oficial (evita locks de archivo que rompían el borrado de checkpoints)

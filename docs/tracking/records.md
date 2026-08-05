@@ -1156,3 +1156,8 @@ Claude: investigó y encontró que `ejecutar_x5_ciclo` (`X4_backtester.py`) llam
 Mauricio: confirmó que pertenece a la sección X5, pero pidió arreglarlo: quiere que retome desde donde quedó si no reinicia.
 Claude: modificó `ejecutar_backtest` para decidir el reset dinámicamente — pasada nueva solo si no hay checkpoint, está en `stop_out`, o ya llegó al final de los datos; si quedó a mitad de camino, retoma desde ahí (mismo capital/soportes/OE/OA). Corrigió además que `_guardar_checkpoint` no persistía el flag `stop_out`. Actualizó docstrings, `docs/plans/x5_plan.md`, agregó la decisión en `docs/context/decisiones.md` (2026-08-04) y registró el fix en `done.md` → sección X5.
 (Cierre: 2026-08-04 21:25)
+
+## SECCIÓN 125
+Mauricio: reportó (vía `/new_todo`, sección X1) un error intermitente de `json_act` en Windows al leer soportes — `Expecting value: line 1 column 1 (char 0)` para distintos activos (BTCUSD, NVDA, AMZN), con la app saltando el activo ese ciclo.
+Claude: identificó la causa raíz — `json_act` en modo `'save'` (X0) abría el archivo con `open(path, 'w')`, que trunca a 0 bytes antes de escribir; si X1 leía el JSON justo en esa ventana (agravada por vivir dentro de OneDrive) recibía un archivo vacío. Corrigió `json_act` en X0 y X1 para guardar de forma atómica (escribe a `.tmp` y hace `os.replace()`), y amplió el retry de `leer_lista_N` (X1) para reintentar también ante `JSONDecodeError`/`PermissionError`/`OSError`, no solo si el archivo no existe. Verificado con `py_compile`. Registrado en `done.md` → sección X1.
+(Cierre: 2026-08-04 21:51)

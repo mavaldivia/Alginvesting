@@ -37,13 +37,20 @@ from config import (
 # ─── Utilidades ───────────────────────────────────────────────────────────────
 
 def json_act(file_path: str, variable=None, mode: str = 'open'):
-    """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON."""
+    """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON.
+
+    El guardado es atómico (escribe a un .tmp y hace os.replace) para que un lector
+    concurrente nunca vea el archivo truncado a mitad de escritura.
+    """
     path = f'{file_path}.json'
     try:
-        with open(path, 'w' if mode == 'save' else 'r') as f:
-            if mode == 'save':
+        if mode == 'save':
+            tmp_path = f'{path}.tmp'
+            with open(tmp_path, 'w') as f:
                 json.dump(sorted(variable), f)
-                return None
+            os.replace(tmp_path, path)
+            return None
+        with open(path, 'r') as f:
             return json.load(f)
     except Exception as e:
         print(f'Error json_act ({mode}, {path}): {e}')
@@ -53,15 +60,20 @@ def json_act(file_path: str, variable=None, mode: str = 'open'):
 def leer_lista_N(valor: str, N: int) -> list:
     """
     Lee el conjunto de N soportes desde el JSON generado por X0.
-    Reintenta hasta 10 veces con pausa de 2s, por si X0 está escribiendo simultáneamente.
+    Reintenta hasta 10 veces con pausa de 2s, por si X0 está escribiendo simultáneamente
+    (archivo aún no existe, o existe pero X0 lo está reescribiendo — OneDrive puede
+    extender la ventana de lock/sync más allá de la propia escritura del proceso).
     """
     json_path = CARPETA_N_PROD / f'{valor}_{N}.json'
     for _ in range(10):
         if json_path.exists():
-            lista_N = json_act(str(CARPETA_N_PROD / f'{valor}_{N}'))
-            return [round(n, 2) for n in lista_N]
+            try:
+                lista_N = json_act(str(CARPETA_N_PROD / f'{valor}_{N}'))
+                return [round(n, 2) for n in lista_N]
+            except (json.JSONDecodeError, PermissionError, OSError):
+                pass
         time.sleep(2)
-    raise FileNotFoundError(f'No se encontró {json_path} después de 10 intentos')
+    raise FileNotFoundError(f'No se encontró (o no se pudo leer) {json_path} después de 10 intentos')
 
 
 # ─── Funciones MT5 ────────────────────────────────────────────────────────────

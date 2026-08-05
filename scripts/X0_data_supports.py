@@ -58,13 +58,20 @@ from X3_technical_features import actualizar_features as _x3_actualizar_features
 # ─── Utilidades ───────────────────────────────────────────────────────────────
 
 def json_act(file_path: str, variable=None, mode: str = 'open'):
-    """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON."""
+    """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON.
+
+    El guardado es atómico (escribe a un .tmp y hace os.replace) para que un lector
+    concurrente (X1) nunca vea el archivo truncado a mitad de escritura.
+    """
     path = f'{file_path}.json'
     try:
-        with open(path, 'w' if mode == 'save' else 'r') as f:
-            if mode == 'save':
+        if mode == 'save':
+            tmp_path = f'{path}.tmp'
+            with open(tmp_path, 'w') as f:
                 json.dump(sorted(variable), f)
-                return None
+            os.replace(tmp_path, path)
+            return None
+        with open(path, 'r') as f:
             return json.load(f)
     except Exception as e:
         print(f'Error json_act ({mode}, {path}): {e}')
