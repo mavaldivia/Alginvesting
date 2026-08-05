@@ -124,6 +124,7 @@ def _guardar_checkpoint(estado: dict, cfg):
         'ts_ultimo_procesado': estado['ts_ultimo_procesado'],
         'ts_ultimo_recalculo': estado['ts_ultimo_recalculo'],
         'capital': estado['capital'],
+        'stop_out': estado.get('stop_out', False),
         'por_activo': {
             activo: {
                 'soportes': sorted(est_a['soportes']),
@@ -946,18 +947,6 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
     cfg.CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_LOGS_BT.mkdir(parents=True, exist_ok=True)
 
-    # En x5 cada ciclo re-optimiza con sus propios params: se descarta el delta
-    # adaptado del ciclo anterior (parte del delta semilla). El cache de soportes
-    # se conserva si X5_WARM_START_SOPORTES: la solución de (valor, N) en t* sirve
-    # como punto de partida, aunque los params del tramo hayan cambiado.
-    if x5_mode and reset:
-        patrones = ['*_bt_delta.json']
-        if not getattr(cfg, 'X5_WARM_START_SOPORTES', True):
-            patrones.append('*_bt.json')
-        for _pat in patrones:
-            for _f in cfg.CARPETA_N_BT.glob(_pat):
-                _f.unlink()
-
     if x5_mode:
         import config as _gc_x5
         _carpeta_fundamentals_x5 = _gc_x5.CARPETA_FUNDAMENTALS
@@ -982,11 +971,42 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         else:
             print(f'  {activo}: {len(datos_m1[activo])} velas M1 disponibles.')
 
+    # En modo x5 el llamador (X5 --recolectar) ya no impone el reset: se resume
+    # el checkpoint si quedó a mitad de una pasada (proceso interrumpido) y el
+    # usuario eligió "no reiniciar"; se arranca una pasada nueva si la anterior
+    # ya llegó al final de los datos disponibles, terminó en stop-out, o no
+    # existe checkpoint. Así una pasada completa sigue siendo independiente
+    # (diversidad de params entre ciclos), pero una interrupción a mitad de
+    # camino ya no se descarta.
+    if x5_mode:
+        _ckpt_x5 = _cargar_checkpoint(cfg)
+        _ts_max = max(df.index.max() for df in datos_h1.values())
+        _ts_ckpt = (pd.Timestamp(_ckpt_x5['ts_ultimo_procesado'])
+                    if _ckpt_x5 and _ckpt_x5.get('ts_ultimo_procesado') else None)
+        reset = (_ckpt_x5 is None or _ckpt_x5.get('stop_out')
+                 or _ts_ckpt is None or _ts_ckpt >= _ts_max)
+
+    # En x5 cada pasada nueva re-optimiza con sus propios params: se descarta
+    # el delta adaptado de la pasada anterior (parte del delta semilla). El
+    # cache de soportes se conserva si X5_WARM_START_SOPORTES: la solución de
+    # (valor, N) en t* sirve como punto de partida, aunque los params del
+    # tramo hayan cambiado.
+    if x5_mode and reset:
+        patrones = ['*_bt_delta.json']
+        if not getattr(cfg, 'X5_WARM_START_SOPORTES', True):
+            patrones.append('*_bt.json')
+        for _pat in patrones:
+            for _f in cfg.CARPETA_N_BT.glob(_pat):
+                _f.unlink()
+
     # Estado inicial
     estado = None
     if not reset:
-        print('\nBuscando checkpoint...')
-        estado = _cargar_checkpoint(cfg)
+        if x5_mode:
+            estado = _ckpt_x5  # ya cargado (e impreso) más arriba
+        else:
+            print('\nBuscando checkpoint...')
+            estado = _cargar_checkpoint(cfg)
 
     if estado is None:
         print('Iniciando desde cero.')
@@ -1368,7 +1388,9 @@ def ejecutar_x5_ciclo(cfg, activo=None):
     for a in cfg.valores:
         print(f'  [{a}] modelo del ciclo: {cfg._x5_bundles[a][0]}')
 
-    ejecutar_backtest(cfg, reset=True, x5_mode=True, min_lotajes=dict(cfg.LOTAJES))
+    # `reset` lo decide internamente ejecutar_backtest en x5_mode (resume si el
+    # checkpoint quedó a mitad de una pasada, reinicia si ya terminó o no existe).
+    ejecutar_backtest(cfg, reset=False, x5_mode=True, min_lotajes=dict(cfg.LOTAJES))
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

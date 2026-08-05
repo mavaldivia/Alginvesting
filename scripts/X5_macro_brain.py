@@ -1021,12 +1021,18 @@ def _worker_recolectar_activo(activo: str, x4_path: Path, n_ciclos: int) -> tupl
 
     Bucle de ciclos independientes:
       1. Lanza X4 --x5 --activo {activo}: un backtest completo desde
-         `fecha_inicio`, con recursos X4 aislados (`bt_{activo}`).
+         `fecha_inicio`, con recursos X4 aislados (`bt_{activo}`). X4 decide
+         internamente si arranca una pasada nueva desde cero o retoma el
+         checkpoint de una pasada anterior que quedó a mitad de camino (ver
+         `ejecutar_backtest` en X4_backtester.py) — un ciclo que ya terminó
+         siempre da paso a una pasada nueva.
       2. Al terminar el ciclo, cuenta las OC del store del activo.
       3. Si ya superó X5_MIN_TRADES_TRAIN, entrena/reentrena el modelo del
          activo → los ciclos EXPLOIT siguientes ya usan el modelo recién
          entrenado (los params se van corrigiendo por activo).
-      4. Reinicia el ciclo (X4 con reset=True vuelve a partir de `fecha_inicio`).
+      4. Si la pasada completó (llegó al final de los datos o hizo stop-out),
+         el siguiente ciclo arranca una pasada nueva desde `fecha_inicio` con
+         params distintos — así se mantiene la diversidad de exploración.
 
     Termina al agotar `n_ciclos` (config_x5.N_CICLOS_BT) ciclos o alcanzar
     X5_MIN_TRADES_FTT OC. El stdout de X4 se captura para no entrelazar salidas.
@@ -1307,7 +1313,8 @@ def _recolectar_guiado(activo: str, cfg_x5, n_ciclos: int, *, oficial: bool) -> 
     for ciclo in range(1, n_ciclos + 1):
         print(f'\n{"─" * 72}')
         print(f'  Iniciando ciclo {ciclo}/{n_ciclos} de {activo} '
-              f'(X4 backtest desde el inicio)')
+              f'(X4 decide: pasada nueva desde fecha_inicio, o retomar '
+              f'checkpoint si quedó interrumpido)')
         print(f'{"─" * 72}')
         os.environ['X5_DEMO_CICLO'] = str(ciclo)  # queda en el nombre de los PNG
         cmd = [sys.executable, str(x4_path), '--x5', '--activo', activo]

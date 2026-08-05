@@ -197,4 +197,20 @@ Así el conjunto N sigue re-convergiendo con los params del tramo (la consistenc
 
 **Decisión 3 — metadata de la búsqueda:** `_procesar_valor_N` pasa de retornar `(duracion, convergio)` a un dict con `t0/tf/n_velas/warm_start_n/warm_start_t/FO/duracion/plot`. X4 lo reporta en cada recálculo (bloque detallado en demo, una línea si no) y X0 lo usa en su resumen final. Motivo: el `t` del backtest no dice con qué ventana de precios se buscó — `t0` viene de `FECHA_INICIAL` (config producción), no de `fecha_inicio` de X4.
 
+## 2026-08-04 — Fix: X5 --recolectar (sin reiniciar) volvía a `fecha_inicio` aunque el activo ya tuviera avance
+
+**Síntoma reportado:** al elegir "no reiniciar" (acumular) en `X5 --recolectar` para un solo activo, cada ciclo igual arrancaba el backtest desde `fecha_inicio` (2024-01-01), como si nunca se hubiera procesado nada.
+
+**Causa:** `ejecutar_x5_ciclo` (`X4_backtester.py`) llamaba `ejecutar_backtest(cfg, reset=True, x5_mode=True, ...)` con `reset` **hardcodeado a `True`**. La pregunta de reinicio de `X5_macro_brain.py` (0/1) solo controlaba si se borraba el store/modelo acumulado antes del loop de ciclos (`_borrar_checkpoints_activo`); nunca llegaba a `ejecutar_backtest`. Por diseño (`docs/plans/x5_plan.md`), cada ciclo debía partir de cero para generar pasadas independientes con params distintos (diversidad de exploración) — pero eso también borraba el progreso de una pasada que se cortó a mitad de camino (proceso interrumpido, Ctrl+C, crash), aunque el usuario quisiera conservarlo.
+
+**Fix:** `ejecutar_backtest` ahora decide el `reset` internamente en `x5_mode`, comparando el checkpoint existente contra el último timestamp disponible en los datos H1:
+- Sin checkpoint, o checkpoint ya en `stop_out`, o `ts_ultimo_procesado >= ts_max` (la pasada anterior llegó al final) → pasada nueva desde `fecha_inicio` (mismo comportamiento de siempre, preserva la diversidad entre pasadas completas).
+- Checkpoint con `ts_ultimo_procesado < ts_max` (pasada interrumpida a mitad de camino) → retoma desde ahí: mismo capital, soportes, OE/OA y `ts_ultimo_recalculo`.
+
+Efecto lateral aceptado (positivo): si llegan velas H1 nuevas después de que una pasada ya había "terminado" (ts_max creció), la siguiente invocación la retoma y simula las velas nuevas en vez de recalcular todo desde cero.
+
+**Fix relacionado:** `_guardar_checkpoint` no persistía el flag `stop_out` (se seteaba en memoria pero nunca se escribía a disco) — sin esto, una cuenta quemada se habría "retomado" como si tuviera capital sano. Ahora se persiste.
+
+**Alcance:** el cambio vive en `ejecutar_backtest`/`ejecutar_x5_ciclo` (X4_backtester.py), así que aplica por igual a `--recolectar` en paralelo (`_recolectar`) y al recorrido guiado de un activo (`_recolectar_guiado`, oficial o `--demo`) — ambos llaman el mismo subprocess `X4_backtester.py --x5 --activo {activo}`. Modo producción de X4 (`--version` sin `--x5`) no se toca: su `reset` sigue viniendo solo de `--reset`.
+
 **Aislamiento del demo:** con el cache bt persistiendo entre ciclos, el demo habría sembrado el cache de la recolección real (ambos usaban `bt_{activo}`). `ejecutar_x5_ciclo` ahora sufija los recursos de X4 con `X5_DEMO_SUFFIX` → `bt_{activo}_demo`, en línea con el store y el modelo demo.

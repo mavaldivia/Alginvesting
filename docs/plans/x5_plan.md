@@ -1032,6 +1032,6 @@ python scripts/X5_macro_brain.py --infer
 ## Preguntas frecuentes
 
 - **¿Tengo que llamar `--train` aparte?** No. `--recolectar` ya entrena solo cuando cada activo cruza el umbral. `--train` es solo la casilla de `--infer` para forzar un reentreno puntual.
-- **¿`--recolectar` borra lo anterior?** No borra el store (acumula). Cada ciclo de backtest sí parte de cero en la simulación (reset del checkpoint de X4), pero las filas del cuaderno se **agregan**, no se reemplazan.
-- **¿Puedo cortar y retomar?** Sí. El store persiste en disco. Al relanzar `--recolectar`, cada worker sigue sumando OC sobre lo que ya había.
+- **¿`--recolectar` borra lo anterior?** No borra el store (acumula). Cada ciclo de backtest parte de cero en la simulación (reset del checkpoint de X4) **si la pasada anterior ya terminó** (llegó al final de los datos o hizo stop-out); si quedó a mitad de camino (proceso interrumpido) y elegiste "no reiniciar", retoma desde ahí en vez de perder el avance. Las filas del cuaderno siempre se **agregan**, nunca se reemplazan. Ver `docs/context/decisiones.md` 2026-08-04.
+- **¿Puedo cortar y retomar?** Sí. El store persiste en disco, y desde 2026-08-04 también el checkpoint de la pasada en curso: si el proceso se corta a mitad de camino, al relanzar con "no reiniciar" retoma exactamente donde quedó (mismo capital, soportes y órdenes), no vuelve a `fecha_inicio`.
 - **¿Por qué en paralelo y no uno por uno?** Para que los 6 activos avancen a la vez y cada uno corrija sus params apenas tenga datos, en vez de esperar a que termine BTCUSD para empezar ETHUSD.
