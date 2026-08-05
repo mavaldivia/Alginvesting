@@ -31,7 +31,13 @@ from config import (
     VALORES, A, B, TS, PERDIDA_MAX,
     LOTAJES, UNITS,
     n_sizes_ejecucion as n_sizes,
+    X1_RETRY_BLOQUEADOS_S,
 )
+
+
+class LimiteOrdenesError(Exception):
+    """MT5 rechazó la orden por límite de posiciones/órdenes pendientes en la cuenta
+    (retcode 10040) — hay demasiadas OA+OE abiertas simultáneamente."""
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
@@ -235,20 +241,99 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
             result_dict = result._asdict()
             if result_dict.get('comment') == 'Market closed':
                 return False
+            if result.retcode == 10040:  # límite de posiciones/órdenes pendientes de la cuenta
+                raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
             if result.retcode in [10006, 10044, 10018, 10031]:
                 return False
             print(f'  Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
             return False
         else:
             return True
+    except LimiteOrdenesError:
+        raise
     except Exception as e:
         print(f'  Excepción en ejecutar_orden: {e}')
         return False
 
 
+def liberar_orden_lejana(dic_bloqueados: dict):
+    """Ante el límite de posiciones/órdenes pendientes de la cuenta (retcode 10040),
+    cancela el buy limit más lejano del precio actual entre TODOS los activos —
+    libera espacio para priorizar los soportes más cercanos, sin importar qué activo
+    sea dueño de la orden lejana. Marca el precio cancelado como temporalmente bloqueado.
+
+    Retorna (symbol, precio) de la orden liberada, o None si no había nada que liberar.
+    """
+    todas_OE = mt5.orders_get() or []
+    candidatas = [o for o in todas_OE if o.type == mt5.ORDER_TYPE_BUY_LIMIT]
+
+    mas_lejana = None
+    mayor_distancia = -float('inf')
+    for orden in candidatas:
+        if orden.symbol not in LOTAJES:
+            continue
+        try:
+            P0 = obtener_precio_actual(orden.symbol, modo='B')
+        except RuntimeError:
+            continue
+        L = LOTAJES[orden.symbol] * UNITS[orden.symbol]
+        distancia = (P0 - orden.price_open) * L
+        if distancia > mayor_distancia:
+            mayor_distancia = distancia
+            mas_lejana = orden
+
+    if mas_lejana is None:
+        return None
+
+    request = {
+        'action': mt5.TRADE_ACTION_REMOVE,
+        'order': mas_lejana.ticket,
+        'symbol': mas_lejana.symbol,
+        'type': mas_lejana.type,
+        'position': mas_lejana.position_id,
+        'comment': 'Liberacion por limite de ordenes',
+    }
+    result = mt5.order_send(request)
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        return None
+
+    symbol = mas_lejana.symbol
+    precio = round(mas_lejana.price_open, 2)
+    dic_bloqueados.setdefault(symbol, {})[precio] = time.time()
+    print(f'  Límite de órdenes alcanzado: liberando {symbol} @ {precio:.2f} '
+          f'(distancia {mayor_distancia:.2f} USD) para priorizar soportes cercanos')
+    return symbol, precio
+
+
+def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio: float,
+                              dic_bloqueados: dict) -> bool:
+    """Envuelve ejecutar_orden: si MT5 rechaza por límite de posiciones/órdenes de la
+    cuenta (retcode 10040), libera la orden más lejana del precio (de cualquier activo,
+    vía liberar_orden_lejana) y reintenta una vez. Si no hay nada que liberar o el
+    reintento vuelve a chocar con el límite, bloquea `precio` temporalmente — se
+    reintenta recién pasado X1_RETRY_BLOQUEADOS_S."""
+    try:
+        return ejecutar_orden(request, symbol, volumen, precio)
+    except LimiteOrdenesError:
+        pass
+
+    if liberar_orden_lejana(dic_bloqueados) is not None:
+        try:
+            if ejecutar_orden(request, symbol, volumen, precio):
+                return True
+        except LimiteOrdenesError:
+            pass
+
+    bloqueados_valor = dic_bloqueados.setdefault(symbol, {})
+    if precio not in bloqueados_valor:
+        print(f'  {symbol}: buy limit @ {precio:.2f} bloqueado temporalmente (límite de órdenes en la cuenta)')
+    bloqueados_valor[precio] = time.time()
+    return False
+
+
 def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
                           valor: str, L: float, a: float, lotajes: dict,
-                          precio_max_saliente: float = None):
+                          dic_bloqueados: dict, precio_max_saliente: float = None):
     """
     Para cada soporte en lista_N que no tenga ya una orden activa o pendiente,
     crea una orden buy limit si el precio actual está al menos a distancia `a` USD por encima.
@@ -258,6 +343,11 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     queda por debajo del promedio entre el precio actual y ese buy limit saliente.
     Recupera la cobertura cercana al precio que si no se perdería, porque el filtro
     de distancia `a` deja el primer soporte de reemplazo al menos `a` bajo el precio.
+
+    Si la cuenta alcanza su límite de posiciones/órdenes (retcode 10040), se libera
+    la orden más lejana del precio entre todos los activos y se reintenta una vez
+    (`_ejecutar_con_liberacion`); los soportes bloqueados temporalmente (en
+    `dic_bloqueados[valor]`) no se reintentan hasta pasado X1_RETRY_BLOQUEADOS_S.
     """
     P0 = obtener_precio_actual(valor, modo='B')
     lista_OAE = lista_OA + lista_OE
@@ -265,9 +355,13 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     if precio_max_saliente is not None and precio_max_saliente < P0:
         umbral_reemplazo = (P0 + precio_max_saliente) / 2
     ejecutadas = []
+    bloqueados_valor = dic_bloqueados.setdefault(valor, {})
 
     for Pi in sorted(lista_N, reverse=True):
         if Pi in lista_OAE:
+            continue
+        ts_bloqueo = bloqueados_valor.get(Pi)
+        if ts_bloqueo is not None and (time.time() - ts_bloqueo) < X1_RETRY_BLOQUEADOS_S:
             continue
         distancia_ok = (P0 - Pi) * L >= a
         reemplazo_ok = umbral_reemplazo is not None and Pi < umbral_reemplazo
@@ -278,8 +372,9 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
                 volumen=lotajes[valor],
                 precio=Pi,
             )
-            if ejecutar_orden(request, symbol=valor, volumen=lotajes[valor], precio=Pi):
+            if _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados):
                 ejecutadas.append(Pi)
+                bloqueados_valor.pop(Pi, None)
 
     if ejecutadas:
         print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}')
@@ -311,7 +406,7 @@ def cambiar_SL(orden, valor: str, sl: float) -> bool:
 
 
 def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
-                   lotajes: dict, dic_seguimiento: dict):
+                   lotajes: dict, dic_seguimiento: dict, dic_bloqueados: dict):
     """
     Para cada posición abierta:
     - Si no tiene SL y la ganancia >= a USD → pone el primer SL ganador y repone la orden
@@ -341,7 +436,7 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
                     volumen=lotajes[valor],
                     precio=Pi,
                 )
-                ejecutar_orden(request, symbol=valor, volumen=lotajes[valor], precio=Pi)
+                _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados)
                 cambios = sl_ok
         else:
             if sl_nuevo > sl:
@@ -448,6 +543,7 @@ if __name__ == '__main__':
     t0 = time.time()
     dic_seguimiento = {}
     pos_info = {}
+    dic_bloqueados = {}  # {valor: {precio: timestamp}} — buy limits lejanos liberados por retcode 10040
     sl_activo_global_prev = None
     i = 0
 
@@ -483,10 +579,10 @@ if __name__ == '__main__':
                     # A/B para priorizar la revisión del trailing stop.
                     if mercado_abierto(valor) and not sl_activo_global:
                         precio_max_saliente = limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
-                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, precio_max_saliente)
+                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados, precio_max_saliente)
 
                     # C: Trailing stop en posiciones abiertas
-                    trailing_stop(actual_OA, valor, L, A[valor], B[valor], LOTAJES, dic_seguimiento)
+                    trailing_stop(actual_OA, valor, L, A[valor], B[valor], LOTAJES, dic_seguimiento, dic_bloqueados)
 
                     # D: Cierre por pérdida máxima
                     controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX[valor])
@@ -501,6 +597,10 @@ if __name__ == '__main__':
 
             if i % int(5000 / TS) == 0:
                 print(f'\nIteración {i} | Tiempo: {round((time.time() - t0) / 60, 1)} min')
+                total_bloqueados = sum(len(p) for p in dic_bloqueados.values())
+                if total_bloqueados:
+                    detalle = ', '.join(f'{v}:{len(p)}' for v, p in dic_bloqueados.items() if p)
+                    print(f'  Buy limits bloqueados temporalmente: {total_bloqueados} ({detalle})')
                 try:
                     informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
                 except Exception as e:

@@ -186,6 +186,10 @@ B = {
 
 TS = 0.01  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
 
+# Cooldown antes de reintentar un buy limit bloqueado temporalmente por retcode 10040
+# (límite de posiciones/órdenes pendientes de la cuenta alcanzado)
+X1_RETRY_BLOQUEADOS_S = 300
+
 # USD — si la pérdida de una posición abierta supera este valor, se cierra
 PERDIDA_MAX = {
     'BTCUSD': 120,
