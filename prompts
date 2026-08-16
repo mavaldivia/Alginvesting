@@ -336,3 +336,10 @@ la versión 2 del documento [x5_documento_extendido_v2.pdf] (usando los mismos f
 Antes de iniciar el documento y post portada e indice agrega una sección que se llame. Nuevos cambios en esta versión
 donde resumas que cambios se hicieron (sección por sección).
 Incluye todo lo que se ha hecho despues de generar la versión 1. Basate en los records para eso y en los archivos actuales
+
+------------
+
+/new_todo
+X1: La notación debe ser 
+[OE > OA]: Orden en espera a orden abierta (tambien detectarla y notificarla, a X precio)
+[OA > OC]: Orden abierta a orden cerrada (notificar precio apertura, precio de cierre y ganancia)

@@ -122,35 +122,42 @@ def mercado_abierto(valor: str, max_staleness_s: int = 300) -> bool:
     return (_servidor_ahora() - tick.time) <= max_staleness_s
 
 
-def _precio_cierre_historico(ticket: int) -> float | None:
-    """Precio de cierre real de una posición ya cerrada, vía el historial de
-    deals de MT5 (el deal de salida, DEAL_ENTRY_OUT)."""
+def _cierre_historico(ticket: int) -> tuple:
+    """Precio y ganancia reales de una posición ya cerrada, vía el historial de
+    deals de MT5 (el deal de salida, DEAL_ENTRY_OUT). Retorna (None, None) si
+    el historial todavía no tiene el deal de salida."""
     deals = mt5.history_deals_get(position=ticket)
     if not deals:
-        return None
+        return None, None
     salidas = [d for d in deals if d.entry == mt5.DEAL_ENTRY_OUT]
     if not salidas:
-        return None
-    return salidas[-1].price
+        return None, None
+    return salidas[-1].price, salidas[-1].profit
 
 
 def _informar_cierre(valor: str, ticket: int, info: dict) -> None:
-    """Imprime lotaje, precio de apertura y precio de cierre al detectar que una
-    posición pasó de Activa (A) a Cerrada (C) — por perdida_max, trailing stop
-    (SL ejecutado por el broker) o cierre externo. Única fuente para esta
-    transición: cubre las tres causas sin duplicar el print entre ellas."""
-    precio_cierre = _precio_cierre_historico(ticket)
+    """Imprime lotaje, precio de apertura, precio de cierre y ganancia al detectar
+    que una OA pasó a OC — por perdida_max, trailing stop (SL ejecutado por el
+    broker) o cierre externo. Única fuente para esta transición: cubre las tres
+    causas sin duplicar el print entre ellas."""
+    precio_cierre, ganancia = _cierre_historico(ticket)
     pc_str = f'{precio_cierre:.2f}' if precio_cierre is not None else 'desconocido'
-    print(f'  [A→C] {valor}  ticket={ticket}  lotaje={info["lote"]}  '
-          f'precio_apertura={info["precio_apertura"]:.2f}  precio_cierre={pc_str}')
+    g_str = f'${ganancia:.2f}' if ganancia is not None else 'desconocida'
+    print(f'  [OA > OC] {valor}  ticket={ticket}  lotaje={info["lote"]}  '
+          f'precio_apertura={info["precio_apertura"]:.2f}  precio_cierre={pc_str}  ganancia={g_str}')
 
 
-def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict) -> tuple:
+def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict,
+                                valores_inicializados: set) -> tuple:
     """
     Devuelve las posiciones abiertas (OA) y órdenes pendientes (OE) actuales en MT5.
     Limpia dic_seguimiento de posiciones que ya fueron cerradas externamente.
-    `pos_info` (ticket → lote/precio_apertura) se actualiza con las OA vivas y,
-    al detectar que un ticket ya no está abierto, informa la transición A→C.
+    `pos_info` (ticket → lote/precio_apertura) se actualiza con las OA vivas: al
+    ver un ticket nuevo informa la transición OE > OA (la única forma de abrir
+    una posición en X1 es que una buy limit se ejecute), y al detectar que un
+    ticket ya no está abierto, informa la transición OA > OC. `valores_inicializados`
+    evita el falso positivo de reportar OE > OA para posiciones que ya estaban
+    abiertas antes de arrancar X1 (primer ciclo de cada activo no notifica).
     """
     actual_OA = mt5.positions_get(symbol=valor)
     if actual_OA is None:
@@ -162,9 +169,15 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
     lista_OA = [p.price_open for p in actual_OA]
     lista_OE = [o.price_open for o in actual_OE]
 
+    ya_inicializado = valor in valores_inicializados
+    valores_inicializados.add(valor)
+
     actual_tickets = {p.ticket for p in actual_OA}
     for p in actual_OA:
-        pos_info.setdefault(p.ticket, {'valor': valor, 'lote': p.volume, 'precio_apertura': p.price_open})
+        if p.ticket not in pos_info:
+            if ya_inicializado:
+                print(f'  [OE > OA] {valor}  ticket={p.ticket}  ejecutada @ {p.price_open:.2f}')
+            pos_info[p.ticket] = {'valor': valor, 'lote': p.volume, 'precio_apertura': p.price_open}
 
     tickets_previos = [t for t, info in pos_info.items() if info['valor'] == valor]
     for ticket in tickets_previos:
@@ -547,6 +560,7 @@ if __name__ == '__main__':
     t0 = time.time()
     dic_seguimiento = {}
     pos_info = {}
+    valores_inicializados = set()  # evita falso [OE > OA] con OA ya abiertas antes de arrancar X1
     dic_bloqueados = {}  # {valor: {precio: timestamp}} — buy limits lejanos liberados por retcode 10040
     sl_activo_global_prev = None
     i = 0
@@ -575,7 +589,7 @@ if __name__ == '__main__':
                     N = n_sizes[valor]
                     lista_N = leer_lista_N(valor, N)
 
-                    lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento, pos_info)
+                    lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento, pos_info, valores_inicializados)
 
                     # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
                     # no eliminar las OE existentes porque no se pueden reponer.
