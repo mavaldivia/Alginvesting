@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-16** — fix: X1 — positions_get/orders_get=None (glitch de conexión MT5) ya no se confunde con 0 posiciones reales, evitando falsos [A→C]
 - **2026-08-04** — fix: X1 — bloqueo temporal de buy limits lejanos ante retcode MT5 10040 (límite de órdenes de la cuenta), libera espacio priorizando soportes cercanos entre todos los activos
 - **2026-08-04** — fix: X1/X0 — json_act guarda de forma atómica (evita leer JSON truncado por escritura concurrente) + retry ante JSONDecodeError en X1
 - **2026-08-04** — fix: X5 --recolectar retoma el checkpoint si una pasada quedó interrumpida (antes reiniciaba a fecha_inicio siempre, ignorando la opción "no reiniciar") + persistir stop_out en checkpoint

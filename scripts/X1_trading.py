@@ -152,8 +152,12 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
     `pos_info` (ticket → lote/precio_apertura) se actualiza con las OA vivas y,
     al detectar que un ticket ya no está abierto, informa la transición A→C.
     """
-    actual_OA = mt5.positions_get(symbol=valor) or []
-    actual_OE = mt5.orders_get(symbol=valor) or []
+    actual_OA = mt5.positions_get(symbol=valor)
+    if actual_OA is None:
+        raise RuntimeError(f'positions_get({valor}) retornó None: {mt5.last_error()}')
+    actual_OE = mt5.orders_get(symbol=valor)
+    if actual_OE is None:
+        raise RuntimeError(f'orders_get({valor}) retornó None: {mt5.last_error()}')
 
     lista_OA = [p.price_open for p in actual_OA]
     lista_OE = [o.price_open for o in actual_OE]
