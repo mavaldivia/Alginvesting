@@ -214,10 +214,10 @@ def limpiar_ordenes_pendientes_no_validas(valor: str, actual_OE: list, lista_N: 
             }
             result = mt5.order_send(request)
             if result is None:
-                print(f'  order_send failed: {mt5.last_error()}')
+                print(f'  {valor}: order_send failed: {mt5.last_error()}')
             elif result.retcode != mt5.TRADE_RETCODE_DONE:
                 if result.retcode not in [10018]:  # 10018: mercado cerrado
-                    print(f'  Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
+                    print(f'  {valor}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
             else:
                 eliminadas.append(precio_OE)
     if eliminadas:
@@ -262,7 +262,7 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
                 raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
             if result.retcode in [10006, 10044, 10018, 10031]:
                 return False
-            print(f'  Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
+            print(f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
             return False
         else:
             return True
@@ -409,10 +409,10 @@ def cambiar_SL(orden, valor: str, sl: float) -> bool:
     }
     result = mt5.order_send(request)
     if result is None:
-        print(f'  cambiar_SL failed: {mt5.last_error()}')
+        print(f'  {valor}: cambiar_SL failed: {mt5.last_error()}')
         return False
     elif result.retcode != mt5.TRADE_RETCODE_DONE:
-        print(f'  Error modificando SL orden {orden.ticket}: retcode={result.retcode}')
+        print(f'  {valor}: Error modificando SL orden {orden.ticket}: retcode={result.retcode}')
         return False
     posiciones = mt5.positions_get(ticket=orden.ticket)
     if not posiciones:
@@ -431,7 +431,7 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
 
     b: distancia en USD que debe mantener el SL bajo el precio actual (normalizada por L).
     """
-    if not actual_OA:
+    if not actual_OA or not mercado_abierto(valor):
         return
 
     P0 = obtener_precio_actual(valor, modo='B')
@@ -488,7 +488,7 @@ def cerrar_posicion(orden, valor: str, lotajes: dict):
     }
     result = mt5.order_send(request)
     if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-        print(f'  Error al cerrar posición {orden.ticket}: {mt5.last_error()}')
+        print(f'  {valor}: Error al cerrar posición {orden.ticket}: {mt5.last_error()}')
     else:
         print(f'  Posición cerrada por perdida_max: {valor} ticket={orden.ticket} @ {precio:.2f}')
 
