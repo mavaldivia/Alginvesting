@@ -743,15 +743,30 @@ def _append_equity(ts, estado: dict, precios: dict, cfg) -> dict:
 # ─── Flush a disco ────────────────────────────────────────────────────────────
 
 def _flush_json_list(items: list, path: Path):
+    """Acumula `items` en el JSON de `path` y vacía la lista en memoria.
+
+    Escritura atómica (tmp + os.replace) y lectura con reintentos: mismo patrón
+    que `json_act` (X1_trading.py) para que un lock/sync transitorio de OneDrive
+    sobre el archivo recién escrito no rompa el flush con OSError/JSONDecodeError.
+    """
     if not items:
         return
     existing = []
     if path.exists():
-        with open(path) as f:
-            existing = json.load(f)
+        for intento in range(10):
+            try:
+                with open(path) as f:
+                    existing = json.load(f)
+                break
+            except (json.JSONDecodeError, PermissionError, OSError):
+                if intento == 9:
+                    raise
+                time.sleep(0.2)
     existing.extend(items)
-    with open(path, 'w') as f:
+    tmp_path = path.with_suffix(path.suffix + '.tmp')
+    with open(tmp_path, 'w') as f:
         json.dump(existing, f, indent=2, default=str)
+    os.replace(tmp_path, path)
     items.clear()
 
 
