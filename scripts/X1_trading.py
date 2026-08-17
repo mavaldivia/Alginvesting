@@ -40,6 +40,19 @@ class LimiteOrdenesError(Exception):
     (retcode 10040) — hay demasiadas OA+OE abiertas simultáneamente."""
 
 
+_ultimo_print_error = {}  # {(symbol, clave): timestamp} — throttle de prints de error MT5
+
+
+def _print_throttled(symbol: str, clave, mensaje: str, intervalo: float = X1_RETRY_BLOQUEADOS_S):
+    """Imprime mensaje solo si no se avisó el mismo (symbol, clave) hace menos de intervalo
+    segundos. Evita spam cuando un retcode de MT5 (ej. servidor con autotrading deshabilitado)
+    se repite en cada ciclo mientras persiste — sin ocultar que sigue ocurriendo."""
+    ahora = time.time()
+    if ahora - _ultimo_print_error.get((symbol, clave), 0) >= intervalo:
+        print(mensaje)
+        _ultimo_print_error[(symbol, clave)] = ahora
+
+
 # ─── Utilidades ───────────────────────────────────────────────────────────────
 
 def json_act(file_path: str, variable=None, mode: str = 'open'):
@@ -214,10 +227,12 @@ def limpiar_ordenes_pendientes_no_validas(valor: str, actual_OE: list, lista_N: 
             }
             result = mt5.order_send(request)
             if result is None:
-                print(f'  {valor}: order_send failed: {mt5.last_error()}')
+                _print_throttled(valor, 'order_send_none',
+                                  f'  {valor}: order_send failed: {mt5.last_error()}')
             elif result.retcode != mt5.TRADE_RETCODE_DONE:
                 if result.retcode not in [10018]:  # 10018: mercado cerrado
-                    print(f'  {valor}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
+                    _print_throttled(valor, result.retcode,
+                                      f'  {valor}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
             else:
                 eliminadas.append(precio_OE)
     if eliminadas:
@@ -262,14 +277,15 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
                 raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
             if result.retcode in [10006, 10044, 10018, 10031]:
                 return False
-            print(f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
+            _print_throttled(symbol, result.retcode,
+                              f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
             return False
         else:
             return True
     except LimiteOrdenesError:
         raise
     except Exception as e:
-        print(f'  Excepción en ejecutar_orden: {e}')
+        _print_throttled(symbol, 'excepcion', f'  {symbol}: Excepción en ejecutar_orden: {e}')
         return False
 
 
@@ -418,10 +434,11 @@ def cambiar_SL(orden, valor: str, sl: float) -> bool:
     }
     result = mt5.order_send(request)
     if result is None:
-        print(f'  {valor}: cambiar_SL failed: {mt5.last_error()}')
+        _print_throttled(valor, 'cambiar_sl_none', f'  {valor}: cambiar_SL failed: {mt5.last_error()}')
         return False
     elif result.retcode != mt5.TRADE_RETCODE_DONE:
-        print(f'  {valor}: Error modificando SL orden {orden.ticket}: retcode={result.retcode}')
+        _print_throttled(valor, result.retcode,
+                          f'  {valor}: Error modificando SL orden {orden.ticket}: retcode={result.retcode}')
         return False
     posiciones = mt5.positions_get(ticket=orden.ticket)
     if not posiciones:
@@ -497,7 +514,8 @@ def cerrar_posicion(orden, valor: str, lotajes: dict):
     }
     result = mt5.order_send(request)
     if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-        print(f'  {valor}: Error al cerrar posición {orden.ticket}: {mt5.last_error()}')
+        clave = result.retcode if result is not None else 'order_send_none'
+        _print_throttled(valor, clave, f'  {valor}: Error al cerrar posición {orden.ticket}: {mt5.last_error()}')
     else:
         print(f'  Posición cerrada por perdida_max: {valor} ticket={orden.ticket} @ {precio:.2f}')
 
