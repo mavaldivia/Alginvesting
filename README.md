@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-16** — fix: X5/X4 — OSError Errno 22 al recontar trades en el print periódico de `--recolectar` (relectura de trades.json sin protección); reemplazado por contador en memoria
 - **2026-08-16** — fix: X5/X4 — OSError Errno 22 en trades.json/events.json por lock de OneDrive (_flush_json_list ahora escribe atómico y reintenta lectura)
 - **2026-08-16** — fix: X1 — trailing_stop se salta si el mercado está cerrado (evita spam de retcode 10018) + prints de retcode indican el activo
 - **2026-08-16** — fix: X1 — notación unificada [OE > OA] / [OA > OC]: detecta y notifica la ejecución de buy limits (OE→OA) y agrega ganancia real al print de cierre (OA→OC)

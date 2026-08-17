@@ -742,15 +742,16 @@ def _append_equity(ts, estado: dict, precios: dict, cfg) -> dict:
 
 # ─── Flush a disco ────────────────────────────────────────────────────────────
 
-def _flush_json_list(items: list, path: Path):
-    """Acumula `items` en el JSON de `path` y vacía la lista en memoria.
+def _flush_json_list(items: list, path: Path) -> int:
+    """Acumula `items` en el JSON de `path`, vacía la lista en memoria y retorna cuántos se flushearon.
 
     Escritura atómica (tmp + os.replace) y lectura con reintentos: mismo patrón
     que `json_act` (X1_trading.py) para que un lock/sync transitorio de OneDrive
     sobre el archivo recién escrito no rompa el flush con OSError/JSONDecodeError.
     """
     if not items:
-        return
+        return 0
+    n = len(items)
     existing = []
     if path.exists():
         for intento in range(10):
@@ -768,6 +769,7 @@ def _flush_json_list(items: list, path: Path):
         json.dump(existing, f, indent=2, default=str)
     os.replace(tmp_path, path)
     items.clear()
+    return n
 
 
 # ─── X5 — Captura y escritura al store ───────────────────────────────────────
@@ -1066,6 +1068,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
 
     trades_log: list = []
     events_log: list = []
+    n_trades_total = 0
     velas_procesadas = 0
     cierre_previo: dict = {a: None for a in cfg.valores}
     mes_actual: str | None = None  # para [MES_BT] markers en x5_mode
@@ -1117,7 +1120,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                                    hasta=str(ts), n_soportes=_n_sop)
                     _demo_evento_plot(_infos, ts)
                 estado['ts_ultimo_procesado'] = ts.isoformat()
-                _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
+                n_trades_total += _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
                 _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
                 for activo, df in datos_h1.items():
                     if ts in df.index:
@@ -1204,7 +1207,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
             })
             estado['stop_out'] = True
             _guardar_checkpoint(estado, cfg)
-            _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
+            n_trades_total += _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
             _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
             print(f'\n  *** STOP OUT [{ts}] ***')
             print(f'  equity={mc["equity"]:.2f}  balance={mc["balance"]:.2f}'
@@ -1215,15 +1218,13 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         # Checkpoint + flush cada 24 velas
         if velas_procesadas % 24 == 0:
             _guardar_checkpoint(estado, cfg)
-            _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
+            n_trades_total += _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
             _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
-            trades_path = cfg.CARPETA_RESOURCES / 'trades.json'
-            n_trades = len(json.load(open(trades_path))) if trades_path.exists() else 0
-            print(f'  [{ts}] eq={mc["equity"]:.2f} bal={mc["balance"]:.2f} | OA={mc["n_OA"]} OE={mc["n_OE"]} | trades={n_trades}')
+            print(f'  [{ts}] eq={mc["equity"]:.2f} bal={mc["balance"]:.2f} | OA={mc["n_OA"]} OE={mc["n_OE"]} | trades={n_trades_total}')
 
     # Fin de datos
     _guardar_checkpoint(estado, cfg)
-    _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
+    n_trades_total += _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
     _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
 
     if x5_mode and mes_actual is not None:
