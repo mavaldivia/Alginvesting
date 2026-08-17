@@ -557,6 +557,18 @@ if __name__ == '__main__':
                 mt5.symbol_select(valor, True)
             print(f'OK: {info.name} (visible={info.visible})')
 
+    # Validar que existe el JSON de soportes para el N configurado de cada activo.
+    # Si falta, X1 igual arranca (leer_lista_N reintenta y salta el activo por
+    # ciclo), pero sin este aviso el desfase (config.py desincronizado con lo que
+    # X0 ya generó) queda silencioso durante horas.
+    faltantes = [f'{valor}_{n_sizes[valor]}.json' for valor in VALORES
+                 if not (CARPETA_N_PROD / f'{valor}_{n_sizes[valor]}.json').exists()]
+    if faltantes:
+        print(f'\n⚠ Faltan JSONs de soportes en {CARPETA_N_PROD} para el N configurado: '
+              f'{", ".join(faltantes)}')
+        print('  Revisa que config.py esté sincronizado con lo que X0 ya generó '
+              '(n_sizes_ejecucion) — esos activos se saltarán cada ciclo hasta que aparezcan.')
+
     def _fmt_duracion(s):
         s = int(s)
         if s < 60:

@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-16** — fix: X1 — aviso al arrancar si falta el JSON de soportes para el N configurado de algún activo (antes el desfase quedaba silencioso, saltando el activo cada ciclo)
 - **2026-08-16** — fix: X1 — colapsa prints de buy limits bloqueados a 1 línea por activo (antes 1 línea por soporte bloqueado)
 - **2026-08-16** — fix: X5/X4 — OSError Errno 22 al recontar trades en el print periódico de `--recolectar` (relectura de trades.json sin protección); reemplazado por contador en memoria
 - **2026-08-16** — fix: X5/X4 — OSError Errno 22 en trades.json/events.json por lock de OneDrive (_flush_json_list ahora escribe atómico y reintenta lectura)
