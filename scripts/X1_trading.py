@@ -323,12 +323,15 @@ def liberar_orden_lejana(dic_bloqueados: dict):
 
 
 def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio: float,
-                              dic_bloqueados: dict) -> bool:
+                              dic_bloqueados: dict, silent: bool = False) -> bool:
     """Envuelve ejecutar_orden: si MT5 rechaza por límite de posiciones/órdenes de la
     cuenta (retcode 10040), libera la orden más lejana del precio (de cualquier activo,
     vía liberar_orden_lejana) y reintenta una vez. Si no hay nada que liberar o el
     reintento vuelve a chocar con el límite, bloquea `precio` temporalmente — se
-    reintenta recién pasado X1_RETRY_BLOQUEADOS_S."""
+    reintenta recién pasado X1_RETRY_BLOQUEADOS_S.
+
+    silent=True omite el print individual del bloqueo (usado por crear_ordenes_espera,
+    que ya imprime un resumen agregado por activo al final del ciclo)."""
     try:
         return ejecutar_orden(request, symbol, volumen, precio)
     except LimiteOrdenesError:
@@ -342,7 +345,7 @@ def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio:
             pass
 
     bloqueados_valor = dic_bloqueados.setdefault(symbol, {})
-    if precio not in bloqueados_valor:
+    if not silent and precio not in bloqueados_valor:
         print(f'  {symbol}: buy limit @ {precio:.2f} bloqueado temporalmente (límite de órdenes en la cuenta)')
     bloqueados_valor[precio] = time.time()
     return False
@@ -372,6 +375,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     if precio_max_saliente is not None and precio_max_saliente < P0:
         umbral_reemplazo = (P0 + precio_max_saliente) / 2
     ejecutadas = []
+    bloqueadas = []
     bloqueados_valor = dic_bloqueados.setdefault(valor, {})
 
     for Pi in sorted(lista_N, reverse=True):
@@ -389,12 +393,17 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
                 volumen=lotajes[valor],
                 precio=Pi,
             )
-            if _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados):
+            if _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True):
                 ejecutadas.append(Pi)
                 bloqueados_valor.pop(Pi, None)
+            elif Pi in bloqueados_valor:
+                bloqueadas.append(Pi)
 
     if ejecutadas:
         print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}')
+    if bloqueadas:
+        print(f'  {valor}: {len(bloqueadas)} buy limits bloqueados temporalmente entre '
+              f'{min(bloqueadas):.2f} y {max(bloqueadas):.2f} (límite de órdenes en la cuenta)')
 
 
 def cambiar_SL(orden, valor: str, sl: float) -> bool:
