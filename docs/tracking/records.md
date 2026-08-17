@@ -1210,3 +1210,10 @@ Claude: hizo el barrido — confirmó que X0 y X1 comparten el mismo `config.py`
 Mauricio: no supo confirmar si Windows tenía cambios locales sin commitear.
 Claude: propuso agregar una validación de arranque en X1 (chequear que exista el JSON del N configurado por activo antes de entrar al loop, avisando fuerte si falta) ya que no se puede verificar el estado de Windows desde Mac; Mauricio aprobó. Implementó el chequeo en `X1_trading.py` (bloque `__main__`, tras la validación de símbolos del broker) y registró el ítem en `done.md` bajo la sección X1.
 (Cierre: 2026-08-16 21:43)
+
+## SECCIÓN 135
+Mauricio: preguntó, mostrando una captura de la terminal de X1, qué representa la sección "Declarados (activos)" del print periódico y cómo se obtiene.
+Claude: explicó que `informacion()` (X1_trading.py) clasificaba los soportes de `lista_N` por distancia a P0 contra el umbral `A[valor]` (config.py, 4 USD), sin consultar el estado real en MT5 — "Declarados" no era necesariamente OE, podía incluir soportes ya OA o bloqueados temporalmente.
+Mauricio: pidió un reporte por activo con dos partes: A) cuánto debe bajar P0 para que la OE más cercana pase a OA, B) cuánto debe subir P0 para que el soporte/resistencia no declarado más cercano (por estar muy cerca bajo el precio o por estar sobre el precio actual) pase a tener una OE.
+Claude: preguntó (AskUserQuestion) si el nuevo reporte reemplaza el bloque actual o se agrega, y cuántos datos mostrar por activo — Mauricio eligió reemplazar y mostrar top 3 por activo. Reescribió `informacion()` para usar el estado real de MT5 (`positions_get`/`orders_get`) en vez de la clasificación teórica: sección A con las 3 OE de menor `Falta_baja_USD`, sección B con los soportes de `lista_N` sin orden real (ni OE ni OA), incluyendo ahora los que están sobre el precio actual, con `Falta_sube_USD` (puede salir negativo si ya cumple distancia pero está bloqueado). Aclaró que no pudo probarlo en vivo porque MT5 solo corre en Windows.
+(Cierre: 2026-08-16 21:55)

@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-16** — feat: X1 — `informacion()` reporta por activo A) cuánto debe bajar P0 para ejecutar la OE más cercana (OE→OA) y B) cuánto debe subir P0 para declarar el soporte no declarado más cercano (→OE), usando estado real de MT5 (`positions_get`/`orders_get`) en vez de la clasificación teórica por distancia sobre `lista_N`
 - **2026-08-16** — fix: X1 — aviso al arrancar si falta el JSON de soportes para el N configurado de algún activo (antes el desfase quedaba silencioso, saltando el activo cada ciclo)
 - **2026-08-16** — fix: X1 — colapsa prints de buy limits bloqueados a 1 línea por activo (antes 1 línea por soporte bloqueado)
 - **2026-08-16** — fix: X5/X4 — OSError Errno 22 al recontar trades en el print periódico de `--recolectar` (relectura de trades.json sin protección); reemplazado por contador en memoria

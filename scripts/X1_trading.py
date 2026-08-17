@@ -515,8 +515,18 @@ def controlar_perdida_max(actual_OA: list, valor: str, L: float,
 
 
 def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dict):
-    """Muestra el estado actual de soportes y distancias para todos los activos."""
-    print('\n─── Información ───────────────────────────────────────────')
+    """
+    Por activo, cuánto falta que P0 se mueva para que:
+    A) la OE pendiente más cercana se ejecute (pase a OA) — requiere que P0 baje.
+    B) el soporte/resistencia de lista_N sin orden aún (ni OE ni OA) — porque está
+       muy cerca bajo el precio (distancia < a) o porque está sobre el precio
+       actual — pase a tener una OE declarada, lo que requiere que P0 suba.
+    Usa el estado real de MT5 (positions_get/orders_get), no la clasificación
+    teórica por distancia sobre lista_N: un soporte con distancia_ok puede seguir
+    sin OE si quedó temporalmente bloqueado (dic_bloqueados) — en ese caso su
+    Falta_USD sale negativa o cero, indicando que ya cumple pero está a la espera.
+    """
+    datos = {}
     for valor in valores:
         P0 = obtener_precio_actual(valor, modo='B')
         N = n_sizes[valor]
@@ -524,21 +534,49 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dic
         L = lotajes[valor] * units[valor]
         a_valor = a[valor]
 
-        df = pd.DataFrame(lista_N, columns=['Precio'])
-        df['Distancia_USD'] = (P0 - df['Precio']) * L
-        df = df[df['Distancia_USD'] >= 0].sort_values('Distancia_USD').reset_index(drop=True)
+        actual_OA = mt5.positions_get(symbol=valor)
+        if actual_OA is None:
+            raise RuntimeError(f'positions_get({valor}) retornó None: {mt5.last_error()}')
+        actual_OE = mt5.orders_get(symbol=valor)
+        if actual_OE is None:
+            raise RuntimeError(f'orders_get({valor}) retornó None: {mt5.last_error()}')
 
-        por_declarar = df[df['Distancia_USD'] < a_valor].copy()
-        declarados = df[df['Distancia_USD'] >= a_valor].copy()
+        precios_declarados = {round(o.price_open, 2) for o in actual_OE} | \
+                              {round(p.price_open, 2) for p in actual_OA}
 
-        print(f'\n{valor} | P0={P0:.2f} | N={N}')
-        if len(por_declarar):
-            por_declarar['Falta_USD'] = (a_valor - por_declarar['Distancia_USD']).round(2)
-            print('  Por declarar (muy cerca):')
-            print(por_declarar.head(5).to_string(index=False))
-        if len(declarados):
-            print('  Declarados (activos):')
-            print(declarados.head(5).to_string(index=False))
+        df_a = None
+        if actual_OE:
+            df_a = pd.DataFrame(sorted({round(o.price_open, 2) for o in actual_OE}, reverse=True),
+                                 columns=['Precio_OE'])
+            df_a['Falta_baja_USD'] = ((P0 - df_a['Precio_OE']) * L).round(2)
+            df_a = df_a.sort_values('Falta_baja_USD').head(3).reset_index(drop=True)
+
+        pendientes = [p for p in lista_N if round(p, 2) not in precios_declarados]
+        df_b = None
+        if pendientes:
+            df_b = pd.DataFrame(pendientes, columns=['Precio'])
+            df_b['Falta_sube_USD'] = (a_valor - (P0 - df_b['Precio']) * L).round(2)
+            df_b = df_b.sort_values('Falta_sube_USD').head(3).reset_index(drop=True)
+
+        datos[valor] = {'P0': P0, 'df_a': df_a, 'df_b': df_b}
+
+    print('\n─── A) OE → OA: cuánto debe BAJAR P0 para ejecutar la OE más cercana ─────────')
+    for valor in valores:
+        d = datos[valor]
+        print(f'\n{valor} | P0={d["P0"]:.2f}')
+        if d['df_a'] is not None:
+            print(d['df_a'].to_string(index=False))
+        else:
+            print('  Sin OE pendientes')
+
+    print('\n─── B) Soporte/Resistencia → OE: cuánto debe SUBIR P0 para declarar el más cercano ─')
+    for valor in valores:
+        d = datos[valor]
+        print(f'\n{valor} | P0={d["P0"]:.2f}')
+        if d['df_b'] is not None:
+            print(d['df_b'].to_string(index=False))
+        else:
+            print('  Todos los soportes de N ya tienen orden')
 
 
 # ─── Loop principal ───────────────────────────────────────────────────────────
