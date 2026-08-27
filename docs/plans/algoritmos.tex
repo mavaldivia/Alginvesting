@@ -1,0 +1,2134 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Compilar con: tectonic algoritmos.tex  (motor XeTeX, UTF-8 nativo) ──
+\usepackage{fontspec}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{underscore}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+
+% ── Colores ──
+\definecolor{cazul}{HTML}{2C5F8A}
+\definecolor{cverde}{HTML}{2E8B57}
+\definecolor{cnaranja}{HTML}{C1660A}
+\definecolor{cgris}{HTML}{5B6770}
+\definecolor{cfondo}{HTML}{EDF2F7}
+\definecolor{ccodefondo}{HTML}{F6F8FA}
+
+% ── Numeración profunda: 1 / 1.1 / 1.1.1 / 1.1.1.1 ──
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+\titleformat{\paragraph}[hang]{\normalfont\normalsize\bfseries\color{cazul}}{}{0pt}{}
+\titlespacing*{\paragraph}{0pt}{2.2ex plus 1ex minus .2ex}{1ex plus .2ex}
+
+\renewcommand{\contentsname}{Índice}
+\renewcommand{\tablename}{Tabla}
+
+% ── Código ──
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{ccodefondo},
+  frame=single,
+  rulecolor=\color{cgris!40},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=6pt,
+  framexleftmargin=4pt,
+}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% ── Pseudocódigo en español ──
+\algrenewcommand\algorithmicrequire{\textbf{Entrada:}}
+\algrenewcommand\algorithmicensure{\textbf{Salida:}}
+\algrenewcommand\algorithmicend{\textbf{fin}}
+\algrenewcommand\algorithmicif{\textbf{si}}
+\algrenewcommand\algorithmicthen{\textbf{entonces}}
+\algrenewcommand\algorithmicelse{\textbf{si no}}
+\algrenewcommand\algorithmicfor{\textbf{para}}
+\algrenewcommand\algorithmicforall{\textbf{para cada}}
+\algrenewcommand\algorithmicdo{\textbf{hacer}}
+\algrenewcommand\algorithmicwhile{\textbf{mientras}}
+\algrenewcommand\algorithmicreturn{\textbf{retornar}}
+\algrenewcommand\algorithmicfunction{\textbf{función}}
+\algrenewcommand\algorithmicprocedure{\textbf{proc}}
+\algrenewcommand\algorithmicrepeat{\textbf{repetir}}
+\algrenewcommand\algorithmicuntil{\textbf{hasta que}}
+\algrenewcommand{\algorithmiccomment}[1]{\hfill\textcolor{cgris}{\textit{// #1}}}
+\algnewcommand\algorithmicomit{\textbf{omitir vuelta}}
+\algnewcommand\Omitir{\algorithmicomit{}}
+
+% ── Bloques de pseudocódigo numerados y divisibles entre páginas ──
+\newcounter{pcode}[section]
+\renewcommand{\thepcode}{\thesection.\arabic{pcode}}
+\newenvironment{pseudo}[1]{%
+  \par\medskip\noindent
+  \refstepcounter{pcode}%
+  \colorbox{cfondo}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{%
+    \small\textbf{\textcolor{cazul}{Pseudocódigo \thepcode.}} #1}}%
+  \par\nobreak\smallskip\begin{algorithmic}[1]%
+}{\end{algorithmic}\par\medskip}
+
+% ── Caja de nota ──
+\newenvironment{nota}{%
+  \par\medskip\noindent
+  \begin{tabular}{@{}p{0.4em}@{\hspace{8pt}}p{\dimexpr\linewidth-2em\relax}@{}}
+  \textcolor{cnaranja}{\rule{3pt}{1.1em}} &
+}{\end{tabular}\par\medskip}
+
+\newcommand{\bigsep}{\par\vspace{3pt}}
+
+\title{\vspace{-1.4cm}\textbf{Algoritmos de Alginvesting}\\[6pt]
+  \large X4 — Backtester \quad$\cdot$\quad X5 — Cerebro macro\\[4pt]
+  \normalsize\color{cgris} Pseudocódigos comentados, de lo global a lo particular}
+\author{Proyecto Alginvesting}
+\date{\today}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{center}
+\begin{minipage}{0.86\linewidth}
+\small\color{cgris}
+Este documento describe con precisión operativa los dos módulos más grandes y menos
+visibles del sistema: \code{X4_backtester.py} (simulador histórico de la estrategia) y
+\code{X5_macro_brain.py} (modelo que aprende qué parámetros conviene usar en cada
+contexto). Cada sección parte de la idea global y baja al detalle línea a línea.
+Los conceptos técnicos se definen en una nota al pie la primera vez que aparecen,
+para no obligar a saltar al glosario.
+\end{minipage}
+\end{center}
+
+\vspace{8pt}
+\tableofcontents
+\newpage
+
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Panorama general}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Qué problema resuelve el sistema completo}
+
+Alginvesting compra en niveles de precio que el mercado ya respetó antes. La idea de
+fondo es simple: si un activo bajó muchas veces hasta cierto precio y desde ahí rebotó,
+ese precio concentra órdenes de compra reales; volver a comprar ahí tiene, en promedio,
+mejor relación entre ganancia y riesgo que comprar en cualquier punto al azar. El
+sistema mantiene decenas o cientos de esos niveles activos por activo, coloca órdenes de
+compra pendientes en ellos y las administra con un mecanismo de protección de
+ganancias.
+
+\bigsep
+Ese objetivo se reparte en seis scripts. La Tabla~\ref{tab:pipeline} los sitúa. Este
+documento cubre solo los dos últimos, pero es imposible entenderlos sin saber qué le
+entrega cada uno de los anteriores.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Script} & \textbf{Rol} & \textbf{Qué produce} \\
+\midrule
+X0 & Datos y soportes & Descarga velas\footnote{\textbf{Vela} (\textit{candle}): resumen
+de todo lo que pasó con el precio en un intervalo de tiempo fijo. Se describe con cuatro
+números —apertura (\textit{Open}), máximo (\textit{High}), mínimo (\textit{Low}) y cierre
+(\textit{Close})— más el volumen negociado. El conjunto se abrevia OHLCV. \textbf{H1} =
+velas de una hora; \textbf{M1} = velas de un minuto.} horarias y calcula, por optimización,
+los $N$ soportes óptimos de cada activo. \\
+X1 & Trading en vivo & Lee los soportes, coloca y gestiona órdenes reales en MetaTrader~5. \\
+X2 & Score fundamental & Un número en $[0,1]$ por activo que resume su salud fundamental. \\
+X3 & Features técnicas & Indicadores técnicos por vela (medias móviles, RSI, ATR, etc.). \\
+\textbf{X4} & \textbf{Backtester} & \textbf{Simula X0+X1 sobre el pasado; produce trades, eventos y curva de capital.} \\
+\textbf{X5} & \textbf{Cerebro macro} & \textbf{Aprende qué parámetros usar según el contexto y los escribe en un archivo.} \\
+\bottomrule
+\end{tabularx}
+\caption{Los seis scripts del sistema. Este documento cubre X4 y X5.}
+\label{tab:pipeline}
+\end{table}
+
+\subsection{Por qué X4 y X5 se explican juntos}
+
+X4 y X5 se escribieron como dos programas separados, pero funcionan como uno solo. La
+relación es circular y conviene fijarla desde ya:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{X5 necesita datos que no existen.} Para aprender qué parámetros funcionan
+mejor en cada contexto hacen falta miles de operaciones cerradas, cada una etiquetada con
+el contexto de mercado y los parámetros vigentes cuando se abrió. En vivo eso tomaría
+años. X5 los fabrica corriendo X4 sobre el histórico.
+\item \textbf{X4 necesita saber con qué parámetros simular.} Si siempre simulara con los
+mismos, el conjunto de datos resultante no tendría variedad y ningún modelo podría
+aprender de él. Por eso, en modo \code{--x5}, X4 cambia de parámetros cada pocos días
+simulados: a veces al azar, a veces preguntándole al modelo que X5 ya entrenó.
+\end{itemize}
+
+\bigsep
+En una frase: \textbf{X4 es el laboratorio y X5 es el experimentador}. X5 diseña las
+condiciones del experimento, X4 lo ejecuta y devuelve los resultados, X5 aprende de ellos
+y diseña el siguiente. La Sección~\ref{sec:interaccion} desarma ese bucle paso a paso, una
+vez que ambos módulos se hayan explicado por separado.
+
+\subsection{Cómo leer este documento}
+
+La estructura es deliberadamente descendente. Cada uno de los dos capítulos centrales
+(Secciones~\ref{sec:x4} y~\ref{sec:x5}) sigue el mismo orden:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item \textbf{Propósito y contrato}: qué entra, qué sale, qué garantiza y qué no.
+\item \textbf{Arquitectura}: las piezas internas y cómo se relacionan.
+\item \textbf{Pseudocódigo global}: el algoritmo completo en una página, sin detalles.
+\item \textbf{Detalle}: cada pieza del pseudocódigo global, expandida.
+\item \textbf{Parámetros}: qué controla cada perilla y qué pasa al moverla.
+\end{enumerate}
+
+\bigsep
+Los pseudocódigos están numerados por sección (Pseudocódigo 2.1, 2.2, \dots) y nombran las
+funciones reales del archivo \code{.py} correspondiente, de modo que se pueda saltar del
+documento al código sin traducción intermedia. Cuando una línea del pseudocódigo simplifica
+algo relevante, hay una nota al pie o un párrafo inmediatamente después.
+
+\subsection{Vocabulario del dominio}
+\label{sec:vocab}
+
+Todo el documento usa las siglas de la Tabla~\ref{tab:vocab}. Están definidas también en
+\code{CLAUDE.md}, pero se repiten aquí porque el resto del texto las da por sabidas.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\textbf{Sigla} & \textbf{Significado} \\
+\midrule
+Soporte & Nivel de precio en el que se coloca una orden de compra pendiente. \\
+$N$ & Cantidad de soportes activos por activo. \\
+O0 & Orden potencial: su soporte todavía está demasiado cerca del precio actual, así que aún no se coloca. \\
+OE & \textbf{Orden en Espera}: orden de compra límite\footnote{\textbf{Orden límite de compra}
+(\textit{buy limit}): instrucción al bróker de comprar automáticamente si el precio baja
+hasta un nivel indicado. Mientras el precio no llegue, la orden existe pero no consume
+capital: solo reserva margen cuando se ejecuta.} ya colocada, esperando que el precio baje hasta ella. \\
+OA & \textbf{Orden Abierta}: la OE se ejecutó; hay una posición viva ganando o perdiendo. \\
+OC & \textbf{Orden Cerrada}: la posición se cerró (por protección de ganancias, por pérdida máxima o por stop). \\
+$A$ & Ganancia flotante en dólares que debe alcanzar una posición para que se active por primera vez su stop protector. \\
+$B$ & Distancia en dólares a la que el stop protector sigue al precio una vez activado. \\
+$L$ & Tamaño efectivo de la posición: lote $\times$ unidades por lote. Convierte diferencias de precio en dólares. \\
+FO & \textbf{Función Objetivo}: número que mide qué tan bueno es un conjunto de $N$ soportes. X0 la maximiza. \\
+$T$ & Ventana de días de historia usada para calcular soportes. \\
+\bottomrule
+\end{tabularx}
+\caption{Vocabulario mínimo. La progresión natural de una orden es O0 $\to$ OE $\to$ OA $\to$ OC.}
+\label{tab:vocab}
+\end{table}
+
+\subsubsection{La mecánica de una operación, con números}
+
+Antes de entrar en el código conviene tener en la cabeza una operación completa, porque
+todo X4 no es más que repetir esto millones de veces.
+
+\bigsep
+Supón NVDA cotizando a \$180. Hay un soporte en \$174. Los parámetros son $A=6$, $B=2$,
+lote $=0{,}01$, unidades por lote $=100$, es decir $L = 0{,}01 \times 100 = 1$ (cada dólar
+de movimiento del precio vale un dólar en la cuenta).
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=3pt]
+\item \textbf{Creación (O0 $\to$ OE).} La distancia entre el precio y el soporte, medida en
+dólares, es $(180 - 174) \times L = 6$. Como $6 \ge A = 6$, la orden se coloca. Si el
+soporte estuviera en \$176, la distancia sería \$4 y la orden quedaría en O0: demasiado
+cerca, no vale la pena inmovilizar una orden ahí.
+\item \textbf{Ejecución (OE $\to$ OA).} El precio baja y en algún momento una vela toca
+\$174. La orden se ejecuta: ahora hay una posición comprada a \$174.
+\item \textbf{Activación del stop protector (paso C).} El precio sube a \$181. La ganancia
+flotante es $(181-174)\times L = 7 \ge A = 6$, así que se activa por primera vez un stop
+en $181 - B/L = 181 - 2 = \$179$. Desde este momento, la operación no puede terminar en
+pérdida.
+\item \textbf{Seguimiento.} El precio sigue a \$184: el stop se mueve a $184-2 = \$182$.
+Nunca baja; si el precio retrocede a \$183, el stop se queda en \$182.
+\item \textbf{Cierre (OA $\to$ OC).} El precio cae a \$182 y toca el stop. La posición se
+cierra con $(182-174)\times L = \$8$ de ganancia. Se registra una fila OC.
+\end{enumerate}
+
+\bigsep
+El camino alternativo es el malo: el precio nunca sube lo suficiente para activar el stop y
+en cambio cae hasta que $(174 - \text{precio}) \times L > \code{PERDIDA_MAX}$. Entonces la
+posición se cierra a pérdida (paso D). Toda la estrategia vive en la tensión entre esos dos
+finales, y todos los parámetros que X5 optimiza mueven la frontera entre uno y otro.
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{X4 — Backtester}
+\label{sec:x4}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Propósito y contrato}
+
+\subsubsection{Qué hace, en una frase}
+
+X4 toma el historial de precios ya descargado, se para en la primera vela y avanza hora a
+hora hasta el presente, comportándose exactamente como se habría comportado el sistema
+real en cada uno de esos momentos: calcula soportes con la información disponible hasta
+esa hora, coloca órdenes, las ejecuta cuando el precio las alcanza, mueve stops, cierra
+posiciones y anota todo. Al final entrega un historial completo de operaciones y una curva
+de capital.
+
+\bigsep
+Esto es \textit{backtesting}\footnote{\textbf{Backtesting}: evaluar una estrategia
+aplicándola sobre datos históricos como si se estuviera operando en ese momento. Su
+validez depende por completo de no usar información del futuro (ver
+Sección~\ref{sec:x4-nolookahead}).}. Su utilidad es doble: permite estimar si la estrategia
+gana o pierde dinero antes de arriesgar capital real, y —el uso dominante hoy— genera el
+conjunto de datos de entrenamiento de X5.
+
+\subsubsection{Qué garantiza: ausencia de información del futuro}
+\label{sec:x4-nolookahead}
+
+El error clásico de un backtester es dejar entrar, sin darse cuenta, información que en el
+momento simulado todavía no existía. X4 se protege de eso en tres puntos concretos:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Soportes.} Cuando en el instante simulado $t$ hay que recalcular soportes, se
+llama a la misma función de X0 pasándole \code{fecha_hora_max = t}. Esa función recorta el
+CSV a $\{$filas con fecha $\le t\}$ antes de optimizar. Un soporte nunca se apoya en una
+vela que aún no ocurrió.
+\item \textbf{Features de contexto.} El fotograma de indicadores técnicos (X3) y de score
+fundamental (X2) que acompaña a cada operación se calcula también con el corte
+\code{df.index <= ts}, y para X2 se elige la entrada del historial cuya fecha sea $\le$ la
+fecha simulada.
+\item \textbf{Columnas prohibidas en el modelo.} X5 excluye explícitamente del vector de
+entrada cualquier columna terminada en \code{_oc} (información del momento del cierre), que
+por definición no está disponible cuando hay que decidir.
+\end{itemize}
+
+\subsubsection{Qué no simula: los supuestos que hay que tener presentes}
+
+Un backtester es siempre una simplificación. Los supuestos de X4, ordenados de más a menos
+relevante:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=3pt]
+\item \textbf{Sin deslizamiento ni comisiones.} Una orden límite en \$174 se ejecuta a
+\$174 exactos, salvo el caso de hueco (Sección~\ref{sec:x4-pasoB}). No se descuentan
+comisiones ni costo de financiamiento nocturno. El resultado simulado es, por tanto, un
+techo optimista.
+\item \textbf{Liquidez infinita.} Se asume que siempre hay contraparte para el tamaño
+operado. Con los lotes mínimos que usa el sistema es un supuesto razonable.
+\item \textbf{Intra-vela sintético.} Dentro de una vela de una hora, el orden real en que
+el precio visitó su máximo y su mínimo es desconocido. X4 lo reconstruye tomando prestado
+un tramo real de sesenta minutos y reescalándolo (Sección~\ref{sec:x4-intravela}). Es una
+aproximación, y es la mayor fuente de incertidumbre del simulador.
+\item \textbf{Sin cierre forzado al final.} Cuando se acaban los datos, las posiciones
+abiertas quedan abiertas: no se liquidan a precio de mercado. El capital final reportado es
+saldo realizado, no valor de liquidación.
+\end{enumerate}
+
+\subsubsection{Los dos modos de ejecución}
+\label{sec:x4-modos}
+
+El mismo archivo se usa para dos cosas distintas, y confundirlas es la fuente habitual de
+desorientación. La Tabla~\ref{tab:x4modos} las separa.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X X@{}}
+\toprule
+ & \textbf{Modo versión} & \textbf{Modo X5} \\
+\midrule
+Invocación & \code{python X4_backtester.py --version V1} & \code{python X4_backtester.py --x5 --activo BTCUSD} \\
+Configuración & \code{resources/x4/versionV1/config_V1.py} & \code{scripts/config_x5_default.py} \\
+Parámetros & Fijos durante toda la corrida & Se regeneran cada pocos días simulados \\
+Pregunta que responde & ¿Cuánto habría rendido esta configuración exacta? & ¿Cómo rinden \textit{muchas} configuraciones en \textit{muchos} contextos? \\
+Salida principal & \code{trades.json}, \code{equity_global.csv} & \code{resources/x5/\{ACTIVO\}_store.csv} \\
+Activos & Todos los de la versión & Uno solo (aislamiento para paralelizar) \\
+\bottomrule
+\end{tabularx}
+\caption{Los dos modos de X4. El interruptor es el argumento \code{--x5}.}
+\label{tab:x4modos}
+\end{table}
+
+\bigsep
+El modo versión existe para responder preguntas puntuales y reproducibles: cada versión
+congela su propia copia de la configuración en un archivo aparte, de modo que cambiar
+\code{config.py} meses después no altere el resultado de una corrida antigua. El script
+auxiliar \code{X4B_crear_version_backtesting.py} crea ese andamiaje (carpeta, plantilla de
+configuración, registro de la versión en \code{config.py}) a partir de un nombre.
+
+\subsubsection{Entradas y salidas}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Dirección} & \textbf{Archivo} & \textbf{Contenido} \\
+\midrule
+Entrada & \code{Data/\{ACTIVO\}.csv} & Velas H1 con OHLCV. Obligatorio. \\
+Entrada & \code{Data_minuto/\{ACTIVO\}.csv} & Velas M1. Opcional: sin él, la simulación intra-vela se degrada. \\
+Entrada & \code{resources/x2/x2_history.json} & Historial de scores fundamentales (solo modo X5). \\
+Salida & \code{checkpoint.json} & Estado completo para reanudar. \\
+Salida & \code{trades.json} & Una entrada por operación cerrada. \\
+Salida & \code{events.json} & Bitácora de todo: creación, cancelación, cambio de stop, cierre. \\
+Salida & \code{equity_global.csv} & Una fila por vela: saldo, patrimonio, margen. \\
+Salida & \code{equity_activos.csv} & Una fila por vela y activo: ganancia cerrada, flotante y total. \\
+Salida & \code{conjuntos_N/\{V\}_\{N\}_bt.json} & Caché de soportes indexado por fecha. \\
+Salida & \code{\{ACTIVO\}_store.csv} & Filas de entrenamiento para X5 (solo modo X5). \\
+\bottomrule
+\end{tabularx}
+\caption{Contrato de archivos de X4. Todas las rutas salen de la configuración activa.}
+\end{table}
+
+\subsection{Arquitectura interna}
+
+\subsubsection{El estado: una sola estructura que lo contiene todo}
+\label{sec:x4-estado}
+
+X4 no usa clases. Todo el estado de la simulación vive en un único diccionario anidado que
+se pasa por referencia a cada función. Conocer su forma es conocer el programa:
+
+\begin{lstlisting}
+estado = {
+  'capital': 3000.0,                 # saldo realizado en USD
+  'ts_ultimo_procesado': '2026-03-04T11:00:00',
+  'ts_ultimo_recalculo': '2026-03-01T09:00:00',
+  'stop_out': False,
+  'por_activo': {
+     'BTCUSD': {
+        'soportes': [61200.0, 61845.5, ...],       # lista ordenada de N precios
+        'OE': {61200.0: {'lote':0.01, 'ts_creacion':...}, ...},
+        'OA': {60310.0: {'lote':0.01, 'sl':60480.0, 'ts_apertura':...,
+                         'ganancia_max':..., 'drawdown_max':...,
+                         'duracion_velas':..., 'capital_apertura':...}, ...},
+        'GC': 184.55,                              # ganancia cerrada acumulada
+     },
+     'ETHUSD': {...},
+  },
+}
+\end{lstlisting}
+
+\bigsep
+Dos decisiones de diseño se leen directamente ahí:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Las órdenes se indexan por precio, no por identificador.} \code{OE} y
+\code{OA} son diccionarios cuya clave es el precio de la orden. Esto hace instantáneo
+preguntar «¿ya hay una orden en este soporte?», que es la consulta más frecuente del bucle,
+pero impone una restricción: no puede haber dos órdenes en el mismo precio exacto para el
+mismo activo. En la práctica no ocurre, porque los soportes son distintos entre sí por
+construcción.
+\item \textbf{El estado es serializable.} Todo lo que hay ahí adentro son números, textos y
+diccionarios: se puede volcar a JSON y recuperar tal cual. De eso vive el mecanismo de
+reanudación.
+\end{itemize}
+
+\subsubsection{Checkpoint: parar y seguir}
+
+Una pasada completa sobre varios años de velas horarias tarda horas. Cada 24 velas
+procesadas —y siempre antes de un evento importante— X4 vuelca \code{estado} a
+\code{checkpoint.json} y descarga a disco las listas de operaciones y eventos acumuladas en
+memoria. Al arrancar, si encuentra un checkpoint y no se pidió \code{--reset}, lo carga y
+salta todas las velas cuya fecha sea $\le$ \code{ts_ultimo_procesado}.
+
+\begin{nota}
+Un detalle fácil de pasar por alto: al saltar velas ya procesadas, X4 igual actualiza
+\code{cierre_previo} de cada activo. Ese diccionario guarda el último precio conocido de
+cada activo y se usa para valorar posiciones de activos que no tienen vela en el instante
+actual (una acción de EE.UU.\ no cotiza de madrugada, pero su posición sigue existiendo).
+Si no se actualizara durante el salto, el primer cálculo de patrimonio tras reanudar usaría
+precios de hace meses.
+\end{nota}
+
+\bigsep
+Las claves numéricas son el punto delicado de la serialización: JSON solo admite claves de
+texto, así que al guardar se convierten a texto y al cargar se reconvierten con
+\code{float(k)}. Esa conversión de ida y vuelta está en \code{_cargar_checkpoint} y
+\code{_guardar_checkpoint} y debe mantenerse simétrica.
+
+\subsubsection{Carga de datos}
+
+Las velas H1 se cargan una vez, completas, en memoria: un \code{DataFrame} por activo,
+ordenado por fecha, sin duplicados y recortado desde \code{fecha_inicio}. Se indexa por
+fecha para que la consulta \code{df.loc[ts]} sea directa. Las velas M1 se cargan igual pero
+sin indexar, porque no se consultan por fecha sino por posición aleatoria
+(Sección~\ref{sec:x4-intravela}).
+
+\bigsep
+El eje temporal del bucle no es el de un activo, sino la \textbf{unión ordenada de todas
+las fechas de todos los activos}. Así, un instante en que solo cotiza BTCUSD existe en el
+bucle y se procesa solo para ese activo; el resto se valora al último precio conocido.
+
+\subsection{El algoritmo global}
+
+Con el estado y los datos ya presentados, el bucle completo cabe en una página. El
+Pseudocódigo~\ref{alg:x4global} es el mapa: todo lo que viene después de esta subsección es
+la expansión de alguna de sus líneas.
+
+\begin{pseudo}{\code{ejecutar_backtest(cfg, reset, x5_mode)} — bucle principal}
+\label{alg:x4global}
+\Require configuración \code{cfg}, banderas \code{reset} y \code{x5_mode}
+\Ensure archivos de resultados en disco y \code{estado} final
+\State \textbf{datos_h1} $\gets$ cargar CSV horarios de todos los activos, recortados desde \code{fecha_inicio}
+\State \textbf{datos_m1} $\gets$ cargar CSV de minutos (puede faltar por activo)
+\If{\code{x5_mode}}
+  \State decidir \code{reset} solo: pasada nueva si no hay checkpoint, si terminó, o si hubo quiebra
+  \If{\code{reset}} borrar el estado adaptativo del optimizador de soportes \EndIf
+\EndIf
+\State \textbf{estado} $\gets$ checkpoint si \code{$\neg$ reset} y existe; si no, estado inicial con \code{capital_inicial}
+\If{algún activo no tiene soportes}
+  \If{\code{x5_mode}} elegir parámetros del primer tramo (Sec.~\ref{sec:x4-x5params}) \EndIf
+  \State \textbf{recalcular_soportes}(estado, $t = $ \code{fecha_inicio}) \Comment{arranque en frío}
+\EndIf
+\State \textbf{todos_los_ts} $\gets$ unión ordenada de las fechas de todos los activos
+\For{cada \textbf{ts} en \textbf{todos_los_ts}}
+  \State actualizar \code{cierre_previo} de los activos con vela en \textbf{ts}
+  \If{\textbf{ts} $\le$ \code{ts_ultimo_procesado}} \Omitir \Comment{ya simulada antes del checkpoint} \EndIf
+  \If{han pasado \code{delta_recalculo_soportes} días desde el último recálculo}
+     \If{\code{x5_mode}} elegir parámetros del nuevo tramo (explorar o explotar) \EndIf
+     \State \textbf{recalcular_soportes}(estado, \textbf{ts})
+     \State guardar avance y \Omitir \Comment{la vela del recálculo no se opera}
+  \EndIf
+  \State \textbf{precios} $\gets$ cierre de cada activo en \textbf{ts}, o su último cierre conocido
+  \For{cada \textbf{activo} con vela en \textbf{ts}}
+     \If{\code{x5_mode}} \textbf{ctx} $\gets$ fotograma de features X3 y X2 al instante \textbf{ts} \EndIf
+     \State \textbf{procesar_vela}(\textbf{ts}, vela, \textbf{activo}, \dots) \Comment{pasos A--F}
+     \If{\code{x5_mode} y toca registro periódico y hay posiciones abiertas}
+        \State escribir fila \code{'periodico'} en el store de X5
+     \EndIf
+  \EndFor
+  \State \textbf{mc} $\gets$ \textbf{registrar_equity}(\textbf{ts}, estado, \textbf{precios}) \Comment{paso G}
+  \State \code{ts_ultimo_procesado} $\gets$ \textbf{ts}
+  \If{patrimonio $\le 0$ \textbf{o} nivel de margen $\le$ \code{STOP_OUT_LEVEL}}
+     \State registrar quiebra, guardar todo y \textbf{cortar}
+  \EndIf
+  \If{múltiplo de 24 velas} guardar checkpoint y volcar operaciones y eventos a disco \EndIf
+\EndFor
+\State guardar checkpoint final, volcar pendientes, imprimir resumen
+\end{pseudo}
+
+\bigsep
+Tres observaciones sobre este esqueleto:
+
+\paragraph{La vela del recálculo se congela.} Cuando toca recalcular soportes, X4 recalcula,
+guarda y salta a la siguiente vela sin operar. El motivo es de coherencia interna: el
+recálculo puede cancelar órdenes en espera y crear otras nuevas, y mezclar eso con la
+ejecución de la misma vela dejaría un orden de eventos ambiguo (¿la orden que se canceló
+alcanzó a ejecutarse?). Congelar la vela cuesta una hora de simulación cada varios días y
+elimina la ambigüedad.
+
+\paragraph{El disparo del recálculo es por umbral, no por hora exacta.} La condición es
+«han pasado al menos $\delta$ días», evaluada en la primera vela disponible que la cumpla.
+Una versión anterior exigía además una hora concreta del día, y eso hacía que activos sin
+sesión de 24 horas —las acciones— pudieran no tener nunca una vela a esa hora y quedaran
+con soportes congelados para siempre.
+
+\paragraph{El orden interno de cada vela es fijo.} Primero se procesan todos los activos,
+después se registra el patrimonio, después se evalúa la quiebra. Registrar el patrimonio
+antes de operar daría una foto desfasada; evaluar la quiebra antes de registrar dejaría la
+última fila del historial sin escribir.
+
+\subsection{Los pasos A--F: la lógica de trading de una vela}
+
+\code{_procesar_candle} es el corazón. Recibe una vela de un activo y aplica seis pasos en
+orden estricto. Antes de ellos hace dos actualizaciones de contadores: incrementa la
+duración en velas de cada posición abierta y actualiza su peor pérdida flotante usando el
+mínimo de la vela.
+
+\begin{pseudo}{\code{_procesar_candle(ts, vela, activo, \dots)}}
+\Require vela con Open/High/Low/Close, estado del activo
+\For{cada posición abierta \textbf{p}}
+  \State \code{p.duracion_velas} $\gets$ \code{p.duracion_velas} $+\,1$
+  \State \code{p.drawdown_max} $\gets \min($\code{p.drawdown_max}$, (\text{Low} - p_{ap}) \cdot L)$
+\EndFor
+\State \textbf{precio_saliente} $\gets$ \textbf{paso_A}(\dots) \Comment{cancelar OE huérfanas}
+\State \textbf{usar_iv} $\gets$ \textbf{necesita_intravela}(\dots)
+\If{\textbf{usar_iv} y hay datos de minutos}
+  \State \textbf{simular_intravela}(\dots) \Comment{repite B--F sobre 60 velas de un minuto}
+\Else
+  \State \textbf{paso_B}(vela) \Comment{ejecutar OE alcanzadas}
+  \State \textbf{paso_C}(High) \Comment{mover stops protectores}
+  \State \textbf{paso_D}(Low) \Comment{cerrar por pérdida máxima}
+  \State \textbf{paso_E}(Low) \Comment{cerrar por stop tocado}
+  \State \textbf{paso_F}(Close) \Comment{crear OE nuevas}
+\EndIf
+\end{pseudo}
+
+\subsubsection{Paso A — cancelar órdenes en espera huérfanas}
+
+Cada recálculo produce un conjunto de soportes distinto. Una orden en espera colocada sobre
+un soporte que ya no existe debe retirarse: el nivel dejó de ser interesante. El paso A
+recorre las OE y elimina las que no coinciden con ningún soporte vigente.
+
+\begin{pseudo}{\code{_paso_A} — cancelación de OE sin soporte}
+\Ensure precio más alto entre las canceladas, o \textit{nada}
+\State \textbf{a_eliminar} $\gets \{p \in$ OE $: p \notin$ soportes$\}$
+\For{cada \textbf{p} en \textbf{a_eliminar}}
+  \State registrar evento \code{OE_eliminada} con motivo \code{soporte_desactivado}
+  \State borrar OE en \textbf{p}
+\EndFor
+\State \Return $\max($\textbf{a_eliminar}$)$ si no está vacío
+\end{pseudo}
+
+\bigsep
+El valor de retorno no es decorativo. Si se acaba de retirar un buy limit que estaba
+razonablemente cerca del precio, la zona inmediatamente inferior queda descubierta. El paso
+F usa ese precio para permitir que un soporte cercano ocupe el hueco aunque no cumpla la
+distancia mínima habitual (Sección~\ref{sec:x4-pasoF}). Es la misma regla de reemplazo que
+aplica el sistema en vivo en \code{X1.crear_ordenes_espera}, y mantenerla idéntica en ambos
+lados es lo que hace comparables los resultados simulados con los reales.
+
+\subsubsection{Paso B — ejecutar las órdenes que el precio alcanzó}
+\label{sec:x4-pasoB}
+
+Una orden en espera a precio $p$ se ejecuta si el precio bajó hasta $p$. Con velas horarias
+eso se traduce en $\text{Low} \le p$. Pero hay un caso especial que merece tratamiento
+aparte: el hueco de mercado.
+
+\paragraph{El caso normal.} Se recorren las OE con $p < \text{Open}$ de mayor a menor. Si
+$\text{Low} \le p$, la orden se ejecuta al precio $p$ exacto.
+
+\paragraph{El hueco.} Si una orden estaba en \$174 y el mercado abre en \$170 —viernes cierre
+en \$176, lunes apertura en \$170 tras una mala noticia—, el precio nunca pasó por \$174: se
+lo saltó\footnote{\textbf{Hueco} (\textit{gap}): salto de precio entre el cierre de una vela
+y la apertura de la siguiente, sin cotizaciones intermedias. Típico de fines de semana y de
+la apertura de mercados no continuos. Es la razón por la que una orden límite puede
+ejecutarse a un precio peor que el pedido.}. En la realidad el bróker ejecuta todas las
+órdenes límite pendientes por encima de la apertura al precio de apertura. X4 replica eso:
+detecta el conjunto \code{oes_gap} $= \{p \in$ OE $: p \ge \text{Open}\}$ y ejecuta todas al
+precio $\min($\code{oes_gap}$)$, no al precio pedido. El resultado es una entrada peor que la
+planificada, que es exactamente lo que ocurre en vivo.
+
+\begin{pseudo}{\code{_paso_B} — ejecución de OE, con y sin hueco}
+\State \textbf{oes_gap} $\gets \{p \in$ OE $: p \ge \text{Open}\}$
+\If{\textbf{oes_gap} no está vacío}
+  \State \textbf{precio_gap} $\gets \min($\textbf{oes_gap}$)$
+  \For{cada \textbf{p} en \textbf{oes_gap} ordenadas}
+     \State \textbf{margen_nueva} $\gets$ \textbf{precio_gap} $\cdot$ lote $\cdot$ unidades $/$ apalancamiento
+     \If{margen libre $-$ \textbf{margen_nueva} $<$ \code{MARGEN_LIBRE_MIN_BT}}
+        \State cancelar la OE con motivo \code{margen_insuficiente}; \Omitir
+     \EndIf
+     \State mover OE $\to$ OA anotando \textbf{precio_gap} como precio de apertura
+     \State registrar evento \code{OE_ejecutada} con \code{es_gap = verdadero}
+  \EndFor
+\EndIf
+\For{cada \textbf{p} en OE con $p < \text{Open}$, de mayor a menor}
+  \If{$\text{Low} \le p$}
+     \State mismo control de margen; si no alcanza, cancelar y \Omitir
+     \State mover OE $\to$ OA con precio de apertura $p$
+     \State registrar evento \code{OE_ejecutada} con \code{es_gap = falso}
+  \EndIf
+\EndFor
+\end{pseudo}
+
+\paragraph{El control de margen.} Antes de convertir cada OE en OA se verifica que quede
+margen libre\footnote{\textbf{Margen}: dinero que el bróker inmoviliza como garantía al
+abrir una posición apalancada. Se calcula como valor de la posición dividido por el
+apalancamiento. \textbf{Margen libre} = patrimonio $-$ margen usado: lo que queda disponible
+para abrir posiciones nuevas o absorber pérdidas.} suficiente. Si no lo hay, la orden no se
+ejecuta: se cancela y se registra el motivo. Esto reproduce el rechazo del bróker y evita
+que la simulación abra posiciones imposibles.
+
+\begin{nota}
+El control se hace \textit{orden por orden}, recalculando el margen libre en cada
+iteración, porque cada ejecución consume margen y cambia la respuesta para la siguiente.
+En un hueco grande pueden ejecutarse decenas de órdenes en el mismo instante y la última no
+tiene por qué caber.
+\end{nota}
+
+\subsubsection{Paso C — el stop protector móvil}
+
+El mecanismo que convierte una ganancia flotante en ganancia asegurada. Tiene dos
+regímenes:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Sin stop todavía} (\code{sl = 0}). Se activa por primera vez solo si la
+ganancia flotante calculada con el máximo de la vela alcanza $A$:
+$(\text{High} - p_{ap}) \cdot L \ge A$. El stop se coloca en $\text{High} - B/L$.
+\item \textbf{Con stop activo.} El nuevo candidato es $\text{High} - B/L$. Se adopta
+\textit{solo si es mayor} que el actual. El stop sube con el precio y nunca baja.
+\end{itemize}
+
+\begin{pseudo}{\code{_paso_C} — trailing stop\protect\footnotemark}
+\For{cada posición abierta en $p_{ap}$}
+  \State \textbf{ga} $\gets (\text{High} - p_{ap}) \cdot L$ \Comment{ganancia flotante con el máximo de la vela}
+  \State \code{ganancia_max} $\gets \max($\code{ganancia_max}$,$ \textbf{ga}$)$
+  \If{\code{sl} $= 0$}
+     \If{\textbf{ga} $\ge A$}
+        \State \code{sl} $\gets \text{High} - B/L$
+        \State reponer una OE en $p_{ap}$ si no existe \Comment{el nivel vuelve a quedar libre}
+        \State registrar evento \code{SL_cambiado}
+     \EndIf
+  \Else
+     \State \textbf{sl_nuevo} $\gets \text{High} - B/L$
+     \If{\textbf{sl_nuevo} $>$ \code{sl}} \State \code{sl} $\gets$ \textbf{sl_nuevo}; registrar evento \EndIf
+  \EndIf
+\EndFor
+\end{pseudo}
+\footnotetext{\textbf{Trailing stop} (stop dinámico o «de arrastre»): orden de venta
+automática cuyo precio de disparo sigue al precio de mercado mientras este sube, y se queda
+quieta cuando baja. Su efecto es fijar un piso creciente para el resultado de la operación.}
+
+\paragraph{La reposición de la orden en espera.} La línea sutil de este paso: cuando una
+posición activa su primer stop, se vuelve a colocar una OE en su mismo precio de apertura.
+La lectura es que ese nivel ya demostró funcionar —el precio bajó hasta ahí, rebotó y la
+posición está en ganancia asegurada—, así que vale la pena tener otra orden esperando por si
+el precio vuelve. Sin esta línea, cada soporte serviría para una sola operación por ciclo de
+recálculo.
+
+\subsubsection{Paso D — cierre por pérdida máxima}
+
+Corte de pérdidas duro. Si la pérdida flotante medida con el mínimo de la vela supera el
+umbral, la posición se cierra al mínimo:
+\[
+(p_{ap} - \text{Low}) \cdot L > \code{PERDIDA_MAX_BT} \;\Longrightarrow\; \text{cerrar a } \text{Low}
+\]
+
+\begin{pseudo}{\code{_paso_D} — cierre por pérdida máxima}
+\State \textbf{a_cerrar} $\gets \{p_{ap} \in$ OA $: (p_{ap} - \text{Low}) \cdot L > \code{PERDIDA_MAX_BT}\}$
+\For{cada $p_{ap}$ en \textbf{a_cerrar}}
+  \State sacar la posición de OA; actualizar su peor pérdida flotante
+  \State \textbf{retorno} $\gets (\text{Low} - p_{ap}) \cdot L$
+  \State \code{capital} $\gets$ \code{capital} $+$ \textbf{retorno}; \quad \code{GC[activo]} $\gets$ \code{GC[activo]} $+$ \textbf{retorno}
+  \State construir el registro de operación con motivo \code{perdida_max} y añadirlo a \code{trades}
+  \If{\code{x5_mode}} construir la fila OC y escribirla en el store de X5 \EndIf
+  \State registrar evento \code{posicion_cerrada}
+\EndFor
+\end{pseudo}
+
+\bigsep
+Nótese que el precio de cierre es el mínimo de la vela, no el nivel exacto donde se cruzó el
+umbral. Es la convención conservadora: se asume el peor punto alcanzado dentro de la vela.
+Cuando la simulación intra-vela está activa, el mismo paso se ejecuta sobre velas de un
+minuto y el precio de cierre es mucho más ajustado.
+
+\subsubsection{Paso E — cierre por stop tocado}
+
+Idéntico en estructura al paso D, pero la condición es que el mínimo de la vela haya llegado
+al stop, y el precio de cierre es el stop mismo (no el mínimo): una orden de stop se ejecuta
+a su nivel.
+
+\begin{pseudo}{\code{_paso_E} — cierre por stop protector}
+\State \textbf{a_cerrar} $\gets \{p_{ap} \in$ OA $: \code{sl} > 0 \;\wedge\; \text{Low} \le \code{sl}\}$
+\For{cada $p_{ap}$ en \textbf{a_cerrar}}
+  \State \textbf{retorno} $\gets (\code{sl} - p_{ap}) \cdot L$ \Comment{normalmente positivo, por construcción del paso C}
+  \State actualizar capital y ganancia cerrada del activo
+  \State registrar la operación con motivo \code{trailing_stop} y, en modo X5, la fila del store
+\EndFor
+\end{pseudo}
+
+\paragraph{Por qué D va antes que E.} Ambos miran el mínimo de la vela y ambos pueden
+aplicar a la misma posición. Poner D primero significa que, si una posición cruza a la vez
+su pérdida máxima y su stop, se registra como pérdida máxima. Con velas horarias es un
+empate raro; con simulación intra-vela activa prácticamente desaparece, porque las
+condiciones se evalúan minuto a minuto y una ocurre estrictamente antes que la otra.
+
+\subsubsection{Paso F — crear órdenes en espera}
+\label{sec:x4-pasoF}
+
+Cierra el ciclo: recorre los soportes de mayor a menor y coloca una orden en espera en cada
+uno que cumpla las condiciones.
+
+\begin{pseudo}{\code{_paso_F} — creación de OE sobre soportes libres}
+\Require precio de referencia $p_{ref}$ (cierre de la vela), \textbf{precio_saliente} del paso A
+\State \textbf{margen_comprometido} $\gets 0$
+\If{\textbf{precio_saliente} existe y \textbf{precio_saliente} $< p_{ref}$}
+   \State \textbf{umbral_reemplazo} $\gets (p_{ref} + \textbf{precio_saliente})/2$
+\EndIf
+\For{cada \textbf{soporte} en orden decreciente}
+  \If{ya hay OA u OE en \textbf{soporte}} \Omitir \EndIf
+  \State \textbf{distancia_ok} $\gets (p_{ref} - \textbf{soporte}) \cdot L \ge A$
+  \State \textbf{reemplazo_ok} $\gets$ \textbf{umbral_reemplazo} existe $\wedge$ \textbf{soporte} $<$ \textbf{umbral_reemplazo}
+  \If{ni \textbf{distancia_ok} ni \textbf{reemplazo_ok}} \Omitir \Comment{queda en estado O0} \EndIf
+  \State \textbf{margen_nueva} $\gets$ \textbf{soporte} $\cdot$ lote $\cdot$ unidades $/$ apalancamiento
+  \If{margen libre $-$ \textbf{margen_comprometido} $-$ \textbf{margen_nueva} $<$ \code{MARGEN_LIBRE_MIN_BT}} \Omitir \EndIf
+  \State \textbf{margen_comprometido} $\gets$ \textbf{margen_comprometido} $+$ \textbf{margen_nueva}
+  \State crear OE en \textbf{soporte}; en modo X5, adjuntar el fotograma de features X3 y X2
+  \State registrar evento \code{OE_creada}
+\EndFor
+\end{pseudo}
+
+\paragraph{La condición de distancia.} $(p_{ref} - \text{soporte}) \cdot L \ge A$ dice: solo
+coloca la orden si, cuando se ejecute, tendrá espacio para ganar al menos $A$ antes de
+volver al precio actual. Colocar órdenes pegadas al precio produce entradas que se ejecutan
+enseguida y quedan atrapadas sin margen de maniobra.
+
+\paragraph{La regla de reemplazo.} El punto medio entre el precio actual y el buy limit
+recién cancelado define una zona donde un soporte puede entrar aunque esté más cerca de lo
+normal. Recupera la cobertura que el paso A acaba de retirar, sin abrir la puerta a llenar
+toda la zona cercana de órdenes.
+
+\paragraph{Margen comprometido dentro del ciclo.} Como el paso F puede crear muchas órdenes
+en una sola pasada y el margen de una orden en espera no está realmente reservado hasta que
+se ejecuta, se lleva un acumulador local \code{margen_comprometido}. Sin él, el paso
+colocaría órdenes por un total que la cuenta no puede sostener si todas se ejecutaran a la
+vez.
+
+\subsubsection{Por qué este orden y no otro}
+
+El orden A--F no es arbitrario. Se puede justificar como una cadena de dependencias:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item \textbf{A antes que todo}, porque opera sobre información que acaba de cambiar (los
+soportes) y podría estar dejando órdenes vivas sobre niveles ya inválidos.
+\item \textbf{B antes que C, D y E}, porque una orden que se ejecuta en esta vela debe poder
+gestionarse en esta misma vela: si el precio cae fuerte, una posición recién abierta puede
+tener que cerrarse de inmediato por pérdida máxima.
+\item \textbf{C antes que E}, porque el stop debe estar actualizado antes de comprobar si el
+precio lo tocó. Al revés, se cerrarían posiciones con un stop viejo.
+\item \textbf{F al final}, porque necesita el estado ya depurado: sabe qué niveles quedaron
+ocupados tras las ejecuciones de B y liberados tras los cierres de D y E, y cuánto margen
+queda realmente.
+\end{enumerate}
+
+\subsection{Simulación intra-vela}
+\label{sec:x4-intravela}
+
+\subsubsection{El problema}
+
+Una vela horaria dice que el precio abrió en 180, tocó 184, bajó hasta 176 y cerró en 181.
+No dice en qué orden. Y el orden importa muchísimo: si primero subió a 184 y luego bajó a
+176, el stop protector se activó y la operación cerró en ganancia; si primero cayó a 176 y
+luego subió, quizá se cerró antes por pérdida máxima. Con las mismas cuatro cifras, dos
+resultados opuestos.
+
+\subsubsection{La solución adoptada}
+
+Cuando el desenlace de la vela depende del orden interno, X4 toma un tramo real de sesenta
+minutos del historial M1 del mismo activo —elegido al azar—, lo deforma para que encaje
+exactamente en la vela horaria y simula los pasos B--F sobre cada uno de esos sesenta
+minutos.
+
+\bigsep
+El reescalado es una transformación afín que preserva la forma del tramo pero fuerza sus
+extremos:
+\[
+x' \;=\; \text{Low}_{H1} \;+\; (x - \text{Low}_{M1}) \cdot
+\frac{\text{High}_{H1} - \text{Low}_{H1}}{\text{High}_{M1} - \text{Low}_{M1}}
+\]
+y luego se fija a mano la apertura de la primera vela de un minuto y el cierre de la última
+para que coincidan con los de la vela horaria. El resultado es un camino de precios
+plausible —con la microestructura de un tramo real de ese mismo activo— que respeta los
+cuatro valores conocidos.
+
+\begin{pseudo}{\code{_necesita_intravela} — ¿hace falta el detalle de minutos?}
+\State \textbf{rango} $\gets \text{High} - \text{Low}$
+\For{cada posición abierta}
+  \If{\code{sl} $= 0$}
+     \If{\textbf{rango} $\cdot L \ge A$ \textbf{o} $(p_{ap} - \text{Low})\cdot L \ge \code{PERDIDA_MAX_BT}$} \Return \textbf{verdadero} \EndIf
+  \Else
+     \State \textbf{sl_nuevo} $\gets \text{High} - B/L$
+     \If{\textbf{sl_nuevo} $>$ \code{sl} \textbf{y} $\text{Low} \le$ \textbf{sl_nuevo}} \Return \textbf{verdadero} \EndIf
+  \EndIf
+\EndFor
+\For{cada orden en espera en $p$}
+  \If{$\text{Low} \le p$ \textbf{y} (\textbf{rango} $\cdot L \ge A$ \textbf{o} $(p - \text{Low})\cdot L \ge \code{PERDIDA_MAX_BT}$)} \Return \textbf{verdadero} \EndIf
+\EndFor
+\State \Return \textbf{falso}
+\end{pseudo}
+
+\bigsep
+La prueba busca exactamente las situaciones ambiguas: una vela lo bastante amplia como para
+que quepan dentro tanto la activación del stop como su ejecución posterior, o una posición
+que podría a la vez alcanzar su stop y su pérdida máxima. Cuando la vela es tranquila, no
+hay ambigüedad y se resuelve con los cuatro valores horarios, que es mucho más rápido.
+
+\begin{pseudo}{\code{_simular_intravela}}
+\If{no hay datos M1 o hay menos de 60 velas} \Return \EndIf
+\State $t \gets$ entero aleatorio en $[0,\; |M1| - 60]$
+\State \textbf{bloque} $\gets$ reescalar($M1[t : t+60]$, vela horaria)
+\For{cada \textbf{vela_m1} en \textbf{bloque}}
+  \State \textbf{paso_B}(\textbf{vela_m1}); \quad \textbf{paso_C}(High$_{m1}$); \quad \textbf{paso_D}(Low$_{m1}$)
+  \State \textbf{paso_E}(Low$_{m1}$); \quad \textbf{paso_F}(Close$_{m1}$)
+\EndFor
+\end{pseudo}
+
+\subsubsection{Limitaciones honestas de este enfoque}
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Es aleatorio.} Dos corridas idénticas dan resultados distintos, porque el
+tramo de minutos elegido cambia. No hay semilla fija. Para el uso principal —generar
+variedad para X5— eso es más virtud que defecto, pero invalida la comparación exacta entre
+dos corridas del modo versión.
+\item \textbf{El tramo prestado no corresponde al momento simulado.} Se toma de cualquier
+punto del historial de minutos, no del instante que se está simulando. Aporta una
+microestructura realista promedio, no la real de esa hora.
+\item \textbf{Todas las velas del bloque comparten la marca de tiempo horaria.} Las
+operaciones abiertas y cerradas dentro del bloque quedan fechadas con la hora de la vela
+horaria. La duración en minutos de una operación intra-vela no es recuperable desde los
+registros.
+\item \textbf{Sin datos M1 se degrada en silencio.} Si falta el archivo de minutos, X4
+avisa por consola y resuelve la vela con los cuatro valores horarios.
+\end{itemize}
+
+\subsection{Contabilidad de la cuenta}
+
+\subsubsection{Las cuatro magnitudes}
+
+En cada vela, tras procesar todos los activos, \code{_calcular_estado_cuenta} recorre las
+posiciones abiertas y produce:
+
+\begin{align*}
+\text{ganancia flotante} &= \textstyle\sum_{\text{OA}} (p_{actual} - p_{ap}) \cdot \text{lote} \cdot \text{unidades} \\
+\text{patrimonio} &= \text{saldo} + \text{ganancia flotante} \\
+\text{margen usado} &= \textstyle\sum_{\text{OA}} \frac{p_{ap} \cdot \text{lote} \cdot \text{unidades}}{\text{apalancamiento}} \\
+\text{nivel de margen} &= \frac{\text{patrimonio}}{\text{margen usado}} \times 100
+\end{align*}
+
+\bigsep
+El \textbf{saldo} solo cambia cuando una posición cierra; el \textbf{patrimonio} cambia con
+cada tick. El \textbf{nivel de margen}\footnote{\textbf{Nivel de margen} (\textit{margin
+level}): patrimonio dividido por margen usado, en porcentaje. Es el indicador que vigila el
+bróker: por debajo de cierto porcentaje empieza a cerrar posiciones por su cuenta
+(\textit{margin call} y luego \textit{stop out}). Un nivel de 1000\,\% es holgado; 100\,\%
+significa que el patrimonio apenas cubre la garantía exigida.} es la métrica de
+supervivencia.
+
+\subsubsection{Quiebra de la cuenta}
+
+X4 declara quiebra y detiene la simulación si el patrimonio cae a cero o menos, o si hay
+margen usado y el nivel de margen cae por debajo de \code{STOP_OUT_LEVEL} (50\,\% por
+defecto). Se registra un evento \code{stop_out} con la foto completa de la cuenta, se marca
+\code{estado['stop_out'] = True} en el checkpoint y se corta el bucle.
+
+\begin{nota}
+En modo X5 el capital inicial es de un millón de dólares virtuales por activo,
+deliberadamente desproporcionado. La razón: en recolección de datos no interesa saber si la
+cuenta sobrevive, sino observar cómo se comporta cada combinación de parámetros. Un tope de
+capital cortaría las pasadas antes de tiempo y sesgaría el conjunto de datos hacia
+configuraciones conservadoras.
+\end{nota}
+
+\subsubsection{Los dos archivos de patrimonio}
+
+\code{equity_global.csv} recibe una fila por vela con saldo, patrimonio, margen usado,
+margen libre, nivel de margen y número de posiciones abiertas y en espera.
+\code{equity_activos.csv} recibe una fila por vela \textit{y activo} con tres columnas:
+ganancia cerrada acumulada (GC), ganancia flotante actual (GA) y su suma (GT). El primero
+sirve para la curva de capital; el segundo para atribuir el resultado a cada activo.
+
+\subsection{Recálculo de soportes dentro del backtest}
+
+\subsubsection{Delegación en X0}
+
+X4 no reimplementa el algoritmo de soportes: importa \code{_procesar_valor_N} de X0 y lo
+llama con \code{fecha_hora_max = ts}. Esa única bandera cambia tres comportamientos dentro
+de X0: recorta los datos, lee y escribe en el caché de backtesting en vez de en el archivo
+de producción, y omite la generación de gráficos.
+
+\subsubsection{Paralelismo por activo}
+
+Los recálculos de distintos activos son independientes, así que se reparten entre hasta
+cuatro procesos con un \code{ProcessPoolExecutor}\footnote{\textbf{Proceso} vs.\
+\textbf{hilo}: Python no permite que varios hilos ejecuten código Python a la vez (por el
+bloqueo global del intérprete o GIL), así que para trabajo intensivo en cálculo hay que usar
+procesos separados, cada uno con su propio intérprete. \code{ProcessPoolExecutor} reparte
+tareas entre procesos; \code{ThreadPoolExecutor}, entre hilos —útil solo cuando el trabajo
+es esperar a que termine otra cosa, como en la orquestación de X5.}. La búsqueda de soportes
+es puro cálculo numérico, de modo que aquí los procesos son la elección correcta.
+
+\begin{pseudo}{\code{_recalcular_soportes(estado, ts, cfg, x5_mode)}}
+\State \textbf{params_soporte} $\gets \{K, N_{EXP}, \Lambda\}$ del tramo actual si \code{x5_mode}, si no \textit{nada}
+\State \textbf{tareas} $\gets$ una por activo, con: activo, $N$, rutas, \textbf{ts}, precios de sus posiciones abiertas
+\State \textbf{infos} $\gets$ ejecutar \textbf{tareas} en paralelo (hasta 4 procesos) llamando a \code{X0._procesar_valor_N}
+\State informar por consola el rango de precios usado, el arranque en caliente y la FO de cada búsqueda
+\For{cada \textbf{activo}}
+  \State \textbf{nuevos} $\gets$ leer del caché de backtesting la solución más reciente con $t^* \le$ \textbf{ts}
+  \If{\textbf{nuevos} no está vacío} \State soportes del activo $\gets$ ordenar(\textbf{nuevos}) \EndIf
+\EndFor
+\State \code{ts_ultimo_recalculo} $\gets$ \textbf{ts}
+\end{pseudo}
+
+\subsubsection{El caché de backtesting y el arranque en caliente}
+
+Optimizar $N$ soportes desde cero tarda minutos. Como cada recálculo es una variación
+pequeña del anterior —cinco días más de datos—, empezar desde la solución previa ahorra la
+mayor parte del trabajo. Eso es un \textit{arranque en caliente}\footnote{\textbf{Arranque
+en caliente} (\textit{warm start}): iniciar un algoritmo iterativo desde una solución
+conocida y razonablemente buena en lugar de un punto aleatorio. Reduce el número de
+iteraciones necesarias, a costa de sesgar la búsqueda hacia el entorno de esa solución.}.
+
+\bigsep
+El caché \code{\{ACTIVO\}_\{N\}_bt.json} es un diccionario de fecha a lista de soportes. Al
+resolver el instante $t$, X0 busca la clave más reciente con $t^* \le t$ y usa esa solución
+como punto de partida. Al terminar, añade la solución nueva bajo la clave $t$.
+
+\bigsep
+Hay una distinción que suena parecida pero es distinta, y conviene fijarla:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \code{warm_start} controla \textbf{de dónde sale la solución inicial}: del caché, o de
+puntos aleatorios.
+\item \code{cold_start} controla \textbf{si se hereda el paso adaptativo} \code{delta_inicial}
+del optimizador. En modo X5 se activa (es decir, no se hereda) porque cada tramo cambia $K$,
+$N_{EXP}$ y $\Lambda$: heredar la presión acumulada sobre una función objetivo que ya no es
+la misma dejaría al optimizador convergido de entrada, sin mover un solo soporte.
+\end{itemize}
+
+\subsubsection{Las posiciones abiertas son anclas}
+
+A la búsqueda de soportes se le pasa la lista de precios de las posiciones abiertas del
+activo (\code{ordenes_abiertas_bt}). X0 las trata como fijas: puede mover los demás soportes,
+pero no esos. Tiene sentido operativo —hay dinero comprometido en ese nivel exacto, moverlo
+en la lista no cambia la realidad— y evita que el paso A cancele órdenes que en realidad ya
+son posiciones.
+
+\subsection{Persistencia de operaciones y eventos}
+
+\subsubsection{Los dos registros}
+
+\code{trades.json} contiene una entrada por operación cerrada, con todo lo necesario para
+analizarla después: identificador, activo, $N$, nivel del soporte, fechas de apertura y
+cierre, precios, motivo del cierre, retorno en dólares y en porcentaje del capital,
+duración en velas, peor pérdida flotante y mejor ganancia flotante alcanzadas, capital de la
+cuenta al abrir, si se resolvió intra-vela, y una copia del bloque de parámetros vigentes.
+
+\bigsep
+\code{events.json} es más granular: registra también las creaciones y cancelaciones de
+órdenes y cada movimiento de stop. Sirve para reconstruir la película completa cuando algo
+no cuadra.
+
+\subsubsection{Identificadores reconstruibles}
+
+El identificador de una operación se compone como
+\code{\{activo\}_\{fecha_apertura\}_\{precio_apertura\}}. No se almacena en ningún lado: se
+reconstruye cuando hace falta, tanto al abrir la posición como al cerrarla, y sale idéntico
+las dos veces porque depende solo de datos que no cambian. Es una forma barata de tener
+identificadores estables sin llevar un contador global ni guardar estado extra.
+
+\subsubsection{Escritura segura}
+
+Las operaciones y eventos se acumulan en listas en memoria y se vuelcan periódicamente. El
+volcado lee el archivo existente, le añade lo nuevo, escribe a un archivo temporal y lo
+renombra sobre el destino. El renombrado es atómico\footnote{\textbf{Escritura atómica}:
+técnica para que un archivo nunca quede a medio escribir. Se escribe primero una copia
+temporal completa y luego se renombra sobre el original; el sistema operativo garantiza que
+el renombrado ocurre entero o no ocurre. Si el programa muere a mitad, el archivo original
+sigue intacto.}: si el proceso muere a mitad, el archivo anterior queda intacto.
+
+\bigsep
+La lectura, además, reintenta hasta diez veces con pausas de 0,2 segundos. No es paranoia
+gratuita: el proyecto vive en una carpeta sincronizada por OneDrive en Windows, y el
+servicio de sincronización bloquea temporalmente los archivos recién escritos. Sin el
+reintento, el volcado siguiente fallaba con un error de permisos.
+
+\subsection{Modo X5: X4 al servicio de la recolección}
+\label{sec:x4-x5mode}
+
+Todo lo anterior describe X4 como simulador. Esta subsección describe qué se le añade
+cuando corre con \code{--x5}. Son cuatro cosas.
+
+\subsubsection{Uno: los parámetros cambian durante la corrida}
+\label{sec:x4-x5params}
+
+En modo versión, $K$, $N_{EXP}$, $\Lambda$, $A$, $B$, $N$ y \code{PERDIDA_MAX} son
+constantes. En modo X5 se regeneran cada \code{delta_recalculo_soportes} días simulados,
+acoplados al recálculo de soportes: primero se eligen los parámetros nuevos, después se
+recalculan los soportes con ellos.
+
+\begin{pseudo}{\code{_seleccionar_params_x5} — explorar o explotar}
+\For{cada \textbf{activo}}
+  \State (\textbf{tipo}, \textbf{modelo}) $\gets$ modelo cargado al inicio del ciclo
+  \State \textbf{es_explore} $\gets$ (\textbf{modelo} no existe) \textbf{o} (aleatorio$[0,1) <$ \code{EXPLORATION_RATE})
+  \If{\textbf{es_explore}}
+     \State parámetros $\gets$ sorteo uniforme dentro de \code{X5_PARAM_RANGES} del activo
+     \State $B \gets \alpha \cdot A$ con $\alpha \sim U(0{,}3;\,0{,}7)$ \Comment{$B$ debe quedar por debajo de $A$}
+  \Else
+     \State \textbf{ctx} $\gets$ contexto de mercado al instante \textbf{ts} (features X3, X2, temporales, cartera)
+     \State parámetros $\gets$ \code{X5.inferir_con_contexto}(activo, tipo, modelo, \textbf{ctx}, rangos)
+  \EndIf
+\EndFor
+\State \Return parámetros y etiqueta (\code{EXPLORE} / \code{EXPLOIT}) por activo
+\end{pseudo}
+
+\bigsep
+Esta es la disyuntiva clásica entre \textbf{explorar} (probar combinaciones nuevas para
+aprender) y \textbf{explotar} (usar lo que el modelo ya cree que es mejor). La proporción la
+fija \code{EXPLORATION_RATE} = 0,30: incluso con modelo entrenado, tres de cada diez tramos
+se sortean al azar.
+
+\begin{nota}
+Mantener exploración permanente no es un capricho. Si X4 solo usara las recomendaciones del
+modelo, el conjunto de datos se llenaría de filas parecidas entre sí y el modelo aprendería
+cada vez mejor una región cada vez más chica del espacio, sin manera de descubrir que otra
+región es mejor. Es el sesgo de selección observacional: solo se observa lo que se decidió
+observar.
+\end{nota}
+
+\bigsep
+El muestreo de $B$ merece un comentario. $A$ es la ganancia mínima que activa el stop y $B$ la
+distancia a la que el stop sigue al precio. Si $B > A$, el primer stop quedaría por debajo
+del precio de entrada y podría cerrar la posición en pérdida pese a haber alcanzado la
+ganancia de activación. Sortearlos de forma independiente produciría muchas combinaciones
+incoherentes; por eso $B$ se sortea como una fracción de $A$ entre 0,3 y 0,7.
+
+\bigsep
+Una vez elegidos, \code{_aplicar_params_x5} los inyecta mutando el objeto de configuración
+en memoria. Los escalares ($K$, $N_{EXP}$, $\Lambda$, $A$, $B$, pérdida máxima) toman el
+valor del primer activo de la lista; los que son por activo ($N$ y lote) se asignan uno a
+uno. Como en modo X5 cada proceso corre un solo activo, ese colapso a escalar es exacto, no
+una aproximación.
+
+\subsubsection{Dos: cada operación cerrada se convierte en una fila de entrenamiento}
+
+En cada vela y activo se calcula un fotograma de contexto (\code{_compute_x5_snapshot}):
+indicadores técnicos de X3 sobre los datos hasta ese instante, y score fundamental de X2
+correspondiente a esa fecha. Ese fotograma se adjunta a la orden en dos momentos:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item cuando se \textbf{crea} la orden en espera, como bloque \code{x3_oe} / \code{x2_oe};
+\item cuando se \textbf{ejecuta} y pasa a posición abierta, como bloque \code{x3_oa} /
+\code{x2_oa}.
+\end{itemize}
+
+\bigsep
+Al cerrarse la posición, \code{_construir_fila_oc} arma la fila completa: parámetros
+vigentes, features temporales de los dos momentos, los dos bloques de contexto, el estado de
+la cartera al cerrar y, finalmente, los objetivos que el modelo debe aprender a predecir.
+
+\begin{pseudo}{\code{_construir_fila_oc} — de operación cerrada a fila de entrenamiento}
+\Require posición cerrada, registro de operación, estado del activo, configuración
+\State \textbf{fila} $\gets \{$\code{tipo_registro}: \code{'oc'}, activo, fechas de OE, OA y OC$\}$
+\State añadir parámetros vigentes: $N$, $K$, $N_{EXP}$, $\Lambda$, $A$, $B$, multiplicador de lote, pérdida máxima
+\State añadir features temporales del instante de la OE (hora, día, mes, festivos, indicadores binarios)
+\State añadir \code{x2_*} y \code{x3_*} del instante de la OE
+\State añadir contexto de cartera: número de posiciones abiertas y en espera, exposición, media y desviación de retornos abiertos, media de las últimas 5 operaciones cerradas, resultado flotante
+\State añadir features temporales, \code{x2_*} y \code{x3_*} del instante de la OA, con sufijo \code{_oa}
+\State \textbf{objetivos}: \code{retorno_pct}, \code{pnl_flotante_activo}, \code{pnl_cerrado_activo}
+\State \Return \textbf{fila}
+\end{pseudo}
+
+\subsubsection{Tres: filas periódicas}
+
+Si solo se registraran operaciones cerradas, el conjunto de datos tendría un sesgo grave:
+durante una caída prolongada casi nada se cierra —las posiciones quedan abiertas
+acumulando pérdida flotante— y el modelo no vería esos períodos. Para cubrirlos, cada
+\code{X5_FREQ_REGISTRO_PERIODICO} velas (4 por defecto) con al menos una posición abierta se
+escribe una fila \code{'periodico'} con el mismo contexto pero sin datos de OE ni de OA, cuyo
+objetivo relevante es el resultado flotante del activo.
+
+\subsubsection{Cuatro: aislamiento por activo}
+
+Con \code{--activo BTCUSD}, X4 reduce la lista de activos a uno y redirige sus carpetas de
+trabajo a \code{bt_BTCUSD}. Así, seis procesos pueden correr a la vez sin pisarse el
+checkpoint, la curva de patrimonio ni el caché de soportes. Los parámetros que la
+configuración de X5 define por activo ($A$, $B$, pérdida máxima) se colapsan al valor de ese
+activo, porque el núcleo de X4 los espera como escalares.
+
+\bigsep
+La decisión de reiniciar o continuar también cambia en este modo: X4 la toma solo, sin que el
+llamador la imponga. Empieza una pasada nueva si no hay checkpoint, si la pasada anterior
+llegó al final de los datos, o si terminó en quiebra; retoma el checkpoint si quedó a mitad
+de camino, es decir, si el proceso se interrumpió. Así una pasada completa sigue siendo una
+unidad independiente —con su propia secuencia de parámetros— sin tirar a la basura horas de
+cómputo por una interrupción.
+
+\subsection{Parámetros de X4 y su efecto}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Parámetro} & \textbf{Valor típico} & \textbf{Qué controla y qué pasa al subirlo} \\
+\midrule
+\code{capital_inicial} & 3\,000 / 1\,000\,000 & Saldo de partida. En modo X5 se pone absurdamente alto para que el margen nunca corte la pasada. \\
+\code{PERDIDA_MAX_BT} & 120 USD & Corte de pérdidas por posición. Subirlo deja correr las perdedoras: menos cierres en rojo pero peores cuando llegan. \\
+\code{MARGEN_LIBRE_MIN_BT} & 50 USD & Colchón mínimo de margen. Subirlo hace la simulación más conservadora: rechaza más órdenes. \\
+\code{STOP_OUT_LEVEL} & 50\,\% & Nivel de margen al que se declara la quiebra. \\
+\code{delta_recalculo_soportes} & 1 (versión) / 5 (X5) & Días entre recálculos. Bajarlo da soportes más frescos y muchísimo más cómputo; en modo X5 también acelera el cambio de parámetros. \\
+$A$ & 2--20 USD & Ganancia que activa el stop y distancia mínima para colocar una orden. Subirlo: menos órdenes, más lejos, operaciones más ambiciosas. \\
+$B$ & $0{,}3A$--$0{,}7A$ & Holgura del stop. Subirlo tolera más retrocesos antes de cerrar; bajarlo asegura antes y corta más operaciones prematuramente. \\
+$N$ & 40--200 & Soportes activos. Subirlo cubre más rango con entradas más finas y fragmenta más el capital. \\
+\code{LOTAJES_M} & 1 & Multiplicador del lote mínimo. Fijo en 1 en todo el pipeline de X5. \\
+\bottomrule
+\end{tabularx}
+\caption{Parámetros de X4. Los siete últimos son precisamente los que X5 explora y optimiza.}
+\end{table}
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{X5 — Cerebro macro}
+\label{sec:x5}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Propósito}
+
+\subsubsection{El problema: una configuración fija para un mercado que no lo es}
+
+Todos los parámetros del sistema —cuántos soportes mantener, cuánta ganancia exigir antes de
+proteger, cuánto dejar respirar al stop, cuánta pérdida tolerar— están hoy escritos en
+\code{config.py} como números fijos. Funcionan razonablemente en promedio, y ese promedio es
+el problema: el mercado de septiembre no es el de marzo, y BTCUSD no se comporta como GOOGL.
+
+\bigsep
+La pregunta que da origen a X5 es directa: \textit{dado cómo está el mercado ahora mismo,
+¿qué combinación de parámetros habría rendido mejor en situaciones parecidas?} Responderla a
+mano es inviable —son ocho parámetros continuos, seis activos y un contexto que cambia todo
+el tiempo—, así que se convierte en un problema de aprendizaje.
+
+\subsubsection{La idea: un modelo sustituto}
+
+Lo que de verdad interesa evaluar es una función carísima:
+\[
+\text{RENDIMIENTO}(\text{contexto},\, \text{parámetros}) \;=\; \text{resultado de operar así en esa situación}
+\]
+Evaluarla una vez en la realidad cuesta semanas; evaluarla con X4 cuesta minutos u horas.
+Optimizarla directamente —probar miles de combinaciones y quedarse con la mejor— es
+inviable en vivo.
+
+\bigsep
+La salida es entrenar un \textbf{modelo sustituto}\footnote{\textbf{Modelo sustituto}
+(\textit{surrogate model}): modelo estadístico barato que imita una función cara de evaluar.
+Se ajusta con un conjunto de evaluaciones reales de la función original y luego se usa como
+reemplazo para optimizar, porque consultarlo cuesta milisegundos. Es la misma idea detrás
+de la optimización bayesiana.}: un modelo que aprende a predecir el resultado sin correr la
+simulación. Una vez entrenado, buscar los mejores parámetros es barato: se le pregunta al
+modelo miles de veces con distintas combinaciones y se elige la que predice mejor
+resultado.
+
+\bigsep
+En una frase: \textbf{X4 evalúa la función cara unas cuantas miles de veces; X5 aprende a
+imitarla y después la optimiza.}
+
+\subsubsection{El ciclo cerrado}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}r l X@{}}
+\toprule
+& \textbf{Etapa} & \textbf{Qué ocurre} \\
+\midrule
+1 & Recolectar & X5 lanza X4 en modo \code{--x5}. X4 simula, cambia parámetros cada pocos días y escribe una fila por operación cerrada en el store del activo. \\
+2 & Entrenar & Cuando el store supera el umbral, X5 entrena un modelo por activo con todas sus filas. \\
+3 & Inferir & Con el modelo entrenado se busca la combinación de parámetros que maximiza el resultado predicho para el contexto actual. \\
+4 & Realimentar & Esa recomendación se usa en los tramos «explotar» de la siguiente pasada de X4 (y, en Fase~2, en el trading real). Vuelve a 1. \\
+\bottomrule
+\end{tabularx}
+\caption{El bucle de X5. Cada vuelta mejora el modelo con datos que el propio modelo ayudó a generar.}
+\end{table}
+
+\subsubsection{Las dos fases de despliegue}
+
+\paragraph{Fase 1 (actual, \code{TIPO_EJECUCION = "est"}).} Todo el bucle vive en simulación.
+X4 llena los stores, X5 entrena y escribe sus recomendaciones en
+\code{config/active_parameters.json}. El sistema en vivo (X1) \textbf{no lee ese archivo}:
+sigue con los valores fijos de \code{config.py}. Es la fase de acumulación de evidencia.
+
+\paragraph{Fase 2 (\code{TIPO_EJECUCION = "din"}).} X1 lee
+\code{active_parameters.json} y opera con los parámetros recomendados por activo, y cada
+operación real cerrada alimenta directamente el store. El bucle se cierra con datos reales.
+La transición es \textbf{por activo}: un activo cuyo estado sea \code{untrained} cae de vuelta
+a los valores de \code{config.py} de forma automática, así que BTCUSD puede estar en modo
+dinámico mientras TSLA sigue en estático.
+
+\subsection{Interfaz de línea de comandos}
+
+X5 tiene tres modos mutuamente excluyentes y una casilla opcional:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\textbf{Invocación} & \textbf{Efecto} \\
+\midrule
+\code{--recolectar} & Genera datos con X4 y entrena solo. Pregunta al inicio si recolectar para todos los activos en paralelo o para uno en recorrido guiado. \\
+\code{--recolectar --demo} & Recorrido guiado de un activo sobre un store y un modelo aislados con sufijo \code{_demo}, con pausas explicativas. No toca los datos reales. \\
+\code{--infer} & Recomienda parámetros con los modelos actuales y escribe \code{active_parameters.json}. \\
+\code{--infer --train} & Reentrena desde el store y después recomienda. \\
+\code{--status} & Diagnóstico: cuántas operaciones cerradas hay por activo, qué modelo corresponde y qué dice el archivo de parámetros activos. \\
+\code{--activo BTCUSD} & Restringe la operación a un activo. \\
+\bottomrule
+\end{tabularx}
+\caption{Modos de X5. \code{--train} no es un modo: es una casilla que solo tiene efecto junto a \code{--infer}.}
+\end{table}
+
+\subsection{El store: el conjunto de datos}
+
+\subsubsection{Un archivo por activo}
+
+\code{resources/x5/\{ACTIVO\}_store.csv} acumula todas las filas generadas para ese activo, a
+lo largo de todas las pasadas de todas las corridas. No se sobrescribe: crece. Cada fila es
+una observación de la forma \textit{«en este contexto, con estos parámetros, pasó esto»}.
+
+\bigsep
+La separación por activo es deliberada: cada activo entrena su propio modelo. Un modelo
+único para los seis tendría más datos, pero mezclaría regímenes de volatilidad
+incomparables (BTCUSD se mueve varios puntos porcentuales en horas; GOOGL no).
+
+\subsubsection{Los dos tipos de fila}
+
+\begin{itemize}[leftmargin=1.4em,itemsep=3pt]
+\item \code{tipo_registro = 'oc'} — se escribe cuando una posición se cierra. Es la
+observación completa: contexto en el momento de crear la orden, contexto en el momento de
+ejecutarla, parámetros vigentes y resultado.
+\item \code{tipo_registro = 'periodico'} — se escribe cada cuatro velas mientras haya al
+menos una posición abierta. No tiene datos de OE ni de OA; su valor está en registrar el
+resultado flotante durante períodos en que nada se cierra.
+\end{itemize}
+
+\subsubsection{Los bloques de columnas}
+
+El orden de las columnas está fijado por \code{_feature_cols_de_store} y se guarda junto al
+modelo. Esto es esencial: si mañana el store gana una columna nueva, un modelo entrenado
+antes seguiría leyendo su vector en el orden con el que fue entrenado.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}r l l X@{}}
+\toprule
+\textbf{\#} & \textbf{Bloque} & \textbf{Prefijo} & \textbf{Contenido} \\
+\midrule
+1 & Parámetros & --- & \code{n_ejecucion}, \code{K}, \code{N_EXP}, \code{LAMBDA}, \code{A}, \code{B}, \code{LOTAJES_M}, \code{PERDIDA_MAX}. Las ocho variables de decisión. \\
+2 & Temporal OE & --- & Hora, día de la semana, día del mes, mes; indicadores binarios de día y mes; días hasta y desde el próximo festivo bursátil de EE.UU. \\
+3 & Fundamental OE & \code{x2_} & Score global, score comparativo entre activos, score de tendencia y componentes desagregados. \\
+4 & Técnico OE & \code{x3_} & Medias móviles, RSI, MACD, ATR, bandas de Bollinger, momento, volatilidad, caída desde máximos, pendiente de tendencia, distancia y densidad de soportes. \\
+5 & Cartera & --- & Posiciones abiertas y en espera, exposición en dólares, media y desviación de los retornos abiertos, media de las últimas cinco operaciones cerradas, resultado flotante. \\
+6--8 & Contexto OA & sufijo \code{_oa} & Los bloques 2, 3 y 4 repetidos, tomados en el instante en que la orden se ejecutó. \\
+\bottomrule
+\end{tabularx}
+\caption{Los bloques del vector de entrada, en orden. Suman del orden de 240 columnas.}
+\end{table}
+
+\bigsep
+Que el contexto aparezca dos veces —al crear la orden y al ejecutarla— tiene una razón
+concreta: entre esos dos momentos pueden pasar horas o semanas, y lo que ocurrió en medio
+importa. Una orden colocada en calma que se ejecuta durante un desplome es una operación
+muy distinta de una colocada y ejecutada el mismo día.
+
+\subsubsection{Los tres objetivos}
+
+X5 no predice un solo número, sino tres:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Nombre} & \textbf{Columna} & \textbf{Qué mide} \\
+\midrule
+retorno & \code{retorno_pct} & Resultado de \textit{esta} operación como fracción del capital. Es el objetivo principal: el que se maximiza en inferencia. \\
+flotante & \code{pnl_flotante_activo} & Resultado no realizado del conjunto de posiciones abiertas del activo. Único objetivo disponible en las filas periódicas. \\
+cerrado & \code{pnl_cerrado_activo} & Resultado realizado acumulado del activo hasta ese momento. \\
+\bottomrule
+\end{tabularx}
+\caption{Objetivos del modelo. Los tres se entrenan; solo el primero guía la optimización.}
+\end{table}
+
+\bigsep
+¿Por qué entrenar tres si solo se optimiza uno? Porque los otros dos actúan como
+\textbf{tareas auxiliares}: obligan a la parte compartida del modelo a construir
+representaciones que expliquen también la salud global de la cartera, no solo el desenlace
+de una operación aislada. En el modelo neuronal esto es explícito (un tronco compartido y
+tres cabezas de salida) y su peso en la función de pérdida es menor: $l_{total} = l_{ret} +
+0{,}3\, l_{flot} + 0{,}3\, l_{cerr}$.
+
+\subsubsection{Escritura desde X4}
+
+\code{_append_x5_store} añade la fila al CSV en modo \textit{append}, escribiendo la
+cabecera solo si el archivo no existía. Antes de escribir comprueba que el archivo termine
+en salto de línea: si una ejecución anterior se cortó a mitad de fila, sin ese control la
+fila nueva se concatenaría a la truncada y corrompería el archivo. En la lectura, el
+complemento de esa defensa es \code{on_bad_lines='skip'}: una fila malformada se descarta en
+vez de abortar la carga completa del store.
+
+\subsection{Recolección}
+
+\subsubsection{El orquestador}
+
+\begin{pseudo}{\code{_recolectar()} — recolección paralela}
+\State \textbf{cfg_x5} $\gets$ cargar \code{scripts/config_x5_default.py}
+\State \textbf{activos} $\gets$ \code{cfg_x5.valores}; \quad \textbf{n_ciclos} $\gets$ \code{cfg_x5.N_CICLOS_BT}
+\If{hay terminal interactiva}
+  \For{cada \textbf{activo}} preguntar si reiniciarlo desde cero; si sí, borrar todo lo suyo \EndFor
+\EndIf
+\State imprimir estado inicial: operaciones cerradas por activo
+\State lanzar un hilo por activo con \code{ThreadPoolExecutor}
+\For{cada worker que termina}
+  \State informar cuántas operaciones cerradas ganó ese activo
+\EndFor
+\State mostrar el estado final (\code{--status})
+\end{pseudo}
+
+\bigsep
+El paralelismo aquí es de \textbf{hilos}, no de procesos, y no contradice lo dicho en la
+Sección~\ref{sec:x4-x5mode}: cada hilo no calcula nada, solo lanza un subproceso de X4 y
+espera a que termine. El trabajo pesado ocurre en esos seis procesos hijos independientes.
+
+\subsubsection{El worker de un activo}
+
+\begin{pseudo}{\code{_worker_recolectar_activo(activo, x4_path, n_ciclos)}}
+\State \textbf{n_ini} $\gets$ operaciones cerradas en el store del activo
+\For{\textbf{ciclo} $= 1 \dots$ \textbf{n_ciclos}}
+  \State ejecutar \code{python X4_backtester.py --x5 --activo \{activo\}} capturando su salida
+  \State \textbf{n} $\gets$ operaciones cerradas en el store
+  \If{el subproceso falló} imprimir las últimas líneas de error y \textbf{cortar} \EndIf
+  \If{\textbf{n} $\ge$ \code{X5_MIN_TRADES_TRAIN}}
+     \State \textbf{entrenar}(activo) \Comment{los tramos de explotación del ciclo siguiente ya usan este modelo}
+  \EndIf
+  \If{\textbf{n} $\ge$ \code{X5_MIN_TRADES_FTT}} \textbf{cortar} \Comment{ya hay datos de sobra} \EndIf
+\EndFor
+\State \Return activo y su recuento final
+\end{pseudo}
+
+\bigsep
+Cada iteración de este bucle es un \textbf{ciclo}. Un ciclo lanza X4 una vez; X4 decide por
+su cuenta si eso significa empezar una pasada nueva desde \code{fecha_inicio} o retomar una
+interrumpida. La consecuencia práctica: el reentrenamiento ocurre \textbf{entre} ciclos,
+nunca durante uno. Dentro de un ciclo el modelo está congelado —se carga una sola vez al
+principio, en \code{ejecutar_x5_ciclo}—, lo cual mantiene la simulación coherente: todos los
+tramos de explotación de una pasada consultan la misma versión del modelo.
+
+\subsubsection{El recorrido guiado}
+
+\code{_recolectar_guiado} corre los ciclos de forma \textbf{secuencial} —no paralela— con la
+salida de X4 heredada, de modo que un narrador (\code{x5_demo.py}) pueda explicar cada
+suceso nuevo la primera vez que aparece. Los sucesos tienen identificadores estables:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{ID} & \textbf{Tipo} & \textbf{Suceso} \\
+\midrule
+D01 & recurrente & Recálculo de soportes (arranque en frío o periódico) \\
+D02 & recurrente & Tramo de exploración: parámetros sorteados al azar \\
+D03 & recurrente & Orden en espera creada \\
+D04 & recurrente & Orden ejecutada: pasa a posición abierta \\
+D05 & recurrente & Posición cerrada: se añadió una fila al store \\
+D06 & hito & Tramo de explotación: primera inferencia con el modelo \\
+D07 & recurrente & Avance de mes dentro del backtest \\
+D08 & hito & Se cruzó el umbral de entrenamiento; se entrena el modelo \\
+D09 & hito & Fin de la recolección del activo \\
+D10 & recurrente & Gráfico de la búsqueda de soportes recién guardado \\
+\bottomrule
+\end{tabularx}
+\caption{Sucesos del narrador. Los marcados como hito vuelven a pausar aunque ya se hayan visto.}
+\end{table}
+
+\bigsep
+El mismo mecanismo tiene dos usos según dos variables de entorno:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \code{--recolectar --demo}: sufijo \code{_demo} activo. El store, el modelo, el
+historial de métricas, el checkpoint del backtest y los gráficos van a rutas paralelas. Se
+pausa en cada suceso nuevo. Los datos reales quedan intactos.
+\item \code{--recolectar} con alcance «uno»: sin sufijo. Misma narración y mismos gráficos,
+pero sobre los datos reales y \textbf{sin pausas} —una recolección oficial no puede quedarse
+esperando que alguien pulse una tecla.
+\end{itemize}
+
+\subsubsection{Reiniciar un activo}
+
+\code{_borrar_checkpoints_activo} borra absolutamente todo lo asociado al activo dentro de su
+espacio de nombres: store, estado del narrador, carpeta del modelo, historial de métricas,
+carpeta completa del backtest (checkpoint, curvas de patrimonio, caché de soportes, registros)
+y gráficos. El significado es literal: como si el activo nunca se hubiera procesado.
+
+\begin{nota}
+El mismo alcance aplica en el espacio de nombres real, donde el borrado destruye datos
+acumulados durante horas de cómputo. La pregunta de reinicio se hace explícitamente al
+inicio y por activo, y solo si hay terminal interactiva: en ejecución automatizada no se
+pregunta nada y no se borra nada.
+\end{nota}
+
+\bigsep
+Cada borrado se hace con reintentos y espera creciente (0,5\,s, 1\,s, 2\,s, 4\,s, 5\,s\dots
+hasta unos 35 segundos en total). En Windows, OneDrive y el antivirus bloquean archivos
+recién escritos durante bastante más que un par de segundos, y sin ese reintento el
+reinicio fallaba con un error de permisos.
+
+\subsection{Entrenamiento}
+
+\subsubsection{Qué modelo, según cuántos datos haya}
+
+X5 elige el modelo por volumen de datos, contando solo filas de tipo \code{'oc'}:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Operaciones cerradas} & \textbf{Modelo} & \textbf{Razón} \\
+\midrule
+$< 500$ & \code{untrained} & Sin datos suficientes. Se devuelven los valores de \code{config.py} tal cual. \\
+$500 \dots 4999$ & LightGBM & Los métodos basados en árboles son muy eficientes con pocos datos tabulares y no necesitan normalización. \\
+$\ge 5000$ & FT-Transformer & Con suficientes datos, una red neuronal captura interacciones que los árboles aproximan a saltos. \\
+\bottomrule
+\end{tabularx}
+\caption{Selección automática de modelo (\code{_seleccionar_tipo}).}
+\end{table}
+
+\subsubsection{Preparación del vector de entrada}
+
+\begin{pseudo}{\code{_preparar_features(store, columnas, objetivo, tipos)}}
+\Require store completo, lista ordenada de columnas, nombre del objetivo, tipos de fila admitidos
+\Ensure matriz $X$, vector $y$, vector de pesos $w$
+\State \textbf{df} $\gets$ filas del store cuyo \code{tipo_registro} esté en \textbf{tipos}
+\State descartar filas cuyo objetivo no sea numérico \Comment{p.ej.\ \code{retorno_pct} vacío en filas periódicas}
+\State $X \gets$ matriz $|df| \times |$columnas$|$; cada columna convertida a número, ausentes y no numéricos a $0$
+\State $y \gets$ columna objetivo como número
+\If{\code{X5_WINDOW_TRAIN} está definido} quedarse con las últimas \code{X5_WINDOW_TRAIN} filas \EndIf
+\State $w_i \gets \exp\!\big(\lambda_{decay}\,(i - n + 1)\big)$ para $i = 0 \dots n-1$
+\State $w \gets w / \overline{w}$ \Comment{media 1, para no alterar la escala de la pérdida}
+\State \Return $X,\, y,\, w$
+\end{pseudo}
+
+\paragraph{La ponderación temporal.} La última fila del store pesa $\approx 1$ y las
+anteriores decaen exponencialmente hacia atrás con $\lambda = 0{,}001$; a unas 700 filas de
+distancia el peso es la mitad. La intención es que el modelo escuche más al pasado reciente
+sin descartar el antiguo. La normalización posterior a media 1 evita que el tamaño del store
+cambie la magnitud efectiva de la función de pérdida.
+
+\paragraph{Los ausentes van a cero.} Es una decisión discutible y conviene tenerla presente:
+una columna vacía y una columna que vale cero son indistinguibles para el modelo. Con los
+árboles el efecto es menor; en el modelo neuronal, un cero tras normalizar cae en la media de
+la columna, que es un valor neutro razonable.
+
+\subsubsection{LightGBM: tres modelos independientes}
+
+LightGBM\footnote{\textbf{LightGBM}: implementación de \textit{gradient boosting} sobre
+árboles de decisión. El método construye cientos de árboles pequeños en secuencia, donde cada
+árbol nuevo se entrena para corregir el error que dejaron los anteriores. Es el estándar de
+facto en datos tabulares por su precisión y velocidad, y no requiere normalizar las
+variables.} entrena un modelo separado por objetivo, guardados como tres archivos distintos
+más un cuarto con la lista ordenada de columnas.
+
+\begin{pseudo}{\code{_entrenar_lgbm(activo, store)}}
+\State \textbf{columnas} $\gets$ orden canónico de features del store
+\For{cada \textbf{objetivo} en \{retorno (solo \code{oc}), flotante (\code{oc} y \code{periodico}), cerrado (solo \code{oc})\}}
+  \State $X, y, w \gets$ \textbf{preparar_features}(store, \textbf{columnas}, \textbf{objetivo}, tipos)
+  \If{$|X| < 20$} avisar y \Omitir \EndIf
+  \State \textbf{corte} $\gets \max(10,\; \lfloor 0{,}8\,|X| \rfloor)$ \Comment{división temporal, sin mezclar}
+  \State entrenar con $X[:corte]$ ponderado por $w$, validando en $X[corte:]$
+  \If{el conjunto de validación tiene al menos 10 filas} activar parada temprana con paciencia 50 \EndIf
+  \State calcular métricas en entrenamiento y validación; guardar el modelo
+\EndFor
+\State guardar la lista de columnas y el historial de métricas
+\end{pseudo}
+
+\paragraph{La división es temporal, no aleatoria.} El primer 80\,\% de las filas —las más
+antiguas— entrena; el último 20\,\% valida. Barajar sería un error: dejaría filas del futuro
+en entrenamiento y filas del pasado en validación, y la métrica resultante sería
+optimista sin serlo de verdad.
+
+\paragraph{Parada temprana.} Se entrenan hasta mil árboles, pero si el error de validación no
+mejora durante cincuenta rondas seguidas, se detiene y se conserva la mejor
+iteración\footnote{\textbf{Parada temprana} (\textit{early stopping}): mecanismo para evitar
+el sobreajuste. Se vigila el error sobre datos que el modelo no está usando para aprender; en
+cuanto ese error deja de mejorar, se detiene el entrenamiento aunque quedaran rondas por
+hacer. \textbf{Sobreajuste} (\textit{overfitting}): cuando el modelo memoriza el ruido del
+conjunto de entrenamiento y por eso rinde peor con datos nuevos.}.
+
+\paragraph{El objetivo flotante usa más filas.} Es el único que se entrena con filas
+\code{'oc'} y \code{'periodico'} juntas, porque es el único objetivo presente en ambos tipos.
+Ahí es donde entra la información de los períodos bajistas prolongados en que nada se cierra.
+
+\subsubsection{FT-Transformer: un tronco y tres cabezas}
+
+Cuando el store supera las 5\,000 operaciones cerradas se pasa a una red neuronal de tipo
+\textit{Feature Tokenizer + Transformer}, con los hiperparámetros del artículo original
+(Gorishniy et al., 2021): dimensión interna $d = 192$, tres bloques, ocho cabezas de atención
+y red interna de 256 unidades. Con unas 240 columnas de entrada resultan alrededor de 700\,000
+parámetros, que se entrenan sin dificultad en una máquina normal.
+
+\bigsep
+La arquitectura tiene tres partes:
+
+\paragraph{Tokenizador de features.} Cada columna es un solo número, y un
+\textit{transformer}\footnote{\textbf{Transformer}: arquitectura de red neuronal basada en el
+mecanismo de \textbf{atención}, que permite a cada elemento de una secuencia mirar a todos los
+demás y decidir a cuáles hacer caso. Se popularizó en procesamiento de lenguaje —cada palabra
+atiende al resto de la frase— y aquí se aplica a columnas de una tabla: cada variable puede
+condicionar su efecto al valor de las otras.} trabaja sobre secuencias de vectores. El
+tokenizador convierte cada número escalar $x_j$ en un vector de dimensión $d$ mediante pesos
+propios de esa columna: $t_j = x_j \cdot W_j + b_j$. Así, «RSI vale 30» y «hora vale 30» se
+convierten en vectores completamente distintos.
+
+\paragraph{Bloques transformer.} Tres bloques con normalización previa: normalización de
+capa\footnote{\textbf{Normalización de capa} (\textit{LayerNorm}): reescala los valores dentro
+de cada vector para que tengan media cero y desviación uno. Estabiliza el entrenamiento
+evitando que las magnitudes crezcan o se desvanezcan al atravesar muchas capas. La variante
+\textit{pre-norm} —normalizar antes de cada subcapa, no después— es la que mejor se comporta
+en redes profundas.}, atención de ocho cabezas, conexión residual; luego normalización, red
+de dos capas con activación GELU\footnote{\textbf{GELU}: función de activación suave, variante
+moderna de ReLU. Introduce la no linealidad sin la que la red colapsaría a una simple
+combinación lineal.}, conexión residual.
+
+\paragraph{Agregación y cabezas.} Los 240 vectores de salida se promedian en uno solo
+(\textit{mean pooling}) y de ahí salen tres capas lineales, una por objetivo.
+
+\begin{pseudo}{\code{_entrenar_ftt(activo, store)}}
+\State $X, y_{ret}, w \gets$ \textbf{preparar_features}(store, columnas, \code{retorno_pct}, (\code{oc}))
+\If{$|X| < 50$} avisar y \Return falso \EndIf
+\State $y_{flot},\, y_{cerr} \gets$ los otros dos objetivos sobre las mismas filas
+\State \textbf{corte} $\gets \max(10, \lfloor 0{,}8 n \rfloor)$
+\State \textbf{media}, \textbf{desv} $\gets$ estadísticos por columna calculados \textbf{solo} sobre $X[:corte]$
+\State $X_{norm} \gets (X - \textbf{media}) / \textbf{desv}$ \Comment{se guardan para poder normalizar igual en inferencia}
+\State inicializar la red y el optimizador AdamW (tasa $10^{-3}$, regularización $10^{-4}$)
+\For{\textbf{época} $= 1 \dots 50$}
+  \For{cada lote de hasta 256 filas, en orden aleatorio}
+     \State $(\hat y_{ret}, \hat y_{flot}, \hat y_{cerr}) \gets$ red$(X_{lote})$
+     \State $l \gets \overline{w(\hat y_{ret} - y_{ret})^2} + 0{,}3\,\overline{w(\hat y_{flot} - y_{flot})^2} + 0{,}3\,\overline{w(\hat y_{cerr} - y_{cerr})^2}$
+     \State retropropagar, recortar el gradiente a norma 1, dar un paso del optimizador
+  \EndFor
+\EndFor
+\State guardar pesos, número de columnas y estadísticos de normalización; calcular métricas
+\end{pseudo}
+
+\bigsep
+Dos detalles del pseudocódigo merecen énfasis:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Los estadísticos de normalización se calculan solo con el tramo de
+entrenamiento} y se guardan junto al modelo. Calcularlos sobre todo el conjunto sería una
+fuga de información sutil: la media del conjunto de validación entraría en el
+preprocesamiento.
+\item \textbf{El recorte de gradiente a norma 1} evita que un lote atípico —una operación con
+un retorno extremo— produzca un paso gigante que desestabilice el entrenamiento.
+\end{itemize}
+
+\begin{nota}
+Limitación conocida: como las tres cabezas comparten el mismo tensor de entrada, el
+FT-Transformer entrena los tres objetivos únicamente sobre filas \code{'oc'}. A diferencia de
+LightGBM, no aprovecha las filas periódicas para el objetivo flotante. Aprovecharlas exigiría
+un paso separado, y está anotado como pendiente.
+\end{nota}
+
+\subsubsection{Métricas y su historial}
+
+Tras cada entrenamiento se calculan cuatro métricas por objetivo, sobre entrenamiento y sobre
+validación: error absoluto medio (MAE), error cuadrático medio (MSE), error porcentual
+absoluto medio (MAPE) y coeficiente de determinación
+$R^2$\footnote{\textbf{Coeficiente de determinación} ($R^2$): fracción de la variabilidad del
+objetivo que el modelo explica. Vale 1 si acierta perfectamente y 0 si no aporta nada sobre
+predecir siempre la media. Puede ser \textbf{negativo}, y en este dominio es lo esperable al
+principio: significa que el modelo predice peor que la media constante. El MAPE, por su parte,
+se calcula solo sobre filas cuyo valor real no sea prácticamente cero, porque dividir por algo
+minúsculo lo dispara.}.
+
+\bigsep
+Todo se acumula como historial en
+\code{resources/x5/Performance/\{ACTIVO\}_performance.json}: una entrada por entrenamiento,
+con marca de tiempo, tipo de modelo y tamaños de los dos conjuntos. Permite ver si el modelo
+mejora conforme el store crece, que es la única señal real de que el bucle está funcionando.
+
+\subsection{Inferencia: de un modelo entrenado a una recomendación}
+
+Aquí se invierte la pregunta. En entrenamiento se busca la función; en inferencia la función
+está fija y se buscan las entradas que la maximizan:
+\[
+\text{parámetros}^{*} \;=\; \arg\max_{\text{parámetros} \,\in\, \text{rangos}}
+\; \widehat{\text{retorno}}(\text{contexto fijo},\, \text{parámetros})
+\]
+El contexto es un dato, no una variable: describe el mercado tal como está. Las ocho columnas
+de parámetros son las únicas que se mueven.
+
+\subsubsection{El contexto}
+
+Hay dos formas de construirlo, con el mismo esquema de columnas:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{En vivo} (\code{_leer_contexto_actual}): features temporales de ahora, último
+score fundamental de X2, última fila de features técnicas de X3. Las columnas de cartera se
+ponen a cero —en Fase 1 no hay cartera viva que consultar— y las columnas con sufijo
+\code{_oa} se rellenan copiando las de OE, bajo el supuesto de que la orden se ejecutará
+pronto.
+\item \textbf{Dentro del backtest} (\code{_contexto_inferencia_x5}, en X4): idéntico
+esquema, pero con datos recortados al instante simulado y con la cartera \textbf{real} de ese
+momento.
+\end{itemize}
+
+\bigsep
+Que ambos produzcan exactamente las mismas claves no es un detalle estético: si difirieran,
+el vector de inferencia no encajaría con el orden de columnas con el que se entrenó, y el
+modelo leería valores en posiciones equivocadas sin dar ningún error. Por eso las funciones
+\code{_extraer_x2} de X4 y de X5 están duplicadas con una advertencia explícita de mantenerlas
+sincronizadas.
+
+\subsubsection{Optimización sobre LightGBM: búsqueda bayesiana}
+
+Un modelo de árboles no es derivable, así que no se puede «subir por el gradiente». Se usa
+Optuna\footnote{\textbf{Optuna}: biblioteca de optimización de caja negra. Su algoritmo por
+defecto, TPE (\textit{Tree-structured Parzen Estimator}), construye a partir de los intentos
+ya evaluados dos distribuciones de probabilidad —una de los intentos buenos y otra de los
+malos— y propone el siguiente punto donde el cociente entre ambas es más favorable. En la
+práctica: concentra los intentos en las zonas prometedoras en vez de repartirlos al azar.},
+con 200 intentos por inferencia.
+
+\begin{pseudo}{\code{_inferir_lgbm} — búsqueda bayesiana de parámetros}
+\Require modelo del objetivo \code{retorno}, contexto fijo, orden de columnas
+\Function{objetivo}{intento}
+  \State $p \gets$ sortear los ocho parámetros dentro de sus rangos según lo que sugiera el intento
+  \State \Comment{\code{LAMBDA} se sugiere en escala logarítmica: su rango es pequeño y positivo}
+  \State \textbf{vector} $\gets$ contexto fijo, con las ocho posiciones de parámetros reemplazadas por $p$
+  \State \Return predicción del modelo sobre \textbf{vector}
+\EndFunction
+\State \textbf{estudio} $\gets$ crear estudio de maximización con muestreador TPE y semilla fija
+\State ejecutar \code{X5_N_OPTUNA_TRIALS} intentos
+\State \Return los mejores parámetros, redondeados y con los enteros convertidos
+\end{pseudo}
+
+\bigsep
+La semilla fija (42) hace la recomendación reproducible: mismo contexto y mismo modelo dan
+siempre el mismo resultado.
+
+\subsubsection{Optimización sobre el FT-Transformer: ascenso por gradiente}
+
+Una red neuronal sí es derivable respecto de su entrada, y eso permite una técnica más
+directa: tratar los parámetros como variables a optimizar y subir por el
+gradiente\footnote{\textbf{Ascenso por gradiente}: el gradiente de una función indica la
+dirección de máximo crecimiento. Moverse repetidamente en esa dirección lleva a un máximo
+local. Es el mismo mecanismo del entrenamiento —que \textit{desciende} por el gradiente para
+minimizar el error— pero aplicado a las \textbf{entradas} y con los pesos de la red
+congelados.}.
+
+\bigsep
+El obstáculo de implementación es que solo ocho de las 240 posiciones del vector deben ser
+variables; las otras 232 son constantes. La solución es construir el vector de entrada como
+\[
+x \;=\; \text{contexto}_{norm} \;+\; P^{\top} p
+\]
+donde $P$ es una matriz constante de ceros y unos que coloca cada parámetro en su posición, y
+$p$ es el vector de ocho variables. Como $P$ es constante, el gradiente fluye limpiamente
+hacia $p$ y solo hacia $p$.
+
+\begin{pseudo}{\code{_inferir_ftt} — ascenso por gradiente con reinicios}
+\State \textbf{índices} $\gets$ posiciones de las ocho columnas de parámetros dentro del vector
+\State \textbf{base} $\gets$ contexto con esas ocho posiciones puestas a cero, normalizado con los estadísticos guardados
+\State $P \gets$ matriz de proyección constante; $lo, hi \gets$ rangos de cada parámetro, normalizados
+\State \textbf{mejor} $\gets$ ninguno; \quad \textbf{mejor_valor} $\gets -\infty$
+\For{\textbf{reinicio} $= 1 \dots$ \code{X5_ASCENT_RESTARTS}}
+  \State $p \gets$ punto aleatorio uniforme dentro de $[lo, hi]$
+  \For{\textbf{paso} $= 1 \dots$ \code{X5_ASCENT_STEPS}}
+     \State $x \gets \textbf{base} + P^{\top} p$
+     \State retropropagar $-\hat y_{ret}(x)$ y dar un paso del optimizador Adam
+     \State recortar $p$ al rango $[lo, hi]$ \Comment{la búsqueda no puede salirse de lo permitido}
+  \EndFor
+  \State evaluar $\hat y_{ret}$ en el $p$ final; si supera a \textbf{mejor_valor}, guardarlo
+\EndFor
+\State desnormalizar \textbf{mejor}, recortar de nuevo a los rangos, redondear y convertir enteros
+\State completar con los valores de \code{config.py} cualquier parámetro que no estuviera en el vector
+\end{pseudo}
+
+\bigsep
+Los diez reinicios desde puntos aleatorios distintos son la defensa contra los máximos
+locales: la superficie predicha por una red no es cóncava y un solo ascenso puede quedarse
+atrapado en una loma cualquiera. El recorte al rango dentro del bucle —no solo al final—
+importa: sin él, el ascenso puede alejarse mucho hacia una zona sin datos de entrenamiento,
+donde la predicción del modelo no significa nada, y volver al borde al final daría un
+resultado peor que haberse quedado dentro todo el camino.
+
+\subsubsection{El airbag: una regla que el modelo no puede sobrescribir}
+
+Antes de entregar la recomendación en vivo se aplica una regla explícita, no aprendida:
+
+\begin{pseudo}{\code{_aplicar_airbag(activo, params)}}
+\State leer los últimos 5 cierres horarios del activo
+\State \textbf{caida} $\gets (p_{final} - p_{inicial}) / p_{inicial}$
+\If{\textbf{caida} $< -$\code{X5_AIRBAG_THRESHOLD[activo]}} \Comment{8\,\% en cripto, 5\,\% en acciones}
+  \State \code{LOTAJES_M} $\gets 1$ \Comment{lote mínimo}
+  \State \code{n_sizes_ejecucion} $\gets$ \code{X5_N_MINIMO[activo]} \Comment{30 en cripto, 20 en acciones}
+\EndIf
+\State \Return parámetros
+\end{pseudo}
+
+\bigsep
+La justificación es de gestión de riesgo, no de estadística: durante un desplome, los datos
+de entrenamiento están fuera de su distribución habitual y la recomendación del modelo no es
+confiable; ante la duda, se reduce exposición. Es una capa de seguridad deliberadamente
+tonta y deliberadamente inapelable.
+
+\begin{nota}
+El airbag \textbf{no} se aplica durante la recolección (\code{inferir_con_contexto} lo omite
+explícitamente). El motivo es coherente con lo anterior: en recolección se busca observar qué
+pasa realmente en regímenes de caída, incluso con parámetros agresivos. Aplicar el airbag ahí
+recortaría precisamente los datos que hacen falta para aprender de esas situaciones.
+\end{nota}
+
+\subsubsection{La salida: \code{active_parameters.json}}
+
+\begin{lstlisting}
+{
+  "generated_at": "2026-08-26T09:12:44",
+  "BTCUSD": { "model_status": "lgbm", "n_sizes_ejecucion": 173, "K": 1.2841,
+              "N_EXP": 1.9022, "LAMBDA": 0.004112, "A": 8.44, "B": 3.91,
+              "LOTAJES_M": 1, "PERDIDA_MAX": 187.4 },
+  "TSLA":   { "model_status": "untrained", "n_sizes_ejecucion": 250, ... }
+}
+\end{lstlisting}
+
+\bigsep
+La escritura es un \textbf{mezclado}, no un reemplazo: se lee el archivo existente, se
+actualizan solo las claves de los activos recién inferidos y se conservan las demás. Sin eso,
+seis procesos paralelos ejecutando \code{--infer --activo X} se borrarían el trabajo unos a
+otros. El campo \code{model_status} es el interruptor de seguridad que lee X1: con valor
+\code{untrained}, ese activo usa los valores de \code{config.py}.
+
+\subsection{Pseudocódigo consolidado de X5}
+
+\begin{pseudo}{\code{main()} — los tres modos}
+\If{\code{--status}} mostrar recuento por activo, modelo correspondiente y contenido del archivo de parámetros; \Return \EndIf
+\If{\code{--recolectar}}
+  \If{\code{--demo}} preguntar el activo y correr el recorrido guiado sobre el espacio de nombres \code{_demo}
+  \ElsIf{el usuario elige «todos»} \textbf{recolectar_paralelo}()
+  \Else{} preguntar el activo y correr el recorrido guiado oficial (sin pausas) \EndIf
+  \State \Return
+\EndIf
+\State \Comment{a partir de aquí, \code{--infer}}
+\State \textbf{activos} $\gets$ el indicado con \code{--activo}, o todos
+\If{\code{--train}} \For{cada activo} \textbf{entrenar}(activo) \EndFor \EndIf
+\For{cada \textbf{activo}}
+  \State (\textbf{tipo}, \textbf{modelo}) $\gets$ \textbf{cargar_modelo}(activo)
+  \If{\textbf{tipo} $=$ \code{untrained}}
+     \State parámetros $\gets$ valores de \code{config.py}; estado $\gets$ \code{untrained}
+  \Else
+     \State \textbf{ctx} $\gets$ contexto de mercado actual
+     \State parámetros $\gets$ búsqueda bayesiana o ascenso por gradiente, según \textbf{tipo}
+     \State parámetros $\gets$ \textbf{airbag}(activo, parámetros)
+  \EndIf
+\EndFor
+\State escribir \code{config/active_parameters.json} mezclando con lo ya existente
+\end{pseudo}
+
+\subsection{Parámetros de X5 y su efecto}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Parámetro} & \textbf{Valor} & \textbf{Qué controla y qué pasa al subirlo} \\
+\midrule
+\code{X5_MIN_TRADES_TRAIN} & 500 & Umbral para entrenar. Bajarlo da modelos antes, pero muy ruidosos y con recomendaciones erráticas. \\
+\code{X5_MIN_TRADES_FTT} & 5\,000 & Umbral de cambio a red neuronal. Bajarlo arriesga sobreajuste; subirlo posterga un modelo más expresivo. \\
+\code{EXPLORATION_RATE} & 0,30 & Fracción de tramos con parámetros al azar. Subirlo da más variedad y peor rendimiento simulado; bajarlo concentra los datos y limita el aprendizaje. \\
+\code{N_CICLOS_BT} & 10 & Pasadas de X4 por activo y ejecución de \code{--recolectar}. \\
+\code{X5_FREQ_REGISTRO_PERIODICO} & 4 & Velas entre filas periódicas. Bajarlo aumenta mucho el tamaño del store con filas muy correlacionadas entre sí. \\
+\code{X5_LAMBDA_DECAY} & 0,001 & Olvido del pasado. Subirlo hace al modelo más reactivo y más olvidadizo. \\
+\code{X5_WINDOW_TRAIN} & \code{None} & Tope de filas de entrenamiento. \code{None} = usar todo el store. \\
+\code{X5_N_OPTUNA_TRIALS} & 200 & Intentos por inferencia con LightGBM. Subirlo mejora la búsqueda y alarga la inferencia (10--30\,s con 200). \\
+\code{X5_ASCENT_RESTARTS} & 10 & Puntos de partida del ascenso por gradiente. Subirlo reduce el riesgo de máximos locales, linealmente más lento. \\
+\code{X5_ASCENT_STEPS} & 300 & Pasos por reinicio. \\
+\code{X5_ASCENT_LR} & 0,01 & Tamaño del paso. Subirlo explora más rápido y puede oscilar sin converger. \\
+\code{X5_AIRBAG_THRESHOLD} & 0,08 / 0,05 & Caída en 4 velas que dispara el airbag. Bajarlo lo hace más sensible. \\
+\bottomrule
+\end{tabularx}
+\caption{Parámetros de X5. Los tres primeros gobiernan el ritmo del bucle completo.}
+\end{table}
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Interacción X4 $\leftrightarrow$ X5}
+\label{sec:interaccion}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Quién llama a quién}
+
+La dependencia es mutua y vale la pena verla explícita, porque a primera vista parece
+circular sin serlo:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Desde} & \textbf{Hacia} & \textbf{Mecanismo} \\
+\midrule
+X5 & X4 & Subproceso: \code{python X4_backtester.py --x5 --activo \{A\}}. Comunicación por archivos y por salida estándar. \\
+X4 & X5 & Importación directa: \code{import X5_macro_brain}, para cargar el modelo del activo e inferir parámetros. \\
+X4 & X0 & Importación directa de \code{_procesar_valor_N} y \code{_bt_warm_start}. \\
+X4 & X3 & Importación de \code{compute_snapshot} para el fotograma de indicadores técnicos. \\
+X4 & X2 & Lectura del archivo \code{x2_history.json}, sin ejecutar nada. \\
+\bottomrule
+\end{tabularx}
+\caption{Llamadas entre módulos. Solo la primera cruza una frontera de proceso.}
+\end{table}
+
+\bigsep
+No hay ciclo de importación porque X4 importa X5 \textit{dentro} de las funciones que lo
+necesitan, no en la cabecera del archivo. Y X5 nunca importa X4: lo lanza como programa
+externo.
+
+\subsection{Los tres relojes}
+
+Buena parte de la confusión al leer el código viene de que hay tres escalas de tiempo
+distintas funcionando a la vez, y las tres se llaman «ciclo» en algún comentario. Conviene
+separarlas de una vez:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l l X@{}}
+\toprule
+\textbf{Reloj} & \textbf{Unidad} & \textbf{Duración} & \textbf{Qué cambia en cada tic} \\
+\midrule
+Vela & 1 hora simulada & --- & Se ejecutan los pasos A--F; se registra el patrimonio. \\
+Tramo & \code{delta_recalculo_soportes} días (5) & $\approx$120 velas & Se eligen parámetros nuevos y se recalculan los soportes. \\
+Ciclo & Una pasada completa de X4 & Todo el histórico & Se reentrena el modelo del activo (entre ciclos, nunca dentro). \\
+\bottomrule
+\end{tabularx}
+\caption{Las tres escalas temporales del pipeline X4\,+\,X5.}
+\end{table}
+
+\bigsep
+De estos tres relojes se deduce el orden de magnitud del conjunto de datos. Con datos desde
+enero de 2024, un ciclo cubre unas 15\,000 velas horarias por activo, es decir alrededor de
+125 tramos, cada uno con su propia combinación de parámetros. Diez ciclos por activo dan
+unos 1\,250 experimentos distintos, cada uno generando tantas filas como operaciones cierre.
+Ese es el orden de magnitud que hay que alcanzar para cruzar los umbrales de 500 y 5\,000
+operaciones cerradas.
+
+\subsection{Una recolección completa, paso a paso}
+
+\begin{pseudo}{Recorrido completo de \code{X5 --recolectar} para un activo}
+\State \textbf{[X5]} pregunta el alcance y, si procede, si reiniciar el activo
+\State \textbf{[X5]} lanza el worker del activo; empieza el \textbf{ciclo 1}
+\State \quad \textbf{[X5$\to$X4]} subproceso \code{X4 --x5 --activo BTCUSD}
+\State \quad \textbf{[X4]} carga velas H1 y M1; decide si empieza pasada nueva o retoma checkpoint
+\State \quad \textbf{[X4$\to$X5]} \code{cargar_modelo_para_activo(BTCUSD)} $\to$ \code{untrained} en el primer ciclo
+\State \quad \textbf{[X4]} sin modelo, \textbf{todos} los tramos serán de exploración
+\State \quad \textbf{[X4]} arranque en frío: sortea parámetros y calcula los soportes hasta \code{fecha_inicio}
+\State \quad \textbf{[X4]} avanza vela a vela ejecutando los pasos A--F
+\State \quad \textbf{[X4]} cada operación cerrada $\to$ una fila \code{'oc'} en \code{BTCUSD_store.csv}
+\State \quad \textbf{[X4]} cada 4 velas con posiciones abiertas $\to$ una fila \code{'periodico'}
+\State \quad \textbf{[X4]} cada 5 días simulados $\to$ parámetros nuevos y soportes recalculados
+\State \quad \textbf{[X4]} llega al final de los datos (o quiebra); guarda checkpoint y termina
+\State \textbf{[X5]} cuenta las filas \code{'oc'} del store
+\If{$\ge 500$} \textbf{[X5]} entrena LightGBM y guarda modelo, columnas y métricas \EndIf
+\State \textbf{[X5]} empieza el \textbf{ciclo 2}
+\State \quad \textbf{[X4$\to$X5]} ahora sí hay modelo: 70\,\% de los tramos usarán inferencia
+\State \quad \textbf{[X4]} en cada tramo de explotación construye el contexto \textit{al instante simulado} y pide parámetros a X5
+\State \quad \textbf{[X4]} las filas nuevas del store ya reflejan decisiones informadas por el modelo
+\State \dots\ hasta agotar \code{N_CICLOS_BT} o superar 5\,000 operaciones cerradas
+\end{pseudo}
+
+\subsection{Aislamiento: qué separa a qué}
+
+Tres ejes de aislamiento operan simultáneamente y es fácil confundirlos:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=3pt]
+\item \textbf{Por activo.} \code{--activo BTCUSD} redirige las carpetas de trabajo de X4 a
+\code{bt_BTCUSD}. Permite seis procesos simultáneos sin colisión. El store ya era por activo
+por diseño.
+\item \textbf{Por espacio de nombres.} La variable de entorno \code{X5_DEMO_SUFFIX} añade
+\code{_demo} al store, al directorio del modelo, al historial de métricas y a las carpetas
+de backtesting. Es lo que permite que el modo demostración no toque nada real.
+\item \textbf{Por versión.} Las versiones V0, V1, \dots\ de X4 tienen cada una su
+configuración congelada y su propia carpeta de resultados. Este eje es independiente de los
+otros dos: el pipeline de X5 no usa versiones.
+\end{enumerate}
+
+\subsection{Supuestos y riesgos conocidos}
+
+Vale la pena dejar por escrito lo que puede salir mal, porque nada de esto es un defecto que
+se pueda «arreglar» sin más: son propiedades del enfoque.
+
+\paragraph{El modelo aprende de datos que él mismo generó.} A partir del segundo ciclo, el
+70\,\% de los tramos usa parámetros recomendados por el modelo. Si el modelo se equivoca de
+forma sistemática, generará datos que confirmen su error. La exploración permanente del
+30\,\% es el contrapeso, pero es un contrapeso, no una garantía.
+
+\paragraph{El backtest no es la realidad.} Todo lo que el modelo aprende viene de una
+simulación con supuestos optimistas: sin comisiones, sin deslizamiento, con intra-vela
+sintética. Los parámetros óptimos \textit{para el simulador} pueden no serlo para el mercado.
+La Fase 2 —realimentar con operaciones reales— existe precisamente para corregir eso.
+
+\paragraph{Ocho parámetros y un objetivo ruidoso.} El retorno de una operación individual
+tiene una componente de azar enorme. El modelo puede necesitar muchísimos datos para separar
+la señal del ruido, y un $R^2$ negativo en las primeras iteraciones es lo esperable, no una
+señal de fallo.
+
+\paragraph{Contexto de cartera vacío en la inferencia en vivo.} En Fase 1, las columnas de
+cartera se rellenan con ceros al inferir en vivo, mientras que en el store esas mismas
+columnas traen valores reales. Es un desajuste entre entrenamiento e inferencia que solo se
+resuelve cuando X1 provea el estado real de la cartera.
+
+\paragraph{Las columnas OA se aproximan con las de OE.} Al inferir en vivo se copian los
+valores del momento de crear la orden como si fueran los del momento de ejecutarla. Es una
+aproximación razonable para órdenes que se ejecutan pronto y mala para las que tardan
+semanas.
+
+\subsection{Cómo saber si el bucle está funcionando}
+
+Tres señales, en orden de disponibilidad:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item \code{python scripts/X5_macro_brain.py --status} muestra el recuento de operaciones
+cerradas por activo y qué modelo corresponde. Si no crece entre recolecciones, X4 no está
+cerrando posiciones y hay que mirar los parámetros o los datos antes que el modelo.
+\item El historial en \code{resources/x5/Performance/\{ACTIVO\}_performance.json} muestra la
+evolución de las métricas de validación entrenamiento tras entrenamiento. La señal buena es
+que el error de validación baje mientras el store crece.
+\item \code{equity_global.csv} de las carpetas \code{bt_\{ACTIVO\}} da la curva de capital de
+la última pasada. Sirve para juzgar si las configuraciones que el modelo recomienda producen
+pasadas mejores que las de exploración pura.
+\end{enumerate}
+
+\newpage
+
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Anexos}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Glosario técnico}
+
+\begin{longtable}{@{}p{4.3cm} p{\dimexpr\linewidth-4.8cm\relax}@{}}
+\toprule
+\textbf{Término} & \textbf{Definición} \\
+\midrule
+\endhead
+Arranque en caliente & Iniciar un algoritmo iterativo desde una solución previa conocida en vez de un punto aleatorio. \\
+Ascenso por gradiente & Optimizar moviéndose repetidamente en la dirección de máximo crecimiento de una función derivable. \\
+Atención & Mecanismo por el que cada elemento de una secuencia pondera cuánto atender a los demás. Base del transformer. \\
+Backtesting & Evaluar una estrategia sobre datos históricos, simulando que se opera en cada momento del pasado. \\
+Escritura atómica & Escribir a un archivo temporal y renombrarlo sobre el destino, de modo que nunca quede a medio escribir. \\
+FT-Transformer & Arquitectura transformer adaptada a datos tabulares: cada columna se convierte en un vector antes de aplicar atención. \\
+Gradient boosting & Método que construye árboles de decisión en secuencia, cada uno corrigiendo el error de los anteriores. \\
+Hueco (\textit{gap}) & Salto de precio entre el cierre de una vela y la apertura de la siguiente, sin cotizaciones intermedias. \\
+LightGBM & Implementación eficiente de gradient boosting; estándar en datos tabulares. \\
+Margen & Garantía inmovilizada al abrir una posición apalancada: valor de la posición dividido por el apalancamiento. \\
+Nivel de margen & Patrimonio dividido por margen usado, en porcentaje. Indicador de supervivencia de la cuenta. \\
+Modelo sustituto & Modelo barato que imita una función cara de evaluar, para poder optimizarla. \\
+Normalización de capa & Reescalado a media cero y desviación uno dentro de cada vector; estabiliza redes profundas. \\
+Optuna / TPE & Biblioteca de optimización de caja negra que concentra los intentos en las zonas prometedoras del espacio. \\
+Orden límite de compra & Instrucción de comprar automáticamente si el precio baja hasta un nivel dado. \\
+Parada temprana & Detener el entrenamiento cuando el error de validación deja de mejorar, para evitar sobreajuste. \\
+Patrimonio (\textit{equity}) & Saldo realizado más el resultado flotante de las posiciones abiertas. \\
+$R^2$ & Fracción de la variabilidad del objetivo explicada por el modelo. Negativo significa peor que predecir la media. \\
+Sobreajuste & Memorizar el ruido del conjunto de entrenamiento, a costa del rendimiento con datos nuevos. \\
+Trailing stop & Stop de venta cuyo nivel sube con el precio y nunca baja. \\
+Vela (OHLCV) & Resumen de un intervalo de tiempo: apertura, máximo, mínimo, cierre y volumen. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Mapa de archivos generados}
+
+\begin{longtable}{@{}p{6.6cm} p{\dimexpr\linewidth-7.1cm\relax}@{}}
+\toprule
+\textbf{Ruta} & \textbf{Contenido} \\
+\midrule
+\endhead
+\code{resources/x4/version\{V\}/} & Configuración congelada y resultados de una versión de backtesting. \\
+\code{\dots/resources_\{V\}/checkpoint.json} & Estado completo para reanudar. \\
+\code{\dots/resources_\{V\}/trades.json} & Una entrada por operación cerrada. \\
+\code{\dots/resources_\{V\}/events.json} & Bitácora granular de creaciones, cancelaciones, stops y cierres. \\
+\code{\dots/resources_\{V\}/equity_global.csv} & Saldo, patrimonio y margen por vela. \\
+\code{\dots/resources_\{V\}/equity_activos.csv} & Ganancia cerrada, flotante y total por vela y activo. \\
+\code{\dots/conjuntos_N/\{A\}_\{N\}_bt.json} & Caché de soportes indexado por fecha. \\
+\code{\dots/conjuntos_N/\{A\}_\{N\}_bt_delta.json} & Paso adaptativo del optimizador de soportes. \\
+\code{resources/x5/\{A\}_store.csv} & Conjunto de datos de entrenamiento del activo. \\
+\code{resources/x5/models/\{A\}/} & Modelos entrenados y orden de columnas. \\
+\code{resources/x5/Performance/\{A\}_performance.json} & Historial de métricas por entrenamiento. \\
+\code{resources/x5/bt_\{A\}/} & Carpeta de backtesting aislada del activo (modo X5). \\
+\code{resources/x5/demo\_plots/\{A\}/} & Gráficos de cada búsqueda de soportes del recorrido guiado. \\
+\code{config/active_parameters.json} & Recomendación vigente por activo, con su estado de modelo. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Índice de funciones}
+
+Referencia rápida para saltar del documento al código. Los números de línea corresponden al
+estado del repositorio en la fecha de este documento y son orientativos.
+
+\subsubsection{\code{X4_backtester.py}}
+
+\begin{longtable}{@{}p{5.2cm} r p{\dimexpr\linewidth-7.3cm\relax}@{}}
+\toprule
+\textbf{Función} & \textbf{Línea} & \textbf{Propósito} \\
+\midrule
+\endhead
+\code{_cargar_config} & 36 & Carga la configuración congelada de una versión. \\
+\code{_cargar_config_x5} & 47 & Carga \code{config_x5_default.py} para el modo X5. \\
+\code{_cargar_datos_h1} & 68 & Lee, ordena y recorta las velas horarias por activo. \\
+\code{_cargar_datos_m1} & 89 & Ídem para velas de un minuto; admite ausencia. \\
+\code{_cargar_checkpoint} & 107 & Restaura el estado, reconvirtiendo claves de texto a número. \\
+\code{_guardar_checkpoint} & 120 & Vuelca el estado a JSON. \\
+\code{_worker_recalcular} & 144 & Adaptador que invoca \code{X0._procesar_valor_N} en un proceso aparte. \\
+\code{_recalcular_soportes} & 228 & Orquesta el recálculo paralelo y recarga los soportes del caché. \\
+\code{_calcular_estado_cuenta} & 267 & Saldo, patrimonio, margen usado y libre, nivel de margen. \\
+\code{_id_orden} & 310 & Identificador reconstruible de una operación. \\
+\code{_registrar_trade} & 320 & Arma la entrada de \code{trades.json}. \\
+\code{_paso_A} & 361 & Cancela órdenes en espera sin soporte vigente. \\
+\code{_paso_B} & 380 & Ejecuta órdenes alcanzadas; trata huecos y control de margen. \\
+\code{_paso_C} & 465 & Activa y arrastra el stop protector. \\
+\code{_paso_D} & 495 & Cierra por pérdida máxima. \\
+\code{_paso_E} & 533 & Cierra por stop tocado. \\
+\code{_paso_F} & 570 & Crea órdenes en espera sobre soportes libres. \\
+\code{_necesita_intravela} & 611 & Decide si la vela requiere resolución minuto a minuto. \\
+\code{_escalar_bloque_m1} & 629 & Deforma un tramo M1 real para encajarlo en la vela horaria. \\
+\code{_simular_intravela} & 655 & Repite los pasos B--F sobre 60 velas de un minuto. \\
+\code{_procesar_candle} & 675 & Aplica los pasos A--F a una vela de un activo. \\
+\code{_append_equity} & 708 & Escribe las dos curvas de patrimonio. \\
+\code{_flush_json_list} & 745 & Volcado atómico con reintentos de operaciones y eventos. \\
+\code{_features_temporales_ts} & 777 & Features de calendario, incluidos festivos bursátiles. \\
+\code{_compute_x5_snapshot} & 828 & Fotograma de indicadores X3 y score X2 al instante simulado. \\
+\code{_contexto_portfolio_x5} & 840 & Estado de la cartera del activo como features. \\
+\code{_construir_fila_oc} & 862 & Convierte una operación cerrada en fila de entrenamiento. \\
+\code{_construir_fila_periodica} & 902 & Fila de seguimiento con posiciones abiertas. \\
+\code{_append_x5_store} & 932 & Añade una fila al store, con defensa contra archivos truncados. \\
+\code{ejecutar_backtest} & 956 & Bucle principal de la simulación. \\
+\code{_params_explore_activo} & 1249 & Sorteo de parámetros dentro de los rangos. \\
+\code{_contexto_inferencia_x5} & 1273 & Contexto al instante simulado para pedir inferencia. \\
+\code{_seleccionar_params_x5} & 1299 & Decide explorar o explotar por activo. \\
+\code{_aplicar_params_x5} & 1352 & Inyecta los parámetros del tramo en la configuración viva. \\
+\code{ejecutar_x5_ciclo} & 1372 & Prepara el aislamiento por activo y carga el modelo del ciclo. \\
+\bottomrule
+\end{longtable}
+
+\subsubsection{\code{X5_macro_brain.py}}
+
+\begin{longtable}{@{}p{5.6cm} r p{\dimexpr\linewidth-7.7cm\relax}@{}}
+\toprule
+\textbf{Función} & \textbf{Línea} & \textbf{Propósito} \\
+\midrule
+\endhead
+\code{_cargar_store} & 128 & Lee el CSV del activo descartando filas malformadas. \\
+\code{_n_oc} & 138 & Cuenta filas de tipo operación cerrada. \\
+\code{_seleccionar_tipo} & 144 & Elige \code{untrained}, \code{lgbm} o \code{ftt} según el volumen. \\
+\code{_params_baseline} & 153 & Valores de \code{config.py}, usados como reserva. \\
+\code{_feature_cols_de_store} & 168 & Fija el orden canónico de columnas y excluye las de cierre. \\
+\code{_preparar_features} & 192 & Construye $X$, $y$ y los pesos temporales. \\
+\code{_leer_contexto_actual} & 302 & Contexto de mercado en vivo. \\
+\code{_construir_vector} & 336 & Combina contexto fijo y parámetros variables en el orden correcto. \\
+\code{_calcular_metricas} & 346 & MAE, MSE, MAPE y $R^2$. \\
+\code{_guardar_performance} & 365 & Añade una entrada al historial de métricas. \\
+\code{_entrenar_lgbm} & 396 & Entrena los tres modelos de árboles con división temporal. \\
+\code{FTTransformer} & 520 & Red con tronco compartido y tres cabezas de salida. \\
+\code{_entrenar_ftt} & 558 & Entrena la red, normalizando con estadísticos del tramo de entrenamiento. \\
+\code{_aplicar_airbag} & 679 & Fuerza exposición mínima tras una caída brusca. \\
+\code{_inferir_lgbm} & 718 & Búsqueda bayesiana de parámetros con Optuna. \\
+\code{_inferir_ftt} & 771 & Ascenso por gradiente sobre las entradas, con reinicios. \\
+\code{_entrenar} & 876 & Elige y entrena el modelo que corresponda. \\
+\code{cargar_modelo_para_activo} & 893 & Carga el modelo una sola vez, para reuso desde X4. \\
+\code{inferir_con_contexto} & 910 & Inferencia con contexto inyectado, sin airbag. \\
+\code{_escribir_active_parameters} & 948 & Mezcla y escritura atómica del archivo de parámetros. \\
+\code{_mostrar_status} & 976 & Diagnóstico por activo. \\
+\code{_worker_recolectar_activo} & 1018 & Bucle de ciclos y reentrenamiento de un activo. \\
+\code{_recolectar} & 1090 & Orquestador paralelo de la recolección. \\
+\code{_borrar_checkpoints_activo} & 1196 & Borrado completo del activo en su espacio de nombres. \\
+\code{_recolectar_guiado} & 1248 & Recorrido secuencial narrado, en modo demostración u oficial. \\
+\code{main} & 1365 & Despacho de los tres modos de la línea de comandos. \\
+\bottomrule
+\end{longtable}
+
+\vspace{1cm}
+\begin{center}
+\small\color{cgris}
+Documento generado a partir del código en \code{scripts/X4_backtester.py},
+\code{scripts/X5_macro_brain.py}, \code{scripts/config_x5_default.py} y
+\code{scripts/config.py}.\\
+Fuente \LaTeX: \code{docs/plans/algoritmos.tex}. Compilar con \code{tectonic algoritmos.tex}.
+\end{center}
+
+\end{document}

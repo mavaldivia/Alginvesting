@@ -41,6 +41,7 @@
 ### Transversal
 
 - [x] **Reorganizar estructura de directorios del proyecto**: `resources/x0/` (logs, plots), `resources/x2/` (fundamentals), `resources/x3/` (features), `resources/conjuntos_N/` (soportes). `docs/` reorganizado en `plans/`, `context/`, `tracking/`. `plots/` raíz obsoleta eliminada. `config.py` y `.gitignore` actualizados. Skill `/record` actualizada a `docs/tracking/records.md`.
+- [x] **Documento LaTeX con los pseudocódigos de X4 y X5**: `docs/plans/algoritmos.pdf` (39 páginas, fuente `algoritmos.tex`, compila con `tectonic`). Estructura numerada 1 / 1.1 / 1.1.1 y explicación de lo global a lo particular: panorama del pipeline y vocabulario del dominio (§1); X4 —contrato, garantía de no mirar el futuro, supuestos, estado en memoria, checkpoint, bucle principal, pasos A–F uno por uno, intra-vela M1, contabilidad y stop out, recálculo de soportes con arranque en caliente, persistencia, modo `--x5`, tabla de parámetros— (§2); X5 —modelo sustituto, store y sus bloques de columnas, recolección paralela y guiada, entrenamiento LightGBM y FT-Transformer, inferencia por Optuna y por ascenso por gradiente, airbag, `active_parameters.json`, tabla de parámetros— (§3); interacción X4↔X5 con los tres relojes (vela / tramo / ciclo), aislamiento y riesgos conocidos (§4); anexos con glosario, mapa de archivos generados e índice de funciones con número de línea (§5). 21 pseudocódigos numerados, sin diagramas, con definiciones de conceptos técnicos en notas al pie.
 
 ### X2 — X2_fundamentals.py
 

@@ -432,3 +432,4 @@ Guardalo en docs/plans/algoritmos.pdf (por ahora, solo incluye X4 y X5)
 Quiero que la explicación, en general, vaya de lo global a lo particular, para facilitar mi comprensión
 Evita diagramas complejos (porque no quedan muy bien)...de hecho, en general evita diagramas
 Si hay conceptos técnicos (considera mi nivel de lenguaje)...agrega su definición con referencia en pie de página (así lo veo de una)
+Revisa bien los algorítmos (.py) en ambos casos para el desarrollo

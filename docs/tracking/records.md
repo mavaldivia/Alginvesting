@@ -1269,3 +1269,10 @@ Claude: explicó dos riesgos de la ventana rodante — "efecto borde" (p_max pue
 Mauricio: se inclinó por el enfoque acumulado.
 Claude: implementó el cambio en `calcular_FO` y `calcular_FO_batch` — `H_n` ahora se calcula sobre `[P_min] + soportes_ordenados + [P_max]`, derivando P_min/P_max de `df_extremos['Low']` sin agregar parámetros nuevos a las firmas. Validó con datos sintéticos (env `revenAI`) que ambas funciones dan resultados consistentes byte a byte entre sí. Actualizó `CLAUDE.md` (Paso 3 del algoritmo), `docs/context/decisiones.md` (decisión completa con alternativas descartadas) y `docs/tracking/done.md`.
 (Cierre: 2026-08-26 23:13)
+
+## SECCIÓN 142
+Mauricio: pidió (vía `/new_todo`) un PDF en LaTeX con los pseudocódigos de X4 y X5 — 25-40 páginas, numeración 1/1.1/1.1.1, de lo global a lo particular, sin diagramas, con conceptos técnicos definidos en notas al pie. Guardarlo en `docs/plans/algoritmos.pdf`.
+Claude: leyó completos `X4_backtester.py`, `X5_macro_brain.py`, `config.py`, `config_x5_default.py` y helpers de X0/X3; redactó el documento en 4 secciones (panorama y vocabulario, X4, X5, interacción X4↔X5) más anexos (glosario, mapa de archivos, índice de funciones), con 21 pseudocódigos numerados. Compiló con `tectonic` (motor disponible en el entorno; no había pdflatex/xelatex/lualatex), resolvió incompatibilidades de `algorithmicx` con `algorithm.sty`, ajustó anchos de tablas y profundidad de numeración. Resultado: 39 páginas. Registró el ítem en `done.md` (sección Transversal).
+Mauricio: preguntó por qué el documento habla de 6 scripts.
+Claude: aclaró que X0-X5 son las 6 etapas funcionales del pipeline (datos+soportes, trading vivo, fundamentals, features técnicas, backtester, cerebro macro); `config.py`, `config_x5_default.py` y `X4B_crear_version_backtesting.py` son configuración/utilidad, no etapas propias.
+(Cierre: 2026-08-26 23:49)
