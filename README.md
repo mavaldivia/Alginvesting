@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-26** — fix: X1 — sección B de `informacion()` mostraba los soportes pendientes más lejanos al precio en vez de los más cercanos (ordena por valor absoluto de `Falta_sube_USD`)
 - **2026-08-26** — fix: X1 — colapsa prints de cambio de SL en 1 línea por activo ("Cambio SL de {n} operaciones del valor {valor}") en vez de 1 línea por orden
 - **2026-08-16** — fix: X1 — throttle de prints de retcode MT5 no identificado (evita spam si el bróker deshabilita autotrading, ej. retcode 10026, o cualquier otro error que se repita cada ciclo)
 - **2026-08-16** — feat: X1 — `informacion()` reporta por activo A) cuánto debe bajar P0 para ejecutar la OE más cercana (OE→OA) y B) cuánto debe subir P0 para declarar el soporte no declarado más cercano (→OE), usando estado real de MT5 (`positions_get`/`orders_get`) en vez de la clasificación teórica por distancia sobre `lista_N`

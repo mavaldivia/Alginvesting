@@ -582,7 +582,7 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dic
         if pendientes:
             df_b = pd.DataFrame(pendientes, columns=['Precio'])
             df_b['Falta_sube_USD'] = (a_valor - (P0 - df_b['Precio']) * L).round(2)
-            df_b = df_b.sort_values('Falta_sube_USD').head(3).reset_index(drop=True)
+            df_b = df_b.sort_values('Falta_sube_USD', key=lambda s: s.abs()).head(3).reset_index(drop=True)
 
         datos[valor] = {'P0': P0, 'df_a': df_a, 'df_b': df_b}
 

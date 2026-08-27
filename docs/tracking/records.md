@@ -1229,3 +1229,8 @@ Claude: agregó `_print_throttled(symbol, clave, mensaje, intervalo=X1_RETRY_BLO
 Mauricio: pidió vía `/new_todo` que en X1, cuando se cambia el SL de varias órdenes del mismo activo, se declare en una sola línea ("Cambio SL de {n} operaciones del valor {valor}") en vez de una línea por orden.
 Claude: en `trailing_stop` (`X1_trading.py`), `cambiar_SL` ganó parámetro `silent` (omite el print individual de éxito); `trailing_stop` lo llama con `silent=True` en ambas ramas (primer SL y trailing) y acumula `n_cambios_sl`, imprimiendo un único resumen al final del ciclo por activo. Los prints de error (retcode no confirmado, posición cerrada durante la modificación) se mantienen sin silenciar. Registrado en `done.md` sección X1.
 (Cierre: 2026-08-26 22:14)
+
+## SECCIÓN 138
+Mauricio: pidió vía `/new_todo` revisar la sección B del reporte de `informacion()` en X1 — sospechaba que estaba mostrando los soportes/resistencias más lejanos al precio en vez de los más cercanos, con ejemplos concretos de los 6 activos donde `Falta_sube_USD` salía muy negativo para precios muy alejados de P0.
+Claude: confirmó el bug en `informacion()` (`X1_trading.py:584-585`) — `Falta_sube_USD = a - (P0-Precio)*L` se vuelve muy negativo cuanto más lejos está un soporte bloqueado por debajo del precio (excede el umbral `a` hace tiempo), y `sort_values('Falta_sube_USD').head(3)` (orden ascendente por valor con signo) traía esos en vez de los soportes realmente próximos al precio. Fix: ordenar por valor absoluto (`key=lambda s: s.abs()`), que trae los más cercanos a 0 en cualquier dirección. Registrado en `done.md` sección X1.
+(Cierre: 2026-08-26 22:18)
