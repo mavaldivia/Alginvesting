@@ -16,6 +16,7 @@ import concurrent.futures
 import datetime
 import json
 import multiprocessing
+from collections import Counter
 
 # Suprimir stdout en procesos worker antes de que importen matplotlib/mplfinance.
 # Los workers usan spawn en Windows/macOS; sus prints interfieren con el cursor ANSI del monitor.
@@ -156,7 +157,8 @@ def calcular_distancias(df: pd.DataFrame, find_low: bool = True, find_high: bool
 
 
 def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
-                         conjunto_N: set = set(), ocp: int = 0, verbose: bool = True) -> tuple:
+                         conjunto_N: set = set(), ocp: int = 0, verbose: bool = True,
+                         identificador: str = '') -> tuple:
     """
     Calcula las columnas y (aislamiento) y w (recencia) usadas por la FO.
     Inicializa conjunto_N con puntos aleatorios si viene vacío o incompleto.
@@ -190,6 +192,10 @@ def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
         conjunto_N = conjunto_N.difference(elementos_a_remover)
 
     if len(conjunto_N) != N:
+        _log_diagnostico_conjunto_N(identificador, 'obtener_df_extremos_padding', {
+            'N': N, 'ocp': ocp, 'ordenes_en_espera': ordenes_en_espera,
+            'L_original': L, 'len_final': len(conjunto_N),
+        })
         sys.exit(f'Error en tamaño conjunto_N: {len(conjunto_N)} != {N}')
 
     return df_extremos, conjunto_N
@@ -363,6 +369,10 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     delta2 = N - len(set(ordenes_activas))
 
     if delta2 < 0:
+        _log_diagnostico_conjunto_N(llave, 'ordenes_activas_mayor_a_N', {
+            'N': N, 'ordenes_activas': sorted(set(ordenes_activas)),
+            'len_ordenes_activas': len(set(ordenes_activas)),
+        })
         sys.exit('Cantidad de ordenes activas es mayor a N')
 
     p_min = df_extremos['Low'].min()
@@ -370,6 +380,8 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     if verbose:
         print(f'Rango de precios: [{p_min:.2f}, {p_max:.2f}]')
 
+    conjunto_N_pre_oa = set(conjunto_N)
+    reset_completo = delta < 0 and delta2 > 0
     if delta >= 0:
         conjunto_N = conjunto_N.union(set(np.random.uniform(p_min, p_max, delta).tolist()))
     elif delta2 > 0:
@@ -378,6 +390,12 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     conjunto_N = conjunto_N.union(set(ordenes_activas))
 
     if len(conjunto_N) != N:
+        _log_diagnostico_conjunto_N(llave, 'init_post_union_oa', {
+            'N': N, 'delta': delta, 'delta2': delta2, 'reset_completo_por_oa': reset_completo,
+            'ordenes_activas': sorted(set(ordenes_activas)),
+            'ya_presentes_en_conjunto_previo': sorted(set(ordenes_activas) & conjunto_N_pre_oa),
+            'len_conjunto_previo': len(conjunto_N_pre_oa), 'len_final': len(conjunto_N),
+        })
         sys.exit(f'Error en tamaño conjunto_N tras inicialización: {len(conjunto_N)} != {N}')
 
     lista_N = sorted(list(conjunto_N))
@@ -390,6 +408,15 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         conjunto_N = set(lista_N)
 
         if len(conjunto_N) != N:
+            duplicados = {v: c for v, c in Counter(lista_N).items() if c > 1}
+            indices_por_duplicado = {v: [k for k, val in dic_N.items() if val == v] for v in duplicados}
+            _log_diagnostico_conjunto_N(llave, 'mid_loop_iteracion', {
+                'N': N, 'iteracion': j, 'cambios_hasta_ahora': cambios,
+                'valores_duplicados': duplicados,
+                'indices_por_duplicado': indices_por_duplicado,
+                'p_min': p_min, 'p_max': p_max,
+                'dic_N_min': min(dic_N.values()), 'dic_N_max': max(dic_N.values()),
+            })
             sys.exit(f'Error en tamaño conjunto_N en iteración {j}: {len(conjunto_N)} != {N}')
 
         FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
@@ -767,6 +794,24 @@ def _bt_guardar(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_clave, conjun
         json.dump(cache, f)
 
 
+def _log_diagnostico_conjunto_N(identificador: str, escenario: str, datos: dict):
+    """Vuelca a un JSON el contexto de un fallo de tamaño en conjunto_N (len != N).
+
+    Estos fallos hoy terminan en sys.exit() dentro de un worker de ProcessPoolExecutor:
+    el proceso no imprime nada (stdout de worker silenciado) y el SystemExit, al no ser
+    Exception, se propaga sin traceback hasta matar el script completo — sin dejar rastro.
+    Este archivo es el único rastro que va a quedar cuando eso pase.
+    """
+    carpeta = CARPETA_LOGS / 'diag_conjunto_N'
+    carpeta.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    ruta = carpeta / f'{(identificador or "sin_id")}_{escenario}_{ts}.json'
+    entrada = {'identificador': identificador, 'escenario': escenario,
+               'timestamp': datetime.datetime.now().isoformat(), **datos}
+    with open(ruta, 'w') as f:
+        json.dump(entrada, f, indent=2, default=str)
+
+
 def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
                               t_inicio: float, t_fin: float,
                               iteraciones: int, cambios: int,
@@ -913,7 +958,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         print('  Calculando distancias...')
     if estado_compartido is not None:
         estado_compartido[llave] = (0, 0, 0.0, 'calc. distancias')
-    df_extremos, conjunto_N = obtener_df_extremos(df, K_, N_EXP_, N, conjunto_N_prev, verbose=verbose)
+    df_extremos, conjunto_N = obtener_df_extremos(df, K_, N_EXP_, N, conjunto_N_prev, verbose=verbose,
+                                                   identificador=llave)
 
     FO_ref, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA_)
     if verbose:

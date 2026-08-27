@@ -343,3 +343,83 @@ Incluye todo lo que se ha hecho despues de generar la versión 1. Basate en los 
 X1: La notación debe ser 
 [OE > OA]: Orden en espera a orden abierta (tambien detectarla y notificarla, a X precio)
 [OA > OC]: Orden abierta a orden cerrada (notificar precio apertura, precio de cierre y ganancia)
+
+
+
+/new_todo
+X5: Revisa este error y, antes de intentar corregirlo, explicame que ocurre
+
+11:00:00
+  [A→C] TSLA  id=TSLA_20260507T1800_402.4  motivo=trailing_stop  lote=0.01  precio_apertura=402.39  precio_cierre=415.85  retorno=$13.46  ts=2026-05-08 11:00:00
+  [2026-05-08 12:00:00] eq=1001861.76 bal=1001861.76 | OA=0 OE=175 | trades=241
+  [2026-05-11 10:00:00] EXPLORE       TSLA: N=86 K=1.486 N_EXP=1.696 LAMBDA=0.00860 A=11.88 B=5.37 LOTAJES_M=1 PERDIDA_MAX=198
+  [2026-05-11 10:00:00] Recalculando soportes...
+concurrent.futures.process._RemoteTraceback:
+"""
+Traceback (most recent call last):
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 261, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 210, in _process_chunk
+    return [fn(*args) for args in chunk]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 210, in <listcomp>
+    return [fn(*args) for args in chunk]
+            ^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 147, in _worker_recalcular
+    return _procesar_valor_N(
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X0_data_supports.py", line 994, in _procesar_valor_N
+    _guardar_log_convergencia(
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X0_data_supports.py", line 797, in _guardar_log_convergencia
+    historial = json.load(f)
+                ^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ^^^^^^^^^
+OSError: [Errno 22] Invalid argument
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 1438, in <module>
+    ejecutar_x5_ciclo(cfg, activo=args.activo)
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 1409, in ejecutar_x5_ciclo
+    ejecutar_backtest(cfg, reset=False, x5_mode=True, min_lotajes=dict(cfg.LOTAJES))
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 1115, in ejecutar_backtest
+    _infos = _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 248, in _recalcular_soportes
+    infos = list(executor.map(_worker_recalcular, tasks))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 620, in _chain_from_iterable_of_lists
+    for element in iterable:
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+OSError: [Errno 22] Invalid argument
+  ciclo 5: X4 terminó con error (cód 1).
+
+-------------------------------
+/new_todo X0 & X4:
+Cuando se calculan los soportes y resistencias, en la segunda parte de la función objetivo (la desviación entre la distancia de pares consecutivos de sop/res)
+debe considerar P_maximo y P_minimo de todo el periodo de tiempo
+Esto es porque, si, por ejemplo BTC se mantuvo durante meses entre 60 y 70 k usd, y sube a 80 k usd en un día, TODOS los sopres se quedan muy anajo (el mayor es cerca de los 72k usd)
+Eso pasó hace menos de una semana, y necesito manejarlo. SI se te ocurre alguna otra manera, sugierela
+
+/new_todo X5:
+Estoy perdiendo un poco de visibilidad de X5 y X4, por lo tanto necesito que generes un pdf en formato LATEX, con los
+"pseudocódigos" de ambos
+Quiero que incorpores muy bien Secciones, subsecciones, subsubsecciones... con el formato 1 / 1.1 / 1.2 / 1.2.1 / etc
+Extiende un archivo de unas 25-40 páginas para explicar X4 y X5, de tal forma de ganar visibilidad y poder entenderlos mejor
+Guardalo en docs/plans/algoritmos.pdf (por ahora, solo incluye X4 y X5) 
+Quiero que la explicación, en general, vaya de lo global a lo particular, para facilitar mi comprensión

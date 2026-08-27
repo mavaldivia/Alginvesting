@@ -123,7 +123,7 @@ config/
   active_parameters.json # Params recomendados por X5, leídos por X1/X0 en modo "din"
 resources/               # Todo generado en Windows, fuera de git
   conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
-  x0/logs/               # Logs de convergencia por combo {valor}_{N}.json
+  x0/logs/               # Logs de convergencia por combo {valor}_{N}.json + diag_conjunto_N/ (diagnóstico de crashes por tamaño de conjunto_N)
   x0/plots/              # Gráficos de X0 (Extremos, FO, Soportes, Zoom)
   x2/                    # scores.json, x2_history.json, x2_last_run.json
   x3/                    # Features técnicas por activo {VALOR}.csv
@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-26** — fix: X0 — diagnóstico en las 4 guardas `sys.exit()` por tamaño de `conjunto_N` (crash silencioso tras ~10-15 ciclos: `SystemExit` en un worker de `ProcessPoolExecutor` escapa de todo `except Exception` y mata el proceso sin traceback); vuelca contexto a `resources/x0/logs/diag_conjunto_N/`
 - **2026-08-26** — fix: X1 — sección B de `informacion()` mostraba los soportes pendientes más lejanos al precio en vez de los más cercanos (ordena por valor absoluto de `Falta_sube_USD`)
 - **2026-08-26** — fix: X1 — colapsa prints de cambio de SL en 1 línea por activo ("Cambio SL de {n} operaciones del valor {valor}") en vez de 1 línea por orden
 - **2026-08-16** — fix: X1 — throttle de prints de retcode MT5 no identificado (evita spam si el bróker deshabilita autotrading, ej. retcode 10026, o cualquier otro error que se repita cada ciclo)
