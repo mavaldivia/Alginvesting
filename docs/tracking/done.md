@@ -85,6 +85,7 @@
 - [x] Config: mover parámetros a un archivo de configuración separado (`config.py`)
 - [x] Reorganizar `config.py` en grupos temáticos (rutas, activos, datos históricos, calidad del algoritmo, velocidad/cómputo, visualizaciones, trading) en vez del agrupamiento por script (X0/X1)
 - [x] Migrar X0 (notebook) a `scripts/X0_data_supports.py`
+- [x] **`cv(H_n)` incluye P_min/P_max del período como anclas de borde**: en `calcular_FO` y `calcular_FO_batch` (usadas también por X4), `H_n` ahora se calcula sobre `[P_min] + soportes_ordenados + [P_max]` en vez de solo los soportes — penaliza también el hueco entre el soporte extremo y el precio máximo/mínimo real del período (ej. una ruptura de rango que deja todos los soportes muy por debajo del precio nuevo), no solo la dispersión entre soportes consecutivos. P_min/P_max se toman acumulados desde `FECHA_INICIAL` (no ventana rodante, para evitar saltos por efecto de borde y garantizar que siempre queden en el extremo real). Validado con datos sintéticos: `cv(H_n)` de `calcular_FO` coincide con el cálculo manual, y `calcular_FO_batch` da la misma FO que `calcular_FO` para el mismo soporte movido. Ver `docs/context/decisiones.md` 2026-08-26.
 
 ### X1 — X1_trading.py
 

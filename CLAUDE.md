@@ -83,7 +83,7 @@ Se asigna cada vela al soporte más cercano del conjunto N. Luego:
 - `z = producto de los factores activos en `parametros_soportes` (config.py)`: por defecto `y * w * h_dist * v * f`. El diccionario permite activar/desactivar cada uno para experimentar con el scoring sin tocar el código.
 - `FO = mean(z) - LAMBDA * cv(H_n)`
   - `mean(z)`: calidad promedio de asignación (combinación de los factores activos: aislamiento, recencia, proximidad, volumen, fuerza del rechazo)
-  - `cv(H_n)`: coeficiente de variación de las distancias entre soportes consecutivos — penaliza que los N soportes se concentren en una zona del rango
+  - `cv(H_n)`: coeficiente de variación de las distancias entre soportes consecutivos, agregando P_mínimo y P_máximo del período completo (`df_extremos['Low']`, desde `FECHA_INICIAL`) como anclas de borde — penaliza tanto que los N soportes se concentren en una zona del rango como que dejen un hueco grande entre el soporte extremo y el precio máximo/mínimo histórico (ej. una ruptura reciente que deja todos los soportes muy por debajo del nuevo precio)
 
 ### Paso 4 — Optimizador de búsqueda local (`nuevo_optimizador_2`)
 En cada iteración, para cada soporte `i` del conjunto N:

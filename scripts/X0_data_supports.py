@@ -228,8 +228,11 @@ def calcular_FO(df_extremos: pd.DataFrame, conjunto_N: set, lambda_ponderador: f
         v      → volumen normalizado (Tick_Volume / max), proxy de actividad en ese nivel
         f      → fuerza del rechazo: proporción del rango que fue mecha (1 - |Close-Open|/(High-Low))
 
-    cv(H_n) = std(H_n) / mean(H_n), donde H_n son las distancias entre soportes consecutivos.
-    Penaliza conjuntos donde los soportes están muy concentrados en una zona del rango.
+    cv(H_n) = std(H_n) / mean(H_n), donde H_n son las distancias entre soportes consecutivos,
+    con P_min y P_max del período completo (df_extremos['Low']) como anclas de borde.
+    Penaliza conjuntos donde los soportes están muy concentrados en una zona del rango,
+    incluyendo cuando dejan un hueco grande entre el soporte extremo y el precio máximo/mínimo
+    histórico (ej. una ruptura reciente que deja todos los soportes muy por debajo del precio).
     """
     df_extremos = asignar_soporte(df_extremos, conjunto_N)
     df_extremos['dist'] = (df_extremos['soporte'] - df_extremos['Low']) ** 2
@@ -239,7 +242,8 @@ def calcular_FO(df_extremos: pd.DataFrame, conjunto_N: set, lambda_ponderador: f
     factores = [nombre for nombre, activo in parametros_soportes.items() if activo]
     df_extremos['z'] = df_extremos[factores].prod(axis=1)
 
-    L_n = sorted(list(conjunto_N))
+    p_min, p_max = df_extremos['Low'].min(), df_extremos['Low'].max()
+    L_n = [p_min] + sorted(list(conjunto_N)) + [p_max]
     H_n = [L_n[i] - L_n[i - 1] for i in range(1, len(L_n))]
     cv_H = np.std(H_n) / np.mean(H_n)
 
@@ -263,12 +267,17 @@ def calcular_FO_batch(df_extremos: pd.DataFrame, lista_N: list, idx_soporte: int
     al inicio de la iteración) en vez de recomputarlo por candidato. Garantiza que la FO
     del batch es comparable con FO_base y evita el salto entre fases. h_dist se clipea a [0,1].
 
+    cv(H_n) usa P_min/P_max de df_extremos['Low'] como anclas de borde, igual que calcular_FO.
+    Los candidatos y base_soportes siempre caen dentro de [p_min, p_max] (así los genera
+    nuevo_optimizador_2), por lo que concatenar sin reordenar preserva el orden ascendente.
+
     Returns: FO_values array (M_eff,)
     """
     if len(candidatos) == 0:
         return np.array([], dtype=np.float64)
 
     lows = df_extremos['Low'].to_numpy(dtype=np.float64)
+    p_min, p_max = lows.min(), lows.max()
     M_eff = len(candidatos)
 
     # Base: soportes con idx_soporte removido (ya ordenados)
@@ -311,6 +320,7 @@ def calcular_FO_batch(df_extremos: pd.DataFrame, lista_N: list, idx_soporte: int
     cv_Hn = np.empty(M_eff, dtype=np.float64)
     for k in range(M_eff):
         s_full = np.insert(base_soportes, insert_pos[k], candidatos[k])
+        s_full = np.concatenate(([p_min], s_full, [p_max]))
         H_n = np.diff(s_full)
         mean_H = H_n.mean()
         cv_Hn[k] = H_n.std() / mean_H if mean_H != 0 else 0.0

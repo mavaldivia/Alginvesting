@@ -1258,3 +1258,14 @@ Claude: confirmó que probablemente elimina el disparador principal, pero que el
 
 Claude: aplicó el hardening en `X0_data_supports.py`: `_guardar_log_convergencia` ahora escribe JSONL append-only (`{valor}_{N}[_bt].jsonl`, sin leer nunca el historial completo); agregó `_leer_json_reintentos` (reabre el archivo hasta 3 veces con 0.1s de espera ante `OSError`) usado en `_bt_solucion_previa` y `_bt_guardar` (cache de warm start, que sí necesita leer-modificar-escribir). Encontró y actualizó también el único lector existente del log de producción (print de "FO warm start última corrida", ~línea 1180) al nuevo formato JSONL. Verificado con `py_compile`.
 (Cierre: 2026-08-26 22:57)
+
+## SECCIÓN 141
+Mauricio: vía `/new_todo`, planteó que la segunda parte de la FO de X0/X4 (dispersión entre soportes consecutivos, `cv(H_n)`) debería considerar también P_máximo y P_mínimo de todo el período — para que una ruptura de rango (ej. BTC subiendo a un nuevo máximo en un día tras meses en meseta) no deje todos los soportes muy por debajo del precio sin que la FO lo detecte. Pidió ser cuestionado antes de implementar.
+Claude: confirmó que el problema es real revisando `calcular_FO`/`calcular_FO_batch` (`X0_data_supports.py`) — `H_n` solo usaba gaps entre soportes, ciego al rango real. Encontró que `p_min`/`p_max` ya se calculaban gratis en `nuevo_optimizador_2` desde `df_extremos['Low']` (acumulado desde `FECHA_INICIAL`, que es 2022-01-01, no 2024 como asumía Mauricio). Señaló que X4 reutiliza el mismo código de X0, así que un solo cambio cubre ambos.
+
+Mauricio: preguntó cómo una ventana rodante (ej. 90 días) para P_max/P_min podía interferir con datos anteriores, y si sería tan simple como insertar esos valores en la FO.
+Claude: explicó dos riesgos de la ventana rodante — "efecto borde" (p_max puede caer de un día a otro solo porque el día que lo contenía salió de la ventana, sin movimiento real de precio) y la posibilidad de que p_max_ventana quede por debajo de un soporte real ya existente (rompe el supuesto de "ancla en el borde", generando un gap espurio o anulando la penalización justo cuando debería activarse). Recomendó el enfoque acumulado desde `FECHA_INICIAL` por ser monótono y estar garantizado en el borde por construcción (los soportes nunca superan p_min/p_max porque se generan acotados por ese mismo rango).
+
+Mauricio: se inclinó por el enfoque acumulado.
+Claude: implementó el cambio en `calcular_FO` y `calcular_FO_batch` — `H_n` ahora se calcula sobre `[P_min] + soportes_ordenados + [P_max]`, derivando P_min/P_max de `df_extremos['Low']` sin agregar parámetros nuevos a las firmas. Validó con datos sintéticos (env `revenAI`) que ambas funciones dan resultados consistentes byte a byte entre sí. Actualizó `CLAUDE.md` (Paso 3 del algoritmo), `docs/context/decisiones.md` (decisión completa con alternativas descartadas) y `docs/tracking/done.md`.
+(Cierre: 2026-08-26 23:13)

@@ -213,4 +213,20 @@ Efecto lateral aceptado (positivo): si llegan velas H1 nuevas después de que un
 
 **Alcance:** el cambio vive en `ejecutar_backtest`/`ejecutar_x5_ciclo` (X4_backtester.py), así que aplica por igual a `--recolectar` en paralelo (`_recolectar`) y al recorrido guiado de un activo (`_recolectar_guiado`, oficial o `--demo`) — ambos llaman el mismo subprocess `X4_backtester.py --x5 --activo {activo}`. Modo producción de X4 (`--version` sin `--x5`) no se toca: su `reset` sigue viniendo solo de `--reset`.
 
+## 2026-08-26 — cv(H_n) incluye P_min/P_max del período como anclas de borde
+
+**Síntoma reportado:** si el precio rompe el rango donde vienen operando los soportes (ej. BTC subiendo de una meseta de meses a un nuevo máximo en un día), todos los soportes quedan muy por debajo del precio nuevo. `cv(H_n)` no lo detectaba porque solo mide dispersión entre soportes consecutivos — es ciego a qué tan lejos queda el soporte extremo del precio máximo/mínimo real.
+
+**Decisión:** en `calcular_FO` y `calcular_FO_batch` (`X0_data_supports.py`), `H_n` se calcula ahora sobre `[P_min] + soportes_ordenados + [P_max]` en vez de solo los soportes — agrega 2 gaps de borde (soporte extremo ↔ precio extremo del período). P_min/P_max se derivan de `df_extremos['Low']` (mismo dato que ya recibe cada función), sin agregar parámetros nuevos a las firmas ni tocar los otros call sites de `calcular_FO`.
+
+**Ventana usada — acumulado desde `FECHA_INICIAL`, no rolling:** se evaluó una ventana rodante (ej. últimos 90 días) pero se descartó por dos razones:
+1. **Efecto borde:** un p_max rodante puede caer, de un día para otro, solo porque el día que contenía el máximo salió de la ventana — sin que el precio se haya movido. Eso metería ruido en la FO no relacionado a la señal real.
+2. **Puede quedar por debajo de un soporte real:** los soportes se generan acotados por el rango histórico completo (`nuevo_optimizador_2`, vía `p_min`/`p_max` ya calculados ahí desde `df_extremos['Low']`). Un p_max rodante más chico que el soporte más alto rompe el supuesto de que las anclas están en el borde — o hay que forzar `max(p_max_ventana, max(soportes))`, que en ese caso anula el gap justo cuando se quiere que reaccione.
+
+Con el acumulado, p_min/p_max son monótonos y por construcción siempre están en el borde (los soportes nunca los superan), así que el problema de arriba no existe. Costo aceptado: un extremo histórico muy viejo (ej. un ATH de hace años) queda anclado en la FO aunque ya no sea relevante al régimen actual — no se resolvió, se prioriza correctitud sobre reactividad.
+
+**Descartado:** término aparte que penalice solo rupturas reales (en vez de extender `cv(H_n)`) — más quirúrgico pero requiere re-tunear `LAMBDA` de cualquier forma y agrega un tercer término a calibrar; se prefirió la extensión mínima de la fórmula existente.
+
+**Validado:** con datos sintéticos, `cv(H_n)` de `calcular_FO` coincide byte a byte con el cálculo manual de las anclas, y `calcular_FO_batch` da la misma FO que `calcular_FO` para el mismo soporte movido (consistencia FO_base ↔ batch, mismo criterio que ya aplicaba `dist_max_global`).
+
 **Aislamiento del demo:** con el cache bt persistiendo entre ciclos, el demo habría sembrado el cache de la recolección real (ambos usaban `bt_{activo}`). `ejecutar_x5_ciclo` ahora sufija los recursos de X4 con `X5_DEMO_SUFFIX` → `bt_{activo}_demo`, en línea con el store y el modelo demo.
