@@ -422,8 +422,11 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
               f'{min(bloqueadas):.2f} y {max(bloqueadas):.2f} (límite de órdenes en la cuenta)')
 
 
-def cambiar_SL(orden, valor: str, sl: float) -> bool:
-    """Modifica el SL. Retorna True solo si MT5 confirma el cambio Y la posición sigue abierta."""
+def cambiar_SL(orden, valor: str, sl: float, silent: bool = False) -> bool:
+    """Modifica el SL. Retorna True solo si MT5 confirma el cambio Y la posición sigue abierta.
+
+    silent=True omite el print individual de éxito (usado por trailing_stop, que ya
+    imprime un resumen agregado por activo al final del ciclo)."""
     request = {
         'action': mt5.TRADE_ACTION_SLTP,
         'symbol': valor,
@@ -444,7 +447,8 @@ def cambiar_SL(orden, valor: str, sl: float) -> bool:
     if not posiciones:
         print(f'  SL enviado pero posición {orden.ticket} ya fue cerrada durante la modificación')
         return False
-    print(f'  {valor}: SL actualizado: orden {orden.ticket} → {posiciones[0].sl:.2f}')
+    if not silent:
+        print(f'  {valor}: SL actualizado: orden {orden.ticket} → {posiciones[0].sl:.2f}')
     return True
 
 
@@ -462,6 +466,7 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
 
     P0 = obtener_precio_actual(valor, modo='B')
     sl_nuevo = P0 - b / L
+    n_cambios_sl = 0
 
     for orden in actual_OA:
         sl = orden.sl
@@ -471,7 +476,7 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
 
         if sl == 0:
             if ganancia >= a:
-                sl_ok = cambiar_SL(orden, valor, sl_nuevo)
+                sl_ok = cambiar_SL(orden, valor, sl_nuevo, silent=True)
                 # Repone la orden de compra en el mismo soporte para mantener el nivel activo
                 request = generate_request_buy_limit(
                     valor,
@@ -483,17 +488,20 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
                 cambios = sl_ok
         else:
             if sl_nuevo > sl:
-                print(f'  Trailing stop: {valor} P0={P0:.2f} SL {sl:.2f} → {sl_nuevo:.2f}')
-                if cambiar_SL(orden, valor, sl_nuevo):
+                if cambiar_SL(orden, valor, sl_nuevo, silent=True):
                     cambios = True
                 elif valor in dic_seguimiento and orden.ticket in dic_seguimiento[valor]:
                     dic_seguimiento[valor].remove(orden.ticket)
 
         if cambios:
+            n_cambios_sl += 1
             if valor not in dic_seguimiento:
                 dic_seguimiento[valor] = []
             if orden.ticket not in dic_seguimiento[valor]:
                 dic_seguimiento[valor].append(orden.ticket)
+
+    if n_cambios_sl:
+        print(f'  Cambio SL de {n_cambios_sl} operaciones del valor {valor}')
 
 
 def cerrar_posicion(orden, valor: str, lotajes: dict):
