@@ -412,9 +412,14 @@ OSError: [Errno 22] Invalid argument
 -------------------------------
 /new_todo X0 & X4:
 Cuando se calculan los soportes y resistencias, en la segunda parte de la función objetivo (la desviación entre la distancia de pares consecutivos de sop/res)
-debe considerar P_maximo y P_minimo de todo el periodo de tiempo
+debe considerar P_maximo y P_minimo de todo el periodo de tiempo.
+Ej: Imaginemos que desde el dia t0 (creo que es 1/1/24) hasta hace una hora, los precios se movieron entre 60 y 90
+Tengo además que N = 3, supongamos 3 sopres en 66, 70, 75
+Actualmente h1 = 75-70 = 5 y h2 = 70-66 = 4
+Ahora quiero h1 = 90-70, h2=75-70, h3 = 70-66 y h4 = 66-60
 Esto es porque, si, por ejemplo BTC se mantuvo durante meses entre 60 y 70 k usd, y sube a 80 k usd en un día, TODOS los sopres se quedan muy anajo (el mayor es cerca de los 72k usd)
-Eso pasó hace menos de una semana, y necesito manejarlo. SI se te ocurre alguna otra manera, sugierela
+Eso pasó hace menos de una semana, y necesito manejarlo. SI se te ocurre alguna otra manera, sugierela.
+Confirmame si tiene sentido lo que te digo. Cuestioname antes de implementar
 
 /new_todo X5:
 Estoy perdiendo un poco de visibilidad de X5 y X4, por lo tanto necesito que generes un pdf en formato LATEX, con los
@@ -423,3 +428,5 @@ Quiero que incorpores muy bien Secciones, subsecciones, subsubsecciones... con e
 Extiende un archivo de unas 25-40 páginas para explicar X4 y X5, de tal forma de ganar visibilidad y poder entenderlos mejor
 Guardalo en docs/plans/algoritmos.pdf (por ahora, solo incluye X4 y X5) 
 Quiero que la explicación, en general, vaya de lo global a lo particular, para facilitar mi comprensión
+Evita diagramas complejos (porque no quedan muy bien)
+Si hay conceptos técnicos (considera mi nivel de lenguaje)...agrega su definición con referencia en pie de página (así lo veo de una)

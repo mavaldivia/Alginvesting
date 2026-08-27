@@ -1245,3 +1245,16 @@ Claude: al revisar con rigor, corrigió su hipótesis inicial — probó por ind
 Mauricio: pidió agregar instrumentación (prints o similar) para poder mostrar el error la próxima vez que ocurra, sin corregir todavía.
 Claude: implementó `_log_diagnostico_conjunto_N` (helper nuevo) que escribe un JSON por evento en `resources/x0/logs/diag_conjunto_N/`, conectado en las 4 guardas `sys.exit()` (`obtener_df_extremos_padding`, `ordenes_activas_mayor_a_N`, `init_post_union_oa`, `mid_loop_iteracion`), capturando valores duplicados e índices exactos en el caso del loop principal. No modificó el comportamiento de `sys.exit()` a propósito, para no alterar las condiciones de reproducción. Verificó que el archivo compila.
 (Cierre: 2026-08-26 22:46)
+
+## SECCIÓN 140
+Mauricio: pidió (vía /new_todo) revisar un traceback de X4/X5 en Windows — `OSError: [Errno 22] Invalid argument` en `json.load` dentro de `_guardar_log_convergencia`, worker de `ProcessPoolExecutor` — pidió solo explicación, sin corregir todavía.
+Claude: ubicó el fallo en el `read()` del sistema operativo (no en el parseo del JSON, no era corrupción de contenido). Explicó dos causas plausibles: la ruta del proyecto vive dentro de OneDrive (`OneDrive - Falabella\...`), cuyo cliente de sync interfiere con lecturas frecuentes de archivos chicos — patrón clásico de este error en Windows; y que `_guardar_log_convergencia` y `_bt_guardar`/`_bt_solucion_previa` hacen lectura-modificación-escritura sin ningún lock entre procesos, vulnerable a carreras si dos procesos tocan el mismo `(valor, N)` a la vez.
+
+Mauricio: preguntó cómo solucionarlo.
+Claude: presentó dos opciones (Opción A: retry genérico en ambos sitios; Opción B recomendada: convertir el log de convergencia — que nadie más lee — a formato JSONL append-only para eliminar la lectura por completo, y agregar retry con backoff solo al cache de warm start que sí necesita upsert). Verificó por grep que ningún otro script parsea `resources/x0/logs/*.json` como array antes de proponer el cambio de formato.
+
+Mauricio: aclaró que también piensa sacar la carpeta del proyecto de OneDrive — preguntó si eso cambiaba la propuesta.
+Claude: confirmó que probablemente elimina el disparador principal, pero que el patrón sin lock queda latente ante ejecuciones concurrentes; recomendó sacar la carpeta de OneDrive primero y dejar el hardening de código como opción diferida en decisiones.md. Mauricio pidió aplicarlo de todas formas.
+
+Claude: aplicó el hardening en `X0_data_supports.py`: `_guardar_log_convergencia` ahora escribe JSONL append-only (`{valor}_{N}[_bt].jsonl`, sin leer nunca el historial completo); agregó `_leer_json_reintentos` (reabre el archivo hasta 3 veces con 0.1s de espera ante `OSError`) usado en `_bt_solucion_previa` y `_bt_guardar` (cache de warm start, que sí necesita leer-modificar-escribir). Encontró y actualizó también el único lector existente del log de producción (print de "FO warm start última corrida", ~línea 1180) al nuevo formato JSONL. Verificado con `py_compile`.
+(Cierre: 2026-08-26 22:57)

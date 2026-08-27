@@ -757,6 +757,19 @@ def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path):
 
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
+def _leer_json_reintentos(path: Path, intentos: int = 3, espera: float = 0.1) -> dict:
+    """Lee un JSON reabriendo el archivo en cada intento ante OSError transitorios
+    (sync de OneDrive u otro proceso escribiendo el mismo cache al mismo tiempo)."""
+    for intento in range(intentos):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except OSError:
+            if intento == intentos - 1:
+                raise
+            time.sleep(espera)
+
+
 def _bt_solucion_previa(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> tuple:
     """
     Solución previa del combo (valor, N) en el cache bt: la más reciente con
@@ -768,8 +781,7 @@ def _bt_solucion_previa(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) 
     bt_path = carpeta_n_bt / f'{valor}_{N}_bt.json'
     if not bt_path.exists():
         return None, set()
-    with open(bt_path) as f:
-        cache = json.load(f)
+    cache = _leer_json_reintentos(bt_path)
     candidatos = {k: v for k, v in cache.items() if pd.to_datetime(k) <= fecha_hora_max}
     if not candidatos:
         return None, set()
@@ -785,10 +797,7 @@ def _bt_warm_start(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> se
 def _bt_guardar(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_clave, conjunto_N: set):
     """Upsert de conjunto_N en el cache bt con clave = último datetime de los datos usados."""
     bt_path = carpeta_n_bt / f'{valor}_{N}_bt.json'
-    cache = {}
-    if bt_path.exists():
-        with open(bt_path) as f:
-            cache = json.load(f)
+    cache = _leer_json_reintentos(bt_path) if bt_path.exists() else {}
     cache[str(fecha_hora_clave)] = sorted(conjunto_N)
     with open(bt_path, 'w') as f:
         json.dump(cache, f)
@@ -817,10 +826,15 @@ def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
                               iteraciones: int, cambios: int,
                               FO_inicial: float, FO_final: float,
                               delta_final: float, convergio: bool):
-    """Agrega una entrada al log de convergencia de un combo (valor, N) en resources/x0/logs/."""
+    """Agrega una entrada al log de convergencia de un combo (valor, N) en resources/x0/logs/.
+
+    Formato JSONL (una entrada por línea, solo apertura en modo 'a'): evita el
+    read-modify-write de un array completo en cada guardado, que bajo sync de OneDrive
+    o acceso concurrente de otro proceso al mismo archivo fallaba con OSError al leer.
+    """
     CARPETA_LOGS.mkdir(parents=True, exist_ok=True)
     sufijo = '_bt' if es_bt else ''
-    log_path = CARPETA_LOGS / f'{valor}_{N}{sufijo}.json'
+    log_path = CARPETA_LOGS / f'{valor}_{N}{sufijo}.jsonl'
 
     clave = f'{valor}_{N}_{clave_bt}' if (es_bt and clave_bt) else f'{valor}_{N}'
     entrada = {
@@ -835,14 +849,8 @@ def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
         'delta_final': delta_final,
         'convergio': convergio,
     }
-
-    historial = []
-    if log_path.exists():
-        with open(log_path) as f:
-            historial = json.load(f)
-    historial.append(entrada)
-    with open(log_path, 'w') as f:
-        json.dump(historial, f, indent=2)
+    with open(log_path, 'a') as f:
+        f.write(json.dumps(entrada) + '\n')
 
 
 def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
@@ -1169,12 +1177,12 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
             print(f'  delta_inicial: {notacion_cientifica(delta_val)}')
         else:
             print(f'  delta_inicial: {notacion_cientifica(DELTA_INICIAL)} (semilla)')
-        log_path = CARPETA_LOGS / f'{v}_{n}.json'
+        log_path = CARPETA_LOGS / f'{v}_{n}.jsonl'
         if log_path.exists():
             with open(log_path) as f:
-                log = json.load(f)
-            if log:
-                print(f'  FO warm start (última corrida): {notacion_cientifica(log[-1]["FO_final"])}')
+                lineas = [linea for linea in f if linea.strip()]
+            if lineas:
+                print(f'  FO warm start (última corrida): {notacion_cientifica(json.loads(lineas[-1])["FO_final"])}')
 
     with multiprocessing.Manager() as manager:
         estado = manager.dict()
