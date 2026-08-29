@@ -86,7 +86,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Paralelización por (valor, N)**: `ProcessPoolExecutor` corre todos los pares en paralelo; monitor en vivo muestra progreso, FO y estado por combo.
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
-El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`.
+El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`. Si se agotan `MAX_ITERS` sin converger, no se detiene: reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos.
 
 ---
 
@@ -142,7 +142,7 @@ Alginvesting_base/       # Versión anterior Windows/notebooks (solo lectura, re
 
 | Parámetro | Valor producción | Efecto |
 |-----------|-----------------|--------|
-| `N` (n_sizes) | 250 (todos los activos) | Cantidad de soportes activos por activo |
+| `N` (n_sizes) | 120 (todos los activos) | Cantidad de soportes activos por activo |
 | `K` | 1 | Peso aislamiento futuro vs. pasado |
 | `N_EXP` | 1.3 | Exponente de recencia |
 | `M` | 30 | Candidatos evaluados por soporte en cada paso |
@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-29** — fix(x0): reinicio en ciclo si no converge en 10k iter: `nuevo_optimizador_2` (usada también por X4) ya no retorna con `convergio=False` al agotar `MAX_ITERS` — abre un nuevo ciclo tomando la mejor solución hallada como warm start, sin tope de ciclos
 - **2026-08-26** — fix: X0 — OSError Errno 22 en logs de convergencia y cache bt (sync de OneDrive/acceso concurrente): log de convergencia pasa a JSONL append-only (elimina la lectura del historial completo); cache de warm start (`*_bt.json`) agrega retry con backoff en la lectura
 - **2026-08-26** — fix: X0 — diagnóstico en las 4 guardas `sys.exit()` por tamaño de `conjunto_N` (crash silencioso tras ~10-15 ciclos: `SystemExit` en un worker de `ProcessPoolExecutor` escapa de todo `except Exception` y mata el proceso sin traceback); vuelca contexto a `resources/x0/logs/diag_conjunto_N/`
 - **2026-08-26** — fix: X1 — sección B de `informacion()` mostraba los soportes pendientes más lejanos al precio en vez de los más cercanos (ordena por valor absoluto de `Falta_sube_USD`)

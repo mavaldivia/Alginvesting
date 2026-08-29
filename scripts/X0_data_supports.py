@@ -413,104 +413,119 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     casos_moviles = list(dic_N.keys())
     df_FO = pd.DataFrame()
 
-    for j in range(max_iters):
-        lista_N = list(dic_N.values())
-        conjunto_N = set(lista_N)
+    # Si se agotan max_iters sin convergencia real, no se detiene: se reinicia el
+    # contador y se abre un nuevo ciclo tomando dic_N (mejor solución hallada) como
+    # punto de partida. Sin tope de ciclos — corre indefinidamente hasta converger.
+    ciclo = 1
+    iter_offset = 0
+    while True:
+        for j in range(max_iters):
+            lista_N = list(dic_N.values())
+            conjunto_N = set(lista_N)
 
-        if len(conjunto_N) != N:
-            duplicados = {v: c for v, c in Counter(lista_N).items() if c > 1}
-            indices_por_duplicado = {v: [k for k, val in dic_N.items() if val == v] for v in duplicados}
-            _log_diagnostico_conjunto_N(llave, 'mid_loop_iteracion', {
-                'N': N, 'iteracion': j, 'cambios_hasta_ahora': cambios,
-                'valores_duplicados': duplicados,
-                'indices_por_duplicado': indices_por_duplicado,
-                'p_min': p_min, 'p_max': p_max,
-                'dic_N_min': min(dic_N.values()), 'dic_N_max': max(dic_N.values()),
-            })
-            sys.exit(f'Error en tamaño conjunto_N en iteración {j}: {len(conjunto_N)} != {N}')
+            if len(conjunto_N) != N:
+                duplicados = {v: c for v, c in Counter(lista_N).items() if c > 1}
+                indices_por_duplicado = {v: [k for k, val in dic_N.items() if val == v] for v in duplicados}
+                _log_diagnostico_conjunto_N(llave, 'mid_loop_iteracion', {
+                    'N': N, 'iteracion': j, 'cambios_hasta_ahora': cambios,
+                    'valores_duplicados': duplicados,
+                    'indices_por_duplicado': indices_por_duplicado,
+                    'p_min': p_min, 'p_max': p_max,
+                    'dic_N_min': min(dic_N.values()), 'dic_N_max': max(dic_N.values()),
+                })
+                sys.exit(f'Error en tamaño conjunto_N en iteración {j}: {len(conjunto_N)} != {N}')
 
-        FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
-        dist_max_iter = float(df_extremos['dist'].max())
-        mejora = False
+            FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
+            dist_max_iter = float(df_extremos['dist'].max())
+            mejora = False
 
-        if estado_compartido is not None and llave:
-            estado_compartido[llave] = (cambios, max_pasos, FO_base, 'corriendo')
+            if estado_compartido is not None and llave:
+                estado_compartido[llave] = (cambios, max_pasos, FO_base, 'corriendo')
 
-        for pos, i in enumerate(tqdm.tqdm(casos_moviles, disable=not verbose)):
-            if dic_N[i] in ordenes_activas:
-                continue  # no se mueve este soporte, ya está ejecutado en la plataforma
-            cota_inf = dic_N[i - 1] if (i - 1) in dic_N else p_min
-            cota_sup = dic_N[i + 1] if (i + 1) in dic_N else p_max
+            for pos, i in enumerate(tqdm.tqdm(casos_moviles, disable=not verbose)):
+                if dic_N[i] in ordenes_activas:
+                    continue  # no se mueve este soporte, ya está ejecutado en la plataforma
+                cota_inf = dic_N[i - 1] if (i - 1) in dic_N else p_min
+                cota_sup = dic_N[i + 1] if (i + 1) in dic_N else p_max
 
-            # Candidatos equidistantes; se excluyen los extremos para evitar duplicar soportes vecinos
-            casos_random = np.linspace(cota_inf, cota_sup, M)[1:-1]
+                # Candidatos equidistantes; se excluyen los extremos para evitar duplicar soportes vecinos
+                casos_random = np.linspace(cota_inf, cota_sup, M)[1:-1]
 
-            # Evalúa todos los M candidatos en una sola pasada numpy vectorizada
-            FO_values = calcular_FO_batch(df_extremos, lista_N, i, casos_random, lambda_ponderador,
-                                          dist_max_global=dist_max_iter)
-            df_plot = pd.DataFrame({'caso': casos_random, 'FO_iter': FO_values})
+                # Evalúa todos los M candidatos en una sola pasada numpy vectorizada
+                FO_values = calcular_FO_batch(df_extremos, lista_N, i, casos_random, lambda_ponderador,
+                                              dist_max_global=dist_max_iter)
+                df_plot = pd.DataFrame({'caso': casos_random, 'FO_iter': FO_values})
 
-            cumplen_logica = evaluar_crecimiento_decrecimiento(df_plot, 'FO_iter')
-            if cumplen_logica:
-                coef = np.polyfit(df_plot['caso'], df_plot['FO_iter'], 2)
-                a_c, b_c, _ = coef
-                caso = float(np.clip(-b_c / (2 * a_c), cota_inf + 1e-8, cota_sup - 1e-8))
-                FO_iter = float(calcular_FO_batch(df_extremos, lista_N, i,
-                                                   np.array([caso]), lambda_ponderador,
-                                                   dist_max_global=dist_max_iter)[0])
-            else:
-                idx_max = int(df_plot['FO_iter'].argmax())
-                caso = float(df_plot['caso'].iloc[idx_max])
-                FO_iter = float(df_plot['FO_iter'].iloc[idx_max])
+                cumplen_logica = evaluar_crecimiento_decrecimiento(df_plot, 'FO_iter')
+                if cumplen_logica:
+                    coef = np.polyfit(df_plot['caso'], df_plot['FO_iter'], 2)
+                    a_c, b_c, _ = coef
+                    caso = float(np.clip(-b_c / (2 * a_c), cota_inf + 1e-8, cota_sup - 1e-8))
+                    FO_iter = float(calcular_FO_batch(df_extremos, lista_N, i,
+                                                       np.array([caso]), lambda_ponderador,
+                                                       dist_max_global=dist_max_iter)[0])
+                else:
+                    idx_max = int(df_plot['FO_iter'].argmax())
+                    caso = float(df_plot['caso'].iloc[idx_max])
+                    FO_iter = float(df_plot['FO_iter'].iloc[idx_max])
 
-            mejora_rel = (FO_iter - FO_base) / abs(FO_base)
-            if mejora_rel > delta_inicial:
+                mejora_rel = (FO_iter - FO_base) / abs(FO_base)
+                if mejora_rel > delta_inicial:
+                    if verbose:
+                        print(f'  Mejora {mejora_rel:.6f} en soporte i={i}, nuevo={caso:.2f}')
+                    mejora = True
+                    cambios += 1
+                    max_pasos = max(max_pasos, pos + 1)
+                    if estado_compartido is not None and llave:
+                        estado_compartido[llave] = (cambios, max_pasos, FO_iter, 'corriendo')
+                    i_change = i
+                    nuevo_value = caso
+                    lista_iter = lista_N[:]
+                    lista_iter[i] = caso
+                    FO_proper, df_extremos, particion_FO = calcular_FO(df_extremos, set(lista_iter),
+                                                                        lambda_ponderador)
+                    FO_base = FO_proper  # FO real (no batch) para plot y verbose
+
+                if mejora:
+                    break
+
+            if not mejora:
+                if len(casos_moviles) == len(dic_N):
+                    convergio = True
+                    break  # ya se probaron todos los soportes sin mejora → convergencia
                 if verbose:
-                    print(f'  Mejora {mejora_rel:.6f} en soporte i={i}, nuevo={caso:.2f}')
-                mejora = True
-                cambios += 1
-                max_pasos = max(max_pasos, pos + 1)
-                if estado_compartido is not None and llave:
-                    estado_compartido[llave] = (cambios, max_pasos, FO_iter, 'corriendo')
-                i_change = i
-                nuevo_value = caso
-                lista_iter = lista_N[:]
-                lista_iter[i] = caso
-                FO_proper, df_extremos, particion_FO = calcular_FO(df_extremos, set(lista_iter),
-                                                                    lambda_ponderador)
-                FO_base = FO_proper  # FO real (no batch) para plot y verbose
-
-            if mejora:
-                break
-
-        if not mejora:
-            if len(casos_moviles) == len(dic_N):
-                convergio = True
-                break  # ya se probaron todos los soportes sin mejora → convergencia
-            if verbose:
-                print('Sin mejora en casos actuales → ampliando a todos los soportes')
-            casos_moviles = list(dic_N.keys())
-        else:
-            dic_N[i_change] = nuevo_value
-            if verbose:
-                print(f'FO {j}: {notacion_cientifica(FO_base, 4)} | '
-                      f'[{notacion_cientifica(particion_FO[0], 4)}, {notacion_cientifica(particion_FO[1], 4)}]')
-
-            if prueba_cercanos:
-                vecinos = [i_change - 1, i_change + 1, i_change]
-                resto = [c for c in casos_moviles if c not in vecinos]
-                random.shuffle(resto)
-                casos_moviles = vecinos + resto
+                    print('Sin mejora en casos actuales → ampliando a todos los soportes')
+                casos_moviles = list(dic_N.keys())
             else:
-                random.shuffle(casos_moviles)
+                dic_N[i_change] = nuevo_value
+                if verbose:
+                    print(f'FO {j}: {notacion_cientifica(FO_base, 4)} | '
+                          f'[{notacion_cientifica(particion_FO[0], 4)}, {notacion_cientifica(particion_FO[1], 4)}]')
 
-        casos_moviles = [c for c in casos_moviles if 0 <= c < len(dic_N)]
+                if prueba_cercanos:
+                    vecinos = [i_change - 1, i_change + 1, i_change]
+                    resto = [c for c in casos_moviles if c not in vecinos]
+                    random.shuffle(resto)
+                    casos_moviles = vecinos + resto
+                else:
+                    random.shuffle(casos_moviles)
 
-        df_FO = pd.concat([df_FO, pd.DataFrame({
-            'Iteracion': [j], 'FO': [FO_base],
-            'FO1': [particion_FO[0]], 'FO2': [particion_FO[1]],
-            'ratio': [particion_FO[0] / particion_FO[1]],
-        })])
+            casos_moviles = [c for c in casos_moviles if 0 <= c < len(dic_N)]
+
+            df_FO = pd.concat([df_FO, pd.DataFrame({
+                'Iteracion': [iter_offset + j], 'FO': [FO_base],
+                'FO1': [particion_FO[0]], 'FO2': [particion_FO[1]],
+                'ratio': [particion_FO[0] / particion_FO[1]],
+            })])
+
+        if convergio:
+            break
+        iter_offset += max_iters
+        ciclo += 1
+        casos_moviles = list(dic_N.keys())
+        if verbose:
+            print(f'--- Ciclo {ciclo}: {max_iters} iteraciones agotadas sin convergencia, '
+                  f'reinicio desde la mejor solución encontrada hasta ahora ---')
 
     return conjunto_N, df_extremos, df_FO, convergio, cambios, max_pasos
 

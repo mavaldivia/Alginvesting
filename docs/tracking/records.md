@@ -1276,3 +1276,10 @@ Claude: leyó completos `X4_backtester.py`, `X5_macro_brain.py`, `config.py`, `c
 Mauricio: preguntó por qué el documento habla de 6 scripts.
 Claude: aclaró que X0-X5 son las 6 etapas funcionales del pipeline (datos+soportes, trading vivo, fundamentals, features técnicas, backtester, cerebro macro); `config.py`, `config_x5_default.py` y `X4B_crear_version_backtesting.py` son configuración/utilidad, no etapas propias.
 (Cierre: 2026-08-26 23:49)
+
+## SECCIÓN 143
+Mauricio: pidió (vía /new_todo) revisar y corregir que X0 y X4 no se detengan al llegar a 10.000 iteraciones sin converger — deben mantener la mejor solución y empezar un ciclo nuevo.
+Claude: investigó con subagentes que el límite `MAX_ITERS=10000` vive en `config.py` y se consume en `nuevo_optimizador_2` (`X0_data_supports.py`), único módulo del que X4 importa la lógica (no la reimplementa). Encontró que hoy no hay `sys.exit` al agotar iteraciones: el `for` simplemente termina con `convergio=False` y esa solución parcial se guarda igual, sin reintento.
+Mauricio: aclaró que quería que el nuevo ciclo arrancara desde la mejor solución encontrada aunque el último cambio no superara `DELTA_INICIAL`, y confirmó: máximo 10.000 iteraciones por ciclo, ciclos infinitos hasta convergencia real o detención manual (sin tope de ciclos).
+Claude: reimplementó `nuevo_optimizador_2` envolviendo el loop en un `while True` — al agotar `max_iters` sin convergencia, reinicia `casos_moviles` y abre un nuevo ciclo tomando `dic_N` (mejor solución) como warm start, indefinidamente. Mantuvo `'Iteracion'` acumulada entre ciclos (offset) para no romper `graficar_performance_FO` ni `_guardar_log_convergencia` (verificado que usa `len(df_FO)`, no el máximo de iteración). Confirmó que no hay timeouts wall-clock en los `ProcessPoolExecutor` de X0/X4 que se vean afectados por ciclos más largos. Verificó sintaxis con `py_compile` y registró el fix en `docs/tracking/done.md` (sección X0).
+(Cierre: 2026-08-29 19:25)
