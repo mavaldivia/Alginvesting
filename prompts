@@ -421,7 +421,6 @@ Esto es porque, si, por ejemplo BTC se mantuvo durante meses entre 60 y 70 k usd
 Eso pasó hace menos de una semana, y necesito manejarlo. SI se te ocurre alguna otra manera, sugierela.
 Confirmame si tiene sentido lo que te digo. Cuestioname antes de implementar
 
--------------------------------
 
 /new_todo X4 & X5:
 Estoy perdiendo un poco de visibilidad de X5 y X4, por lo tanto necesito que generes un pdf en formato LATEX, con los
@@ -433,3 +432,76 @@ Quiero que la explicación, en general, vaya de lo global a lo particular, para 
 Evita diagramas complejos (porque no quedan muy bien)...de hecho, en general evita diagramas
 Si hay conceptos técnicos (considera mi nivel de lenguaje)...agrega su definición con referencia en pie de página (así lo veo de una)
 Revisa bien los algorítmos (.py) en ambos casos para el desarrollo
+
+
+
+---------------------------------
+[1]
+/new_todo X1
+Aquí
+Los falta_sube_usd deben ser siempre > 0 y estar ordenados
+Muestra los campos Precio activación OE_OA / Precio OE / Falta sube usd
+Precio activación OE_OA- Precio OE = a (parámetro declarado)
+Precio activación OE_OA > Precio actual
+
+
+─── B) Soporte/Resistencia → OE: cuánto debe SUBIR P0 para declarar el más cercano ─
+
+BTCUSD | P0=77952.62
+  Precio  Falta_sube_USD
+77652.01           -0.01
+77525.76           -1.27
+77838.11            1.85
+
+ETHUSD | P0=2448.69
+ Precio  Falta_sube_USD
+2424.23            0.55
+2411.67           -0.70
+2426.69            0.80
+
+TSLA | P0=347.61
+ Precio  Falta_sube_USD
+ 345.17            0.56
+ 343.82           -0.79
+ 346.52            1.91
+
+GOOGL | P0=347.44
+ Precio  Falta_sube_USD
+ 343.71           -0.73
+ 345.94            1.50
+ 342.42           -2.02
+
+NVDA | P0=217.09
+ Precio  Falta_sube_USD
+ 214.14            0.05
+ 213.28           -0.81
+ 215.00            0.91
+
+AMZN | P0=266.20
+ Precio  Falta_sube_USD
+ 263.25            0.05
+ 262.45           -0.75
+ 264.05            0.85
+
+
+
+ [2]
+ /new_todo X1
+
+ Si esto ocurre, hacer 12 intentos con un time sleep de 5 segundos entre cada iteración, para poder leerlo correctamente
+
+Error json_act (open, C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\resources\conjuntos_N\NVDA_120.json): [Errno 13] Permission denied: 'C:\\Users\\mvaldiviad\\OneDrive - Falabella\\Escritorio\\Proyectos Personales\\Alginvesting_v2\\resources\\conjuntos_N\\NVDA_120.json'
+
+
+[3]
+/new_todo X1
+
+[copiar foto en mial cerca de las 19.30 hrs el 29 de agosto]
+
+Complementar el mensaje: "Cambio de SL...del valor {valor} al precio {precio}"
+
+[4]
+/new_todo X0 & X1
+Eventualmente, ambos procesos se están deteniendo solos...terminando la ejecución
+No quiero que esto ocurra
+La detención de la ejecución de ambos scripts solo debería ser manual

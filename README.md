@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-29** — fix(x0): json_act y las 3 validaciones de tamaño de conjunto_N usan `raise` en vez de `sys.exit()` (SystemExit escapaba de `except Exception` en `buscar_soportes` y mataba el script completo sin rastro); json_act reintenta hasta 3 veces ante OSError transitorio en la lectura (candado de OneDrive)
 - **2026-08-29** — fix(x0): reinicio en ciclo si no converge en 10k iter: `nuevo_optimizador_2` (usada también por X4) ya no retorna con `convergio=False` al agotar `MAX_ITERS` — abre un nuevo ciclo tomando la mejor solución hallada como warm start, sin tope de ciclos
 - **2026-08-26** — fix: X0 — OSError Errno 22 en logs de convergencia y cache bt (sync de OneDrive/acceso concurrente): log de convergencia pasa a JSONL append-only (elimina la lectura del historial completo); cache de warm start (`*_bt.json`) agrega retry con backoff en la lectura
 - **2026-08-26** — fix: X0 — diagnóstico en las 4 guardas `sys.exit()` por tamaño de `conjunto_N` (crash silencioso tras ~10-15 ciclos: `SystemExit` en un worker de `ProcessPoolExecutor` escapa de todo `except Exception` y mata el proceso sin traceback); vuelca contexto a `resources/x0/logs/diag_conjunto_N/`

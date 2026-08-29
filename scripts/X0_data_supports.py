@@ -58,25 +58,43 @@ from X3_technical_features import actualizar_features as _x3_actualizar_features
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
 
-def json_act(file_path: str, variable=None, mode: str = 'open'):
+def json_act(file_path: str, variable=None, mode: str = 'open',
+            intentos: int = 3, espera: float = 0.1):
     """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON.
 
     El guardado es atómico (escribe a un .tmp y hace os.replace) para que un lector
     concurrente (X1) nunca vea el archivo truncado a mitad de escritura.
+
+    La lectura reintenta ante OSError transitorios (sync de OneDrive u otro proceso
+    escribiendo el mismo archivo), igual que `_leer_json_reintentos` para los cache bt.
+    Los errores se relanzan (nunca sys.exit): un worker de ProcessPoolExecutor que hace
+    sys.exit() termina en SystemExit, que al no ser Exception escapa del `except Exception`
+    de buscar_soportes y mata el script completo sin dejar rastro.
     """
     path = f'{file_path}.json'
-    try:
-        if mode == 'save':
+    if mode == 'save':
+        try:
             tmp_path = f'{path}.tmp'
             with open(tmp_path, 'w') as f:
                 json.dump(sorted(variable), f)
             os.replace(tmp_path, path)
             return None
-        with open(path, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f'Error json_act ({mode}, {path}): {e}')
-        sys.exit(1)
+        except Exception as e:
+            print(f'Error json_act (save, {path}): {e}')
+            raise
+
+    for intento in range(intentos):
+        try:
+            with open(path, 'r') as f:
+                return json.load(f)
+        except OSError as e:
+            if intento == intentos - 1:
+                print(f'Error json_act (open, {path}): {e}')
+                raise
+            time.sleep(espera)
+        except Exception as e:
+            print(f'Error json_act (open, {path}): {e}')
+            raise
 
 
 def notacion_cientifica(numero: float, decimales: int = 2) -> str:
@@ -196,7 +214,7 @@ def obtener_df_extremos(df_0: pd.DataFrame, k: float, n_exp: float, N: int,
             'N': N, 'ocp': ocp, 'ordenes_en_espera': ordenes_en_espera,
             'L_original': L, 'len_final': len(conjunto_N),
         })
-        sys.exit(f'Error en tamaño conjunto_N: {len(conjunto_N)} != {N}')
+        raise RuntimeError(f'Error en tamaño conjunto_N: {len(conjunto_N)} != {N}')
 
     return df_extremos, conjunto_N
 
@@ -383,7 +401,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             'N': N, 'ordenes_activas': sorted(set(ordenes_activas)),
             'len_ordenes_activas': len(set(ordenes_activas)),
         })
-        sys.exit('Cantidad de ordenes activas es mayor a N')
+        raise RuntimeError('Cantidad de ordenes activas es mayor a N')
 
     p_min = df_extremos['Low'].min()
     p_max = df_extremos['Low'].max()
@@ -406,7 +424,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             'ya_presentes_en_conjunto_previo': sorted(set(ordenes_activas) & conjunto_N_pre_oa),
             'len_conjunto_previo': len(conjunto_N_pre_oa), 'len_final': len(conjunto_N),
         })
-        sys.exit(f'Error en tamaño conjunto_N tras inicialización: {len(conjunto_N)} != {N}')
+        raise RuntimeError(f'Error en tamaño conjunto_N tras inicialización: {len(conjunto_N)} != {N}')
 
     lista_N = sorted(list(conjunto_N))
     dic_N = {i: val for i, val in enumerate(lista_N)}
@@ -433,7 +451,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                     'p_min': p_min, 'p_max': p_max,
                     'dic_N_min': min(dic_N.values()), 'dic_N_max': max(dic_N.values()),
                 })
-                sys.exit(f'Error en tamaño conjunto_N en iteración {j}: {len(conjunto_N)} != {N}')
+                raise RuntimeError(f'Error en tamaño conjunto_N en iteración {j}: {len(conjunto_N)} != {N}')
 
             FO_base, df_extremos, particion_FO = calcular_FO(df_extremos, conjunto_N, lambda_ponderador)
             dist_max_iter = float(df_extremos['dist'].max())
@@ -831,10 +849,10 @@ def _bt_guardar(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_clave, conjun
 def _log_diagnostico_conjunto_N(identificador: str, escenario: str, datos: dict):
     """Vuelca a un JSON el contexto de un fallo de tamaño en conjunto_N (len != N).
 
-    Estos fallos hoy terminan en sys.exit() dentro de un worker de ProcessPoolExecutor:
-    el proceso no imprime nada (stdout de worker silenciado) y el SystemExit, al no ser
-    Exception, se propaga sin traceback hasta matar el script completo — sin dejar rastro.
-    Este archivo es el único rastro que va a quedar cuando eso pase.
+    Estos fallos ocurren dentro de un worker de ProcessPoolExecutor, cuyo stdout está
+    silenciado (línea ~24): sin este archivo, el print de contexto nunca se vería.
+    El caller relanza como RuntimeError (nunca sys.exit) para que `except Exception` en
+    buscar_soportes lo capture, marque solo ese combo como error y siga con el resto.
     """
     carpeta = CARPETA_LOGS / 'diag_conjunto_N'
     carpeta.mkdir(parents=True, exist_ok=True)
