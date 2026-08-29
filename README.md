@@ -213,6 +213,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-29** — fix(x1): retry lectura JSON soportes 12x/5s (`leer_lista_N` ante `PermissionError`, antes 10x/2s)
 - **2026-08-29** — fix(x1): sección B de `informacion()` — `Falta_sube_USD` ahora siempre positivo y ordenado ascendente (columna explícita `Precio_activacion_OE_OA = Precio_OE + a/L`, filtra soportes bloqueados que ya cumplían `distancia_ok`)
 - **2026-08-29** — fix(x0): json_act y las 3 validaciones de tamaño de conjunto_N usan `raise` en vez de `sys.exit()` (SystemExit escapaba de `except Exception` en `buscar_soportes` y mataba el script completo sin rastro); json_act reintenta hasta 3 veces ante OSError transitorio en la lectura (candado de OneDrive)
 - **2026-08-29** — fix(x0): reinicio en ciclo si no converge en 10k iter: `nuevo_optimizador_2` (usada también por X4) ya no retorna con `convergio=False` al agotar `MAX_ITERS` — abre un nuevo ciclo tomando la mejor solución hallada como warm start, sin tope de ciclos

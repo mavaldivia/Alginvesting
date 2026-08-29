@@ -485,7 +485,7 @@ AMZN | P0=266.20
 
 
 
- [2] [WIP]
+ [2] [OK]
  /new_todo X1 
 
  Si esto ocurre, hacer 12 intentos con un time sleep de 5 segundos entre cada iteración, para poder leerlo correctamente
@@ -495,7 +495,7 @@ Error json_act (open, C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyec
 [3]
 /new_todo X1
 
-[copiar foto en mial cerca de las 19.30 hrs el 29 de agosto]
+[copiar foto en mail cerca de las 19.30 hrs el 29 de agosto]
 
 Complementar el mensaje: "Cambio de SL...del valor {valor} al precio {precio}"
 

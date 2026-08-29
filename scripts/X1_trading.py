@@ -79,20 +79,20 @@ def json_act(file_path: str, variable=None, mode: str = 'open'):
 def leer_lista_N(valor: str, N: int) -> list:
     """
     Lee el conjunto de N soportes desde el JSON generado por X0.
-    Reintenta hasta 10 veces con pausa de 2s, por si X0 está escribiendo simultáneamente
+    Reintenta hasta 12 veces con pausa de 5s, por si X0 está escribiendo simultáneamente
     (archivo aún no existe, o existe pero X0 lo está reescribiendo — OneDrive puede
     extender la ventana de lock/sync más allá de la propia escritura del proceso).
     """
     json_path = CARPETA_N_PROD / f'{valor}_{N}.json'
-    for _ in range(10):
+    for _ in range(12):
         if json_path.exists():
             try:
                 lista_N = json_act(str(CARPETA_N_PROD / f'{valor}_{N}'))
                 return [round(n, 2) for n in lista_N]
             except (json.JSONDecodeError, PermissionError, OSError):
                 pass
-        time.sleep(2)
-    raise FileNotFoundError(f'No se encontró (o no se pudo leer) {json_path} después de 10 intentos')
+        time.sleep(5)
+    raise FileNotFoundError(f'No se encontró (o no se pudo leer) {json_path} después de 12 intentos')
 
 
 # ─── Funciones MT5 ────────────────────────────────────────────────────────────

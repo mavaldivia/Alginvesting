@@ -1293,3 +1293,8 @@ Claude: identificó que `json_act` (carga/guarda `resources/conjuntos_N/*.json`,
 Mauricio: vía `/new_todo`, pidió corregir la sección B de `informacion()` en X1_trading.py — el `Falta_sube_USD` debía ser siempre positivo y ordenado, mostrando explícitamente Precio activación OE_OA / Precio OE / Falta sube usd, con la relación Precio_activación - Precio_OE = a y Precio_activación > Precio_actual.
 Claude: identificó que el bug era el sort por valor absoluto (fix de una sesión previa) que seguía trayendo soportes bloqueados que ya cumplían `distancia_ok` pero tenían `Falta_sube_USD` negativo o cero. Agregó columna explícita `Precio_activacion_OE_OA = Precio_OE + a/L` (mismo umbral que `distancia_ok` en `crear_ordenes_espera`), recalculó `Falta_sube_USD` en base a esa columna, filtró a solo valores positivos y ordenó ascendente (sin abs). Actualizó el docstring de la función y registró el fix en `docs/tracking/done.md` (X1 — X1_trading.py).
 (Cierre: 2026-08-29 19:41)
+
+## SECCIÓN 146
+Mauricio: vía `/new_todo`, pidió que ante el error `Error json_act (open, ...NVDA_120.json): [Errno 13] Permission denied` al leer el JSON de soportes en X1, se hagan 12 intentos con 5 segundos de espera entre cada uno.
+Claude: ubicó `leer_lista_N` (X1_trading.py) — ya tenía retry ante `PermissionError`/`OSError`/`JSONDecodeError` pero con 10 intentos/2s. Cambió a 12 intentos/5s (código, docstring y mensaje de error). Registró el ítem en `docs/tracking/done.md` (X1 — X1_trading.py).
+(Cierre: 2026-08-29 19:49)
