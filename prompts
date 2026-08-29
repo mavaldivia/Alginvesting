@@ -436,7 +436,7 @@ Revisa bien los algorítmos (.py) en ambos casos para el desarrollo
 
 
 ---------------------------------
-[1]
+[1] [OK]
 /new_todo X1
 Aquí
 Los falta_sube_usd deben ser siempre > 0 y estar ordenados
@@ -485,11 +485,10 @@ AMZN | P0=266.20
 
 
 
- [2]
- /new_todo X1
+ [2] [WIP]
+ /new_todo X1 
 
  Si esto ocurre, hacer 12 intentos con un time sleep de 5 segundos entre cada iteración, para poder leerlo correctamente
-
 Error json_act (open, C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\resources\conjuntos_N\NVDA_120.json): [Errno 13] Permission denied: 'C:\\Users\\mvaldiviad\\OneDrive - Falabella\\Escritorio\\Proyectos Personales\\Alginvesting_v2\\resources\\conjuntos_N\\NVDA_120.json'
 
 

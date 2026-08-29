@@ -546,11 +546,14 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dic
     A) la OE pendiente más cercana se ejecute (pase a OA) — requiere que P0 baje.
     B) el soporte/resistencia de lista_N sin orden aún (ni OE ni OA) — porque está
        muy cerca bajo el precio (distancia < a) o porque está sobre el precio
-       actual — pase a tener una OE declarada, lo que requiere que P0 suba.
+       actual — pase a tener una OE declarada, lo que requiere que P0 suba hasta
+       Precio_activacion_OE_OA = Precio_OE + a/L (mismo umbral que distancia_ok
+       en crear_ordenes_espera). Solo se muestran soportes con
+       Precio_activacion_OE_OA > P0 (Falta_sube_USD > 0): un soporte que ya
+       cumple distancia_ok pero sigue sin OE por estar bloqueado
+       (dic_bloqueados) no aparece acá.
     Usa el estado real de MT5 (positions_get/orders_get), no la clasificación
-    teórica por distancia sobre lista_N: un soporte con distancia_ok puede seguir
-    sin OE si quedó temporalmente bloqueado (dic_bloqueados) — en ese caso su
-    Falta_USD sale negativa o cero, indicando que ya cumple pero está a la espera.
+    teórica por distancia sobre lista_N.
     """
     datos = {}
     for valor in valores:
@@ -580,9 +583,14 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dic
         pendientes = [p for p in lista_N if round(p, 2) not in precios_declarados]
         df_b = None
         if pendientes:
-            df_b = pd.DataFrame(pendientes, columns=['Precio'])
-            df_b['Falta_sube_USD'] = (a_valor - (P0 - df_b['Precio']) * L).round(2)
-            df_b = df_b.sort_values('Falta_sube_USD', key=lambda s: s.abs()).head(3).reset_index(drop=True)
+            df_b = pd.DataFrame(pendientes, columns=['Precio_OE'])
+            df_b['Precio_activacion_OE_OA'] = (df_b['Precio_OE'] + a_valor / L).round(2)
+            df_b['Falta_sube_USD'] = ((df_b['Precio_activacion_OE_OA'] - P0) * L).round(2)
+            df_b = df_b[df_b['Falta_sube_USD'] > 0]
+            df_b = df_b.sort_values('Falta_sube_USD').head(3).reset_index(drop=True)
+            df_b = df_b[['Precio_activacion_OE_OA', 'Precio_OE', 'Falta_sube_USD']]
+            if df_b.empty:
+                df_b = None
 
         datos[valor] = {'P0': P0, 'df_a': df_a, 'df_b': df_b}
 
