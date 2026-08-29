@@ -501,7 +501,7 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
                 dic_seguimiento[valor].append(orden.ticket)
 
     if n_cambios_sl:
-        print(f'  Cambio SL de {n_cambios_sl} operaciones del valor {valor}')
+        print(f'  Cambio de SL de {n_cambios_sl} operaciones del valor {valor} al precio {sl_nuevo:.2f}')
 
 
 def cerrar_posicion(orden, valor: str, lotajes: dict):

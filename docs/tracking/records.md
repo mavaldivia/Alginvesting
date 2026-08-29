@@ -1298,3 +1298,8 @@ Claude: identificó que el bug era el sort por valor absoluto (fix de una sesió
 Mauricio: vía `/new_todo`, pidió que ante el error `Error json_act (open, ...NVDA_120.json): [Errno 13] Permission denied` al leer el JSON de soportes en X1, se hagan 12 intentos con 5 segundos de espera entre cada uno.
 Claude: ubicó `leer_lista_N` (X1_trading.py) — ya tenía retry ante `PermissionError`/`OSError`/`JSONDecodeError` pero con 10 intentos/2s. Cambió a 12 intentos/5s (código, docstring y mensaje de error). Registró el ítem en `docs/tracking/done.md` (X1 — X1_trading.py).
 (Cierre: 2026-08-29 19:49)
+
+## SECCIÓN 147
+Mauricio: vía `/new_todo`, pidió complementar el mensaje de cambio de SL en X1 para que muestre también el precio nuevo: "Cambio de SL...del valor {valor} al precio {precio}".
+Claude: ubicó el print en `trailing_stop` (X1_trading.py:504), que ya calculaba `sl_nuevo` una sola vez por activo antes del loop de posiciones. Cambió el mensaje a `"Cambio de SL de {n_cambios_sl} operaciones del valor {valor} al precio {sl_nuevo:.2f}"`. Registró el ítem en `docs/tracking/done.md` (X1 — X1_trading.py).
+(Cierre: 2026-08-29 19:51)

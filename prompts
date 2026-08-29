@@ -492,7 +492,7 @@ AMZN | P0=266.20
 Error json_act (open, C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\resources\conjuntos_N\NVDA_120.json): [Errno 13] Permission denied: 'C:\\Users\\mvaldiviad\\OneDrive - Falabella\\Escritorio\\Proyectos Personales\\Alginvesting_v2\\resources\\conjuntos_N\\NVDA_120.json'
 
 
-[3]
+[3] [OK]
 /new_todo X1
 
 [copiar foto en mail cerca de las 19.30 hrs el 29 de agosto]
@@ -504,3 +504,4 @@ Complementar el mensaje: "Cambio de SL...del valor {valor} al precio {precio}"
 Eventualmente, ambos procesos se están deteniendo solos...terminando la ejecución
 No quiero que esto ocurra
 La detención de la ejecución de ambos scripts solo debería ser manual
+Revisa todo lo que sea necesario y agrega mensajes de traceback para trackear los errores en caso de que ocurran
