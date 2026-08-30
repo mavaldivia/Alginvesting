@@ -505,3 +505,4 @@ Eventualmente, ambos procesos se están deteniendo solos...terminando la ejecuci
 No quiero que esto ocurra
 La detención de la ejecución de ambos scripts solo debería ser manual
 Revisa todo lo que sea necesario y agrega mensajes de traceback para trackear los errores en caso de que ocurran
+Con eso podremos facilitar el entendimiento de cualquier nueva caida indeseada

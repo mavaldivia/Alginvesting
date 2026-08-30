@@ -30,6 +30,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import warnings
 from pathlib import Path
 
@@ -103,6 +104,22 @@ def notacion_cientifica(numero: float, decimales: int = 2) -> str:
     exp = int(np.floor(np.log10(abs(numero))))
     base = numero / (10 ** exp)
     return f'{base:.{decimales}f} x E{exp}'
+
+
+def _log_error(carpeta_logs: Path, contexto: str, exc: Exception) -> None:
+    """Imprime el traceback completo de exc y lo agrega a {carpeta_logs}/errores.log.
+
+    Complementa el mensaje corto de cada bloque try/except del loop principal: sin
+    el traceback completo, diagnosticar la causa raíz de un error que ya no está
+    en pantalla (o que nunca se vio, si la consola no se monitoreaba) depende de
+    reproducirlo. El log es acumulativo, uno por línea de contexto con su traceback.
+    """
+    carpeta_logs.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    tb = traceback.format_exc()
+    print(f'\n[{ts}] {contexto}: {exc}\n{tb}')
+    with open(carpeta_logs / 'errores.log', 'a') as f:
+        f.write(f'\n[{ts}] {contexto}: {exc}\n{tb}')
 
 
 # ─── Funciones del algoritmo ──────────────────────────────────────────────────
@@ -1250,7 +1267,7 @@ def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
                 except Exception as exc:
                     prev = estado.get(f'{valor}_{N}', (0, 0, None, 'ERROR'))
                     estado[f'{valor}_{N}'] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
-                    print(f'\nError en ({valor}, N={N}): {exc}')
+                    _log_error(CARPETA_LOGS, f'Error en combo ({valor}, N={N})', exc)
 
         stop_event.set()
         monitor.join()
@@ -1330,20 +1347,18 @@ if __name__ == '__main__':
                     x2_script = Path(__file__).parent / 'X2_fundamentals.py'
                     subprocess.run([sys.executable, str(x2_script)], check=False)
                 except Exception as e:
-                    print(f'  Advertencia: X2 falló ({e}). Continuando.')
+                    _log_error(CARPETA_LOGS, 'X2 falló (subprocess), continuando', e)
 
                 if args.opcion in (0, 2):
                     print('\n── Etapa 1: Descarga de datos ──────────────────────────')
                     try:
                         descargar_datos(VALORES, CARPETA_DATA)
                     except Exception as e:
-                        print(f'  Advertencia: descarga H1 falló ({e}). '
-                              f'Continuando con datos existentes.')
+                        _log_error(CARPETA_LOGS, 'Descarga H1 falló, continuando con datos existentes', e)
                     try:
                         descargar_datos_minuto(VALORES, CARPETA_DATA_MINUTO)
                     except Exception as e:
-                        print(f'  Advertencia: descarga M1 falló ({e}). '
-                              f'Continuando con datos existentes.')
+                        _log_error(CARPETA_LOGS, 'Descarga M1 falló, continuando con datos existentes', e)
 
                     print('\n── X3: Features técnicas ────────────────────────────────')
                     for valor in VALORES:
@@ -1359,7 +1374,7 @@ if __name__ == '__main__':
                                             if json_path.exists() else set())
                             _x3_actualizar_features(valor, df_v, conjunto_n_v)
                         except Exception as e:
-                            print(f'  Advertencia: X3 falló para {valor} ({e}). Continuando.')
+                            _log_error(CARPETA_LOGS, f'X3 falló para {valor}, continuando', e)
 
                 if _pendiente_reset:
                     _reset_x0_state()
@@ -1373,7 +1388,7 @@ if __name__ == '__main__':
                                     n_max=N_MAX_MODELS)
 
             except Exception as e:
-                print(f'\nError en ciclo {ciclo}: {e}. Reintentando en el próximo ciclo.')
+                _log_error(CARPETA_LOGS, f'Error en ciclo {ciclo}. Reintentando en el próximo ciclo', e)
 
             if args.ciclos > 0 and ciclo >= args.ciclos:
                 break

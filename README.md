@@ -123,8 +123,9 @@ config/
   active_parameters.json # Params recomendados por X5, leídos por X1/X0 en modo "din"
 resources/               # Todo generado en Windows, fuera de git
   conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
-  x0/logs/               # Logs de convergencia por combo {valor}_{N}.jsonl (append-only) + diag_conjunto_N/ (diagnóstico de crashes por tamaño de conjunto_N)
+  x0/logs/               # Logs de convergencia por combo {valor}_{N}.jsonl (append-only) + diag_conjunto_N/ (diagnóstico de crashes por tamaño de conjunto_N) + errores.log (traceback completo de errores del ciclo principal)
   x0/plots/              # Gráficos de X0 (Extremos, FO, Soportes, Zoom)
+  x1/logs/               # errores.log — traceback completo de errores del loop de trading
   x2/                    # scores.json, x2_history.json, x2_last_run.json
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
@@ -213,6 +214,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-29** — fix(x0,x1): loop principal solo se detiene manualmente (KeyboardInterrupt) + traceback completo en `resources/{x0,x1}/logs/errores.log` en cada error capturado (antes solo `str(e)`); en X1 el try/except ahora envuelve el ciclo completo, no solo el loop por activo
 - **2026-08-29** — fix(x1): mensaje de resumen de trailing stop incluye el precio nuevo del SL ("Cambio de SL de {n} operaciones del valor {valor} al precio {sl_nuevo}")
 - **2026-08-29** — fix(x1): retry lectura JSON soportes 12x/5s (`leer_lista_N` ante `PermissionError`, antes 10x/2s)
 - **2026-08-29** — fix(x1): sección B de `informacion()` — `Falta_sube_USD` ahora siempre positivo y ordenado ascendente (columna explícita `Precio_activacion_OE_OA = Precio_OE + a/L`, filtra soportes bloqueados que ya cumplían `distancia_ok`)

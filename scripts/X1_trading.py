@@ -14,10 +14,12 @@ Uso:
     python X1_trading.py
 """
 
+import datetime
 import json
 import os
 import sys
 import time
+import traceback
 import warnings
 
 import pandas as pd
@@ -27,6 +29,7 @@ import MetaTrader5 as mt5
 warnings.filterwarnings('ignore')
 
 from config import (
+    CARPETA_LOGS_X1,
     CARPETA_N_PROD,
     VALORES, A, B, TS, PERDIDA_MAX,
     LOTAJES, UNITS,
@@ -51,6 +54,19 @@ def _print_throttled(symbol: str, clave, mensaje: str, intervalo: float = X1_RET
     if ahora - _ultimo_print_error.get((symbol, clave), 0) >= intervalo:
         print(mensaje)
         _ultimo_print_error[(symbol, clave)] = ahora
+
+
+def _log_traceback(contexto: str) -> None:
+    """Imprime el traceback completo de la excepción en curso y lo agrega a
+    resources/x1/logs/errores.log — el ciclo sigue igual (el except que rodea
+    esta llamada ya decide seguir), pero sin el traceback completo diagnosticar
+    una caída recurrente depende de reproducirla."""
+    CARPETA_LOGS_X1.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    tb = traceback.format_exc()
+    print(f'[{ts}] {contexto}\n{tb}')
+    with open(CARPETA_LOGS_X1 / 'errores.log', 'a') as f:
+        f.write(f'\n[{ts}] {contexto}\n{tb}')
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
@@ -660,65 +676,80 @@ if __name__ == '__main__':
 
     try:
         while True:
-            time_sleep = True
+            # Envuelve el ciclo completo (no solo el loop por activo) para que
+            # ningún error no anticipado — ej. en la consulta global de posiciones
+            # antes del loop por activo — pueda escapar y terminar el proceso.
+            # La única forma de detener X1 debe ser manual (KeyboardInterrupt).
+            try:
+                time_sleep = True
 
-            # Si hay alguna posición con SL activo (sl≠0) en un activo con mercado
-            # abierto, este ciclo se saltan A) limpiar OE y B) crear buy limits en
-            # TODOS los activos para acelerar la revisión del trailing stop, hasta
-            # que esa posición cierre.
-            posiciones_todas = mt5.positions_get() or []
-            sl_activo_global = any(p.sl != 0 and mercado_abierto(p.symbol) for p in posiciones_todas)
-            if sl_activo_global != sl_activo_global_prev:
-                if sl_activo_global:
-                    print('  SL activo con mercado abierto → pausando gestión de buy limits (foco en trailing stop)')
-                else:
-                    print('  Sin SL activo → reanudando gestión de buy limits')
-                sl_activo_global_prev = sl_activo_global
+                # Si hay alguna posición con SL activo (sl≠0) en un activo con mercado
+                # abierto, este ciclo se saltan A) limpiar OE y B) crear buy limits en
+                # TODOS los activos para acelerar la revisión del trailing stop, hasta
+                # que esa posición cierre.
+                posiciones_todas = mt5.positions_get() or []
+                sl_activo_global = any(p.sl != 0 and mercado_abierto(p.symbol) for p in posiciones_todas)
+                if sl_activo_global != sl_activo_global_prev:
+                    if sl_activo_global:
+                        print('  SL activo con mercado abierto → pausando gestión de buy limits (foco en trailing stop)')
+                    else:
+                        print('  Sin SL activo → reanudando gestión de buy limits')
+                    sl_activo_global_prev = sl_activo_global
 
-            for valor in VALORES:
-                try:
-                    L = LOTAJES[valor] * UNITS[valor]
+                for valor in VALORES:
+                    try:
+                        L = LOTAJES[valor] * UNITS[valor]
 
-                    N = n_sizes[valor]
-                    lista_N = leer_lista_N(valor, N)
+                        N = n_sizes[valor]
+                        lista_N = leer_lista_N(valor, N)
 
-                    lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento, pos_info, valores_inicializados)
+                        lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento, pos_info, valores_inicializados)
 
-                    # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
-                    # no eliminar las OE existentes porque no se pueden reponer.
-                    # Si hay un SL activo en el sistema (sl_activo_global), se saltan
-                    # A/B para priorizar la revisión del trailing stop.
-                    if mercado_abierto(valor) and not sl_activo_global:
-                        precio_max_saliente = limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
-                        crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados, precio_max_saliente)
+                        # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
+                        # no eliminar las OE existentes porque no se pueden reponer.
+                        # Si hay un SL activo en el sistema (sl_activo_global), se saltan
+                        # A/B para priorizar la revisión del trailing stop.
+                        if mercado_abierto(valor) and not sl_activo_global:
+                            precio_max_saliente = limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
+                            crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados, precio_max_saliente)
 
-                    # C: Trailing stop en posiciones abiertas
-                    trailing_stop(actual_OA, valor, L, A[valor], B[valor], LOTAJES, dic_seguimiento, dic_bloqueados)
+                        # C: Trailing stop en posiciones abiertas
+                        trailing_stop(actual_OA, valor, L, A[valor], B[valor], LOTAJES, dic_seguimiento, dic_bloqueados)
 
-                    # D: Cierre por pérdida máxima
-                    controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX[valor])
+                        # D: Cierre por pérdida máxima
+                        controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX[valor])
 
-                except Exception as e:
-                    print(f'  [X1] Error en {valor}: {e} — saltando activo este ciclo')
+                    except Exception as e:
+                        print(f'  [X1] Error en {valor}: {e} — saltando activo este ciclo')
+                        _log_traceback(f'Error en {valor} (iteración {i})')
 
-            # Si alguna posición tiene trailing stop activo → no dormir (reaccionar rápido)
-            for c in dic_seguimiento:
-                if dic_seguimiento[c]:
-                    time_sleep = False
+                # Si alguna posición tiene trailing stop activo → no dormir (reaccionar rápido)
+                for c in dic_seguimiento:
+                    if dic_seguimiento[c]:
+                        time_sleep = False
 
-            if i % int(5000 / TS) == 0:
-                print(f'\nIteración {i} | Tiempo: {round((time.time() - t0) / 60, 1)} min')
-                total_bloqueados = sum(len(p) for p in dic_bloqueados.values())
-                if total_bloqueados:
-                    detalle = ', '.join(f'{v}:{len(p)}' for v, p in dic_bloqueados.items() if p)
-                    print(f'  Buy limits bloqueados temporalmente: {total_bloqueados} ({detalle})')
-                try:
-                    informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
-                except Exception as e:
-                    print(f'  [X1] Error en informacion: {e}')
+                if i % int(5000 / TS) == 0:
+                    print(f'\nIteración {i} | Tiempo: {round((time.time() - t0) / 60, 1)} min')
+                    total_bloqueados = sum(len(p) for p in dic_bloqueados.values())
+                    if total_bloqueados:
+                        detalle = ', '.join(f'{v}:{len(p)}' for v, p in dic_bloqueados.items() if p)
+                        print(f'  Buy limits bloqueados temporalmente: {total_bloqueados} ({detalle})')
+                    try:
+                        informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
+                    except Exception as e:
+                        print(f'  [X1] Error en informacion: {e}')
+                        _log_traceback(f'Error en informacion (iteración {i})')
 
-            i += 1
-            if time_sleep:
+                i += 1
+                if time_sleep:
+                    time.sleep(TS)
+
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                print(f'\n[X1] Error no manejado en la iteración {i}: {e} — continuando en la próxima iteración.')
+                _log_traceback(f'Error no manejado en la iteración {i}')
+                i += 1
                 time.sleep(TS)
     except KeyboardInterrupt:
         pass

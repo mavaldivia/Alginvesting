@@ -1303,3 +1303,10 @@ Claude: ubicó `leer_lista_N` (X1_trading.py) — ya tenía retry ante `Permissi
 Mauricio: vía `/new_todo`, pidió complementar el mensaje de cambio de SL en X1 para que muestre también el precio nuevo: "Cambio de SL...del valor {valor} al precio {precio}".
 Claude: ubicó el print en `trailing_stop` (X1_trading.py:504), que ya calculaba `sl_nuevo` una sola vez por activo antes del loop de posiciones. Cambió el mensaje a `"Cambio de SL de {n_cambios_sl} operaciones del valor {valor} al precio {sl_nuevo:.2f}"`. Registró el ítem en `docs/tracking/done.md` (X1 — X1_trading.py).
 (Cierre: 2026-08-29 19:51)
+
+## SECCIÓN 148
+Mauricio: reportó que X0 y X1 eventualmente se detienen solos, cuando la detención debería ser siempre manual; pidió revisar todo lo necesario y agregar mensajes de traceback para facilitar el diagnóstico de futuras caídas (vía /new_todo).
+Claude: registró la sección "Transversal" para el ítem (afecta a ambos scripts por igual). En X1_trading.py, el `while True` solo protegía el loop por activo — envolvió el ciclo completo (incluida la consulta `mt5.positions_get()` previa, antes desprotegida) en un try/except catch-all que loggea y continúa, dejando `KeyboardInterrupt` como única salida manual. En X0_data_supports.py el ciclo ya sobrevivía a errores pero solo mostraba `str(e)`; agregó helper `_log_error`/`_log_traceback` en ambos scripts que imprime el traceback completo y lo persiste en `resources/x0/logs/errores.log` y `resources/x1/logs/errores.log` (nueva `CARPETA_LOGS_X1` en config.py), aplicado en los 6 bloques de X0 (X2 subprocess, descarga H1/M1, X3 por activo, error de ciclo, error por combo en buscar_soportes) y los 3 de X1 (error por activo, error en informacion(), catch-all del ciclo). Verificado con py_compile.
+Mauricio: pidió resumen de lo hecho.
+Claude: entregó resumen conciso de los cambios en X0, X1 y config.py.
+(Cierre: 2026-08-29 20:08)

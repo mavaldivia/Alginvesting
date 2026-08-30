@@ -27,6 +27,7 @@ CARPETA_DATA_MINUTO = BASE_DIR / 'Data_minuto'
 CARPETA_N_PROD = BASE_DIR / 'resources' / 'conjuntos_N'
 CARPETA_PLOTS = BASE_DIR / 'resources' / 'x0' / 'plots'
 CARPETA_LOGS = BASE_DIR / 'resources' / 'x0' / 'logs'
+CARPETA_LOGS_X1 = BASE_DIR / 'resources' / 'x1' / 'logs'
 CARPETA_FUNDAMENTALS = BASE_DIR / 'resources' / 'x2'
 
 # ─── Activos y universo de soportes ───────────────────────────────────────────
