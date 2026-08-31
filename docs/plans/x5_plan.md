@@ -5,6 +5,10 @@
 > En fase de **recolección de datos** (store aún vacío → todos los activos en `untrained`).
 > Última revisión: `docs/plans/x5_opus_review.md` (esta sesión). Para ejecutar, ver
 > **"Paso a paso de ejecución"** al final de este documento.
+> **Desactualizado (2026-08-31):** el target real de `retorno_pct` cambió a `retorno_usd`
+> y se corrigió un bug de desalineación de columnas en el store — ver `docs/context/decisiones.md`
+> 2026-08-31. Las menciones a `retorno_pct` en este documento (schema, Y, inferencia) no se
+> reescribieron todavía.
 
 ---
 

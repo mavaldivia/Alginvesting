@@ -230,3 +230,30 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Validado:** con datos sintéticos, `cv(H_n)` de `calcular_FO` coincide byte a byte con el cálculo manual de las anclas, y `calcular_FO_batch` da la misma FO que `calcular_FO` para el mismo soporte movido (consistencia FO_base ↔ batch, mismo criterio que ya aplicaba `dist_max_global`).
 
 **Aislamiento del demo:** con el cache bt persistiendo entre ciclos, el demo habría sembrado el cache de la recolección real (ambos usaban `bt_{activo}`). `ejecutar_x5_ciclo` ahora sufija los recursos de X4 con `X5_DEMO_SUFFIX` → `bt_{activo}_demo`, en línea con el store y el modelo demo.
+
+## 2026-08-31 — Fix: filas `oc` del store X5 con columnas desalineadas (~80% corruptas en BTCUSD)
+
+**Síntoma reportado:** al explorar `BTCUSD_store.csv` (5,426 filas `oc` + 4,743 `periodico`) para preparar el entrenamiento, 4,321 filas `oc` (79.6%) tenían valores fuera de rango o vacíos en columnas que deberían ser triviales (`hora_oa` con un valor de ~43,700 en vez de 0–23; `x2_score_oa` de 61.6 en vez de [0,1]; `retorno_pct` y `pnl_cerrado_activo` — los targets del modelo — vacíos). Las 4,743 filas `periodico` estaban intactas (0% corrupción).
+
+**Causa:** `_append_x5_store` (`X4_backtester.py`) escribía el header del CSV una sola vez, al crear el archivo, pero en cada append posterior instanciaba `csv.DictWriter(f, fieldnames=list(fila.keys()), ...)` — usando las claves de esa fila puntual como `fieldnames`, no el header ya fijado en el archivo. Un CSV no lleva nombres de columna por fila, solo posición: si el diccionario `fila` de una fila `oc` traía sus claves en otro orden (los snapshots `x2_oe`/`x3_oe`/`x2_oa`/`x3_oa` se capturan al abrir la posición y quedan guardados en `pos` hasta que cierra — pueden venir de otra versión del código o con otro set de features disponible en ese momento), los valores se escribían corridos respecto al header ya existente, sin ningún error (`extrasaction='ignore'` silenciaba el desajuste). Las filas `periodico` no sufrían esto porque su bloque `_oa` siempre se fuerza a `''` de forma uniforme y su snapshot `x2_oe`/`x3_oe` se calcula en el instante, nunca se hereda de una apertura anterior.
+
+**Efecto secundario:** `_n_oc` (`X5_macro_brain.py`) contaba las 5,426 filas `oc` sin filtrar por validez, así que `_seleccionar_tipo` daba `'ftt'` (>5,000) para BTCUSD cuando en realidad solo había 1,105 filas con `retorno_pct` válido — apenas sobre el mínimo de LightGBM (500), muy lejos de lo que necesita el FT-Transformer.
+
+**Fix:**
+- `_append_x5_store`: `fieldnames` ahora se lee del header real del archivo (primera línea, vía `csv.reader`) en cada append; solo se usa `list(fila.keys())` cuando el archivo se crea por primera vez.
+- `_n_oc`: cuenta solo `tipo_registro == 'oc'` con `retorno_pct` no nulo.
+- `_preparar_features`: descarta filas `oc` con `retorno_pct` vacío **antes** de filtrar por el target del head en cuestión. Necesario porque el head `flotante` entrena con `('oc', 'periodico')` y `pnl_flotante_activo` **no** viene vacío en las filas `oc` corruptas — viene con un valor presente pero desalineado (mismo bug), así que el filtro genérico `target_num.notna()` no las detectaba y el head `flotante` se habría entrenado igual con las 4,321 filas corruptas.
+
+**No resuelto (decisión pendiente del usuario):** las 4,321 filas `oc` ya corruptas en `BTCUSD_store.csv` (y potencialmente en el resto de `resources/x5/{ACTIVO}_store.csv`, no verificado) no son recuperables — no hay forma confiable de reconstruir el corrimiento por fila. Quedan en el CSV tal cual; `_n_oc` las ignora al contar pero siguen ocupando espacio y podrían confundir una inspección manual futura. Pendiente decidir si se purgan o se dejan como registro histórico.
+
+**Resolución adoptada:** en vez de reparar/purgar filas puntuales, el usuario decidió reiniciar completo el store y demás archivos escritos por X5 para BTCUSD (`resources/x5/BTCUSD_store.csv`, modelos, checkpoints, `bt_BTCUSD/`) y recolectar de cero ya con el fix aplicado. Se mantiene el enfoque en un solo activo (BTCUSD) hasta validar el pipeline completo antes de escalar a los otros 5.
+
+## 2026-08-31 — Target de X5 cambiado de `retorno_pct` (% de capital) a `retorno_usd`
+
+**Motivo:** `retorno_pct = retorno_usd / capital`, donde `capital` es el capital ficticio de la cuenta de backtesting de X5 — deliberadamente enorme para no imponer restricciones de margen durante la recolección (ver "Backtesting como generador de datos" en `docs/plans/x5_plan.md`). Con `LOTAJES_M` fijo en `(1, 1)` (no varía como parámetro de X5, a diferencia de lo que sugería la tabla aspiracional del plan), `retorno_pct` terminaba siendo `retorno_usd` dividido por una constante gigante — un target con magnitud ~1e-5 dominado por esa constante, no por la señal real del trade. `retorno_usd` (ya calculado en `_registrar_trade`, `X4_backtester.py:342`) es el target más directo y interpretable dado que el lotaje no varía.
+
+**Cambios:**
+- `X4_backtester.py`: `_construir_fila_oc`/`_construir_fila_periodica` escriben la columna `retorno_usd` en vez de `retorno_pct`; `oc_recientes` (alimenta `retorno_promedio_ultimas_5_oc`) ahora acumula `retorno_usd`.
+- `X5_macro_brain.py`: `TARGET_RETORNO = 'retorno_usd'`; `_n_oc` y el filtro de filas `oc` corruptas en `_preparar_features` migrados a la nueva columna.
+- `mean_retorno_pct_abierto`/`std_retorno_pct_abierto` (retorno flotante de órdenes abiertas, relativo al precio de entrada — no al capital) **no cambian**: no sufren el problema del capital ficticio porque nunca dividieron por `capital`.
+- Pendiente (fuera de alcance de este cambio): `docs/plans/x5_plan.md` todavía describe el target como `retorno_pct` en ~26 menciones — no se reescribió el documento completo, solo se corrigió el código real.

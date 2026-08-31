@@ -521,7 +521,7 @@ def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
             _fila = _construir_fila_oc(activo, pos, _trade, ts, est_a,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
-            est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
+            est_a.setdefault('oc_recientes', []).append(_trade['retorno_usd'])
             x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
                            motivo=_trade['motivo_cierre'],
                            retorno_usd=round(retorno_usd, 4))
@@ -558,7 +558,7 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
             _fila = _construir_fila_oc(activo, pos, _trade, ts, est_a,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
-            est_a.setdefault('oc_recientes', []).append(_trade['retorno_pct'])
+            est_a.setdefault('oc_recientes', []).append(_trade['retorno_usd'])
             x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
                            motivo=_trade['motivo_cierre'],
                            retorno_usd=round(retorno_usd, 4))
@@ -893,9 +893,11 @@ def _construir_fila_oc(activo: str, pos: dict, trade: dict,
     fila.update({f'{k}_oa': v for k, v in temp_oa.items()})
     fila.update({f'x2_{k}_oa': v for k, v in x2_oa.items()})
     fila.update({f'x3_{k}_oa': v for k, v in x3_oa.items()})
-    # Targets del modelo X5
+    # Targets del modelo X5. En USD y no en % de capital: el capital ficticio de
+    # X5 es enorme y LOTAJES_M no varía (rango fijo (1,1)), así que el % quedaba
+    # dominado por esa constante en vez de por la señal del trade.
     fila['pnl_cerrado_activo'] = round(est_a.get('GC', 0.0), 4)  # P&L cerrado acumulado del activo
-    fila['retorno_pct'] = trade['retorno_pct']
+    fila['retorno_usd'] = trade['retorno_usd']
     return fila
 
 
@@ -923,9 +925,9 @@ def _construir_fila_periodica(activo: str, ts: pd.Timestamp, est_a: dict,
     fila.update({f'x2_{k}_oa': '' for k in x2})
     fila.update({f'x3_{k}_oa': '' for k in x3})
     # Targets: pnl_flotante_activo (en portfolio) es el Y del registro periódico.
-    # pnl_cerrado_activo se registra para consistencia de columnas; retorno_pct no aplica.
+    # pnl_cerrado_activo se registra para consistencia de columnas; retorno_usd no aplica.
     fila['pnl_cerrado_activo'] = round(est_a.get('GC', 0.0), 4)
-    fila['retorno_pct'] = ''
+    fila['retorno_usd'] = ''
     return fila
 
 
@@ -943,8 +945,19 @@ def _append_x5_store(activo: str, fila: dict) -> None:
             if fr.read(1) not in (b'\n', b'\r'):
                 with open(store_path, 'a', newline='') as fa:
                     fa.write('\n')
+    # fieldnames DEBE ser el header ya escrito en el archivo, no list(fila.keys()):
+    # una fila puede tener sus claves en otro orden (snapshots x2_oe/x3_oe/x2_oa/x3_oa
+    # capturados al abrir la posición, bajo otra versión del código o con otro set de
+    # features disponible). Un CSV no lleva nombres por fila, solo posición — usar las
+    # claves de la propia fila como fieldnames desalinea los valores contra el header
+    # ya fijo, en silencio (ver docs/context/decisiones.md).
+    if write_hdr:
+        fieldnames = list(fila.keys())
+    else:
+        with open(store_path, newline='') as fr:
+            fieldnames = next(csv.reader(fr, delimiter=';'))
     with open(store_path, 'a', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=list(fila.keys()), delimiter=';', extrasaction='ignore')
+        w = csv.DictWriter(f, fieldnames=fieldnames, delimiter=';', extrasaction='ignore')
         if write_hdr:
             w.writeheader()
         w.writerow(fila)

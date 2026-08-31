@@ -113,7 +113,11 @@ PORTFOLIO_COLS = [
     'retorno_promedio_ultimas_5_oc',
 ]
 
-TARGET_RETORNO  = 'retorno_pct'            # Y de filas 'oc'
+TARGET_RETORNO  = 'retorno_usd'            # Y de filas 'oc'; USD y no % de capital
+                                            # porque el capital ficticio de X5 es enorme
+                                            # y LOTAJES_M no varía (rango fijo (1,1) en
+                                            # config_x5.py) — el % quedaba dominado por
+                                            # una constante, no por la señal del trade.
 TARGET_FLOTANTE = 'pnl_flotante_activo'    # Y de filas 'oc' y 'periodico'
 TARGET_CERRADO  = 'pnl_cerrado_activo'     # Y de filas 'oc'
 
@@ -138,9 +142,12 @@ def _cargar_store(activo: str) -> pd.DataFrame:
 
 
 def _n_oc(store: pd.DataFrame) -> int:
-    if store.empty or 'tipo_registro' not in store.columns:
+    """Cuenta OC con `retorno_usd` válido (excluye filas con columnas desalineadas
+    por el bug de fieldnames de `_append_x5_store`, ver docs/context/decisiones.md)."""
+    if store.empty or 'tipo_registro' not in store.columns or 'retorno_usd' not in store.columns:
         return 0
-    return int((store['tipo_registro'] == 'oc').sum())
+    es_oc = store['tipo_registro'] == 'oc'
+    return int((es_oc & store['retorno_usd'].notna()).sum())
 
 
 def _seleccionar_tipo(n_oc: int) -> str:
@@ -209,6 +216,15 @@ def _preparar_features(
         return np.array([]), np.array([]), np.array([])
 
     df = store[store['tipo_registro'].isin(tipos_registro)].copy()
+    # Filas 'oc' con retorno_usd vacío quedaron con columnas desalineadas por el
+    # bug de fieldnames de _append_x5_store (ver docs/context/decisiones.md
+    # 2026-08-31): sus otras columnas (ej. pnl_flotante_activo) no son NaN pero
+    # tampoco son confiables. Se descartan aunque el target de este head no sea
+    # retorno_usd — el filtro por `target_num.notna()` de abajo no las detecta.
+    if 'oc' in tipos_registro and 'retorno_usd' in df.columns:
+        es_oc = df['tipo_registro'] == 'oc'
+        retorno_valido = pd.to_numeric(df['retorno_usd'], errors='coerce').notna()
+        df = df[~es_oc | retorno_valido]
     target_num = pd.to_numeric(df.get(target, pd.Series(dtype=float)), errors='coerce')
     df = df[target_num.notna()]
     if df.empty:
@@ -719,7 +735,7 @@ def _rango(param_store: str, activo: str) -> tuple:
 
 def _inferir_lgbm(activo: str, models: dict, contexto: dict, feature_cols: list) -> dict:
     """
-    Busca los config_params que maximizan retorno_pct predicho mediante Optuna
+    Busca los config_params que maximizan retorno_usd predicho mediante Optuna
     (optimización bayesiana: concentra los trials en zonas prometedoras del espacio).
     """
     if not _OPTUNA_OK:
