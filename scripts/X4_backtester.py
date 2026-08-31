@@ -943,11 +943,15 @@ def _append_x5_store(activo: str, fila: dict) -> None:
             if fr.read(1) not in (b'\n', b'\r'):
                 with open(store_path, 'a', newline='') as fa:
                     fa.write('\n')
+    # decimal=',' (locale es-CL): los float se escriben con coma, por eso el
+    # delimitador de campo pasa a ';' para no chocar con la coma decimal.
+    fila_fmt = {k: (str(v).replace('.', ',') if isinstance(v, float) else v)
+                for k, v in fila.items()}
     with open(store_path, 'a', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=list(fila.keys()), extrasaction='ignore')
+        w = csv.DictWriter(f, fieldnames=list(fila.keys()), delimiter=';', extrasaction='ignore')
         if write_hdr:
             w.writeheader()
-        w.writerow(fila)
+        w.writerow(fila_fmt)
         f.flush()
 
 

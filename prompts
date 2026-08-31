@@ -499,7 +499,7 @@ Error json_act (open, C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyec
 
 Complementar el mensaje: "Cambio de SL...del valor {valor} al precio {precio}"
 
-[4]
+[4] [OK]
 /new_todo X0 & X1
 Eventualmente, ambos procesos se están deteniendo solos...terminando la ejecución
 No quiero que esto ocurra

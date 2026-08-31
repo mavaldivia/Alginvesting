@@ -1310,3 +1310,12 @@ Claude: registró la sección "Transversal" para el ítem (afecta a ambos script
 Mauricio: pidió resumen de lo hecho.
 Claude: entregó resumen conciso de los cambios en X0, X1 y config.py.
 (Cierre: 2026-08-29 20:08)
+
+## SECCIÓN 149
+Mauricio: pidió (vía `/new_todo`) que cualquier guardado o lectura de CSV en X5 use `;` como separador y `,` como decimal.
+Claude: mapeó los 3 `read_csv` en `X5_macro_brain.py` y encontró que 2 de ellos leen archivos ajenos a X5 (Data/ de X0, resources/x3/ de X3, ambos en formato estándar coma+punto) — cambiar su separador rompería el parseo. Preguntó alcance.
+Mauricio: pidió aplicar el cambio a todos los CSV del proyecto ("todos los que encuentres").
+Claude: hizo inventario completo (X0, X3, X4, X5 — Data/, Data_minuto/, resources/x3/, store de X5, equity CSVs) y planteó el riesgo de migración: los CSV ya existentes en Windows están en formato viejo y romperían al leerse con el separador nuevo. Preguntó cómo migrar.
+Mauricio: aclaró que el cambio va exclusivamente sobre `{activo}_store*.csv`, y que él se encarga de migrar los archivos existentes en Windows.
+Claude: descubrió que `X5_macro_brain.py` nunca escribe el store — solo lo lee (`_cargar_store`); el único escritor real es `_append_x5_store` en `X4_backtester.py`, invocado como subproceso (`X4 --x5`). Implementó el cambio ahí: `csv.DictWriter` con `delimiter=';'` y formateo de floats a coma decimal en `X4_backtester.py:932`, y `pd.read_csv(sep=';', decimal=',')` en `X5_macro_brain.py:128`. Validado con prueba manual del round-trip de formato. Registrado en `docs/tracking/done.md` (sección X5).
+(Cierre: 2026-08-31 11:43)

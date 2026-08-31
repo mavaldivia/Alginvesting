@@ -214,6 +214,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-31** — fix(x4,x5): `{activo}_store*.csv` en formato es-CL (`;`/`,`) — escritura en X4 (`_append_x5_store`), lectura en X5 (`_cargar_store`); acotado exclusivamente al store, no toca Data/Data_minuto/resources/x3
 - **2026-08-29** — fix(x0,x1): loop principal solo se detiene manualmente (KeyboardInterrupt) + traceback completo en `resources/{x0,x1}/logs/errores.log` en cada error capturado (antes solo `str(e)`); en X1 el try/except ahora envuelve el ciclo completo, no solo el loop por activo
 - **2026-08-29** — fix(x1): mensaje de resumen de trailing stop incluye el precio nuevo del SL ("Cambio de SL de {n} operaciones del valor {valor} al precio {sl_nuevo}")
 - **2026-08-29** — fix(x1): retry lectura JSON soportes 12x/5s (`leer_lista_N` ante `PermissionError`, antes 10x/2s)
