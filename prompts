@@ -506,3 +506,14 @@ No quiero que esto ocurra
 La detención de la ejecución de ambos scripts solo debería ser manual
 Revisa todo lo que sea necesario y agrega mensajes de traceback para trackear los errores en caso de que ocurran
 Con eso podremos facilitar el entendimiento de cualquier nueva caida indeseada
+
+--------------------
+Crea un script que lea algún store.csv y muestre análisis de ML del tipo ceteris paribus en la variable dependiente
+"Como afecta x el retorno y"....
+Quiero hacer una especie de análisis rápido y tener insights de la data almacenada en store.csv, aunque sea parcial
+Es más, para dejarlo como un archivo de DataScience como tal, crea un jupyter notebook en scripts/
+Así, podrás mostrame gráficos, insights, regresiones, etc...todo lo que se te ocurra, 
+que en una corrida rápida, y tomando como input solamente store.csv para algun activo (deja como input al comienzo: valor = 'BTCUSD')
+me permita tener una idea de cuanto están afectando los parámetros al retorno y a las otras variables dependientes (recuerdo que eran dos
+tipos de registro: histórico y oc...ideal ver el análisis por separado)
+Tambien agrega prints...como si me estuvieras contando una historia con los datos

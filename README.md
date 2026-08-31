@@ -218,6 +218,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-31** — feat(x5): features de precio px_ret/px_accel para entrenamiento
 - **2026-08-31** — fix(x0): UTC-aware en backfill + detección automática de vacíos BTC/ETH
 - **2026-08-31** — fix(x0): retry + last_error en backfill_historico ante cache MT5 vacío
 - **2026-08-31** — fix(x0): retry+atomic en descargar_datos + backfill histórico MT5

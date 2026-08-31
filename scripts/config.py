@@ -281,6 +281,11 @@ X5_WINDOW_TRAIN          = None   # None = todo el store; int = últimas N filas
 X5_LAMBDA_DECAY          = 0.001  # decay exponencial: peso = e^(-λ × días_antigüedad)
                                    # 0.001 ≈ peso 0.5 para trades de ~700 días atrás
 
+# Features de precio (px_*): retorno % en ventanas de días calendario, ancladas
+# a timestamp_oe/oa de cada fila del store. Se calculan al vuelo desde Data/
+# (no se persisten en el store) para cubrir también las filas históricas.
+X5_VENTANAS_RETORNO_DIAS = [1, 3, 5, 10, 20]
+
 # Optuna (modo LightGBM): optimizador bayesiano de hiperparámetros — concentra
 # intentos en zonas prometedoras del espacio de parámetros.
 X5_N_OPTUNA_TRIALS       = 200    # intentos por inferencia (~10-30 seg con 200)

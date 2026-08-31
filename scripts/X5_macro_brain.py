@@ -179,8 +179,8 @@ def _feature_cols_de_store(store: pd.DataFrame) -> list:
     Determina el vector de features en orden reproducible.
     Se guarda junto al modelo para garantizar consistencia en inferencia.
 
-    Orden: config params | temporal OE | X2 OE | X3 OE | portfolio |
-           temporal OA | X2 OA | X3 OA.
+    Orden: config params | temporal OE | X2 OE | X3 OE | PX OE | portfolio |
+           temporal OA | X2 OA | X3 OA | PX OA.
     Excluye columnas _oc (información del futuro, no disponible en inferencia).
     """
     cols = set(store.columns)
@@ -188,12 +188,15 @@ def _feature_cols_de_store(store: pd.DataFrame) -> list:
                    if c.startswith('x2_') and not c.endswith('_oa') and not c.endswith('_oc'))
     x3_oe = sorted(c for c in cols
                    if c.startswith('x3_') and not c.endswith('_oa') and not c.endswith('_oc'))
+    px_oe = sorted(c for c in cols
+                   if c.startswith('px_') and not c.endswith('_oa') and not c.endswith('_oc'))
     x2_oa = sorted(c for c in cols if c.startswith('x2_') and c.endswith('_oa'))
     x3_oa = sorted(c for c in cols if c.startswith('x3_') and c.endswith('_oa'))
+    px_oa = sorted(c for c in cols if c.startswith('px_') and c.endswith('_oa'))
     temp_oa = [f'{c}_oa' for c in TEMPORAL_COLS if f'{c}_oa' in cols]
 
-    ordered = (PARAM_STORE_COLS + TEMPORAL_COLS + x2_oe + x3_oe +
-               PORTFOLIO_COLS + temp_oa + x2_oa + x3_oa)
+    ordered = (PARAM_STORE_COLS + TEMPORAL_COLS + x2_oe + x3_oe + px_oe +
+               PORTFOLIO_COLS + temp_oa + x2_oa + x3_oa + px_oa)
     return [c for c in ordered if c in cols]
 
 # ─── Feature preparation ─────────────────────────────────────────────────────
@@ -317,6 +320,86 @@ def _x3_actual(activo: str) -> dict:
     return {k: v for k, v in row.items() if k not in ('DateTime', 'Unnamed: 0')}
 
 
+def _cargar_precios_historicos(activo: str) -> pd.DataFrame:
+    """Serie de cierres H1 de Data/{activo}.csv, base para las features px_*."""
+    path = cfg.CARPETA_DATA / f'{activo}.csv'
+    if not path.exists():
+        return pd.DataFrame(columns=['DateTime', 'Close'])
+    df = pd.read_csv(path, usecols=['DateTime', 'Close'])
+    df['DateTime'] = pd.to_datetime(df['DateTime'])
+    return (df.sort_values('DateTime')
+              .drop_duplicates(subset=['DateTime'])
+              .reset_index(drop=True))
+
+
+def _retornos_precio(timestamps: pd.Series, precios: pd.DataFrame,
+                      ventanas_dias: list) -> pd.DataFrame:
+    """Retorno % de precio en distintas ventanas de días calendario, ancladas a
+    `timestamps`. Usa merge_asof (backward) contra el cierre disponible más
+    reciente en `precios` — funciona igual para activos 24/7 (cripto) y con
+    sesión acotada (acciones), sin casos especiales por activo.
+    """
+    out = pd.DataFrame(index=timestamps.index)
+    if precios.empty or timestamps.empty:
+        return out
+
+    base = pd.DataFrame({'orig_idx': timestamps.index, 'DateTime': timestamps.values})
+    base = base.sort_values('DateTime')
+    actual = pd.merge_asof(base, precios, on='DateTime', direction='backward')
+    actual = actual.set_index('orig_idx')['Close'].reindex(timestamps.index)
+
+    for n in ventanas_dias:
+        pasado = base.copy()
+        pasado['DateTime'] = pasado['DateTime'] - pd.Timedelta(days=n)
+        pasado = pasado.sort_values('DateTime')
+        ref = pd.merge_asof(pasado, precios, on='DateTime', direction='backward')
+        ref = ref.set_index('orig_idx')['Close'].reindex(timestamps.index)
+        out[f'ret_{n}d'] = (actual - ref) / ref
+
+    if 'ret_1d' in out and 'ret_5d' in out:
+        out['accel_1_5d'] = out['ret_1d'] - out['ret_5d']
+    if 'ret_3d' in out and 'ret_20d' in out:
+        out['accel_3_20d'] = out['ret_3d'] - out['ret_20d']
+    return out
+
+
+def _px_actual(activo: str) -> dict:
+    """Features px_* evaluadas ahora, para el vector de inferencia."""
+    precios = _cargar_precios_historicos(activo)
+    if precios.empty:
+        return {}
+    ahora = pd.Series([pd.Timestamp.now()])
+    df = _retornos_precio(ahora, precios, cfg.X5_VENTANAS_RETORNO_DIAS)
+    return df.iloc[0].dropna().to_dict() if not df.empty else {}
+
+
+def _enriquecer_con_precios(store: pd.DataFrame, activo: str) -> pd.DataFrame:
+    """Agrega columnas px_ret_*d / px_accel_*d al store en memoria, calculadas
+    desde Data/{activo}.csv usando timestamp_oe/oa de cada fila (fallback a
+    timestamp_oc en filas 'periodico', que no tienen oe/oa). No se escriben en
+    el CSV del store: se recalculan en cada entrenamiento, así que cubren
+    también las filas históricas sin necesitar backfill.
+    """
+    if store.empty:
+        return store
+    precios = _cargar_precios_historicos(activo)
+    if precios.empty:
+        return store
+
+    store = store.copy()
+    ts_oc = pd.to_datetime(store['timestamp_oc'], errors='coerce')
+    ts_oe = pd.to_datetime(store['timestamp_oe'], errors='coerce').fillna(ts_oc)
+    ts_oa = pd.to_datetime(store['timestamp_oa'], errors='coerce').fillna(ts_oc)
+
+    ret_oe = _retornos_precio(ts_oe, precios, cfg.X5_VENTANAS_RETORNO_DIAS)
+    ret_oa = _retornos_precio(ts_oa, precios, cfg.X5_VENTANAS_RETORNO_DIAS)
+    for col in ret_oe.columns:
+        store[f'px_{col}'] = ret_oe[col].values
+    for col in ret_oa.columns:
+        store[f'px_{col}_oa'] = ret_oa[col].values
+    return store
+
+
 def _leer_contexto_actual(activo: str) -> dict:
     """
     Snapshot del contexto de mercado actual: features temporales, X2, X3.
@@ -332,6 +415,7 @@ def _leer_contexto_actual(activo: str) -> dict:
     temp = _features_temporales_ahora()
     x2   = _x2_actual(activo)
     x3   = _x3_actual(activo)
+    px   = _px_actual(activo)
 
     ctx: dict = {}
     ctx.update(temp)                                # temporal OE
@@ -339,6 +423,8 @@ def _leer_contexto_actual(activo: str) -> dict:
         ctx[f'x2_{k}'] = v                          # X2 OE
     for k, v in x3.items():
         ctx[f'x3_{k}'] = v                          # X3 OE
+    for k, v in px.items():
+        ctx[f'px_{k}'] = v                          # PX OE
     for col in PORTFOLIO_COLS:
         ctx[col] = 0.0                              # portfolio: ceros (Fase 1)
     for k, v in temp.items():
@@ -347,6 +433,8 @@ def _leer_contexto_actual(activo: str) -> dict:
         ctx[f'x2_{k}_oa'] = v                       # X2 OA (proxy = OE)
     for k, v in x3.items():
         ctx[f'x3_{k}_oa'] = v                       # X3 OA (proxy = OE)
+    for k, v in px.items():
+        ctx[f'px_{k}_oa'] = v                       # PX OA (proxy = OE)
     return ctx
 
 # ─── Inference vector ─────────────────────────────────────────────────────────
@@ -894,6 +982,7 @@ def _inferir_ftt(
 def _entrenar(activo: str) -> str:
     """Entrena el modelo apropiado según el tamaño del store. Retorna el tipo entrenado."""
     store = _cargar_store(activo)
+    store = _enriquecer_con_precios(store, activo)
     n     = _n_oc(store)
     tipo  = _seleccionar_tipo(n)
     if tipo == 'untrained':
