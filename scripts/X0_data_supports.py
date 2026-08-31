@@ -973,6 +973,18 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
             estado_compartido[llave] = (0, 0, 0.0, 'sin datos')
         return
 
+    # Con <2 velas (o rango de precio degenerado) no hay varianza para generar
+    # N soportes distintos: np.random.uniform(p_min, p_max, N) con p_min==p_max
+    # produce N floats idénticos que colapsan a 1 elemento al pasar a set(),
+    # y obtener_df_extremos revienta con RuntimeError. Se salta igual que
+    # "sin datos" en vez de crashear todo el backtest.
+    if len(df) < 2 or df['Low'].max() == df['Low'].min():
+        if verbose:
+            print(f'  Rango de precio degenerado ({len(df)} vela(s)), skip')
+        if estado_compartido is not None:
+            estado_compartido[llave] = (0, 0, 0.0, 'rango degenerado')
+        return
+
     fecha_hora_clave = df['DateTime'].iloc[-1]
     if verbose:
         print(f'  Rango: {df["DateTime"].iloc[0]} → {fecha_hora_clave} ({len(df)} velas)')

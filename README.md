@@ -214,6 +214,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-31** — fix(x0): rango de precio degenerado en obtener_df_extremos
 - **2026-08-31** — fix(x4,x5): store OC desalineado + target retorno en USD
 - **2026-08-31** — fix(x5): `_cargar_store` tolera BOM (`encoding='utf-8-sig'`, evita 0 OC si el store se migró/guardó con Excel) + los 3 prompts de `--recolectar` (todos/uno, cuál activo, reiniciar) detectan modo no interactivo con `try/except EOFError` en vez de `sys.stdin.isatty()`, poco confiable en la terminal integrada de VS Code
 - **2026-08-31** — fix(x4,x5): revertido decimal a `.` en `{activo}_store*.csv` (se mantiene solo `;` como separador de campo, sin coma decimal)
