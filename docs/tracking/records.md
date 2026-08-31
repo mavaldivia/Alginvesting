@@ -1319,3 +1319,8 @@ Claude: hizo inventario completo (X0, X3, X4, X5 — Data/, Data_minuto/, resour
 Mauricio: aclaró que el cambio va exclusivamente sobre `{activo}_store*.csv`, y que él se encarga de migrar los archivos existentes en Windows.
 Claude: descubrió que `X5_macro_brain.py` nunca escribe el store — solo lo lee (`_cargar_store`); el único escritor real es `_append_x5_store` en `X4_backtester.py`, invocado como subproceso (`X4 --x5`). Implementó el cambio ahí: `csv.DictWriter` con `delimiter=';'` y formateo de floats a coma decimal en `X4_backtester.py:932`, y `pd.read_csv(sep=';', decimal=',')` en `X5_macro_brain.py:128`. Validado con prueba manual del round-trip de formato. Registrado en `docs/tracking/done.md` (sección X5).
 (Cierre: 2026-08-31 11:43)
+
+## SECCIÓN 150
+Mauricio: avisó que se equivocó en la sesión anterior — el decimal del store CSV de X5 debía seguir siendo "." (no ","), en los mismos dos archivos ya tocados.
+Claude: revirtió solo la parte de decimal en `X4_backtester.py:932` (`_append_x5_store`, eliminado el reemplazo `.`→`,` de floats antes de escribir) y `X5_macro_brain.py:128` (`_cargar_store`, quitado `decimal=','` del `read_csv`). El delimitador `;` se mantiene sin cambios en ambos.
+(Cierre: 2026-08-31 11:51)

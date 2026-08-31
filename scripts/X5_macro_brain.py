@@ -132,7 +132,7 @@ def _cargar_store(activo: str) -> pd.DataFrame:
     # on_bad_lines='skip': una ejecución interrumpida a mitad de fila puede dejar
     # una línea parcial/concatenada en el CSV; se descarta esa fila en vez de
     # abortar toda la carga del store.
-    return pd.read_csv(path, sep=';', decimal=',', low_memory=False, on_bad_lines='skip')
+    return pd.read_csv(path, sep=';', low_memory=False, on_bad_lines='skip')
 
 
 def _n_oc(store: pd.DataFrame) -> int:
