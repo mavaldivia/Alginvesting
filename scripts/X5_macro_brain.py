@@ -132,7 +132,9 @@ def _cargar_store(activo: str) -> pd.DataFrame:
     # on_bad_lines='skip': una ejecución interrumpida a mitad de fila puede dejar
     # una línea parcial/concatenada en el CSV; se descarta esa fila en vez de
     # abortar toda la carga del store.
-    return pd.read_csv(path, sep=';', low_memory=False, on_bad_lines='skip')
+    # utf-8-sig: si el CSV se migró/guardó con Excel puede llevar BOM, que
+    # rompería el nombre de la primera columna ('tipo_registro' -> '﻿tipo_registro').
+    return pd.read_csv(path, sep=';', encoding='utf-8-sig', low_memory=False, on_bad_lines='skip')
 
 
 def _n_oc(store: pd.DataFrame) -> int:
@@ -1077,13 +1079,17 @@ def _cargar_config_x5():
 def _recolectar_preguntar_reinicio_todos(activos: list, cfg_x5) -> None:
     """Pregunta reinicio por cada activo antes de lanzar la recolección paralela
     (item 3/4: mismo inicio y mismo significado de 'reiniciar' que el modo
-    guiado). Sin TTY (cron / no interactivo) no pregunta nada — comportamiento
-    histórico intacto, ningún activo se toca."""
-    if not sys.stdin or not sys.stdin.isatty():
-        return
+    guiado). Sin stdin interactivo (cron / no interactivo, detectado por
+    EOFError en input() en vez de isatty() — poco confiable en la terminal
+    integrada de VS Code) no pregunta nada — comportamiento histórico intacto,
+    ningún activo se toca."""
     os.environ.pop('X5_DEMO_SUFFIX', None)  # namespace producción
     for a in activos:
-        if _demo_preguntar_reinicio(a):
+        try:
+            reiniciar = _demo_preguntar_reinicio(a)
+        except EOFError:
+            return
+        if reiniciar:
             _borrar_checkpoints_activo(a, cfg_x5, '')
 
 
@@ -1142,20 +1148,21 @@ def _recolectar() -> None:
 
 def _demo_pedir_activo(activos: list) -> str | None:
     """Muestra los activos disponibles numerados y devuelve el elegido."""
-    if not sys.stdin or not sys.stdin.isatty():
-        print('  El modo demo es interactivo: requiere una terminal (stdin TTY).')
-        return None
     print('\n  Activos disponibles:')
     for i, a in enumerate(activos, 1):
         print(f'    {i}. {a}')
-    while True:
-        sel = input('\n  Ingresa el número del activo para el demo '
-                    '(q para salir): ').strip()
-        if sel.lower() in ('q', 'quit', 'salir'):
-            return None
-        if sel.isdigit() and 1 <= int(sel) <= len(activos):
-            return activos[int(sel) - 1]
-        print('  Entrada inválida. Intenta de nuevo.')
+    try:
+        while True:
+            sel = input('\n  Ingresa el número del activo para el demo '
+                        '(q para salir): ').strip()
+            if sel.lower() in ('q', 'quit', 'salir'):
+                return None
+            if sel.isdigit() and 1 <= int(sel) <= len(activos):
+                return activos[int(sel) - 1]
+            print('  Entrada inválida. Intenta de nuevo.')
+    except EOFError:
+        print('  El modo demo es interactivo: requiere una terminal (stdin TTY).')
+        return None
 
 
 def _demo_preguntar_reinicio(activo: str | None = None) -> bool:
@@ -1233,16 +1240,18 @@ def _recolectar_preguntar_alcance() -> str:
     y en silencio (comportamiento histórico), o uno solo en un recorrido
     oficial guiado (mismos prints/gráficos que --demo, pero sin pausas).
 
-    Sin TTY (uso no interactivo / cron) cae a 'todos' para no romper ejecuciones
-    automatizadas existentes."""
-    if not sys.stdin or not sys.stdin.isatty():
+    Sin stdin interactivo (uso no interactivo / cron, detectado por EOFError
+    en input() en vez de isatty() — poco confiable en la terminal integrada de
+    VS Code) cae a 'todos' para no romper ejecuciones automatizadas existentes."""
+    try:
+        while True:
+            resp = input('\n  ¿Recolectar para todos los activos en paralelo, o '
+                         'para uno solo? (0 = todos, 1 = uno) [0/1]: ').strip()
+            if resp in ('0', '1'):
+                return 'todos' if resp == '0' else 'uno'
+            print('  Entrada inválida. Ingresa 0 o 1.')
+    except EOFError:
         return 'todos'
-    while True:
-        resp = input('\n  ¿Recolectar para todos los activos en paralelo, o '
-                     'para uno solo? (0 = todos, 1 = uno) [0/1]: ').strip()
-        if resp in ('0', '1'):
-            return 'todos' if resp == '0' else 'uno'
-        print('  Entrada inválida. Ingresa 0 o 1.')
 
 
 def _recolectar_guiado(activo: str, cfg_x5, n_ciclos: int, *, oficial: bool) -> None:

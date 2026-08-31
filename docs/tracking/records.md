@@ -1324,3 +1324,8 @@ Claude: descubrió que `X5_macro_brain.py` nunca escribe el store — solo lo le
 Mauricio: avisó que se equivocó en la sesión anterior — el decimal del store CSV de X5 debía seguir siendo "." (no ","), en los mismos dos archivos ya tocados.
 Claude: revirtió solo la parte de decimal en `X4_backtester.py:932` (`_append_x5_store`, eliminado el reemplazo `.`→`,` de floats antes de escribir) y `X5_macro_brain.py:128` (`_cargar_store`, quitado `decimal=','` del `read_csv`). El delimitador `;` se mantiene sin cambios en ambos.
 (Cierre: 2026-08-31 11:51)
+
+## SECCIÓN 151
+Mauricio: reportó que tras el cambio de formato del store, en Windows todos los activos aparecen con 0 OC y `--recolectar` ya no hace las 3 preguntas iniciales (todos/uno, cuál activo, reiniciar) — lanza directo los 6 workers en paralelo. Confirmó que ya había migrado los `{activo}_store.csv` a ';' por su cuenta, y que corre desde la terminal integrada de VS Code.
+Claude: diagnosticó dos causas independientes. (1) 0 OC: probable BOM agregado por Excel al migrar el CSV, que rompe el nombre de la columna `tipo_registro` (`'﻿tipo_registro'` ≠ `'tipo_registro'`) — `_cargar_store` (`X5_macro_brain.py:128`) ahora lee con `encoding='utf-8-sig'`. (2) Preguntas saltadas: `sys.stdin.isatty()` no es confiable en la terminal integrada de VS Code (ConPTY de Windows) — reemplazado en las 3 funciones gateadas (`_recolectar_preguntar_reinicio_todos`, `_demo_pedir_activo`, `_recolectar_preguntar_alcance`) por `try/except EOFError` alrededor del `input()` real, que detecta "no interactivo" (cron) sin depender de `isatty()`. Pendiente: usuario debe confirmar el diagnóstico del BOM corriendo un chequeo de los primeros bytes del CSV.
+(Cierre: 2026-08-31 12:05)

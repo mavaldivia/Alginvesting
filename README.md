@@ -214,6 +214,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-31** — fix(x5): `_cargar_store` tolera BOM (`encoding='utf-8-sig'`, evita 0 OC si el store se migró/guardó con Excel) + los 3 prompts de `--recolectar` (todos/uno, cuál activo, reiniciar) detectan modo no interactivo con `try/except EOFError` en vez de `sys.stdin.isatty()`, poco confiable en la terminal integrada de VS Code
 - **2026-08-31** — fix(x4,x5): revertido decimal a `.` en `{activo}_store*.csv` (se mantiene solo `;` como separador de campo, sin coma decimal)
 - **2026-08-31** — fix(x4,x5): `{activo}_store*.csv` usa `;` como separador de campo — escritura en X4 (`_append_x5_store`), lectura en X5 (`_cargar_store`); acotado exclusivamente al store, no toca Data/Data_minuto/resources/x3
 - **2026-08-29** — fix(x0,x1): loop principal solo se detiene manualmente (KeyboardInterrupt) + traceback completo en `resources/{x0,x1}/logs/errores.log` en cada error capturado (antes solo `str(e)`); en X1 el try/except ahora envuelve el ciclo completo, no solo el loop por activo
