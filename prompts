@@ -516,4 +516,4 @@ Así, podrás mostrame gráficos, insights, regresiones, etc...todo lo que se te
 que en una corrida rápida, y tomando como input solamente store.csv para algun activo (deja como input al comienzo: valor = 'BTCUSD')
 me permita tener una idea de cuanto están afectando los parámetros al retorno y a las otras variables dependientes (recuerdo que eran dos
 tipos de registro: histórico y oc...ideal ver el análisis por separado)
-Tambien agrega prints...como si me estuvieras contando una historia con los datos
+Tambien agrega prints...como si me estuvieras contando una historia con los datos. Escribe bastante y anda explicando conceptos técnicos en el script

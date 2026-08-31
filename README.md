@@ -117,6 +117,7 @@ scripts/
   x5_demo.py             # Narrador guiado del modo --recolectar --demo (IDs D01-D10)
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   config_x5_default.py   # Config del pipeline X5 (versionada, se carga directo — sin copia a resources/)
+  X5_analisis_exploratorio.ipynb  # Notebook: análisis ceteris paribus del store (correlaciones, regresión, PDP)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
@@ -218,6 +219,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-31** — feat(x5): notebook de análisis exploratorio ceteris paribus del store
 - **2026-08-31** — feat(x5): features de precio px_ret/px_accel para entrenamiento
 - **2026-08-31** — fix(x0): UTC-aware en backfill + detección automática de vacíos BTC/ETH
 - **2026-08-31** — fix(x0): retry + last_error en backfill_historico ante cache MT5 vacío
