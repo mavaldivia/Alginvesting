@@ -799,6 +799,32 @@ def descargar_datos(valores: list, carpeta_data: Path):
     mt5.shutdown()
 
 
+def detectar_gap_bt_eth(carpeta_data: Path, fecha_desde: datetime.datetime,
+                         umbral_horas: float = 3.0):
+    """Revisa BTCUSD/ETHUSD (mercado 24/7 — cualquier hueco real en H1 es anómalo, a
+    diferencia de las acciones que tienen huecos normales por horario de mercado) buscando
+    velas faltantes en la serie desde `fecha_desde`. Devuelve el datetime de inicio del
+    hueco más antiguo encontrado (o None si no hay ninguno) — sirve como fecha de partida
+    para un backfill automático, igual al bug que dejó `Data/` con historia truncada tras
+    un sync de OneDrive."""
+    gap_mas_antiguo = None
+    for valor in ('BTCUSD', 'ETHUSD'):
+        csv_path = carpeta_data / f'{valor}.csv'
+        if not csv_path.exists():
+            continue
+        df = _leer_csv_reintentos(csv_path)
+        df['DateTime'] = pd.to_datetime(df['DateTime'])
+        df = df[df['DateTime'] >= fecha_desde].sort_values('DateTime').reset_index(drop=True)
+        if len(df) < 2:
+            continue
+        gaps = df['DateTime'].diff()
+        for idx in gaps[gaps > pd.Timedelta(hours=umbral_horas)].index:
+            inicio_gap = df['DateTime'].iloc[idx - 1]
+            if gap_mas_antiguo is None or inicio_gap < gap_mas_antiguo:
+                gap_mas_antiguo = inicio_gap
+    return gap_mas_antiguo
+
+
 def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.datetime):
     """Trae el historial H1 completo disponible en el broker desde `fecha_desde` hasta hoy
     (vía copy_rates_range, sin el tope de 1000 velas de descargar_datos) y lo mergea con el
@@ -808,7 +834,11 @@ def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.
     if not mt5.initialize():
         raise RuntimeError(f'MT5 initialize() falló: {mt5.last_error()}')
 
-    fecha_hasta = datetime.datetime.now()
+    # copy_rates_range exige datetimes timezone-aware en UTC (documentación oficial de
+    # MetaTrader5); pasar naive dispara RES_E_INVALID_PARAMS (-2, "Terminal: invalid params").
+    if fecha_desde.tzinfo is None:
+        fecha_desde = fecha_desde.replace(tzinfo=datetime.timezone.utc)
+    fecha_hasta = datetime.datetime.now(datetime.timezone.utc)
     for valor in valores:
         print(f'\nBackfill {valor} desde {fecha_desde.date()}...')
         mt5.symbol_select(valor, True)
@@ -1441,6 +1471,15 @@ if __name__ == '__main__':
                         descargar_datos(VALORES, CARPETA_DATA)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, 'Descarga H1 falló, continuando con datos existentes', e)
+                    try:
+                        fecha_inicial_dt = datetime.datetime.strptime(FECHA_INICIAL, '%Y-%m-%d')
+                        gap = detectar_gap_bt_eth(CARPETA_DATA, fecha_inicial_dt)
+                        if gap is not None:
+                            print(f'\n⚠ Vacío detectado en BTC/ETH desde {gap} — '
+                                  f'backfill automático para todos los activos')
+                            backfill_historico(VALORES, CARPETA_DATA, gap)
+                    except Exception as e:
+                        _log_error(CARPETA_LOGS, 'Detección/backfill de vacíos falló, continuando', e)
                     try:
                         descargar_datos_minuto(VALORES, CARPETA_DATA_MINUTO)
                     except Exception as e:
