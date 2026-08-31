@@ -218,6 +218,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-31** — fix(x0): retry + last_error en backfill_historico ante cache MT5 vacío
 - **2026-08-31** — fix(x0): retry+atomic en descargar_datos + backfill histórico MT5
 - **2026-08-31** — fix(x0): rango de precio degenerado en obtener_df_extremos
 - **2026-08-31** — fix(x4,x5): store OC desalineado + target retorno en USD

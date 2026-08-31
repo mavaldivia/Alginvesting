@@ -812,10 +812,27 @@ def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.
     for valor in valores:
         print(f'\nBackfill {valor} desde {fecha_desde.date()}...')
         mt5.symbol_select(valor, True)
-        rates = mt5.copy_rates_range(valor, mt5.TIMEFRAME_H1, fecha_desde, fecha_hasta)
+
+        # copy_rates_range devuelve None (sin excepción) cuando el terminal todavía no
+        # tiene esa historia cacheada localmente: la primera llamada dispara la descarga
+        # al servidor del broker en segundo plano y el resultado no está listo todavía.
+        # Reintentar con espera le da tiempo a esa descarga antes de rendirse.
+        rates = None
+        intentos_backfill = 5
+        for intento in range(intentos_backfill):
+            rates = mt5.copy_rates_range(valor, mt5.TIMEFRAME_H1, fecha_desde, fecha_hasta)
+            if rates is not None and len(rates) > 0:
+                break
+            if intento < intentos_backfill - 1:
+                print(f'  Sin datos aún (intento {intento + 1}/{intentos_backfill}, '
+                      f'last_error={mt5.last_error()}), esperando descarga del broker...')
+                time.sleep(3)
 
         if rates is None or len(rates) == 0:
-            print(f'  Sin datos para {valor}, skip')
+            print(f'  Sin datos para {valor} tras {intentos_backfill} intentos '
+                  f'(last_error={mt5.last_error()}) — probablemente el terminal no tiene '
+                  f'esa historia cacheada. Abre el gráfico H1 de {valor} en MT5 y haz scroll '
+                  f'hasta {fecha_desde.date()} para forzar la descarga, luego reintenta.')
             continue
 
         df = pd.DataFrame(rates)
