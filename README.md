@@ -200,6 +200,10 @@ python scripts/X0_data_supports.py --opcion 2
 # Loop continuo (reinicia el ciclo completo al terminar)
 python scripts/X0_data_supports.py --opcion 1 --loop
 
+# Backfill puntual: trae historial H1 completo desde una fecha vía MT5
+# (copy_rates_range, sin el tope de 1000 velas), mergea con el CSV existente y termina
+python scripts/X0_data_supports.py --backfill 2015-01-01
+
 # Ejecutar loop de trading
 python scripts/X1_trading.py
 
@@ -214,6 +218,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-08-31** — fix(x0): retry+atomic en descargar_datos + backfill histórico MT5
 - **2026-08-31** — fix(x0): rango de precio degenerado en obtener_df_extremos
 - **2026-08-31** — fix(x4,x5): store OC desalineado + target retorno en USD
 - **2026-08-31** — fix(x5): `_cargar_store` tolera BOM (`encoding='utf-8-sig'`, evita 0 OC si el store se migró/guardó con Excel) + los 3 prompts de `--recolectar` (todos/uno, cuál activo, reiniciar) detectan modo no interactivo con `try/except EOFError` en vez de `sys.stdin.isatty()`, poco confiable en la terminal integrada de VS Code

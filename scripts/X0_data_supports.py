@@ -730,6 +730,42 @@ def obtener_ordenes_activas_mt5(valores: list) -> dict:
         return {v: [] for v in valores}
 
 
+def _leer_csv_reintentos(csv_path: Path, intentos: int = 5, espera: float = 0.5) -> pd.DataFrame:
+    """Lee un CSV con reintentos ante OSError transitorios (sync de OneDrive u otro
+    proceso escribiendo el mismo archivo), mismo patrón que `json_act`.
+
+    Sin esto, una lectura que agarra el archivo a mitad de un sync puede devolver
+    una versión parcial sin lanzar excepción — y el merge subsiguiente la escribiría
+    como si fuera el histórico completo, perdiendo todo lo anterior en silencio."""
+    for intento in range(intentos):
+        try:
+            return pd.read_csv(csv_path)
+        except OSError:
+            if intento == intentos - 1:
+                raise
+            time.sleep(espera)
+
+
+def _guardar_csv_atomico(data: pd.DataFrame, csv_path: Path) -> None:
+    """Escribe a un .tmp y hace os.replace, para que un lector concurrente nunca
+    vea el archivo truncado a mitad de escritura (mismo patrón que json_act)."""
+    tmp_path = csv_path.with_suffix(csv_path.suffix + '.tmp')
+    data.to_csv(tmp_path, index=False)
+    os.replace(tmp_path, csv_path)
+
+
+def _mergear_con_historico(df: pd.DataFrame, csv_path: Path) -> pd.DataFrame:
+    df['DateTime'] = pd.to_datetime(df['DateTime'])
+    if csv_path.exists():
+        data_old = _leer_csv_reintentos(csv_path)
+        data_old['DateTime'] = pd.to_datetime(data_old['DateTime'])
+        return (pd.concat([df, data_old])
+                .drop_duplicates(subset=['DateTime'])
+                .sort_values('DateTime')
+                .reset_index(drop=True))
+    return df
+
+
 def descargar_datos(valores: list, carpeta_data: Path):
     import MetaTrader5 as mt5
 
@@ -756,19 +792,41 @@ def descargar_datos(valores: list, carpeta_data: Path):
 
         # Merge con histórico: los datos nuevos tienen prioridad para pisar la última vela abierta
         csv_path = carpeta_data / f'{valor}.csv'
-        if csv_path.exists():
-            data_old = pd.read_csv(csv_path)
-            data_old['DateTime'] = pd.to_datetime(data_old['DateTime'])
-            df['DateTime'] = pd.to_datetime(df['DateTime'])
-            data = (pd.concat([df, data_old])
-                    .drop_duplicates(subset=['DateTime'])
-                    .sort_values('DateTime')
-                    .reset_index(drop=True))
-        else:
-            data = df
-
-        data.to_csv(csv_path, index=False)
+        data = _mergear_con_historico(df, csv_path)
+        _guardar_csv_atomico(data, csv_path)
         print(f'  Guardado: {csv_path.name} ({len(data)} velas, último: {df["DateTime"].iloc[-1]})')
+
+    mt5.shutdown()
+
+
+def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.datetime):
+    """Trae el historial H1 completo disponible en el broker desde `fecha_desde` hasta hoy
+    (vía copy_rates_range, sin el tope de 1000 velas de descargar_datos) y lo mergea con el
+    CSV existente. Uso puntual (`--backfill`), no se llama desde el loop normal."""
+    import MetaTrader5 as mt5
+
+    if not mt5.initialize():
+        raise RuntimeError(f'MT5 initialize() falló: {mt5.last_error()}')
+
+    fecha_hasta = datetime.datetime.now()
+    for valor in valores:
+        print(f'\nBackfill {valor} desde {fecha_desde.date()}...')
+        mt5.symbol_select(valor, True)
+        rates = mt5.copy_rates_range(valor, mt5.TIMEFRAME_H1, fecha_desde, fecha_hasta)
+
+        if rates is None or len(rates) == 0:
+            print(f'  Sin datos para {valor}, skip')
+            continue
+
+        df = pd.DataFrame(rates)
+        df['time'] = pd.to_datetime(df['time'], unit='s')
+        df.columns = ['DateTime', 'Open', 'High', 'Low', 'Close', 'Tick_Volume', 'Spread', 'Real_Volume']
+
+        csv_path = carpeta_data / f'{valor}.csv'
+        data = _mergear_con_historico(df, csv_path)
+        _guardar_csv_atomico(data, csv_path)
+        print(f'  Guardado: {csv_path.name} ({len(data)} velas totales, {len(df)} traídas del broker, '
+              f'rango {data["DateTime"].min()} → {data["DateTime"].max()})')
 
     mt5.shutdown()
 
@@ -798,18 +856,8 @@ def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path):
         df.columns = ['DateTime', 'Open', 'High', 'Low', 'Close', 'Tick_Volume', 'Spread', 'Real_Volume']
 
         csv_path = carpeta_data_minuto / f'{valor}.csv'
-        if csv_path.exists():
-            data_old = pd.read_csv(csv_path)
-            data_old['DateTime'] = pd.to_datetime(data_old['DateTime'])
-            df['DateTime'] = pd.to_datetime(df['DateTime'])
-            data = (pd.concat([df, data_old])
-                    .drop_duplicates(subset=['DateTime'])
-                    .sort_values('DateTime')
-                    .reset_index(drop=True))
-        else:
-            data = df
-
-        data.to_csv(csv_path, index=False)
+        data = _mergear_con_historico(df, csv_path)
+        _guardar_csv_atomico(data, csv_path)
         print(f'  Guardado: {csv_path.name} ({len(data)} velas M1, último: {df["DateTime"].iloc[-1]})')
 
     mt5.shutdown()
@@ -1326,11 +1374,20 @@ if __name__ == '__main__':
                         help='0=solo datos, 1=solo soportes, 2=ambos (default)')
     parser.add_argument('--ciclos', type=int, default=0,
                         help='Número de ciclos a ejecutar. 0 = infinito (default).')
+    parser.add_argument('--backfill', type=str, default=None, metavar='YYYY-MM-DD',
+                        help='Trae historial H1 completo desde esta fecha vía MT5 '
+                             '(copy_rates_range, sin tope de 1000 velas), lo mergea '
+                             'con el CSV existente y termina. No entra al loop.')
     args = parser.parse_args()
 
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
     CARPETA_DATA_MINUTO.mkdir(parents=True, exist_ok=True)
     CARPETA_N_PROD.mkdir(parents=True, exist_ok=True)
+
+    if args.backfill:
+        fecha_desde = datetime.datetime.strptime(args.backfill, '%Y-%m-%d')
+        backfill_historico(VALORES, CARPETA_DATA, fecha_desde)
+        sys.exit(0)
 
     t_inicio_script = time.time()
 
