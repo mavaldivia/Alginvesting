@@ -1,0 +1,2433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X4 &amp; X5 — mapa interactivo</title>
+<style>
+:root{
+  --bg:#fbfaf8; --card:#ffffff; --card2:#f5f4f1; --ink:#1c1f23; --ink2:#3d434b;
+  --muted:#6b7280; --line:#e2e0dc; --line2:#cfccc6;
+  --x4:#2563eb; --x4s:#dbeafe; --x5:#7c3aed; --x5s:#ede9fe;
+  --ok:#15803d; --oks:#dcfce7; --warn:#b45309; --warns:#fef3c7;
+  --dgr:#dc2626; --dgrs:#fee2e2; --code:#f6f5f2; --shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px -12px rgba(0,0,0,.12);
+}
+:root[data-theme="dark"], :root:not([data-theme="light"]){}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1216; --card:#161a20; --card2:#1c2128; --ink:#e6e8eb; --ink2:#c2c7ce;
+    --muted:#8d949e; --line:#262c34; --line2:#39414c;
+    --x4:#6ea8fe; --x4s:#16233a; --x5:#c4a2fc; --x5s:#241a3a;
+    --ok:#4ade80; --oks:#12241a; --warn:#fbbf24; --warns:#2a1f0a;
+    --dgr:#f87171; --dgrs:#2a1416; --code:#11151a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1216; --card:#161a20; --card2:#1c2128; --ink:#e6e8eb; --ink2:#c2c7ce;
+  --muted:#8d949e; --line:#262c34; --line2:#39414c;
+  --x4:#6ea8fe; --x4s:#16233a; --x5:#c4a2fc; --x5s:#241a3a;
+  --ok:#4ade80; --oks:#12241a; --warn:#fbbf24; --warns:#2a1f0a;
+  --dgr:#f87171; --dgrs:#2a1416; --code:#11151a;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:80px}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:15px/1.65 ui-sans-serif,-apple-system,"Segoe UI",Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+
+/* ── topbar ─────────────────────────────────────────────── */
+.top{
+  position:sticky; top:0; z-index:50; background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(12px); border-bottom:1px solid var(--line);
+}
+.top .in{max-width:1420px; margin:0 auto; padding:10px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.brand{font-weight:680; letter-spacing:-.01em; font-size:15px; margin-right:auto; display:flex; align-items:center; gap:9px}
+.brand .b4{color:var(--x4)} .brand .b5{color:var(--x5)}
+.brand small{font-weight:450; color:var(--muted); font-size:12.5px}
+.ctl{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted)}
+.btn{
+  border:1px solid var(--line2); background:var(--card); color:var(--ink2); cursor:pointer;
+  border-radius:7px; padding:5px 11px; font:inherit; font-size:12.5px; line-height:1.3;
+}
+.btn:hover{border-color:var(--x4); color:var(--x4)}
+.btn.on{background:var(--x4); border-color:var(--x4); color:#fff}
+
+/* ── layout ─────────────────────────────────────────────── */
+.wrap{max-width:1420px; margin:0 auto; padding:0 22px; display:grid; grid-template-columns:236px minmax(0,1fr); gap:38px}
+nav.side{position:sticky; top:64px; align-self:start; max-height:calc(100vh - 84px); overflow-y:auto; padding:22px 0 40px; font-size:13.2px}
+nav.side .grp{color:var(--muted); text-transform:uppercase; letter-spacing:.07em; font-size:10.5px; font-weight:680; margin:16px 0 6px}
+nav.side a{display:block; color:var(--ink2); text-decoration:none; padding:4px 10px; border-left:2px solid transparent; border-radius:0 5px 5px 0}
+nav.side a:hover{background:var(--card2); color:var(--ink)}
+nav.side a.act{border-left-color:var(--x4); color:var(--x4); background:var(--card2); font-weight:560}
+main{padding:26px 0 120px; min-width:0}
+@media(max-width:1000px){
+  .wrap{grid-template-columns:1fr; gap:0}
+  nav.side{position:static; max-height:none; border-bottom:1px solid var(--line); padding-bottom:14px}
+  nav.side .navbox{display:flex; flex-wrap:wrap; gap:4px}
+  nav.side .grp{width:100%}
+}
+
+/* ── typography ─────────────────────────────────────────── */
+h1{font-size:29px; letter-spacing:-.022em; margin:8px 0 8px; line-height:1.2}
+h2{font-size:22px; letter-spacing:-.018em; margin:56px 0 6px; padding-top:10px; line-height:1.25}
+h2 .num{color:var(--muted); font-weight:450; margin-right:9px; font-variant-numeric:tabular-nums}
+h3{font-size:16px; letter-spacing:-.01em; margin:0; line-height:1.35}
+h4{font-size:13.5px; margin:22px 0 6px; color:var(--ink2); letter-spacing:.005em}
+p{margin:10px 0}
+.lead{font-size:16.5px; color:var(--ink2); line-height:1.6}
+.sub{color:var(--muted); font-size:13.5px; margin:2px 0 20px}
+ul,ol{margin:10px 0; padding-left:22px}
+li{margin:5px 0}
+b,strong{font-weight:640}
+hr{border:0; border-top:1px solid var(--line); margin:38px 0}
+
+/* ── glossary term ──────────────────────────────────────── */
+.g{
+  font-style:normal; border-bottom:1.5px dotted var(--x5); cursor:help;
+  color:inherit; white-space:nowrap;
+}
+.g:hover{background:var(--x5s); border-radius:3px}
+#tip{
+  position:fixed; z-index:200; max-width:340px; background:var(--card); color:var(--ink);
+  border:1px solid var(--line2); border-radius:9px; padding:10px 13px; font-size:13px; line-height:1.5;
+  box-shadow:var(--shadow); pointer-events:none; opacity:0; transition:opacity .1s; display:none;
+}
+#tip.on{opacity:1; display:block}
+#tip b{display:block; color:var(--x5); font-size:12px; letter-spacing:.02em; margin-bottom:3px; font-family:ui-monospace,monospace}
+
+/* ── cards + niveles ────────────────────────────────────── */
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:16px 18px 4px; margin:16px 0; box-shadow:var(--shadow); position:relative;
+}
+.card.x4{border-left:3px solid var(--x4)}
+.card.x5{border-left:3px solid var(--x5)}
+.ch{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-bottom:2px}
+.ch h3{margin-right:auto}
+.hint{font-size:11.5px; color:var(--muted); white-space:nowrap}
+.dots{display:flex; gap:4px}
+.dots button{
+  width:19px; height:19px; padding:0; border-radius:50%; border:1.5px solid var(--line2);
+  background:transparent; cursor:pointer; font-size:10px; color:var(--muted); line-height:1;
+  display:grid; place-items:center;
+}
+.dots button:hover{border-color:var(--x4); color:var(--x4)}
+.dots button.f{background:var(--x4); border-color:var(--x4); color:#fff}
+.card .l{padding-bottom:12px}
+.card[data-lvl="1"] .l2,.card[data-lvl="1"] .l3,.card[data-lvl="2"] .l3{display:none}
+.lvltag{
+  display:inline-block; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--muted); background:var(--card2); border:1px solid var(--line);
+  border-radius:20px; padding:1px 9px; margin:14px 0 2px; font-weight:620;
+}
+
+/* ── code ───────────────────────────────────────────────── */
+pre{
+  background:var(--code); border:1px solid var(--line); border-radius:9px;
+  padding:13px 15px; overflow-x:auto; font-size:12.6px; line-height:1.62; margin:12px 0;
+}
+pre code{white-space:pre}
+.k{color:var(--x5); font-weight:600}          /* keyword */
+.s{color:var(--ok)}                            /* string */
+.c{color:var(--muted); font-style:italic}      /* comment */
+.n{color:var(--warn)}                          /* number */
+.fn{color:var(--x4)}                           /* def name */
+code:not(pre code){
+  background:var(--card2); border:1px solid var(--line); border-radius:5px;
+  padding:1px 5px; font-size:.885em;
+}
+.ref{color:var(--muted); font-size:12px}
+
+/* ── boxes ──────────────────────────────────────────────── */
+.note,.warnbox,.key{
+  border-radius:9px; padding:11px 14px; margin:13px 0; font-size:13.8px; line-height:1.6;
+  border:1px solid var(--line);
+}
+.note{background:var(--card2)}
+.warnbox{background:var(--warns); border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.key{background:var(--x5s); border-color:color-mix(in srgb,var(--x5) 32%,transparent)}
+.note .t,.warnbox .t,.key .t{
+  display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+  font-weight:700; margin-bottom:4px; color:var(--muted);
+}
+.warnbox .t{color:var(--warn)} .key .t{color:var(--x5)}
+
+/* ── tables ─────────────────────────────────────────────── */
+.tw{overflow-x:auto; margin:14px 0}
+table{border-collapse:collapse; width:100%; font-size:13.2px; min-width:520px}
+th,td{text-align:left; padding:7px 11px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-size:11px; text-transform:uppercase; letter-spacing:.055em; color:var(--muted); font-weight:680; white-space:nowrap}
+tbody tr:hover{background:var(--card2)}
+td code{font-size:12px}
+
+/* ── chips / states ─────────────────────────────────────── */
+.chips{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0}
+.chip{
+  border:1px solid var(--line2); border-radius:20px; padding:3px 11px; font-size:12.3px;
+  background:var(--card2); color:var(--ink2); font-weight:560;
+}
+.chip.o0{border-color:var(--muted)}
+.chip.oe{border-color:var(--x4); color:var(--x4); background:var(--x4s)}
+.chip.oa{border-color:var(--warn); color:var(--warn); background:var(--warns)}
+.chip.oc{border-color:var(--ok); color:var(--ok); background:var(--oks)}
+
+/* ── steps A-F ──────────────────────────────────────────── */
+.steps{margin:16px 0; border-left:2px solid var(--line); padding-left:0}
+.step{position:relative; padding:0 0 4px 42px; margin-bottom:6px}
+.step .badge{
+  position:absolute; left:-15px; top:1px; width:28px; height:28px; border-radius:50%;
+  display:grid; place-items:center; font-weight:700; font-size:13px;
+  background:var(--card); border:2px solid var(--x4); color:var(--x4);
+}
+.step h4{margin:2px 0 2px; font-size:14.5px; color:var(--ink)}
+.step p{margin:2px 0 6px; font-size:13.6px; color:var(--ink2)}
+
+/* ── svg figures ────────────────────────────────────────── */
+figure{margin:20px 0; padding:0}
+figure svg{width:100%; height:auto; display:block; background:var(--card); border:1px solid var(--line); border-radius:11px}
+figcaption{font-size:12.5px; color:var(--muted); margin-top:7px; text-align:center}
+.sv-box{fill:var(--card2); stroke:var(--line2); stroke-width:1.2}
+.sv-b4{fill:var(--x4s); stroke:var(--x4); stroke-width:1.4}
+.sv-b5{fill:var(--x5s); stroke:var(--x5); stroke-width:1.4}
+.sv-bok{fill:var(--oks); stroke:var(--ok); stroke-width:1.4}
+.sv-bw{fill:var(--warns); stroke:var(--warn); stroke-width:1.4}
+.sv-bd{fill:var(--dgrs); stroke:var(--dgr); stroke-width:1.6}
+.sv-dash{fill:none; stroke:var(--line2); stroke-width:1.2; stroke-dasharray:4 4}
+.sv-t{fill:var(--ink); font-size:13px; font-family:ui-sans-serif,system-ui,sans-serif}
+.sv-tb{fill:var(--ink); font-size:13.5px; font-weight:660; font-family:ui-sans-serif,system-ui,sans-serif}
+.sv-tm{fill:var(--muted); font-size:11.5px; font-family:ui-sans-serif,system-ui,sans-serif}
+.sv-tc{fill:var(--ink2); font-size:11.5px; font-family:ui-monospace,monospace}
+.sv-l{fill:none; stroke:var(--line2); stroke-width:1.6}
+.sv-a4{fill:none; stroke:var(--x4); stroke-width:1.9}
+.sv-a5{fill:none; stroke:var(--x5); stroke-width:1.9}
+.sv-ad{fill:none; stroke:var(--dgr); stroke-width:1.9}
+
+/* ── misc ───────────────────────────────────────────────── */
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin:14px 0}
+.mini{background:var(--card2); border:1px solid var(--line); border-radius:9px; padding:12px 14px}
+.mini h4{margin:0 0 5px; font-size:13px; color:var(--ink)}
+.mini p{margin:0; font-size:13px; color:var(--ink2)}
+blockquote{
+  margin:16px 0; padding:12px 16px; border-left:3px solid var(--x5);
+  background:var(--x5s); border-radius:0 9px 9px 0; font-size:14px; color:var(--ink2);
+}
+blockquote p{margin:5px 0}
+.kbd{
+  border:1px solid var(--line2); border-bottom-width:2px; border-radius:5px; padding:0 5px;
+  font-size:11.5px; background:var(--card2); font-family:ui-monospace,monospace;
+}
+</style>
+</head>
+<body>
+
+<div id="tip"></div>
+
+<div class="top">
+  <div class="in">
+    <div class="brand"><span class="b4">X4</span> · <span class="b5">X5</span>
+      <small>mapa interactivo — backtester y cerebro macro</small></div>
+    <div class="ctl">
+      <span>nivel global:</span>
+      <button class="btn" data-all="1">1 · resumen</button>
+      <button class="btn" data-all="2">2 · detalle</button>
+      <button class="btn" data-all="3">3 · full</button>
+    </div>
+    <div class="ctl"><button class="btn" id="theme">tema</button></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<nav class="side">
+  <div class="navbox">
+    <div class="grp">Orientación</div>
+    <a href="#mapa">0 · Mapa general</a>
+    <a href="#vocab">0.1 · Vocabulario</a>
+    <a href="#relojes">0.2 · Los tres relojes</a>
+    <div class="grp">X4 — Backtester</div>
+    <a href="#x4-contrato">1 · Contrato</a>
+    <a href="#x4-estado">2 · El estado</a>
+    <a href="#x4-loop">3 · Loop principal</a>
+    <a href="#x4-pasos">4 · Pasos A–F</a>
+    <a href="#x4-intravela">5 · Intra-vela</a>
+    <a href="#x4-cuenta">6 · Contabilidad</a>
+    <a href="#x4-x5mode">7 · Modo <code>--x5</code></a>
+    <div class="grp">X5 — Cerebro macro</div>
+    <a href="#x5-que">8 · Qué es</a>
+    <a href="#x5-store">9 · El store</a>
+    <a href="#x5-recolectar">10 · Recolección</a>
+    <a href="#x5-train">11 · Entrenamiento</a>
+    <a href="#x5-infer">12 · Inferencia</a>
+    <div class="grp">La pregunta</div>
+    <a href="#pregunta">13 · Retorno acumulado y atribución de params</a>
+    <div class="grp">Cierre</div>
+    <a href="#interaccion">14 · Interacción X4↔X5</a>
+    <a href="#params">15 · Perillas</a>
+    <a href="#anexo">16 · Anexo: archivos</a>
+  </div>
+</nav>
+
+<main>
+
+<h1>X4 &amp; X5 — de la vela horaria al parámetro recomendado</h1>
+<p class="lead">Este documento reemplaza a <code>algoritmos.pdf</code> en lo que respecta a X4 y X5, con tres diferencias:
+los algoritmos están en <b>notación Python</b>, todo tiene <b>tres niveles de profundidad</b> (doble clic en cualquier
+tarjeta para bajar un nivel), y los <b>conceptos subrayados</b> muestran su definición al pasar el mouse.</p>
+<p class="sub">Refleja el código a <b>2026-09-05</b>. X5 cambió desde <code>algoritmos.pdf</code>: ahora existe el
+head <code>acumulado</code> sobre <span class="g" data-g="tramo">tramos</span>, que es el que gobierna la elección de
+parámetros en inferencia (§13).</p>
+
+<div class="key">
+  <span class="t">Cómo usar esta página</span>
+  <b>Doble clic</b> en cualquier tarjeta baja un nivel de detalle (1 → 2 → 3 → 1). También sirven los tres puntitos
+  de cada tarjeta, o los botones de <b>nivel global</b> arriba. El nivel 1 es el mapa mental; el 2 explica el mecanismo;
+  el 3 muestra el código y sus casos borde. Los términos con <span class="g" data-g="OE">subrayado punteado</span>
+  tienen definición al hacer hover.
+</div>
+
+
+<!-- ═══════════════════════════ 0 · MAPA ═══════════════════════════ -->
+<h2 id="mapa"><span class="num">0</span>El mapa general</h2>
+<p>Antes de cualquier detalle, la única imagen que hay que tener en la cabeza. El sistema tiene seis scripts;
+este documento cubre los dos de la derecha. La flecha de arriba y la de abajo forman <b>un bucle cerrado</b>:
+eso es todo X4+X5.</p>
+
+<figure>
+<svg viewBox="0 0 1000 470" role="img" aria-label="Mapa general del sistema">
+  <defs>
+    <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--x4)"/></marker>
+    <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--x5)"/></marker>
+    <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--line2)"/></marker>
+  </defs>
+
+  <!-- fuentes -->
+  <rect class="sv-box" x="20" y="58" width="200" height="46" rx="9"/>
+  <text class="sv-tb" x="34" y="80">X0 — soportes</text><text class="sv-tm" x="34" y="95">los N niveles óptimos, as-of-t</text>
+  <rect class="sv-box" x="20" y="118" width="200" height="46" rx="9"/>
+  <text class="sv-tb" x="34" y="140">X2 — fundamental</text><text class="sv-tm" x="34" y="155">score [0,1] por activo</text>
+  <rect class="sv-box" x="20" y="178" width="200" height="46" rx="9"/>
+  <text class="sv-tb" x="34" y="200">X3 — técnicas</text><text class="sv-tm" x="34" y="215">RSI, ATR, SMA, distancia…</text>
+  <rect class="sv-box" x="20" y="238" width="200" height="46" rx="9"/>
+  <text class="sv-tb" x="34" y="260">Data/ · Data_minuto/</text><text class="sv-tm" x="34" y="275">velas H1 y M1</text>
+
+  <path class="sv-l" marker-end="url(#arg)" d="M220,81 H236 Q246,81 246,110 V140"/>
+  <path class="sv-l" marker-end="url(#arg)" d="M220,141 H246"/>
+  <path class="sv-l" marker-end="url(#arg)" d="M220,201 H236 Q246,201 246,175 V145"/>
+  <path class="sv-l" marker-end="url(#arg)" d="M220,261 H236 Q246,261 246,200 V145"/>
+
+  <!-- X4 -->
+  <rect class="sv-b4" x="250" y="45" width="300" height="290" rx="13" fill-opacity=".35"/>
+  <text class="sv-tb" x="268" y="72" style="fill:var(--x4); font-size:15px">X4 — Backtester</text>
+  <rect class="sv-box" x="268" y="88" width="264" height="38" rx="7"/>
+  <text class="sv-t" x="282" y="112">loop de velas H1 → pasos A–F</text>
+  <rect class="sv-box" x="268" y="134" width="264" height="38" rx="7"/>
+  <text class="sv-t" x="282" y="158">recálculo de soportes (X0 as-of-t)</text>
+  <rect class="sv-box" x="268" y="180" width="264" height="38" rx="7"/>
+  <text class="sv-t" x="282" y="204">simulación intra-vela (M1)</text>
+  <rect class="sv-box" x="268" y="226" width="264" height="38" rx="7"/>
+  <text class="sv-t" x="282" y="250">contabilidad + stop out</text>
+  <rect class="sv-dash" x="268" y="272" width="264" height="44" rx="7"/>
+  <text class="sv-tc" x="282" y="290">trades.json · events.json</text>
+  <text class="sv-tc" x="282" y="306">equity_global.csv · equity_activos.csv</text>
+
+  <!-- X5 -->
+  <rect class="sv-b5" x="650" y="45" width="330" height="290" rx="13" fill-opacity=".35"/>
+  <text class="sv-tb" x="668" y="72" style="fill:var(--x5); font-size:15px">X5 — Cerebro macro</text>
+  <rect class="sv-box" x="668" y="88" width="294" height="38" rx="7"/>
+  <text class="sv-t" x="682" y="112">store: {ACTIVO}_store.csv</text>
+  <rect class="sv-box" x="668" y="134" width="294" height="38" rx="7"/>
+  <text class="sv-t" x="682" y="158">entrenar: lgbm · ftt · acumulado</text>
+  <rect class="sv-box" x="668" y="180" width="294" height="38" rx="7"/>
+  <text class="sv-t" x="682" y="204">inferir: Optuna · gradient ascent</text>
+  <rect class="sv-box" x="668" y="226" width="294" height="38" rx="7"/>
+  <text class="sv-t" x="682" y="250">airbag (solo en vivo)</text>
+  <rect class="sv-dash" x="668" y="272" width="294" height="44" rx="7"/>
+  <text class="sv-tc" x="682" y="290">config/active_parameters.json</text>
+  <text class="sv-tc" x="682" y="306">models/{ACTIVO}/…  Performance/…</text>
+
+  <!-- bucle -->
+  <path class="sv-a4" marker-end="url(#ar4)" d="M400,45 V22 H815 V45"/>
+  <text class="sv-tb" x="607" y="16" text-anchor="middle" style="fill:var(--x4)">cada OC cerrada → una fila del store</text>
+  <path class="sv-a5" marker-end="url(#ar5)" d="M815,335 V362 H400 V335"/>
+  <text class="sv-tb" x="607" y="382" text-anchor="middle" style="fill:var(--x5)">cada tramo (≈5 días) → params nuevos: explore o exploit</text>
+
+  <!-- X1 -->
+  <rect class="sv-bok" x="650" y="400" width="330" height="46" rx="9" fill-opacity=".4"/>
+  <text class="sv-tb" x="668" y="422">X1 — trading en vivo (Fase 2)</text>
+  <text class="sv-tm" x="668" y="437">lee active_parameters.json por activo</text>
+  <path class="sv-l" marker-end="url(#arg)" d="M900,335 V400"/>
+</svg>
+<figcaption>El bucle: X4 es el laboratorio, X5 el experimentador. X5 diseña las condiciones (params), X4 corre el
+experimento y devuelve resultados (filas del store), X5 aprende y diseña el siguiente.</figcaption>
+</figure>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3>Por qué son inseparables</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>X5 necesita datos que no existen.</b> Para aprender qué parámetros funcionan en cada contexto hacen falta
+    miles de operaciones cerradas etiquetadas. En vivo eso tomaría años; X5 las fabrica corriendo X4 sobre el pasado.</p>
+    <p><b>X4 necesita saber con qué parámetros simular.</b> Si siempre usara los mismos, el dataset no tendría
+    variedad y ningún modelo aprendería. Por eso, en modo <code>--x5</code>, X4 cambia de parámetros cada pocos días
+    simulados: a veces al azar (<span class="g" data-g="explore">explore</span>), a veces preguntándole al modelo
+    (<span class="g" data-g="exploit">exploit</span>).</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · el bucle en concreto</span>
+    <p>El bucle no es una metáfora: son dos <code>subprocess</code> y un CSV.</p>
+    <pre><code><span class="c"># X5 lanza X4 como subproceso, una vez por ciclo, por activo</span>
+cmd = [sys.executable, <span class="s">'scripts/X4_backtester.py'</span>, <span class="s">'--x5'</span>, <span class="s">'--activo'</span>, activo]
+proc = subprocess.run(cmd)
+
+<span class="c"># dentro de X4, cada ~5 días simulados:</span>
+<span class="k">import</span> X5_macro_brain <span class="k">as</span> X5
+params = X5.inferir_con_contexto(activo, tipo, bundle, ctx_as_of_t, ...)
+
+<span class="c"># y cada orden que cierra escribe en el mismo CSV que X5 leerá después</span>
+_append_x5_store(activo, _construir_fila_oc(...))   <span class="c"># resources/x5/{ACTIVO}_store.csv</span></code></pre>
+    <p>Es decir: <b>X5 importa a X4 por CLI, y X4 importa a X5 como módulo</b>. La dependencia circular funciona
+    porque el import de X5 dentro de X4 es perezoso (dentro de la función, no en la cabecera).</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · quién llama a quién, exacto</span>
+    <div class="tw"><table>
+      <thead><tr><th>Desde</th><th>Llama a</th><th>Cómo</th><th>Cuándo</th></tr></thead>
+      <tbody>
+        <tr><td><code>X5 --recolectar</code></td><td><code>X4 --x5 --activo A</code></td><td><code>subprocess.run</code></td><td>1 vez por ciclo, por activo</td></tr>
+        <tr><td><code>X4.ejecutar_x5_ciclo</code></td><td><code>X5.cargar_modelo_para_activo</code></td><td><code>import</code> perezoso</td><td>1 vez al inicio del ciclo</td></tr>
+        <tr><td><code>X4._seleccionar_params_x5</code></td><td><code>X5.inferir_con_contexto</code></td><td><code>import</code> perezoso</td><td>cada tramo, si toca EXPLOIT</td></tr>
+        <tr><td><code>X4._paso_D / _paso_E</code></td><td><code>_append_x5_store</code></td><td>escritura CSV</td><td>cada OC</td></tr>
+        <tr><td><code>X5._worker_recolectar_activo</code></td><td><code>X5._entrenar</code></td><td>llamada directa</td><td>tras cada ciclo, si n_oc ≥ 500</td></tr>
+        <tr><td><code>X4._recalcular_soportes</code></td><td><code>X0._procesar_valor_N</code></td><td><code>ProcessPoolExecutor</code></td><td>cada tramo</td></tr>
+      </tbody></table></div>
+    <p class="ref">Referencias: <code>X4_backtester.py:1385</code> (<code>ejecutar_x5_ciclo</code>),
+    <code>X4_backtester.py:1312</code> (<code>_seleccionar_params_x5</code>),
+    <code>X5_macro_brain.py:1304</code> (<code>_worker_recolectar_activo</code>).</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 0.1 VOCABULARIO ═══════════════ -->
+<h2 id="vocab"><span class="num">0.1</span>Vocabulario mínimo</h2>
+<p>Todo el resto del documento da por sabidas estas siglas. La progresión natural de una orden es:</p>
+<div class="chips">
+  <span class="chip o0"><span class="g" data-g="O0">O0 — potencial</span></span><span class="chip">→</span>
+  <span class="chip oe"><span class="g" data-g="OE">OE — en espera</span></span><span class="chip">→</span>
+  <span class="chip oa"><span class="g" data-g="OA">OA — abierta</span></span><span class="chip">→</span>
+  <span class="chip oc"><span class="g" data-g="OC">OC — cerrada</span></span>
+</div>
+
+<div class="card" data-lvl="1">
+  <div class="ch"><h3>Una operación completa, con números</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>NVDA cotiza a <b>$180</b>. Hay un soporte en <b>$174</b>. Los parámetros son
+    <span class="g" data-g="A">A</span><b>=6</b>, <span class="g" data-g="B">B</span><b>=2</b>,
+    lote=0.01, unidades=100 → <span class="g" data-g="L">L</span> = 0.01 × 100 = <b>1</b>
+    (cada dólar de movimiento vale un dólar en la cuenta).</p>
+    <ol>
+      <li><b>O0 → OE.</b> Distancia = (180 − 174) × L = <b>$6</b> ≥ A = 6 → se coloca el buy limit.
+        Si el soporte estuviera en $176 la distancia sería $4 &lt; A y quedaría en <b>O0</b>: demasiado cerca.</li>
+      <li><b>OE → OA.</b> El precio baja y una vela toca $174. Posición comprada a $174.</li>
+      <li><b>Trailing (paso C).</b> El precio sube a $181: ganancia flotante = $7 ≥ A → se activa el stop en
+        181 − B/L = <b>$179</b>. Desde acá la operación ya no puede terminar en pérdida.</li>
+      <li><b>Seguimiento.</b> Precio a $184 → stop a $182. Si retrocede a $183, el stop <b>no baja</b>.</li>
+      <li><b>OA → OC.</b> El precio cae a $182, toca el stop, cierra con <b>+$8</b>. Se escribe una fila OC.</li>
+    </ol>
+    <p>El camino alternativo es el malo: el precio nunca sube lo suficiente y cae hasta que
+    (174 − precio) × L &gt; <span class="g" data-g="PERDIDA_MAX">PERDIDA_MAX</span> → cierre a pérdida (paso D).
+    <b>Toda la estrategia vive en la tensión entre esos dos finales</b>, y todos los parámetros que X5 optimiza
+    mueven la frontera entre uno y otro.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · el glosario completo</span>
+    <div class="tw"><table>
+      <thead><tr><th>Sigla</th><th>Significado</th><th>Dónde vive en el código</th></tr></thead>
+      <tbody>
+        <tr><td><b>O0</b></td><td>Orden potencial: el soporte está demasiado cerca del precio, todavía no se coloca.</td><td>no se guarda — es un <code>continue</code> en <code>_paso_F</code></td></tr>
+        <tr><td><b>OE</b></td><td>Orden en Espera: buy limit colocado, esperando que el precio baje.</td><td><code>est_a['OE'][precio]</code></td></tr>
+        <tr><td><b>OA</b></td><td>Orden Abierta: la OE se ejecutó, hay posición viva.</td><td><code>est_a['OA'][precio_ap]</code></td></tr>
+        <tr><td><b>OC</b></td><td>Orden Cerrada: cerró por trailing, pérdida máxima o stop.</td><td>fila en <code>trades.json</code> + fila <code>'oc'</code> del store</td></tr>
+        <tr><td><b>N</b></td><td>Cantidad de soportes activos por activo.</td><td><code>cfg.n_sizes[activo]</code></td></tr>
+        <tr><td><b>A</b></td><td>Ganancia flotante en USD que activa por primera vez el trailing.</td><td><code>cfg.A</code></td></tr>
+        <tr><td><b>B</b></td><td>Distancia en USD a la que el stop sigue al precio, una vez activado.</td><td><code>cfg.B</code></td></tr>
+        <tr><td><b>L</b></td><td><code>lote × units</code>. Convierte diferencias de precio en dólares.</td><td><code>LOTAJES[a] * UNITS[a]</code></td></tr>
+        <tr><td><b>GC</b></td><td>Ganancia Cerrada acumulada del activo (suma de todos los <code>retorno_usd</code>).</td><td><code>est_a['GC']</code> → <code>pnl_cerrado_activo</code></td></tr>
+        <tr><td><b>GA</b></td><td>Ganancia flotante actual (no realizada) del activo.</td><td><code>_calcular_GA</code> → <code>pnl_flotante_activo</code></td></tr>
+        <tr><td><b>tramo</b></td><td>Período entre dos recálculos de soportes: los config params quedan fijos.</td><td><code>_construir_tramos</code> (X5)</td></tr>
+        <tr><td><b>ciclo</b></td><td>Una pasada completa de X4 sobre todo el histórico.</td><td><code>_worker_recolectar_activo</code></td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · las tres unidades monetarias que se confunden</span>
+    <div class="grid2">
+      <div class="mini"><h4>balance (saldo)</h4><p><code>estado['capital']</code>. Solo cambia cuando una posición
+      <b>cierra</b>. Es dinero realizado.</p></div>
+      <div class="mini"><h4>equity (patrimonio)</h4><p><code>balance + Σ ganancia flotante</code>. Cambia en
+      <b>cada vela</b>. Es lo que realmente tienes si liquidaras todo ahora.</p></div>
+      <div class="mini"><h4>margen usado</h4><p><code>Σ precio_ap·lote·units / apalancamiento</code>. Lo que el
+      bróker inmoviliza como garantía. <code>equity/margen × 100</code> = <span class="g" data-g="margin_level">nivel de margen</span>.</p></div>
+    </div>
+    <p>Confundirlas es la fuente número uno de errores al leer el código: <code>_registrar_trade</code> usa
+    <code>capital_apertura</code> (balance al abrir) para el <code>retorno_pct</code>, mientras que
+    <code>_calcular_estado_cuenta</code> trabaja con equity.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 0.2 RELOJES ═══════════════ -->
+<h2 id="relojes"><span class="num">0.2</span>Los tres relojes</h2>
+<p>Buena parte de la confusión al leer el código viene de que hay <b>tres escalas de tiempo</b> funcionando a la vez,
+y las tres se llaman «ciclo» en algún comentario. Separarlas de una vez ahorra horas.</p>
+
+<figure>
+<svg viewBox="0 0 1000 232" role="img" aria-label="Los tres relojes">
+  <defs>
+    <pattern id="ticks" width="14" height="26" patternUnits="userSpaceOnUse">
+      <rect width="7" height="26" fill="var(--x4)" fill-opacity=".33"/></pattern>
+  </defs>
+  <text class="sv-tb" x="128" y="47" text-anchor="end">vela</text>
+  <rect x="140" y="28" width="820" height="26" rx="4" fill="url(#ticks)" stroke="var(--line2)"/>
+  <text class="sv-tm" x="140" y="72">1 hora simulada · se ejecutan los pasos A–F · se registra el patrimonio</text>
+
+  <text class="sv-tb" x="128" y="115" text-anchor="end">tramo</text>
+  <rect class="sv-b5" x="140" y="96" width="162" height="26" rx="4" fill-opacity=".45"/><text class="sv-tc" x="200" y="114">T1</text>
+  <rect class="sv-b5" x="306" y="96" width="162" height="26" rx="4" fill-opacity=".2"/><text class="sv-tc" x="366" y="114">T2</text>
+  <rect class="sv-b5" x="472" y="96" width="162" height="26" rx="4" fill-opacity=".45"/><text class="sv-tc" x="532" y="114">T3</text>
+  <rect class="sv-b5" x="638" y="96" width="162" height="26" rx="4" fill-opacity=".2"/><text class="sv-tc" x="698" y="114">T4</text>
+  <rect class="sv-b5" x="804" y="96" width="156" height="26" rx="4" fill-opacity=".45"/><text class="sv-tc" x="862" y="114">T5</text>
+  <text class="sv-tm" x="140" y="140"><tspan>delta_recalculo_soportes = 5 días ≈ 120 velas · params NUEVOS + soportes recalculados desde cero hasta t</tspan></text>
+
+  <text class="sv-tb" x="128" y="183" text-anchor="end">ciclo</text>
+  <rect class="sv-bok" x="140" y="164" width="820" height="26" rx="4" fill-opacity=".4"/>
+  <text class="sv-tc" x="152" y="182">ciclo 1 — una pasada completa de X4 por todo el histórico (≈15.000 velas ≈ 125 tramos)</text>
+  <text class="sv-tm" x="140" y="208">entre ciclos (nunca dentro) se REENTRENA el modelo del activo → el ciclo siguiente ya explota el modelo nuevo</text>
+</svg>
+<figcaption>Con datos desde 2024-01-01, un ciclo ≈ 15.000 velas H1 ≈ 125 tramos. Diez ciclos por activo ≈ 1.250
+combinaciones de parámetros distintas. Ese es el orden de magnitud necesario para cruzar los umbrales de 500 y 5.000 OC.</figcaption>
+</figure>
+
+<div class="warnbox">
+  <span class="t">El punto que más cuesta</span>
+  Un <b>tramo</b> fija los parámetros, pero <b>no fija las órdenes</b>. Una orden abierta en T1 puede seguir viva
+  en T3, y mientras tanto los pasos C, D y F la evalúan con el <code>A</code>, <code>B</code> y
+  <code>PERDIDA_MAX</code> del tramo <b>actual</b>, no con los que había cuando se abrió. Esto es exactamente el
+  tema de la <a href="#pregunta">§13</a>.
+</div>
+
+<!-- ═══════════════════════════ X4 ═══════════════════════════ -->
+<h2 id="x4-contrato"><span class="num">1</span>X4 — el contrato</h2>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3>Qué entra, qué sale, qué garantiza</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>En una frase:</b> X4 simula X0 + la lógica de X1 sobre datos históricos, avanzando vela H1 a vela H1,
+    y registra cada operación cerrada.</p>
+    <div class="grid2">
+      <div class="mini"><h4>Entra</h4><p><code>Data/{A}.csv</code> (H1) · <code>Data_minuto/{A}.csv</code> (M1) ·
+      una config congelada (<code>config_V1.py</code> o <code>config_x5_default.py</code>) ·
+      <code>x2_history.json</code> y X3 en modo <code>--x5</code>.</p></div>
+      <div class="mini"><h4>Sale</h4><p><code>trades.json</code> (una fila por OC) · <code>events.json</code>
+      (cada cambio de estado) · <code>equity_global.csv</code> · <code>equity_activos.csv</code> ·
+      <code>checkpoint.json</code>. En modo <code>--x5</code>, además: filas en el store.</p></div>
+    </div>
+    <div class="note"><span class="t">La garantía central</span>
+      <b>Ausencia de información del futuro.</b> En cada vela <code>t</code>, todo lo que se lee está limitado a
+      <code>&lt;= t</code>: los soportes se recalculan con <code>fecha_hora_max=t</code>, las features X3 con
+      <code>df[df.index &lt;= ts]</code>, el score X2 con la entrada más reciente cuya fecha sea <code>&lt;= t</code>.</div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · los dos modos de ejecución</span>
+    <div class="tw"><table>
+      <thead><tr><th></th><th>Modo versión</th><th>Modo <code>--x5</code></th></tr></thead>
+      <tbody>
+        <tr><td><b>Comando</b></td><td><code>X4_backtester.py --version V1</code></td><td><code>X4_backtester.py --x5 --activo BTCUSD</code></td></tr>
+        <tr><td><b>Config</b></td><td><code>resources/x4/versionV1/config_V1.py</code></td><td><code>scripts/config_x5_default.py</code></td></tr>
+        <tr><td><b>Params</b></td><td>fijos toda la corrida</td><td><b>cambian cada tramo</b> (explore/exploit)</td></tr>
+        <tr><td><b>Activos</b></td><td>los 6 en una sola corrida</td><td>uno por proceso, recursos aislados en <code>bt_{ACTIVO}</code></td></tr>
+        <tr><td><b>Capital</b></td><td>realista</td><td>1.000.000 USD virtuales (no interesa la supervivencia, interesa observar)</td></tr>
+        <tr><td><b>Escribe store</b></td><td>no</td><td>sí — filas <code>'oc'</code> y <code>'periodico'</code></td></tr>
+        <tr><td><b>Para qué</b></td><td>evaluar una configuración concreta</td><td>fabricar el dataset de X5</td></tr>
+      </tbody></table></div>
+    <p class="ref"><code>X4_backtester.py:1427</code> — el <code>if args.x5:</code> del entry point es la bifurcación completa.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · qué NO simula (los supuestos)</span>
+    <ul>
+      <li><b>Sin spread ni comisiones.</b> Una OE se ejecuta al precio exacto del soporte (salvo gap). El retorno real será menor.</li>
+      <li><b>Sin slippage.</b> El stop se ejecuta exactamente en <code>pos['sl']</code>, no un tick más abajo.</li>
+      <li><b>Sin swap/rollover.</b> Una posición abierta tres semanas no paga financiamiento.</li>
+      <li><b>Liquidez infinita.</b> Cualquier lote se llena instantáneamente.</li>
+      <li><b>Intra-vela aleatoria.</b> El orden interno de los precios dentro de una vela H1 se toma de un tramo M1
+        prestado al azar (§5) → dos corridas idénticas dan resultados distintos. No hay semilla fija.</li>
+      <li><b>Las posiciones abiertas al final no se cierran.</b> Con <code>fecha_fin = 'F'</code>, las OA vivas
+        quedan sin cerrar y <b>no producen fila OC</b>: el store solo ve operaciones terminadas.</li>
+    </ul>
+  </div>
+</div>
+
+
+<h2 id="x4-estado"><span class="num">2</span>El estado: una sola estructura que lo contiene todo</h2>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3><code>estado</code> — el diccionario que es el backtest</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <pre><code>estado = {
+    <span class="s">'capital'</span>:              <span class="n">1_000_000.0</span>,   <span class="c"># saldo: SOLO cambia cuando una posición cierra</span>
+    <span class="s">'ts_ultimo_procesado'</span>: <span class="s">'2024-03-11T14:00'</span>,  <span class="c"># para reanudar desde checkpoint</span>
+    <span class="s">'ts_ultimo_recalculo'</span>: <span class="s">'2024-03-08T09:00'</span>,  <span class="c"># reloj del TRAMO</span>
+    <span class="s">'stop_out'</span>:            <span class="k">False</span>,
+    <span class="s">'por_activo'</span>: {
+        <span class="s">'BTCUSD'</span>: {
+            <span class="s">'soportes'</span>: [<span class="n">61234.5</span>, <span class="n">60890.1</span>, ...],   <span class="c"># los N niveles vigentes</span>
+            <span class="s">'OE'</span>: {<span class="n">60890.1</span>: {...}},   <span class="c"># clave = PRECIO del buy limit</span>
+            <span class="s">'OA'</span>: {<span class="n">59120.0</span>: {...}},   <span class="c"># clave = PRECIO DE APERTURA</span>
+            <span class="s">'GC'</span>: <span class="n">0.0</span>,               <span class="c"># ganancia cerrada acumulada del activo</span>
+        },
+    },
+}</code></pre>
+    <div class="note"><span class="t">Consecuencia de indexar por precio</span>
+      <code>OE</code> y <code>OA</code> son diccionarios cuya <b>clave es el precio</b>. Por construcción no puede
+      haber dos órdenes al mismo nivel en el mismo activo: es lo que hace que <code>if soporte in est_a['OA']</code>
+      en el paso F sea suficiente para no duplicar.</div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · qué guarda cada orden</span>
+    <pre><code><span class="c"># Una OE (creada en _paso_F)</span>
+est_a[<span class="s">'OE'</span>][soporte] = {
+    <span class="s">'lote'</span>:        <span class="n">0.01</span>,
+    <span class="s">'ts_creacion'</span>: ts.isoformat(),   <span class="c"># → features temporales OE</span>
+    <span class="s">'x3_oe'</span>:       {...},             <span class="c"># SNAPSHOT técnico congelado en este instante</span>
+    <span class="s">'x2_oe'</span>:       {...},             <span class="c"># SNAPSHOT fundamental congelado</span>
+}
+
+<span class="c"># Una OA (creada en _paso_B, al ejecutarse la OE)</span>
+est_a[<span class="s">'OA'</span>][precio_ap] = {
+    <span class="s">'lote'</span>: <span class="n">0.01</span>, <span class="s">'sl'</span>: <span class="n">0</span>,             <span class="c"># sl=0 ⇒ trailing todavía NO activado</span>
+    <span class="s">'ts_apertura'</span>:      ts.isoformat(),
+    <span class="s">'capital_apertura'</span>: estado[<span class="s">'capital'</span>],
+    <span class="s">'ganancia_max'</span>: <span class="n">0.0</span>, <span class="s">'drawdown_max'</span>: <span class="n">0.0</span>,
+    <span class="s">'duracion_velas'</span>: <span class="n">0</span>, <span class="s">'usa_intravela'</span>: <span class="k">False</span>,
+    <span class="c"># solo en modo --x5:</span>
+    <span class="s">'ts_oe_creacion'</span>: ...,            <span class="c"># se ARRASTRA desde la OE</span>
+    <span class="s">'x3_oe'</span>: {...}, <span class="s">'x2_oe'</span>: {...},    <span class="c"># se ARRASTRAN desde la OE</span>
+    <span class="s">'x3_oa'</span>: {...}, <span class="s">'x2_oa'</span>: {...},    <span class="c"># SNAPSHOT NUEVO, del instante de ejecución</span>
+}</code></pre>
+    <p><b>Fíjate en el arrastre:</b> cuando la OE pasa a OA, el diccionario de la OE no se descarta — sus snapshots
+    viajan dentro de la OA. Es la única forma de que, al cerrar semanas después, la fila del store pueda decir
+    «así estaba el mercado cuando esta orden se colocó».</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · checkpoint</span>
+    <p>Cada 24 velas procesadas (y en cada recálculo de tramo, y al hacer stop out) se serializa el estado a
+    <code>checkpoint.json</code>. Las claves de <code>OE</code>/<code>OA</code> son floats, y JSON solo admite
+    strings como claves — de ahí la conversión de ida y vuelta:</p>
+    <pre><code><span class="c"># al guardar</span>
+<span class="s">'OE'</span>: {<span class="fn">str</span>(k): v <span class="k">for</span> k, v <span class="k">in</span> est_a[<span class="s">'OE'</span>].items()}
+<span class="c"># al cargar</span>
+est_a[<span class="s">'OE'</span>] = {<span class="fn">float</span>(k): v <span class="k">for</span> k, v <span class="k">in</span> est_a[<span class="s">'OE'</span>].items()}</code></pre>
+    <div class="warnbox"><span class="t">Lo que el checkpoint NO guarda</span>
+      <code>soportes</code>, <code>OE</code>, <code>OA</code>, <code>GC</code>, <code>capital</code> y los dos
+      timestamps. <b>No guarda</b> <code>oc_recientes</code> ni <code>x5_velas_cnt</code>: al reanudar, la feature
+      <code>retorno_promedio_ultimas_5_oc</code> arranca en 0 y el contador de filas periódicas se reinicia.
+      Es una discontinuidad menor pero real en el dataset.</div>
+    <p>En modo <code>--x5</code> el <code>reset</code> no lo decide el llamador: lo decide X4 mismo —
+    reanuda si el checkpoint quedó a mitad de una pasada, y arranca una pasada nueva si ya llegó al final de los
+    datos, hizo stop out, o no existe. <span class="ref">(<code>X4_backtester.py:1011-1017</code>)</span></p>
+  </div>
+</div>
+
+
+<h2 id="x4-loop"><span class="num">3</span>El loop principal</h2>
+<p>Este es el algoritmo completo de X4. Todo lo demás del documento son notas al pie de estas líneas.</p>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3><code>ejecutar_backtest()</code></h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <pre><code><span class="c"># ── X4, en 12 líneas ──────────────────────────────────────────────────</span>
+<span class="k">for</span> ts <span class="k">in</span> todas_las_velas_h1:              <span class="c"># reloj 1: una vela = 1 hora simulada</span>
+
+    <span class="k">if</span> toca_recalcular_soportes(ts):        <span class="c"># reloj 2: cada 5 días simulados</span>
+        <span class="k">if</span> modo_x5:
+            elegir_params_del_tramo(ts)     <span class="c"># explore (azar) o exploit (X5 infiere)</span>
+        recalcular_soportes(ts)             <span class="c"># X0 con datos SOLO hasta ts</span>
+        <span class="k">continue</span>                            <span class="c"># ← esta vela se "congela": no se opera</span>
+
+    <span class="k">for</span> activo <span class="k">in</span> valores:
+        procesar_candle(ts, activo)         <span class="c"># pasos A → F</span>
+
+    guardar_equity(ts)                      <span class="c"># snapshot de la cuenta</span>
+    <span class="k">if</span> cuenta_quemada():                    <span class="c"># stop out</span>
+        <span class="k">break</span></code></pre>
+    <div class="note"><span class="t">La vela congelada</span>
+      Cuando toca recalcular soportes, esa vela <b>no se opera</b>: el <code>continue</code> salta los pasos A–F.
+      Es deliberado — recalcular los N soportes tarda minutos de CPU real, y operar sobre un conjunto a medio
+      actualizar sería incoherente. El costo: se pierde ~1 de cada 120 velas.</div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · con el detalle real</span>
+    <pre><code><span class="k">for</span> ts <span class="k">in</span> all_ts:                     <span class="c"># unión de timestamps de todos los activos</span>
+
+    <span class="k">if</span> ts_ultimo <span class="k">is</span> <span class="k">not</span> <span class="k">None</span> <span class="k">and</span> ts &lt;= ts_ultimo:
+        <span class="k">continue</span>                        <span class="c"># ya procesada (reanudación desde checkpoint)</span>
+
+    <span class="c"># ── reloj 2: ¿toca tramo nuevo? ──────────────────────────────────</span>
+    horas = (ts - ts_ultimo_recalculo).total_seconds() / <span class="n">3600</span>
+    <span class="k">if</span> horas &gt;= cfg.delta_recalculo_soportes * <span class="n">24</span>:
+        <span class="k">if</span> x5_mode:
+            _aplicar_seleccion_x5(cfg, estado, ts, ...)   <span class="c"># MUTA cfg con params nuevos</span>
+        _recalcular_soportes(estado, ts, cfg, x5_mode)    <span class="c"># X0 en paralelo, as-of-t</span>
+        flush(trades_log, events_log)
+        <span class="k">continue</span>
+
+    <span class="c"># ── precios de cierre de esta vela (o el último conocido) ────────</span>
+    precios_ts = {a: df.loc[ts, <span class="s">'Close'</span>] <span class="k">if</span> ts <span class="k">in</span> df.index <span class="k">else</span> cierre_previo[a]
+                  <span class="k">for</span> a, df <span class="k">in</span> datos_h1.items()}
+
+    <span class="k">for</span> activo, df <span class="k">in</span> datos_h1.items():
+        <span class="k">if</span> ts <span class="k">not</span> <span class="k">in</span> df.index:
+            <span class="k">continue</span>                    <span class="c"># acción sin sesión a esta hora → se salta</span>
+        <span class="k">if</span> x5_mode:
+            x3, x2 = _compute_x5_snapshot(activo, df, ts, soportes, ...)  <span class="c"># contexto as-of-t</span>
+        _procesar_candle(ts, df.loc[ts], activo, ...)     <span class="c"># pasos A–F</span>
+
+        <span class="k">if</span> x5_mode <span class="k">and</span> est_a[<span class="s">'OA'</span>] <span class="k">and</span> cnt % X5_FREQ_REGISTRO_PERIODICO == <span class="n">0</span>:
+            _append_x5_store(activo, _construir_fila_periodica(...))   <span class="c"># fila 'periodico'</span>
+
+    mc = _append_equity(ts, estado, precios_ts, cfg)      <span class="c"># paso G</span>
+
+    <span class="k">if</span> mc[<span class="s">'equity'</span>] &lt;= <span class="n">0</span> <span class="k">or</span> mc[<span class="s">'margin_level'</span>] &lt;= STOP_OUT_LEVEL:
+        estado[<span class="s">'stop_out'</span>] = <span class="k">True</span>; _guardar_checkpoint(...); <span class="k">break</span>
+
+    <span class="k">if</span> velas_procesadas % <span class="n">24</span> == <span class="n">0</span>:
+        _guardar_checkpoint(estado, cfg); flush(...)</code></pre>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · tres sutilezas del loop</span>
+    <ul>
+      <li><b><code>all_ts</code> es la unión, no la intersección.</b> Cripto cotiza 24/7 y las acciones no.
+        El loop recorre todos los timestamps que existan en <i>algún</i> activo, y para cada activo salta con
+        <code>if ts not in df.index: continue</code>. Por eso <code>cierre_previo</code> existe: para valorizar el
+        equity de NVDA a las 3 AM de un domingo usando su último cierre conocido.</li>
+      <li><b>El disparo del tramo no exige hora exacta.</b> Antes se comparaba contra una hora fija y las acciones
+        podían no tener vela ahí, dejando el recálculo sin dispararse nunca. Ahora dispara en la
+        <b>primera vela disponible</b> tras cumplirse el umbral de días. <span class="ref">(<code>X4_backtester.py:1110-1119</code>)</span></li>
+      <li><b>El flush no es por vela.</b> <code>trades_log</code> y <code>events_log</code> se acumulan en memoria y
+        se vuelcan cada 24 velas, en cada tramo, en stop out y al final. La escritura es atómica
+        (<code>tmp + os.replace</code>) con 10 reintentos, porque OneDrive puede tener el archivo bloqueado.</li>
+    </ul>
+  </div>
+</div>
+
+
+<h2 id="x4-pasos"><span class="num">4</span>Los pasos A–F: la lógica de trading de una vela</h2>
+<p>Todo lo que ocurre dentro de <code>_procesar_candle</code>, en orden. El orden <b>no es arbitrario</b> — al final
+de la sección está la cadena de dependencias que lo justifica.</p>
+
+<div class="steps">
+
+  <div class="step"><div class="badge">A</div>
+  <div class="card x4" data-lvl="1" style="margin-top:0">
+    <div class="ch"><h3>Cancelar las OE huérfanas</h3><span class="hint">doble clic → código</span>
+      <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+    <div class="l l1"><p>Los soportes acaban de cambiar (empezó un tramo nuevo). Toda <span class="g" data-g="OE">OE</span>
+      colocada sobre un nivel que ya no está en la lista queda huérfana y se cancela.</p></div>
+    <div class="l l2">
+      <pre><code><span class="k">def</span> <span class="fn">_paso_A</span>(est_a, activo, ts, cfg, events):
+    soportes_vigentes = <span class="fn">set</span>(est_a[<span class="s">'soportes'</span>])
+    a_eliminar = [p <span class="k">for</span> p <span class="k">in</span> est_a[<span class="s">'OE'</span>] <span class="k">if</span> p <span class="k">not</span> <span class="k">in</span> soportes_vigentes]
+
+    <span class="k">for</span> precio <span class="k">in</span> a_eliminar:
+        <span class="c"># El buy limit deja de existir. No hubo operación: la orden nunca llegó a OA,</span>
+        <span class="c"># así que NO produce fila en el store. Solo un evento OE_eliminada.</span>
+        <span class="k">del</span> est_a[<span class="s">'OE'</span>][precio]
+
+    <span class="c"># Devuelve el precio MÁS ALTO cancelado. El paso F lo usa para recuperar la</span>
+    <span class="c"># cobertura que se acaba de perder cerca del precio actual.</span>
+    <span class="k">return</span> <span class="fn">max</span>(a_eliminar) <span class="k">if</span> a_eliminar <span class="k">else</span> <span class="k">None</span></code></pre></div>
+    <div class="l l3"><div class="note"><span class="t">Por qué devuelve el máximo</span>
+      Sin eso, cancelar un buy limit cercano al precio dejaría un hueco de cobertura hasta el próximo recálculo:
+      el paso F solo coloca órdenes que estén a <code>A</code> dólares de distancia, y ningún soporte nuevo
+      calificaría en esa zona. El valor devuelto habilita la <b>regla de reemplazo</b> del paso F. Es paridad
+      exacta con <code>X1.crear_ordenes_espera</code>.</div></div>
+  </div></div>
+
+  <div class="step"><div class="badge">B</div>
+  <div class="card x4" data-lvl="1" style="margin-top:0">
+    <div class="ch"><h3>Ejecutar las OE que el precio alcanzó</h3><span class="hint">doble clic → código</span>
+      <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+    <div class="l l1"><p>Una OE a precio <code>p</code> se ejecuta si la vela bajó hasta ahí (<code>Low &lt;= p</code>).
+      Hay un caso especial: el <span class="g" data-g="gap">hueco de mercado</span>. Y un control obligatorio:
+      el margen libre. <b>Aquí es donde se congela el snapshot OA.</b></p></div>
+    <div class="l l2">
+      <pre><code><span class="k">def</span> <span class="fn">_paso_B</span>(est_a, candle, activo, ts, estado, ...):
+
+    <span class="c"># ── Caso 1: HUECO. Si el mercado abrió por debajo de alguna OE, el precio</span>
+    <span class="c">#    nunca pasó por esos niveles. El bróker las ejecuta todas a la apertura;</span>
+    <span class="c">#    X4 las ejecuta al MENOR de esos niveles → entrada peor que la pedida.</span>
+    oes_gap = <span class="fn">sorted</span>([p <span class="k">for</span> p <span class="k">in</span> est_a[<span class="s">'OE'</span>] <span class="k">if</span> p &gt;= candle[<span class="s">'Open'</span>]])
+    <span class="k">if</span> oes_gap:
+        precio_gap = <span class="fn">min</span>(oes_gap)
+        <span class="k">for</span> precio_oe <span class="k">in</span> oes_gap:
+            <span class="k">if</span> margen_libre() - margen_nueva &lt; MARGEN_LIBRE_MIN_BT:
+                <span class="k">del</span> est_a[<span class="s">'OE'</span>][precio_oe]      <span class="c"># motivo='margen_insuficiente'</span>
+                <span class="k">continue</span>
+            _oe = est_a[<span class="s">'OE'</span>].pop(precio_oe)
+            est_a[<span class="s">'OA'</span>][precio_gap] = abrir(_oe, ts, ...)   <span class="c"># ← ojo: clave = precio_gap</span>
+
+    <span class="c"># ── Caso 2: NORMAL. La vela bajó hasta el nivel pedido.</span>
+    <span class="k">for</span> precio_oe <span class="k">in</span> <span class="fn">sorted</span>([p <span class="k">for</span> p <span class="k">in</span> est_a[<span class="s">'OE'</span>] <span class="k">if</span> p &lt; candle[<span class="s">'Open'</span>]]):
+        <span class="k">if</span> candle[<span class="s">'Low'</span>] &lt;= precio_oe:
+            <span class="k">if</span> margen_libre() - margen_nueva &lt; MARGEN_LIBRE_MIN_BT:
+                <span class="k">del</span> est_a[<span class="s">'OE'</span>][precio_oe]
+                <span class="k">continue</span>
+            _oe = est_a[<span class="s">'OE'</span>].pop(precio_oe)
+            est_a[<span class="s">'OA'</span>][precio_oe] = {
+                <span class="s">'sl'</span>: <span class="n">0</span>, <span class="s">'ts_apertura'</span>: ts.isoformat(),
+                <span class="s">'capital_apertura'</span>: estado[<span class="s">'capital'</span>],
+                <span class="c"># ── en modo --x5: se arrastra lo de la OE y se CONGELA lo de la OA ──</span>
+                <span class="s">'ts_oe_creacion'</span>: _oe[<span class="s">'ts_creacion'</span>],
+                <span class="s">'x3_oe'</span>: _oe[<span class="s">'x3_oe'</span>], <span class="s">'x2_oe'</span>: _oe[<span class="s">'x2_oe'</span>],
+                <span class="s">'x3_oa'</span>: x5_ctx[<span class="s">'x3'</span>], <span class="s">'x2_oa'</span>: x5_ctx[<span class="s">'x2'</span>],   <span class="c"># ← snapshot NUEVO</span>
+            }</code></pre></div>
+    <div class="l l3">
+      <div class="note"><span class="t">El control de margen es orden por orden</span>
+        Se recalcula el margen libre <b>en cada iteración</b>, porque cada ejecución consume margen y cambia la
+        respuesta para la siguiente. En un hueco grande pueden ejecutarse decenas de órdenes en el mismo instante
+        y la última no tiene por qué caber. Una OE rechazada por margen <b>se cancela</b>, no se pospone.</div>
+      <div class="warnbox"><span class="t">Detalle del caso hueco</span>
+        Todas las OE del hueco se abren con la <b>misma clave</b> <code>precio_gap</code> en el diccionario
+        <code>OA</code>. Como <code>OA</code> está indexado por precio, las asignaciones sucesivas se
+        sobrescriben: en la práctica, un hueco que barre <i>k</i> órdenes deja <b>una sola OA</b> viva
+        (la última asignada), aunque se registren <i>k</i> eventos <code>OE_ejecutada</code>. Es una diferencia
+        conocida entre los eventos y el estado; no afecta al store (que solo escribe al cerrar), pero sí hace que
+        <code>events.json</code> reporte más aperturas de las que existen.</div>
+    </div>
+  </div></div>
+
+  <div class="step"><div class="badge">C</div>
+  <div class="card x4" data-lvl="1" style="margin-top:0">
+    <div class="ch"><h3>El stop protector móvil (trailing)</h3><span class="hint">doble clic → código</span>
+      <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+    <div class="l l1"><p>El mecanismo que convierte ganancia flotante en ganancia asegurada. Dos regímenes:
+      <b>activación</b> (la primera vez que la ganancia alcanza <code>A</code>) y <b>seguimiento</b>
+      (el stop solo sube, nunca baja).</p></div>
+    <div class="l l2">
+      <pre><code><span class="k">def</span> <span class="fn">_paso_C</span>(est_a, precio_max, activo, ts, cfg, events):
+    <span class="c"># precio_max = High de la vela H1 (o de la vela M1, si hay intra-vela)</span>
+
+    <span class="k">for</span> precio_ap, pos <span class="k">in</span> est_a[<span class="s">'OA'</span>].items():
+        ganancia_flotante = (precio_max - precio_ap) * L
+        pos[<span class="s">'ganancia_max'</span>] = <span class="fn">max</span>(pos[<span class="s">'ganancia_max'</span>], ganancia_flotante)
+
+        <span class="k">if</span> pos[<span class="s">'sl'</span>] == <span class="n">0</span>:
+            <span class="c"># Todavía SIN protección. Se activa la primera vez que la ganancia</span>
+            <span class="c"># flotante alcanza A dólares.</span>
+            <span class="k">if</span> ganancia_flotante &gt;= cfg.A:
+                pos[<span class="s">'sl'</span>] = precio_max - cfg.B / L      <span class="c"># stop a B USD bajo el máximo</span>
+                <span class="c"># Se REPONE una OE en el nivel original: ese soporte queda libre</span>
+                <span class="c"># para volver a comprar si el precio regresa.</span>
+                est_a[<span class="s">'OE'</span>][precio_ap] = {<span class="s">'lote'</span>: lote, <span class="s">'ts_creacion'</span>: ts.isoformat()}
+        <span class="k">else</span>:
+            <span class="c"># YA protegida: el stop solo SUBE.</span>
+            sl_nuevo = precio_max - cfg.B / L
+            <span class="k">if</span> sl_nuevo &gt; pos[<span class="s">'sl'</span>]:
+                pos[<span class="s">'sl'</span>] = sl_nuevo</code></pre></div>
+    <div class="l l3">
+      <div class="key"><span class="t">La línea que origina el problema de §13</span>
+        <code>cfg.A</code> y <code>cfg.B</code> son los del <b>tramo actual</b>, no los que estaban vigentes cuando
+        la posición se abrió. Una OA abierta hace tres semanas con <code>A=6</code> se evalúa hoy con
+        <code>A=14</code> si el tramo actual sorteó ese valor. <b>No existe un único conjunto de parámetros
+        responsable del resultado de una orden</b> — de ahí que atribuirle el <code>retorno_usd</code> completo
+        al tramo del cierre esté sesgado, y de ahí el head <code>acumulado</code>.</div>
+      <div class="warnbox"><span class="t">La OE repuesta no arrastra snapshots</span>
+        La OE que se repone acá se crea con solo <code>lote</code> y <code>ts_creacion</code> — sin
+        <code>x3_oe</code>/<code>x2_oe</code>. Si esa OE llega a ejecutarse, <code>_paso_B</code> hace
+        <code>_oe_d.get('x3_oe', {})</code> y la fila resultante tendrá el bloque X3/X2 de OE
+        <b>vacío</b> (ceros tras <code>fillna(0)</code>). Es una fuente silenciosa de filas con contexto degradado.</div>
+    </div>
+  </div></div>
+
+  <div class="step"><div class="badge">D</div>
+  <div class="card x4" data-lvl="1" style="margin-top:0">
+    <div class="ch"><h3>Cierre por pérdida máxima</h3><span class="hint">doble clic → código</span>
+      <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+    <div class="l l1"><p>La rama mala. Si la pérdida flotante supera <code>PERDIDA_MAX</code>, se cierra al
+      <b>mínimo de la vela</b>. <b>Aquí se escribe la fila del store.</b></p></div>
+    <div class="l l2">
+      <pre><code><span class="k">def</span> <span class="fn">_paso_D</span>(est_a, precio_min, activo, ts, estado, ..., x5_ctx):
+
+    a_cerrar = [p <span class="k">for</span> p, pos <span class="k">in</span> est_a[<span class="s">'OA'</span>].items()
+                <span class="k">if</span> (p - precio_min) * L &gt; cfg.PERDIDA_MAX_BT]
+
+    <span class="k">for</span> precio_ap <span class="k">in</span> a_cerrar:
+        pos = est_a[<span class="s">'OA'</span>].pop(precio_ap)
+        precio_cierre = precio_min                         <span class="c"># sin slippage</span>
+        retorno_usd   = (precio_cierre - precio_ap) * L    <span class="c"># negativo</span>
+
+        estado[<span class="s">'capital'</span>] += retorno_usd     <span class="c"># ← el BALANCE cambia aquí y solo aquí</span>
+        est_a[<span class="s">'GC'</span>]      += retorno_usd     <span class="c"># ← ganancia cerrada acumulada del activo</span>
+
+        trades.append(_registrar_trade(pos, ..., motivo=<span class="s">'perdida_max'</span>))
+
+        <span class="k">if</span> x5_ctx <span class="k">is</span> <span class="k">not</span> <span class="k">None</span>:                <span class="c"># modo --x5</span>
+            fila = _construir_fila_oc(activo, pos, trade, ts, est_a, ...)
+            _append_x5_store(activo, fila)         <span class="c"># ← LA FILA 'oc' DEL STORE</span>
+            est_a[<span class="s">'oc_recientes'</span>].append(trade[<span class="s">'retorno_usd'</span>])</code></pre></div>
+    <div class="l l3"><p><b>Paso E es idéntico</b> salvo por dos líneas: el filtro es
+      <code>pos['sl'] &gt; 0 and precio_min &lt;= pos['sl']</code> y el precio de cierre es <code>pos['sl']</code>
+      en vez de <code>precio_min</code>. El motivo registrado es <code>'trailing_stop'</code>.</p>
+      <div class="note"><span class="t">Orden D antes que E</span>
+        Si en la misma vela una posición podría cerrar por pérdida máxima <b>y</b> por stop, gana D. En la práctica
+        casi nunca colisionan: si el stop está activo (<code>sl &gt; 0</code>) la posición está protegida en
+        ganancia, así que difícilmente supere <code>PERDIDA_MAX</code>. La excepción es una vela con rango enorme,
+        y para eso está la simulación intra-vela.</div>
+    </div>
+  </div></div>
+
+  <div class="step"><div class="badge">E</div>
+  <div class="card x4" data-lvl="1" style="margin-top:0">
+    <div class="ch"><h3>Cierre por stop tocado</h3><span class="hint">doble clic → código</span>
+      <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+    <div class="l l1"><p>La rama buena. El precio retrocedió hasta el stop protector: se cierra en
+      <code>pos['sl']</code>, casi siempre en ganancia.</p></div>
+    <div class="l l2">
+      <pre><code>a_cerrar = [p <span class="k">for</span> p, pos <span class="k">in</span> est_a[<span class="s">'OA'</span>].items()
+            <span class="k">if</span> pos[<span class="s">'sl'</span>] &gt; <span class="n">0</span> <span class="k">and</span> precio_min &lt;= pos[<span class="s">'sl'</span>]]
+<span class="c"># ...</span>
+precio_cierre = pos[<span class="s">'sl'</span>]      <span class="c"># ejecución exacta en el stop, sin slippage</span>
+motivo        = <span class="s">'trailing_stop'</span></code></pre></div>
+    <div class="l l3"><p>El campo <code>motivo_cierre</code> del store solo toma dos valores en backtesting:
+      <code>'perdida_max'</code> y <code>'trailing_stop'</code>. No existe un cierre por stop loss fijo del bróker
+      ni por cierre manual — esos sí pueden aparecer en Fase 2, cuando X1 alimente el store en vivo.</p></div>
+  </div></div>
+
+  <div class="step"><div class="badge">F</div>
+  <div class="card x4" data-lvl="1" style="margin-top:0">
+    <div class="ch"><h3>Crear las OE nuevas — y dónde vive O0</h3><span class="hint">doble clic → código</span>
+      <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+    <div class="l l1"><p>Se recorren los soportes de mayor a menor y se coloca un buy limit en los que estén lo
+      bastante lejos del precio. <b>Aquí se congela el snapshot OE</b>, y aquí es donde «existe» O0.</p></div>
+    <div class="l l2">
+      <pre><code><span class="k">def</span> <span class="fn">_paso_F</span>(est_a, precio_ref, activo, ts, ..., precio_max_saliente):
+    <span class="c"># precio_ref = Close de la vela</span>
+
+    umbral_reemplazo = <span class="k">None</span>
+    <span class="k">if</span> precio_max_saliente <span class="k">is</span> <span class="k">not</span> <span class="k">None</span> <span class="k">and</span> precio_max_saliente &lt; precio_ref:
+        <span class="c"># _paso_A canceló un buy limit este ciclo → se permite recuperar cobertura</span>
+        umbral_reemplazo = (precio_ref + precio_max_saliente) / <span class="n">2</span>
+
+    <span class="k">for</span> soporte <span class="k">in</span> <span class="fn">sorted</span>(est_a[<span class="s">'soportes'</span>], reverse=<span class="k">True</span>):
+
+        <span class="k">if</span> soporte <span class="k">in</span> est_a[<span class="s">'OA'</span>] <span class="k">or</span> soporte <span class="k">in</span> est_a[<span class="s">'OE'</span>]:
+            <span class="k">continue</span>                                   <span class="c"># ese nivel ya está tomado</span>
+
+        distancia_ok = (precio_ref - soporte) * L &gt;= cfg.A
+        reemplazo_ok = umbral_reemplazo <span class="k">is</span> <span class="k">not</span> <span class="k">None</span> <span class="k">and</span> soporte &lt; umbral_reemplazo
+
+        <span class="k">if</span> <span class="k">not</span> (distancia_ok <span class="k">or</span> reemplazo_ok):
+            <span class="k">continue</span>       <span class="c"># ←←← ESTO es O0: demasiado cerca del precio. No se registra</span>
+                            <span class="c">#     en ninguna parte; en la próxima vela se vuelve a evaluar.</span>
+
+        <span class="k">if</span> margen_libre(comprometido) - margen_nueva &lt; MARGEN_LIBRE_MIN_BT:
+            <span class="k">continue</span>                                   <span class="c"># no alcanza el margen</span>
+
+        est_a[<span class="s">'OE'</span>][soporte] = {
+            <span class="s">'lote'</span>: lote, <span class="s">'ts_creacion'</span>: ts.isoformat(),
+            <span class="s">'x3_oe'</span>: x5_ctx[<span class="s">'x3'</span>], <span class="s">'x2_oe'</span>: x5_ctx[<span class="s">'x2'</span>],   <span class="c"># ← snapshot OE</span>
+        }</code></pre></div>
+    <div class="l l3">
+      <div class="key"><span class="t">O0 no es un estado: es un <code>continue</code></span>
+        No hay ninguna estructura llamada <code>O0</code>. Un soporte está «en O0» simplemente porque llegó a ese
+        <code>continue</code> en esta vela. <b>Consecuencia directa para X5:</b> el store no contiene ninguna
+        información sobre O0. El modelo nunca ve «cuántos soportes quedaron sin colocar porque <code>A</code> era
+        demasiado grande», aunque ese sea justamente uno de los efectos más importantes de subir <code>A</code>.</div>
+      <div class="note"><span class="t">El margen comprometido dentro del ciclo</span>
+        <code>margen_comprometido</code> acumula el margen que reservan las OE creadas <b>en esta misma llamada</b>.
+        Sin él, todas las OE del recorrido verían el mismo margen libre inicial y se crearían muchas más de las que
+        caben.</div>
+    </div>
+  </div></div>
+
+</div>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3>Por qué este orden y no otro</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <ol>
+      <li><b>A antes que todo</b>, porque opera sobre información que acaba de cambiar (los soportes) y podría
+        estar dejando órdenes vivas sobre niveles ya inválidos.</li>
+      <li><b>B antes que C, D y E</b>, porque una orden ejecutada en esta vela debe poder gestionarse en esta misma
+        vela: si el precio cae fuerte, una posición recién abierta puede tener que cerrarse de inmediato.</li>
+      <li><b>C antes que E</b>, porque el stop debe estar actualizado antes de comprobar si el precio lo tocó.
+        Al revés, se cerrarían posiciones con un stop viejo.</li>
+      <li><b>F al final</b>, porque necesita el estado ya depurado: qué niveles quedaron ocupados tras B y
+        liberados tras D y E, y cuánto margen queda realmente.</li>
+    </ol>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · lo que se hace antes de A</span>
+    <pre><code><span class="k">def</span> <span class="fn">_procesar_candle</span>(ts, candle, activo, est_a, estado, ...):
+    <span class="c"># Contadores por vela, ANTES de cualquier paso</span>
+    <span class="k">for</span> precio_ap, pos <span class="k">in</span> est_a[<span class="s">'OA'</span>].items():
+        pos[<span class="s">'duracion_velas'</span>] += <span class="n">1</span>
+        dd_flotante = (candle[<span class="s">'Low'</span>] - precio_ap) * L
+        pos[<span class="s">'drawdown_max'</span>] = <span class="fn">min</span>(pos[<span class="s">'drawdown_max'</span>], dd_flotante)
+
+    precio_max_saliente = _paso_A(...)              <span class="c"># A siempre, en H1</span>
+    usar_iv = _necesita_intravela(est_a, candle, L, cfg)
+
+    <span class="k">if</span> usar_iv <span class="k">and</span> datos_m1 <span class="k">is</span> <span class="k">not</span> <span class="k">None</span>:
+        _simular_intravela(...)     <span class="c"># B–F × 60 velas de minuto</span>
+    <span class="k">else</span>:
+        _paso_B(est_a, candle, ...)              <span class="c"># con Open/Low de la vela H1</span>
+        _paso_C(est_a, candle[<span class="s">'High'</span>], ...)
+        _paso_D(est_a, candle[<span class="s">'Low'</span>], ...)
+        _paso_E(est_a, candle[<span class="s">'Low'</span>], ...)
+        _paso_F(est_a, candle[<span class="s">'Close'</span>], ..., precio_max_saliente)</code></pre>
+    <p><b>El paso A se ejecuta una sola vez</b>, en H1, incluso cuando hay intra-vela: los soportes no cambian
+    dentro de una hora. Los pasos B–F sí se repiten 60 veces.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · qué precio usa cada paso</span>
+    <div class="tw"><table>
+      <thead><tr><th>Paso</th><th>Precio que consume</th><th>Por qué ese</th></tr></thead>
+      <tbody>
+        <tr><td>B</td><td><code>Open</code> (para detectar hueco) y <code>Low</code></td><td>el hueco se define contra la apertura; la ejecución contra el mínimo</td></tr>
+        <tr><td>C</td><td><code>High</code></td><td>el trailing se calcula sobre el punto más alto alcanzado</td></tr>
+        <tr><td>D</td><td><code>Low</code></td><td>la peor pérdida flotante ocurre en el mínimo</td></tr>
+        <tr><td>E</td><td><code>Low</code></td><td>el stop se toca si el mínimo bajó hasta él</td></tr>
+        <tr><td>F</td><td><code>Close</code></td><td>las órdenes nuevas se colocan respecto al precio de cierre, como haría X1 al final de la vela</td></tr>
+      </tbody></table></div>
+    <p>Usar <code>High</code> en C y <code>Low</code> en D/E dentro de la misma vela es <b>optimista y pesimista a
+    la vez</b>: se asume que el precio alcanzó el máximo (activando el trailing) y también el mínimo (cerrando).
+    Esa contradicción es precisamente lo que la simulación intra-vela resuelve.</p>
+  </div>
+</div>
+
+
+<h2 id="x4-intravela"><span class="num">5</span>Simulación intra-vela</h2>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3>El problema del orden interno</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>Una vela horaria dice que el precio abrió en 180, tocó 184, bajó a 176 y cerró en 181.
+    <b>No dice en qué orden.</b> Y el orden importa: si primero subió a 184 y luego bajó, el trailing se activó y
+    la operación cerró en ganancia; si primero cayó a 176, quizá cerró antes por pérdida máxima.
+    Con las mismas cuatro cifras, dos resultados opuestos.</p>
+    <p><b>La solución:</b> cuando el desenlace depende del orden, X4 toma <b>60 minutos reales</b> del historial M1
+    del mismo activo —elegidos al azar—, los deforma para que encajen exactamente en la vela horaria, y simula los
+    pasos B–F sobre cada uno de esos 60 minutos.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · cuándo se activa y cómo se deforma</span>
+    <pre><code><span class="k">def</span> <span class="fn">_necesita_intravela</span>(est_a, candle, L, cfg):
+    <span class="c"># ¿El desenlace de esta vela depende del ORDEN interno de los precios?</span>
+    rango = candle[<span class="s">'High'</span>] - candle[<span class="s">'Low'</span>]
+
+    <span class="k">for</span> precio_ap, pos <span class="k">in</span> est_a[<span class="s">'OA'</span>].items():
+        <span class="k">if</span> pos[<span class="s">'sl'</span>] == <span class="n">0</span>:
+            <span class="c"># ¿Cabe en la vela activar el trailing, o perder el máximo?</span>
+            <span class="k">if</span> rango * L &gt;= cfg.A <span class="k">or</span> (precio_ap - candle[<span class="s">'Low'</span>]) * L &gt;= cfg.PERDIDA_MAX_BT:
+                <span class="k">return</span> <span class="k">True</span>
+        <span class="k">else</span>:
+            sl_nuevo = candle[<span class="s">'High'</span>] - cfg.B / L
+            <span class="c"># ¿El stop subiría Y además sería tocado en la misma vela?</span>
+            <span class="k">if</span> sl_nuevo &gt; pos[<span class="s">'sl'</span>] <span class="k">and</span> candle[<span class="s">'Low'</span>] &lt;= sl_nuevo:
+                <span class="k">return</span> <span class="k">True</span>
+
+    <span class="k">for</span> precio_oe <span class="k">in</span> est_a[<span class="s">'OE'</span>]:
+        <span class="k">if</span> candle[<span class="s">'Low'</span>] &lt;= precio_oe:
+            <span class="k">if</span> rango * L &gt;= cfg.A <span class="k">or</span> (precio_oe - candle[<span class="s">'Low'</span>]) * L &gt;= cfg.PERDIDA_MAX_BT:
+                <span class="k">return</span> <span class="k">True</span>     <span class="c"># se abre y podría cerrarse en la misma hora</span>
+
+    <span class="k">return</span> <span class="k">False</span>            <span class="c"># vela tranquila → se resuelve con OHLC, mucho más rápido</span></code></pre>
+    <p>El reescalado es una transformación afín que preserva la forma del tramo pero fuerza sus extremos:</p>
+    <pre><code><span class="k">def</span> <span class="fn">_escalar_bloque_m1</span>(bloque_raw, candle_h1):
+    scale = (H1.High - H1.Low) / (M1.High - M1.Low)
+    <span class="k">for</span> col <span class="k">in</span> [<span class="s">'Open'</span>, <span class="s">'High'</span>, <span class="s">'Low'</span>, <span class="s">'Close'</span>]:
+        bloque[col] = H1.Low + (bloque[col] - M1.Low) * scale
+
+    bloque.loc[<span class="n">0</span>,        <span class="s">'Open'</span>]  = H1.Open    <span class="c"># se fuerzan los extremos</span>
+    bloque.loc[<span class="n">59</span>,       <span class="s">'Close'</span>] = H1.Close
+    <span class="k">return</span> bloque</code></pre>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · limitaciones honestas</span>
+    <ul>
+      <li><b>Es aleatorio.</b> <code>t = random.randint(0, len(datos_m1) - 60)</code>, sin semilla fija. Dos corridas
+        idénticas dan resultados distintos. Para generar variedad para X5 es más virtud que defecto, pero invalida
+        la comparación exacta entre dos corridas del modo versión.</li>
+      <li><b>El tramo prestado no corresponde al momento simulado.</b> Se toma de cualquier punto del historial M1,
+        no de la hora que se está simulando. Aporta microestructura realista <i>promedio</i>, no la real.</li>
+      <li><b>Todas las velas del bloque comparten la marca de tiempo horaria.</b> Las operaciones abiertas y
+        cerradas dentro del bloque quedan fechadas con la hora H1 → <code>timestamp_oe</code>,
+        <code>timestamp_oa</code> y <code>timestamp_oc</code> pueden ser idénticos, y
+        <code>duracion_velas_h1 = 0</code>. En el store aparecen como operaciones instantáneas.</li>
+      <li><b>Sin datos M1 se degrada en silencio</b> (con un aviso por consola) y se resuelve con los cuatro
+        valores horarios.</li>
+    </ul>
+    <div class="warnbox"><span class="t">Efecto en el store</span>
+      Una fracción no despreciable de las filas <code>'oc'</code> viene de operaciones intra-vela. Para ellas, el
+      bloque temporal OE y el bloque temporal OA son <b>idénticos</b> (misma hora, mismo día de semana, mismo mes),
+      lo que introduce columnas perfectamente correlacionadas para ese subconjunto de filas.</div>
+  </div>
+</div>
+
+
+<h2 id="x4-cuenta"><span class="num">6</span>Contabilidad de la cuenta</h2>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3>Las cuatro magnitudes y la quiebra</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <pre><code><span class="k">def</span> <span class="fn">_calcular_estado_cuenta</span>(estado, precios_cierre, cfg):
+    balance = estado[<span class="s">'capital'</span>]              <span class="c"># solo cambia al cerrar posiciones</span>
+    GA_global = margen_usado = <span class="n">0.0</span>
+
+    <span class="k">for</span> activo, est_a <span class="k">in</span> estado[<span class="s">'por_activo'</span>].items():
+        <span class="k">for</span> precio_ap <span class="k">in</span> est_a[<span class="s">'OA'</span>]:
+            GA_global    += (precio_actual - precio_ap) * lote * units
+            margen_usado += precio_ap * lote * units / apalancamiento
+
+    equity       = balance + GA_global          <span class="c"># cambia en CADA vela</span>
+    margen_libre = equity - margen_usado
+    margin_level = equity / margen_usado * <span class="n">100</span>   <span class="c"># la métrica de supervivencia</span></code></pre>
+    <p><b>Quiebra:</b> X4 detiene la simulación si <code>equity &lt;= 0</code>, o si hay margen usado y
+    <code>margin_level &lt;= STOP_OUT_LEVEL</code> (50 % por defecto). Registra un evento <code>stop_out</code>
+    con la foto completa, marca <code>estado['stop_out'] = True</code> y corta el bucle.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · los dos archivos de patrimonio</span>
+    <div class="tw"><table>
+      <thead><tr><th>Archivo</th><th>Granularidad</th><th>Columnas</th><th>Para qué</th></tr></thead>
+      <tbody>
+        <tr><td><code>equity_global.csv</code></td><td>1 fila por vela</td><td>ts, balance, equity, margen_usado, margen_libre, margin_level, n_OA, n_OE</td><td>la curva de capital</td></tr>
+        <tr><td><code>equity_activos.csv</code></td><td>1 fila por vela <b>y activo</b></td><td>ts, activo, GC, GA, GT</td><td>atribuir el resultado a cada activo</td></tr>
+      </tbody></table></div>
+    <p><code>GT = GC + GA</code> es <b>exactamente la misma cantidad</b> que en el store se llama
+    <code>pnl_cerrado_activo + pnl_flotante_activo</code>, y es la base del target del head <code>acumulado</code>
+    (§13). Si quieres ver «la ganancia acumulada en el tiempo» de un activo, <code>equity_activos.csv</code>
+    es el archivo, con resolución de una vela.</p>
+  </div>
+  <div class="l l3">
+    <div class="note"><span class="t">Por qué el capital de X5 es absurdo</span>
+      En modo <code>--x5</code> el capital inicial es <b>1.000.000 USD virtuales por activo</b>, deliberadamente
+      desproporcionado. En recolección de datos no interesa saber si la cuenta sobrevive, sino observar cómo se
+      comporta cada combinación de parámetros. Un tope de capital cortaría las pasadas antes de tiempo y sesgaría
+      el dataset hacia configuraciones conservadoras.
+      <br><br>Efecto colateral: por eso el target del modelo es <code>retorno_usd</code> y no
+      <code>retorno_pct</code> — con un capital tan grande y <code>LOTAJES_M</code> fijo en 1, el porcentaje
+      quedaba dominado por una constante en vez de por la señal del trade.</div>
+  </div>
+</div>
+
+
+<h2 id="x4-x5mode"><span class="num">7</span>Modo <code>--x5</code>: X4 al servicio de la recolección</h2>
+<p>Cuatro cosas cambian respecto al modo versión. Solo la primera es conceptualmente grande.</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>1 · Los parámetros cambian durante la corrida</h3><span class="hint">doble clic → código</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>Cada <code>delta_recalculo_soportes</code> días simulados, justo antes de recalcular soportes, X4 elige
+    parámetros nuevos para el tramo que empieza. Dos caminos: <b>EXPLORE</b> (azar dentro de los rangos) o
+    <b>EXPLOIT</b> (le pregunta al modelo de X5, con el contexto del instante simulado).</p>
+  </div>
+  <div class="l l2">
+    <pre><code><span class="k">def</span> <span class="fn">_seleccionar_params_x5</span>(cfg, estado, ts, datos_h1, cierre_previo, carpeta_fund):
+    <span class="k">for</span> activo <span class="k">in</span> cfg.valores:
+        tipo, bundle, acumulado = cfg._x5_bundles[activo]   <span class="c"># cargado 1 vez por ciclo</span>
+
+        es_explore = (bundle <span class="k">is</span> <span class="k">None</span>) <span class="k">or</span> (random.random() &lt; cfg.EXPLORATION_RATE)
+
+        <span class="k">if</span> es_explore:
+            <span class="c"># Sin modelo entrenado, TODOS los tramos son explore. Con modelo, un 30%</span>
+            <span class="c"># sigue siendo explore: mantener exploración evita el sesgo de selección</span>
+            <span class="c"># observacional (el store solo vería lo que el modelo ya cree bueno).</span>
+            params[activo] = _params_explore_activo(cfg, activo)
+        <span class="k">else</span>:
+            <span class="c"># Contexto AS-OF-T: nada de datos posteriores a ts.</span>
+            ctx = _contexto_inferencia_x5(cfg, activo, df, ts, soportes, precio, est_a, ...)
+            params[activo] = X5.inferir_con_contexto(activo, tipo, bundle, ctx,
+                                                     cfg.X5_PARAM_RANGES, acumulado)
+    <span class="k">return</span> params, tipos
+
+
+<span class="k">def</span> <span class="fn">_params_explore_activo</span>(cfg, activo):
+    r = cfg.X5_PARAM_RANGES
+    a     = random.uniform(*r[<span class="s">'A'</span>][activo])
+    alpha = random.uniform(<span class="n">0.3</span>, <span class="n">0.7</span>)      <span class="c"># B se samplea COMO FRACCIÓN de A:</span>
+    <span class="k">return</span> {                                <span class="c"># B es la distancia del stop bajo el precio</span>
+        <span class="s">'n_sizes_ejecucion'</span>: random.randint(*r[<span class="s">'n_sizes_ejecucion'</span>][activo]),
+        <span class="s">'K'</span>:      random.uniform(*r[<span class="s">'K'</span>][activo]),        <span class="c">#  y A la ganancia que lo activa,</span>
+        <span class="s">'N_EXP'</span>:  random.uniform(*r[<span class="s">'N_EXP'</span>][activo]),    <span class="c">#  así que B &lt; A debe cumplirse</span>
+        <span class="s">'LAMBDA'</span>: random.uniform(*r[<span class="s">'LAMBDA'</span>][activo]),   <span class="c">#  para ser coherente.</span>
+        <span class="s">'A'</span>: a,
+        <span class="s">'B'</span>: alpha * a,
+        <span class="s">'LOTAJES_M'</span>:   random.randint(*r[<span class="s">'LOTAJES_M'</span>][activo]),   <span class="c"># rango (1,1) → siempre 1</span>
+        <span class="s">'PERDIDA_MAX'</span>: random.uniform(*r[<span class="s">'PERDIDA_MAX'</span>][activo]),
+    }</code></pre>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · la mutación de <code>cfg</code></span>
+    <pre><code><span class="k">def</span> <span class="fn">_aplicar_params_x5</span>(cfg, params, min_lotajes):
+    p0 = params[cfg.valores[<span class="n">0</span>]]      <span class="c"># en --x5 --activo A solo hay un activo</span>
+    cfg.K              = p0[<span class="s">'K'</span>]
+    cfg.N_EXP          = p0[<span class="s">'N_EXP'</span>]
+    cfg.LAMBDA         = p0[<span class="s">'LAMBDA'</span>]
+    cfg.A              = p0[<span class="s">'A'</span>]
+    cfg.B              = p0[<span class="s">'B'</span>]
+    cfg.PERDIDA_MAX_BT = p0[<span class="s">'PERDIDA_MAX'</span>]
+    <span class="k">for</span> activo <span class="k">in</span> cfg.valores:
+        cfg.n_sizes[activo] = params[activo][<span class="s">'n_sizes_ejecucion'</span>]
+        cfg.LOTAJES[activo] = params[activo][<span class="s">'LOTAJES_M'</span>] * min_lotajes[activo]</code></pre>
+    <div class="key"><span class="t">Esta función es el corazón de §13</span>
+      <code>_aplicar_params_x5</code> <b>muta el objeto <code>cfg</code> en sitio</b>. Desde ese instante, todas las
+      funciones de X4 leen los valores nuevos — <b>incluidos los pasos C, D y F aplicados sobre posiciones abiertas
+      hace semanas</b>. No hay ninguna copia de parámetros guardada dentro de la OA. Por eso el
+      <code>retorno_usd</code> de una orden larga no es atribuible a un único conjunto de parámetros.</div>
+    <p class="ref">Un tramo se distingue del anterior en 8 columnas del store: <code>n_ejecucion</code>,
+    <code>K</code>, <code>N_EXP</code>, <code>LAMBDA</code>, <code>A</code>, <code>B</code>,
+    <code>LOTAJES_M</code>, <code>PERDIDA_MAX</code>. Son exactamente <code>PARAM_STORE_COLS</code>, y es lo que
+    <code>_construir_tramos</code> usa como changepoint.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>2, 3 y 4 · Filas, filas periódicas y aislamiento</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <ul>
+      <li><b>2 · Cada OC se convierte en una fila de entrenamiento.</b> Los pasos D y E, además de registrar el
+        trade, llaman a <code>_construir_fila_oc</code> y escriben en el store.</li>
+      <li><b>3 · Filas periódicas.</b> Cada <code>X5_FREQ_REGISTRO_PERIODICO</code> (=4) velas <i>en las que el
+        activo tiene al menos una OA</i>, se escribe una fila <code>'periodico'</code>: una foto del portfolio sin
+        que haya cerrado nada. Capturan el deterioro durante rachas bajistas largas sin cierres.</li>
+      <li><b>4 · Aislamiento por activo.</b> <code>--activo BTCUSD</code> redirige las carpetas de X4 a
+        <code>resources/x5/bt_BTCUSD/</code>, para que seis procesos corran en paralelo sin colisionar.</li>
+    </ul>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · los tres ejes de aislamiento</span>
+    <div class="tw"><table>
+      <thead><tr><th>Eje</th><th>Mecanismo</th><th>Qué separa</th></tr></thead>
+      <tbody>
+        <tr><td><b>Por activo</b></td><td><code>--activo BTCUSD</code></td><td><code>bt_BTCUSD/</code>: checkpoint, equity, logs, cache de soportes. El store ya era por activo.</td></tr>
+        <tr><td><b>Por namespace</b></td><td>env <code>X5_DEMO_SUFFIX=_demo</code></td><td>añade <code>_demo</code> al store, al directorio del modelo, a Performance y a las carpetas bt. Es lo que permite que <code>--demo</code> no toque nada real.</td></tr>
+        <tr><td><b>Por versión</b></td><td><code>--version V1</code></td><td>config congelada + carpeta propia de resultados. <b>Independiente</b> de los otros dos: el pipeline de X5 no usa versiones.</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · el registro periódico, exacto</span>
+    <pre><code><span class="k">if</span> x5_mode <span class="k">and</span> _freq_periodico &gt; <span class="n">0</span>:
+    est_a_p = estado[<span class="s">'por_activo'</span>][activo]
+    <span class="k">if</span> est_a_p[<span class="s">'OA'</span>]:                          <span class="c"># SOLO si hay posiciones abiertas</span>
+        cnt = est_a_p.get(<span class="s">'x5_velas_cnt'</span>, <span class="n">0</span>) + <span class="n">1</span>
+        est_a_p[<span class="s">'x5_velas_cnt'</span>] = cnt
+        <span class="k">if</span> cnt % _freq_periodico == <span class="n">0</span>:
+            _append_x5_store(activo, _construir_fila_periodica(...))</code></pre>
+    <div class="warnbox"><span class="t">Consecuencia para el target de tramos</span>
+      El contador solo avanza en velas <b>con OA abiertas</b>. Un tramo en el que el activo no abrió ninguna
+      posición y no cerró ninguna operación <b>no produce ninguna fila</b> — y por lo tanto es invisible para
+      <code>_construir_tramos</code>: se fusiona con el tramo vecino. Los tramos «muertos» (donde unos parámetros
+      no generaron actividad ninguna) no aparecen en el dataset del head <code>acumulado</code>.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ X5 ═══════════════════════════ -->
+<h2 id="x5-que"><span class="num">8</span>X5 — qué es y qué problema resuelve</h2>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Un modelo sustituto del backtest</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>El problema:</b> <code>config.py</code> tiene una configuración fija (<code>K</code>, <code>N_EXP</code>,
+    <code>LAMBDA</code>, <code>A</code>, <code>B</code>, <code>N</code>, <code>PERDIDA_MAX</code>) para un mercado
+    que no lo es. Lo que funciona en un rango lateral no funciona en una tendencia, y lo que funciona en BTCUSD no
+    funciona en GOOGL.</p>
+    <p><b>La idea:</b> aprender la función</p>
+    <pre><code>f(contexto_de_mercado, config_params) → retorno_esperado</code></pre>
+    <p>y luego, con el contexto <b>fijo</b> (es lo que hay hoy) y los params <b>variables</b>, buscar los params
+    que maximizan la predicción. Eso es un <span class="g" data-g="surrogate">modelo sustituto</span>:
+    en vez de correr un backtest por cada combinación de parámetros (horas de CPU), se consulta un modelo
+    entrenado sobre miles de backtests ya corridos (milisegundos).</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · las dos fases de despliegue</span>
+    <div class="tw"><table>
+      <thead><tr><th></th><th>Fase 1 — <code>TIPO_EJECUCION="est"</code></th><th>Fase 2 — <code>TIPO_EJECUCION="din"</code></th></tr></thead>
+      <tbody>
+        <tr><td><b>Quién llena el store</b></td><td>X4 <code>--x5</code> (backtesting)</td><td>X1 en vivo, cada OC real</td></tr>
+        <tr><td><b>Quién lee los params</b></td><td>nadie — X1 usa <code>config.py</code></td><td>X1 lee <code>active_parameters.json</code> por activo</td></tr>
+        <tr><td><b>Cuándo se infiere</b></td><td>manual (<code>--infer</code>)</td><td>al cierre de cada vela H1</td></tr>
+        <tr><td><b>Fallback</b></td><td>—</td><td>activos con <code>model_status="untrained"</code> caen a <code>config.py</code></td></tr>
+        <tr><td><b>Ciclo</b></td><td>abierto (X4 → X5 → archivo)</td><td><b>cerrado</b> (X1 → store → X5 → X1)</td></tr>
+      </tbody></table></div>
+    <p><b>Hoy estás en Fase 1.</b> Todo lo de este documento sobre recolección, tramos y targets ocurre dentro de
+    backtesting.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · la interfaz de línea de comandos</span>
+    <pre><code><span class="c"># 3 modos mutuamente excluyentes + una casilla</span>
+python scripts/X5_macro_brain.py --recolectar          <span class="c"># genera datos + auto-entrena</span>
+python scripts/X5_macro_brain.py --recolectar --demo   <span class="c"># recorrido guiado de 1 activo, aislado</span>
+python scripts/X5_macro_brain.py --infer               <span class="c"># recomienda params → active_parameters.json</span>
+python scripts/X5_macro_brain.py --infer --train       <span class="c"># reentrena y luego recomienda</span>
+python scripts/X5_macro_brain.py --status              <span class="c"># diagnóstico por activo</span></code></pre>
+    <p><code>--train</code> <b>no es un modo</b>: es una casilla que solo tiene efecto junto a <code>--infer</code>.
+    <code>--recolectar</code> ya entrena por su cuenta tras cada ciclo.</p>
+    <p><code>--recolectar</code> (sin <code>--demo</code>) pregunta al inicio el <b>alcance</b>: todos los activos
+    en paralelo y en silencio, o uno solo en recorrido guiado oficial (mismos prints y gráficos que
+    <code>--demo</code>, pero sobre el store real y <b>sin pausas</b>).</p>
+  </div>
+</div>
+
+
+<h2 id="x5-store"><span class="num">9</span>El store: el conjunto de datos</h2>
+<p><code>resources/x5/{ACTIVO}_store.csv</code>, separador <code>;</code>. Un archivo por activo — los seis modelos
+son independientes, nunca se entrena un modelo global.</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Dos tipos de fila, cinco bloques de columnas</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <div class="grid2">
+      <div class="mini"><h4><code>tipo_registro = 'oc'</code></h4><p>Una operación cerró. Trae
+      <code>retorno_usd</code>, los tres timestamps (<code>oe</code>/<code>oa</code>/<code>oc</code>) y los dos
+      snapshots de contexto. Es la fila principal.</p></div>
+      <div class="mini"><h4><code>tipo_registro = 'periodico'</code></h4><p>Foto cada 4 velas con OA abiertas.
+      <code>retorno_usd</code> vacío, <code>timestamp_oe/oa</code> vacíos, bloques <code>_oa</code> vacíos. Sirve
+      para el target <code>pnl_flotante_activo</code>.</p></div>
+    </div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · los bloques y el momento en que se capturan</span>
+    <div class="tw"><table>
+      <thead><tr><th>Bloque</th><th>Columnas</th><th>Se captura en…</th><th>Fuente</th></tr></thead>
+      <tbody>
+        <tr><td><b>config params</b></td><td><code>n_ejecucion, K, N_EXP, LAMBDA, A, B, LOTAJES_M, PERDIDA_MAX</code></td>
+            <td style="color:var(--dgr); font-weight:640">OC — el cierre</td><td><code>cfg</code>, ya mutado por el tramo vigente</td></tr>
+        <tr><td><b>temporal OE</b></td><td><code>hora, dia_semana, dia_mes, mes, ds_*, mes_*, dias_hasta_festivo…</code></td>
+            <td>OE</td><td><code>_features_temporales_ts(ts_oe_creacion)</code></td></tr>
+        <tr><td><b>X2 OE</b></td><td><code>x2_score, x2_score_cross, x2_comp_*</code></td><td>OE</td><td><code>x2_history.json</code>, entrada más reciente ≤ fecha</td></tr>
+        <tr><td><b>X3 OE</b></td><td><code>x3_rsi_14, x3_atr_14, x3_sma_50, x3_dist_soporte…</code></td><td>OE</td><td><code>X3.compute_snapshot(df ≤ ts, soportes)</code></td></tr>
+        <tr><td><b>portfolio</b></td><td><code>n_ordenes_abiertas, n_ordenes_espera, exposicion_usd, mean/std_retorno_pct_abierto, retorno_promedio_ultimas_5_oc</code></td>
+            <td style="color:var(--dgr); font-weight:640">OC</td><td><code>_contexto_portfolio_x5(est_a, precio_cierre)</code></td></tr>
+        <tr><td><b>temporal OA</b></td><td><code>hora_oa, dia_semana_oa, …</code></td><td>OA</td><td><code>_features_temporales_ts(ts_apertura)</code></td></tr>
+        <tr><td><b>X2/X3 OA</b></td><td><code>x2_*_oa, x3_*_oa</code></td><td>OA</td><td>snapshot congelado al ejecutarse la OE</td></tr>
+        <tr><td><b>px_* (derivadas)</b></td><td><code>px_ret_1d, px_ret_5d, px_accel_1_5d, … + sus _oa</code></td><td>en <b>entrenamiento</b></td>
+            <td><code>_enriquecer_con_precios</code>: se calculan desde <code>Data/</code> en memoria, <b>no están en el CSV</b></td></tr>
+        <tr><td><b>targets</b></td><td><code>retorno_usd, pnl_flotante_activo, pnl_cerrado_activo</code></td><td>OC</td><td>ver abajo</td></tr>
+      </tbody></table></div>
+    <div class="key"><span class="t">Lee esta tabla dos veces</span>
+      Los <b>config params</b> y el <b>portfolio</b> se leen en el momento del <b>cierre</b>. El <b>contexto de
+      mercado</b> se lee en <b>OE</b> y en <b>OA</b>. No hay ningún bloque de contexto capturado en OC, ni ningún
+      bloque de params capturado en OE ni en OA. Esa asimetría es el tema de §13.</div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · los cuatro targets</span>
+    <div class="tw"><table>
+      <thead><tr><th>Constante</th><th>Columna</th><th>Qué mide</th><th>Filas que lo tienen</th></tr></thead>
+      <tbody>
+        <tr><td><code>TARGET_RETORNO</code></td><td><code>retorno_usd</code></td><td>USD ganados/perdidos por <b>una</b> operación</td><td><code>'oc'</code></td></tr>
+        <tr><td><code>TARGET_FLOTANTE</code></td><td><code>pnl_flotante_activo</code></td><td>P&amp;L no realizado del activo en ese instante (= GA)</td><td><code>'oc'</code> + <code>'periodico'</code></td></tr>
+        <tr><td><code>TARGET_CERRADO</code></td><td><code>pnl_cerrado_activo</code></td><td>P&amp;L realizado acumulado del activo (= GC)</td><td><code>'oc'</code> (y <code>'periodico'</code>, por consistencia)</td></tr>
+        <tr><td><code>TARGET_ACUMULADO</code></td><td><code>retorno_acumulado_dia</code></td><td><b>Δ(GC+GA) por día</b> mientras esos params estuvieron vigentes</td><td>ninguna — se <b>construye</b> por tramos</td></tr>
+      </tbody></table></div>
+    <div class="warnbox"><span class="t">Escritura defensiva del CSV</span>
+      <code>_append_x5_store</code> hace tres cosas que parecen paranoia y no lo son:
+      <ol style="margin:6px 0">
+        <li>Si el archivo no termina en <code>\n</code> (ejecución cortada a mitad de fila), añade el salto antes
+          de escribir — si no, la fila nueva se concatena a la anterior y corrompe el CSV.</li>
+        <li><b><code>fieldnames</code> se lee del header ya escrito</b>, no de <code>fila.keys()</code>. Una fila
+          puede traer sus claves en otro orden (snapshots capturados bajo otra versión del código o con otro set de
+          features disponible). Un CSV no lleva nombres por fila, solo posición: usar las claves de la propia fila
+          desalinearía los valores contra el header, <b>en silencio</b>.</li>
+        <li><code>extrasaction='ignore'</code>: claves nuevas se descartan en vez de reventar.</li>
+      </ol>
+      Al leer, <code>_cargar_store</code> usa <code>on_bad_lines='skip'</code> y <code>utf-8-sig</code> (por si el
+      CSV pasó por Excel y trae BOM). Y <code>_n_oc</code> solo cuenta filas <code>'oc'</code> con
+      <code>retorno_usd</code> válido, precisamente para excluir filas desalineadas de corridas antiguas.</div>
+  </div>
+</div>
+
+
+<h2 id="x5-recolectar"><span class="num">10</span>Recolección</h2>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3><code>--recolectar</code>: orquestador y worker</h3><span class="hint">doble clic → código</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <pre><code><span class="c"># Un hilo por activo. Cada uno corre sus ciclos independientes y entrena su</span>
+<span class="c"># propio modelo al cruzar el umbral. Avanzan en paralelo y a distinto ritmo.</span>
+<span class="k">with</span> ThreadPoolExecutor(max_workers=<span class="fn">len</span>(activos)) <span class="k">as</span> ex:
+    futs = {ex.submit(_worker_recolectar_activo, a, x4_path, n_ciclos): a
+            <span class="k">for</span> a <span class="k">in</span> activos}</code></pre>
+    <pre><code><span class="k">def</span> <span class="fn">_worker_recolectar_activo</span>(activo, x4_path, n_ciclos):
+    <span class="k">for</span> ciclo <span class="k">in</span> <span class="fn">range</span>(<span class="n">1</span>, n_ciclos + <span class="n">1</span>):
+
+        <span class="c"># 1. Un backtest completo. X4 decide si arranca pasada nueva o retoma</span>
+        <span class="c">#    un checkpoint interrumpido.</span>
+        subprocess.run([sys.executable, x4_path, <span class="s">'--x5'</span>, <span class="s">'--activo'</span>, activo])
+
+        <span class="c"># 2. Cuántas OC hay ahora en el store del activo</span>
+        n = _n_oc(_cargar_store(activo))
+
+        <span class="c"># 3. Si ya hay suficientes, entrenar/reentrenar → los ciclos EXPLOIT</span>
+        <span class="c">#    siguientes ya usan el modelo recién entrenado.</span>
+        <span class="k">if</span> n &gt;= cfg.X5_MIN_TRADES_TRAIN:      <span class="c"># 500</span>
+            _entrenar(activo)
+
+        <span class="k">if</span> n &gt;= cfg.X5_MIN_TRADES_FTT:        <span class="c"># 5000 → suficiente, corta</span>
+            <span class="k">break</span></code></pre>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · recorrido completo de un activo, paso a paso</span>
+    <pre><code><span class="c"># ── CICLO 1 ──────────────────────────────────────────────────────────</span>
+[X5] pregunta alcance y, si procede, si reiniciar el activo
+[X5] lanza el worker de BTCUSD
+
+  [X5→X4] subprocess: X4 --x5 --activo BTCUSD
+  [X4]    carga velas H1 y M1; decide pasada nueva vs. retomar checkpoint
+  [X4→X5] cargar_modelo_para_activo('BTCUSD') → ('untrained', None, None)
+  [X4]    sin modelo ⇒ TODOS los tramos serán EXPLORE
+  [X4]    cold start: sortea params y calcula soportes hasta fecha_inicio
+  [X4]    avanza vela a vela ejecutando A–F
+  [X4]      · cada OC          → una fila 'oc'         en BTCUSD_store.csv
+  [X4]      · cada 4 velas c/OA → una fila 'periodico'  en BTCUSD_store.csv
+  [X4]      · cada 5 días      → params nuevos + soportes recalculados
+  [X4]    llega al final de los datos (o quiebra); guarda checkpoint; termina
+
+[X5] cuenta las filas 'oc' → 312 OC  (&lt; 500, no entrena)
+
+<span class="c"># ── CICLO 2 ──────────────────────────────────────────────────────────</span>
+  [X4]    otra pasada completa, params distintos → 680 OC acumuladas
+[X5] 680 ≥ 500 → entrena LightGBM (3 heads) + head 'acumulado' si hay ≥30 tramos
+
+<span class="c"># ── CICLO 3 ──────────────────────────────────────────────────────────</span>
+  [X4→X5] ahora SÍ hay modelo → 70% de los tramos usan inferencia (EXPLOIT)
+  [X4]    en cada tramo EXPLOIT construye el contexto AS-OF-T y pide params
+  [X4]    las filas nuevas ya reflejan decisiones informadas por el modelo
+  ...     hasta agotar N_CICLOS_BT o superar 5.000 OC</code></pre>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · el modo guiado y el reinicio</span>
+    <p>Hay tres formas de correr la recolección, y solo difieren en verbosidad y en qué namespace tocan:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Forma</th><th>Activos</th><th>Store</th><th>Pausas</th><th>Gráficos</th></tr></thead>
+      <tbody>
+        <tr><td><code>--recolectar</code> → «todos»</td><td>6 en paralelo</td><td>real</td><td>no</td><td>no (stdout capturado)</td></tr>
+        <tr><td><code>--recolectar</code> → «uno»</td><td>1, secuencial</td><td><b>real</b></td><td><b>no</b></td><td>sí (D01–D10)</td></tr>
+        <tr><td><code>--recolectar --demo</code></td><td>1, secuencial</td><td><code>_demo</code> aislado</td><td><b>sí</b> (Enter)</td><td>sí (D01–D10)</td></tr>
+      </tbody></table></div>
+    <p>El narrador (<code>x5_demo.py</code>) explica cada suceso nuevo con un ID (<code>D01</code>…<code>D10</code>)
+    y pausa la primera vez que aparece. Los IDs cubren: cold start, EXPLORE, creación de OE, ejecución OE→OA,
+    cierre OA→OC, EXPLOIT, mes completado, cruce del umbral de entrenamiento, fin, y el gráfico de soportes.</p>
+    <div class="warnbox"><span class="t"><code>_borrar_checkpoints_activo</code> borra de verdad</span>
+      «Reiniciar este activo desde cero» tiene el <b>mismo alcance en demo y en oficial</b>: borra el store, el
+      estado del narrador, el modelo, el historial de Performance, la carpeta <code>bt_{ACTIVO}/</code> completa
+      (checkpoint, cache de soportes, logs, equity) y los gráficos. En el namespace oficial eso significa
+      <b>datos reales acumulados durante horas de CPU</b>. El borrado usa backoff exponencial hasta ~35 s por
+      archivo, porque OneDrive bloquea archivos recién escritos en Windows.</div>
+  </div>
+</div>
+
+
+<h2 id="x5-train"><span class="num">11</span>Entrenamiento</h2>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Qué modelo, según cuántos datos haya</h3><span class="hint">doble clic → código</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <pre><code><span class="k">def</span> <span class="fn">_entrenar</span>(activo):
+    store = _cargar_store(activo)                     <span class="c"># {ACTIVO}_store.csv</span>
+    store = _enriquecer_con_precios(store, activo)    <span class="c"># + columnas px_* (en memoria)</span>
+    n     = _n_oc(store)                              <span class="c"># filas 'oc' con retorno_usd válido</span>
+
+    <span class="k">if</span>   n &lt; <span class="n">500</span>:   tipo = <span class="s">'untrained'</span>     <span class="c"># X5_MIN_TRADES_TRAIN</span>
+    <span class="k">elif</span> n &lt; <span class="n">5000</span>:  tipo = <span class="s">'lgbm'</span>          <span class="c"># X5_MIN_TRADES_FTT</span>
+    <span class="k">else</span>:            tipo = <span class="s">'ftt'</span>
+
+    <span class="k">if</span> tipo == <span class="s">'untrained'</span>:
+        <span class="k">return</span> tipo                              <span class="c"># nada que entrenar todavía</span>
+
+    <span class="k">if</span> tipo == <span class="s">'lgbm'</span>: _entrenar_lgbm(activo, store)   <span class="c"># 3 modelos independientes</span>
+    <span class="k">else</span>:               _entrenar_ftt(activo, store)    <span class="c"># 1 tronco + 3 cabezas</span>
+
+    _entrenar_acumulado(activo, store)   <span class="c"># SIEMPRE LightGBM, sobre TRAMOS (§13)</span>
+    <span class="k">return</span> tipo</code></pre>
+    <div class="note"><span class="t">Por qué el head <code>acumulado</code> va aparte</span>
+      Vive en un <b>dataset distinto</b> (tramos, no filas), su <i>n</i> es órdenes de magnitud menor
+      (≈125 tramos por ciclo vs. miles de OC) y por eso nunca va a justificar un Transformer.
+      Se entrena siempre con LightGBM y con su propio <code>.pkl</code> y <code>features.json</code>, aunque el
+      activo ya haya pasado a fase FTT.</div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · cómo se arma el vector de entrada</span>
+    <pre><code><span class="k">def</span> <span class="fn">_feature_cols_de_store</span>(store):
+    <span class="c"># Orden REPRODUCIBLE — se guarda junto al modelo para que inferencia y</span>
+    <span class="c"># entrenamiento usen exactamente la misma posición para cada feature.</span>
+    <span class="k">return</span> (PARAM_STORE_COLS      <span class="c"># 8 config params  ← lo que se OPTIMIZA</span>
+          + TEMPORAL_COLS        <span class="c"># 33 temporales OE</span>
+          + x2_oe + x3_oe + px_oe
+          + PORTFOLIO_COLS       <span class="c"># 6 de portfolio</span>
+          + temp_oa + x2_oa + x3_oa + px_oa)
+    <span class="c"># Excluye TODA columna que termine en _oc: es información del futuro,</span>
+    <span class="c"># no disponible en el momento de decidir.</span>
+
+
+<span class="k">def</span> <span class="fn">_preparar_features</span>(store, feature_cols, target, tipos_registro):
+    df = store[store[<span class="s">'tipo_registro'</span>].isin(tipos_registro)]
+    df = df[pd.to_numeric(df[target], errors=<span class="s">'coerce'</span>).notna()]
+
+    X = matriz(df, feature_cols)      <span class="c"># NaN → 0</span>
+    y = df[target].values
+
+    <span class="c"># Ponderación temporal exponencial: lo reciente pesa más.</span>
+    n = <span class="fn">len</span>(X)
+    w = np.exp(cfg.X5_LAMBDA_DECAY * (np.arange(n) - n + <span class="n">1</span>))   <span class="c"># fila n-1 ≈ 1</span>
+    w = w / w.mean()                  <span class="c"># media 1: no distorsiona la loss</span>
+    <span class="k">return</span> X, y, w</code></pre>
+    <p><b>El split es temporal, no aleatorio:</b> <code>split = max(10, int(len(X) * 0.8))</code> — el primer 80 %
+    de las filas (las más antiguas) es train, el último 20 % es validación. Es lo correcto para series de tiempo,
+    pero implica que la métrica de test siempre se calcula sobre el período más reciente.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · las dos arquitecturas</span>
+    <h4>LightGBM — tres modelos independientes</h4>
+    <pre><code>targets = {
+    <span class="s">'retorno'</span>:  (TARGET_RETORNO,  (<span class="s">'oc'</span>,)),
+    <span class="s">'flotante'</span>: (TARGET_FLOTANTE, (<span class="s">'oc'</span>, <span class="s">'periodico'</span>)),   <span class="c"># ← aprovecha las periódicas</span>
+    <span class="s">'cerrado'</span>:  (TARGET_CERRADO,  (<span class="s">'oc'</span>,)),
+}
+<span class="k">for</span> key, (target_col, tipos) <span class="k">in</span> targets.items():
+    X, y, w = _preparar_features(store, feature_cols, target_col, tipos)
+    model = lgb.LGBMRegressor(n_estimators=<span class="n">1000</span>, learning_rate=<span class="n">0.05</span>, num_leaves=<span class="n">31</span>, ...)
+    model.fit(X_tr, y_tr, sample_weight=w_tr, eval_set=[(X_val, y_val)],
+              callbacks=[lgb.early_stopping(<span class="n">50</span>)])
+    pickle.dump(model, <span class="fn">open</span>(out / <span class="s">f'{activo}_lgbm_{key}.pkl'</span>, <span class="s">'wb'</span>))</code></pre>
+    <h4>FT-Transformer — un tronco, tres cabezas</h4>
+    <pre><code><span class="k">class</span> <span class="fn">FTTransformer</span>(nn.Module):
+    <span class="c"># Cada feature escalar se convierte en un vector de dimensión d (tokenizer),</span>
+    <span class="c"># pasa por 3 bloques Transformer, se hace mean-pool y salen 3 predicciones.</span>
+    <span class="k">def</span> <span class="fn">forward</span>(self, x):              <span class="c"># x: (B, F)</span>
+        t = self.tokenizer(x)              <span class="c"># (B, F, D)  D=192</span>
+        <span class="k">for</span> block <span class="k">in</span> self.blocks:        <span class="c"># 3 bloques pre-norm, 8 heads, d_ffn=256</span>
+            t = block(t)
+        pooled = self.norm_out(t).mean(dim=<span class="n">1</span>)      <span class="c"># (B, D)</span>
+        <span class="k">return</span> (self.head_retorno(pooled), self.head_flotante(pooled),
+                self.head_cerrado(pooled))
+
+<span class="c"># loss conjunta: el head 'retorno' manda, los otros dos regularizan</span>
+loss = l_retorno + <span class="n">0.3</span> * l_flotante + <span class="n">0.3</span> * l_cerrado</code></pre>
+    <p>Hiperparámetros del paper original (Gorishniy et al., 2021). Con ~240 features son ~700k parámetros:
+    no requiere GPU de alta gama. La normalización se calcula <b>solo sobre train</b> (evita fuga de información)
+    y se guarda junto al modelo.</p>
+    <div class="warnbox"><span class="t">Limitación del FTT hoy</span>
+      Los 3 heads comparten el mismo tensor <code>X</code> (filas <code>'oc'</code>), así que el head
+      <code>flotante</code> <b>pierde las filas periódicas</b> que sí aprovecha la versión LightGBM.
+      Está anotado como TO DO en el código.</div>
+    <p>Las métricas (MAE, MSE, MAPE, R²) de train y test de cada head se acumulan como historial en
+    <code>resources/x5/Performance/{ACTIVO}_performance.json</code>: cada entrenamiento appendea una entrada, así
+    que se puede ver si el modelo mejora ciclo a ciclo.</p>
+  </div>
+</div>
+
+
+<h2 id="x5-infer"><span class="num">12</span>Inferencia: del modelo a una recomendación</h2>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Contexto fijo, parámetros variables</h3><span class="hint">doble clic → código</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>El modelo predice <code>f(contexto, params) → retorno</code>. En inferencia el <b>contexto está dado</b>
+    (es el mercado de hoy, o el del instante simulado) y los <b>params son las incógnitas</b>. Optimizar significa
+    recorrer el espacio de los 8 params buscando el que maximiza la predicción.</p>
+    <pre><code><span class="k">def</span> <span class="fn">_construir_vector</span>(contexto, params_store, feature_cols):
+    <span class="c"># El vector es el MISMO que en entrenamiento; solo cambia qué parte es libre.</span>
+    full = {**contexto, **params_store}
+    <span class="k">return</span> np.array([<span class="fn">float</span>(full.get(c, <span class="n">0.0</span>)) <span class="k">for</span> c <span class="k">in</span> feature_cols])</code></pre>
+    <p>Dos técnicas según el modelo: <b>Optuna</b> (búsqueda bayesiana) para LightGBM, que no es diferenciable, y
+    <b>gradient ascent</b> para el FT-Transformer, que sí lo es.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · quién decide, y con qué head</span>
+    <pre><code><span class="k">def</span> <span class="fn">inferir_con_contexto</span>(activo, tipo, bundle, contexto, param_ranges, acumulado):
+
+    <span class="k">if</span> acumulado <span class="k">is</span> <span class="k">not</span> <span class="k">None</span>:
+        <span class="c"># ←←← EL CAMINO NORMAL desde que existe el head 'acumulado'.</span>
+        <span class="c"># Funciona igual en fase lgbm o ftt, porque 'acumulado' es SIEMPRE LightGBM.</span>
+        <span class="c"># Maximiza retorno acumulado en el tiempo, no promedio por trade.</span>
+        model_ac, feature_cols_ac = acumulado
+        <span class="k">return</span> _optimizar_optuna(activo, model_ac, feature_cols_ac, contexto)
+
+    <span class="c"># Fallback mientras el activo no junta X5_MIN_TRAMOS_TRAIN (=30) tramos:</span>
+    <span class="k">if</span> tipo == <span class="s">'lgbm'</span>:
+        <span class="k">return</span> _optimizar_optuna(activo, bundle[<span class="n">0</span>][<span class="s">'retorno'</span>], ..., contexto)
+    <span class="k">return</span> _inferir_ftt(activo, model, scaler, contexto, feature_cols)</code></pre>
+    <pre><code><span class="k">def</span> <span class="fn">_optimizar_optuna</span>(activo, model, feature_cols, contexto):
+
+    <span class="k">def</span> <span class="fn">objective</span>(trial):
+        p = {
+            <span class="s">'n_ejecucion'</span>: trial.suggest_int(<span class="s">'n_ejecucion'</span>, *_rango(...)),
+            <span class="s">'K'</span>:           trial.suggest_float(<span class="s">'K'</span>,     *_rango(<span class="s">'K'</span>, activo)),
+            <span class="s">'N_EXP'</span>:       trial.suggest_float(<span class="s">'N_EXP'</span>, *_rango(<span class="s">'N_EXP'</span>, activo)),
+            <span class="s">'LAMBDA'</span>:      trial.suggest_float(<span class="s">'LAMBDA'</span>, *_rango(...), log=<span class="k">True</span>),
+            <span class="s">'A'</span>:           trial.suggest_float(<span class="s">'A'</span>, *_rango(<span class="s">'A'</span>, activo)),
+            <span class="s">'B'</span>:           trial.suggest_float(<span class="s">'B'</span>, *_rango(<span class="s">'B'</span>, activo)),
+            <span class="s">'LOTAJES_M'</span>:   trial.suggest_int(<span class="s">'LOTAJES_M'</span>, *_rango(...)),
+            <span class="s">'PERDIDA_MAX'</span>: trial.suggest_float(<span class="s">'PERDIDA_MAX'</span>, *_rango(...)),
+        }
+        vec = _construir_vector(contexto, p, feature_cols)   <span class="c"># contexto FIJO</span>
+        <span class="k">return</span> <span class="fn">float</span>(model.predict([vec])[<span class="n">0</span>])            <span class="c"># ← lo que se maximiza</span>
+
+    study = optuna.create_study(direction=<span class="s">'maximize'</span>,
+                                sampler=optuna.samplers.TPESampler(seed=<span class="n">42</span>))
+    study.optimize(objective, n_trials=cfg.X5_N_OPTUNA_TRIALS)   <span class="c"># 200 trials</span>
+    <span class="k">return</span> redondear(study.best_params)</code></pre>
+    <p><code>LAMBDA</code> se sugiere en <b>escala logarítmica</b> porque su rango es pequeño y positivo
+    (1/1000 a 1/50): en escala lineal, la búsqueda gastaría casi todos los trials en la mitad alta.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · gradient ascent y el airbag</span>
+    <pre><code><span class="k">def</span> <span class="fn">_inferir_ftt</span>(activo, model, scaler, contexto, feature_cols):
+    <span class="c"># Se optimizan los PARAMS como variables de entrada. Los pesos del modelo</span>
+    <span class="c"># NO se tocan: es descenso de gradiente sobre x, no sobre θ.</span>
+
+    <span class="c"># Truco: x = contexto_fijo + P @ params_t, con P matriz de proyección</span>
+    <span class="c"># constante. Así el grafo sigue siendo diferenciable respecto a params_t.</span>
+    P = <span class="fn">zeros</span>(n_params, n_feat); P[j, idx_del_param_j] = <span class="n">1.0</span>
+
+    <span class="k">for</span> _ <span class="k">in</span> <span class="fn">range</span>(cfg.X5_ASCENT_RESTARTS):           <span class="c"># 10 puntos de inicio aleatorios</span>
+        p_t = tensor(init_aleatorio, requires_grad=<span class="k">True</span>)
+        opt = torch.optim.Adam([p_t], lr=cfg.X5_ASCENT_LR)
+
+        <span class="k">for</span> _ <span class="k">in</span> <span class="fn">range</span>(cfg.X5_ASCENT_STEPS):            <span class="c"># 300 pasos</span>
+            x = (context_t + (P * p_t.unsqueeze(<span class="n">1</span>)).sum(<span class="n">0</span>)).unsqueeze(<span class="n">0</span>)
+            pred_r, _, _ = model(x)
+            (-pred_r.squeeze()).backward()             <span class="c"># ascenso = descenso del negativo</span>
+            opt.step(); opt.zero_grad()
+            p_t.clamp_(lo_t, hi_t)                     <span class="c"># nunca salir de los rangos</span>
+
+        <span class="k">if</span> score &gt; best_score: best_p_norm = p_t.detach()
+
+    <span class="k">return</span> desnormalizar_y_redondear(best_p_norm)</code></pre>
+    <p>Los 10 reinicios existen porque la superficie <code>f(params)</code> de una red no es cóncava: sin ellos,
+    el resultado dependería del punto de partida.</p>
+    <pre><code><span class="k">def</span> <span class="fn">_aplicar_airbag</span>(activo, params):
+    <span class="c"># Regla de seguridad EXPLÍCITA, no aprendida. El modelo no puede sobrescribirla.</span>
+    caida = (close[<span class="n">-1</span>] - close[<span class="n">-5</span>]) / close[<span class="n">-5</span>]        <span class="c"># últimas 4 velas H1</span>
+    <span class="k">if</span> caida &lt; -cfg.X5_AIRBAG_THRESHOLD[activo]:
+        params[<span class="s">'LOTAJES_M'</span>]         = <span class="n">1</span>                  <span class="c"># lotaje mínimo</span>
+        params[<span class="s">'n_sizes_ejecucion'</span>] = cfg.X5_N_MINIMO[activo]   <span class="c"># menos exposición</span>
+    <span class="k">return</span> params</code></pre>
+    <div class="key"><span class="t">El airbag NO se aplica en recolección</span>
+      <code>_inferir_params</code> (camino live) lo aplica; <code>inferir_con_contexto</code> (camino backtest)
+      <b>no</b>. Es deliberado: en recolección se busca variedad causal en el store, <b>incluida la de regímenes
+      de caída</b>. El airbag es una capa de seguridad de producción, no de datos — si filtrara los datos, el
+      modelo nunca aprendería qué pasa en una caída.</div>
+    <p>La salida es <code>config/active_parameters.json</code>, escrito con <b>merge</b> (no overwrite) y de forma
+    atómica, para que seis procesos <code>--infer --activo X</code> paralelos no se pisen:</p>
+    <pre><code>{
+  <span class="s">"generated_at"</span>: <span class="s">"2026-09-05T18:22:04"</span>,
+  <span class="s">"BTCUSD"</span>: {<span class="s">"model_status"</span>: <span class="s">"lgbm"</span>, <span class="s">"n_sizes_ejecucion"</span>: <span class="n">137</span>, <span class="s">"K"</span>: <span class="n">1.4412</span>,
+             <span class="s">"N_EXP"</span>: <span class="n">2.09</span>, <span class="s">"LAMBDA"</span>: <span class="n">0.004173</span>, <span class="s">"A"</span>: <span class="n">9.31</span>, <span class="s">"B"</span>: <span class="n">3.02</span>,
+             <span class="s">"LOTAJES_M"</span>: <span class="n">1</span>, <span class="s">"PERDIDA_MAX"</span>: <span class="n">184.6</span>},
+  <span class="s">"GOOGL"</span>:  {<span class="s">"model_status"</span>: <span class="s">"untrained"</span>, ...}    <span class="c">// ← X1 hace fallback a config.py</span>
+}</code></pre>
+  </div>
+</div>
+
+<!-- ═══════════════ 13 · LA PREGUNTA ═══════════════ -->
+<h2 id="pregunta"><span class="num">13</span>Ganancia acumulada en el tiempo y atribución de parámetros</h2>
+
+<blockquote>
+  <p><b>La pregunta, tal cual:</b></p>
+  <p>«Quiero entender cómo se ve la <b>ganancia acumulada en el tiempo</b> considerando que pueden haber
+  diferencias de los parámetros de configuración en una orden cuando transita entre <b>O0 → OE → OA → OC</b>.
+  ¿En cuáles de estas etapas se están tomando los parámetros de configuración como variables explicativas del
+  retorno de esa orden en particular? ¿Cómo se ve en general el retorno en el tiempo de los registros en las
+  órdenes? Quiero entender mejor toda esta parte.»</p>
+</blockquote>
+
+<p class="lead">Respuesta corta: <b>los parámetros se leen en OC, y solo en OC.</b> El contexto de mercado se
+lee en OE y en OA. O0 no se registra nunca. Esa asimetría es real, es un sesgo de atribución conocido, y es
+exactamente la razón por la que existe el head <code>acumulado</code> — que hoy es el que <b>gobierna</b> la
+elección de parámetros en inferencia.</p>
+
+<h3 style="margin-top:34px">13.1 · Qué se captura en cada etapa</h3>
+
+<figure>
+<svg viewBox="0 0 1000 340" role="img" aria-label="Qué se captura en cada etapa de una orden">
+  <defs>
+    <marker id="arf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--line2)"/></marker>
+  </defs>
+
+  <!-- estados -->
+  <rect class="sv-box" x="24" y="26" width="190" height="46" rx="10"/>
+  <text class="sv-tb" x="119" y="47" text-anchor="middle">O0 — potencial</text>
+  <text class="sv-tm" x="119" y="63" text-anchor="middle">soporte demasiado cerca</text>
+
+  <rect class="sv-b4" x="262" y="26" width="190" height="46" rx="10" fill-opacity=".5"/>
+  <text class="sv-tb" x="357" y="47" text-anchor="middle">OE — en espera</text>
+  <text class="sv-tm" x="357" y="63" text-anchor="middle">_paso_F</text>
+
+  <rect class="sv-bw" x="500" y="26" width="190" height="46" rx="10" fill-opacity=".5"/>
+  <text class="sv-tb" x="595" y="47" text-anchor="middle">OA — abierta</text>
+  <text class="sv-tm" x="595" y="63" text-anchor="middle">_paso_B</text>
+
+  <rect class="sv-bd" x="738" y="26" width="238" height="46" rx="10" fill-opacity=".5"/>
+  <text class="sv-tb" x="857" y="47" text-anchor="middle">OC — cerrada</text>
+  <text class="sv-tm" x="857" y="63" text-anchor="middle">_paso_D / _paso_E</text>
+
+  <path class="sv-l" marker-end="url(#arf)" d="M214,49 H258"/>
+  <path class="sv-l" marker-end="url(#arf)" d="M452,49 H496"/>
+  <path class="sv-l" marker-end="url(#arf)" d="M690,49 H734"/>
+
+  <!-- capturas -->
+  <rect class="sv-dash" x="24" y="96" width="190" height="200" rx="10"/>
+  <text class="sv-tc" x="119" y="128" text-anchor="middle" style="fill:var(--muted)">— nada —</text>
+  <text class="sv-tm" x="34" y="156"><tspan x="34" dy="0">O0 no existe como</tspan><tspan x="34" dy="15">registro. Es un</tspan><tspan x="34" dy="15">`continue` dentro de</tspan><tspan x="34" dy="15">_paso_F cuando</tspan><tspan x="34" dy="15">distancia_ok es False.</tspan><tspan x="34" dy="22" style="fill:var(--dgr)">El modelo NUNCA ve</tspan><tspan x="34" dy="15" style="fill:var(--dgr)">cuántas órdenes se</tspan><tspan x="34" dy="15" style="fill:var(--dgr)">dejaron de colocar.</tspan></text>
+
+  <rect class="sv-box" x="262" y="96" width="190" height="200" rx="10"/>
+  <text class="sv-tc" x="274" y="118" style="fill:var(--x4)">se CONGELA:</text>
+  <text class="sv-tc" x="274" y="140"><tspan x="274" dy="0">ts_creacion</tspan><tspan x="274" dy="17">x3_oe  (técnicas)</tspan><tspan x="274" dy="17">x2_oe  (fundamental)</tspan></text>
+  <text class="sv-tm" x="274" y="212"><tspan x="274" dy="0">→ columnas del store:</tspan><tspan x="274" dy="16">hora, dia_semana, …</tspan><tspan x="274" dy="16">x2_*, x3_*</tspan><tspan x="274" dy="22" style="fill:var(--dgr)">params: NO</tspan></text>
+
+  <rect class="sv-box" x="500" y="96" width="190" height="200" rx="10"/>
+  <text class="sv-tc" x="512" y="118" style="fill:var(--warn)">se CONGELA:</text>
+  <text class="sv-tc" x="512" y="140"><tspan x="512" dy="0">ts_apertura</tspan><tspan x="512" dy="17">x3_oa  (técnicas)</tspan><tspan x="512" dy="17">x2_oa  (fundamental)</tspan><tspan x="512" dy="17">capital_apertura</tspan></text>
+  <text class="sv-tm" x="512" y="229"><tspan x="512" dy="0">→ columnas del store:</tspan><tspan x="512" dy="16">*_oa, x2_*_oa, x3_*_oa</tspan><tspan x="512" dy="22" style="fill:var(--dgr)">params: NO</tspan></text>
+
+  <rect class="sv-bd" x="738" y="96" width="238" height="200" rx="10" fill-opacity=".22"/>
+  <text class="sv-tc" x="750" y="118" style="fill:var(--dgr)">SE ESCRIBE LA FILA:</text>
+  <text class="sv-tc" x="750" y="140"><tspan x="750" dy="0" style="fill:var(--dgr)">n_ejecucion, K, N_EXP,</tspan><tspan x="750" dy="17" style="fill:var(--dgr)">LAMBDA, A, B,</tspan><tspan x="750" dy="17" style="fill:var(--dgr)">LOTAJES_M, PERDIDA_MAX</tspan><tspan x="750" dy="20">portfolio (n_OA, n_OE, …)</tspan><tspan x="750" dy="17">retorno_usd</tspan><tspan x="750" dy="17">pnl_cerrado_activo</tspan><tspan x="750" dy="17">pnl_flotante_activo</tspan></text>
+  <text class="sv-tm" x="750" y="279"><tspan x="750" dy="0">params = los del tramo</tspan><tspan x="750" dy="15">VIGENTE AL CERRAR</tspan></text>
+
+  <text class="sv-tm" x="500" y="325" text-anchor="middle">el contexto viaja dentro de la orden · los parámetros se leen al final, del `cfg` global</text>
+</svg>
+<figcaption>Los snapshots de contexto viajan con la orden (se arrastran de OE a OA a la fila final). Los
+parámetros, no: se leen de <code>cfg</code> en el instante del cierre.</figcaption>
+</figure>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>La línea exacta donde ocurre</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <pre><code><span class="k">def</span> <span class="fn">_construir_fila_oc</span>(activo, pos, trade, ts_oc, est_a, precio_cierre, cfg, ...):
+    <span class="c"># Se llama desde _paso_D / _paso_E, es decir EN EL INSTANTE DEL CIERRE.</span>
+
+    fila = {
+        <span class="s">'tipo_registro'</span>: <span class="s">'oc'</span>, <span class="s">'activo'</span>: activo,
+        <span class="s">'timestamp_oe'</span>: pos[<span class="s">'ts_oe_creacion'</span>],   <span class="c"># ← de cuando se colocó</span>
+        <span class="s">'timestamp_oa'</span>: pos[<span class="s">'ts_apertura'</span>],      <span class="c"># ← de cuando se ejecutó</span>
+        <span class="s">'timestamp_oc'</span>: ts_oc.isoformat(),      <span class="c"># ← ahora</span>
+
+        <span class="c"># ↓↓↓ AQUÍ. cfg es el objeto GLOBAL, mutado por el ÚLTIMO tramo. ↓↓↓</span>
+        <span class="s">'n_ejecucion'</span>: cfg.n_sizes[activo],
+        <span class="s">'K'</span>:      cfg.K,
+        <span class="s">'N_EXP'</span>:  cfg.N_EXP,
+        <span class="s">'LAMBDA'</span>: cfg.LAMBDA,
+        <span class="s">'A'</span>:      cfg.A,
+        <span class="s">'B'</span>:      cfg.B,
+        <span class="s">'LOTAJES_M'</span>:   lotajes_m,
+        <span class="s">'PERDIDA_MAX'</span>: cfg.PERDIDA_MAX_BT,
+    }
+    fila.update(temp_oe)                                    <span class="c"># temporal de la OE</span>
+    fila.update({<span class="s">f'x2_{k}'</span>: v <span class="k">for</span> k, v <span class="k">in</span> x2_oe.items()})    <span class="c"># contexto OE</span>
+    fila.update({<span class="s">f'x3_{k}'</span>: v <span class="k">for</span> k, v <span class="k">in</span> x3_oe.items()})
+    fila.update(portfolio)                                  <span class="c"># portfolio AL CERRAR</span>
+    fila.update({<span class="s">f'{k}_oa'</span>: v <span class="k">for</span> k, v <span class="k">in</span> temp_oa.items()})   <span class="c"># temporal de la OA</span>
+    fila.update({<span class="s">f'x2_{k}_oa'</span>: v <span class="k">for</span> k, v <span class="k">in</span> x2_oa.items()}) <span class="c"># contexto OA</span>
+    fila.update({<span class="s">f'x3_{k}_oa'</span>: v <span class="k">for</span> k, v <span class="k">in</span> x3_oa.items()})
+
+    fila[<span class="s">'pnl_cerrado_activo'</span>]  = est_a[<span class="s">'GC'</span>]        <span class="c"># target</span>
+    fila[<span class="s">'retorno_usd'</span>]         = trade[<span class="s">'retorno_usd'</span>]  <span class="c"># target</span>
+    <span class="c"># pnl_flotante_activo viene dentro de `portfolio`     # target</span>
+    <span class="k">return</span> fila</code></pre>
+    <p class="ref"><code>X4_backtester.py:862-901</code></p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · tabla resumen</span>
+    <div class="tw"><table>
+      <thead><tr><th>Etapa</th><th>¿Se registran params?</th><th>¿Se registra contexto?</th><th>¿Existe como fila?</th></tr></thead>
+      <tbody>
+        <tr><td><b>O0</b></td><td style="color:var(--dgr)">no</td><td style="color:var(--dgr)">no</td><td style="color:var(--dgr)">no — es un <code>continue</code></td></tr>
+        <tr><td><b>OE</b></td><td style="color:var(--dgr)"><b>no</b></td><td style="color:var(--ok)">sí — <code>x2_*</code>, <code>x3_*</code>, temporal</td><td>no, viaja dentro de la orden</td></tr>
+        <tr><td><b>OA</b></td><td style="color:var(--dgr)"><b>no</b></td><td style="color:var(--ok)">sí — <code>x2_*_oa</code>, <code>x3_*_oa</code>, temporal <code>_oa</code></td><td>no, viaja dentro de la orden</td></tr>
+        <tr><td><b>OC</b></td><td style="color:var(--ok)"><b>sí — los 8, del tramo del cierre</b></td><td>solo portfolio</td><td style="color:var(--ok)">sí — la fila <code>'oc'</code></td></tr>
+      </tbody></table></div>
+    <p><b>Traducción al modelo:</b> el head <code>retorno</code> aprende
+    <code>retorno_usd ≈ f(params_al_cerrar, contexto_al_colocar, contexto_al_ejecutar, portfolio_al_cerrar)</code>.
+    Tres de esos cuatro bloques están alineados con la vida de la orden. El de parámetros, no.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · por qué no basta con «mover los params a OE»</span>
+    <p>La tentación obvia es guardar los params en el diccionario de la OE, como se hace con
+    <code>x3_oe</code>. No resuelve el problema, y conviene entender por qué:</p>
+    <p><b>No existe un único conjunto de parámetros responsable del resultado de una orden.</b> El paso C
+    recalcula el trailing de <b>todas</b> las OA vivas en <b>cada vela</b>, usando el <code>A</code> y
+    <code>B</code> del tramo actual. El paso D compara contra el <code>PERDIDA_MAX</code> actual. Una orden que
+    vive 3 tramos fue gestionada por 3 configuraciones distintas, secuencialmente.</p>
+    <p>Guardar los params de OE daría una atribución <b>igual de arbitraria</b> que la actual, solo que sesgada
+    hacia el otro extremo. Lo correcto no es elegir un instante, sino <b>cambiar la unidad de análisis</b>: de la
+    orden al tramo. Eso es exactamente lo que hace el head <code>acumulado</code>.</p>
+    <div class="note"><span class="t">Aun así, sería una mejora barata</span>
+      Añadir <code>K_oe</code>, <code>A_oe</code>, <code>PERDIDA_MAX_oe</code>… al dict de la OE y al de la OA
+      (donde ya se guardan <code>x3_oe</code>/<code>x3_oa</code>) permitiría al modelo <b>medir la magnitud del
+      desajuste</b> como feature: <code>A_oc - A_oe</code> es literalmente «cuánto cambiaron las reglas mientras
+      esta orden estaba viva». Hoy esa información se pierde. No está implementado.</div>
+  </div>
+</div>
+
+
+<h3 style="margin-top:34px">13.2 · El desajuste, con un ejemplo concreto</h3>
+
+<figure>
+<svg viewBox="0 0 1000 430" role="img" aria-label="Tramos, órdenes que los cruzan, y equity acumulada">
+  <!-- PANEL A: tramos + órdenes -->
+  <text class="sv-tb" x="24" y="22">A · tres tramos, dos órdenes</text>
+
+  <rect class="sv-b5" x="60" y="34" width="280" height="34" rx="6" fill-opacity=".5"/>
+  <text class="sv-tc" x="200" y="49" text-anchor="middle">T1 · 1–5 ene</text>
+  <text class="sv-tc" x="200" y="62" text-anchor="middle" style="font-size:10.5px">A=6 B=2 PM=120 N=150</text>
+
+  <rect class="sv-b5" x="340" y="34" width="300" height="34" rx="6" fill-opacity=".22"/>
+  <text class="sv-tc" x="490" y="49" text-anchor="middle">T2 · 6–10 ene</text>
+  <text class="sv-tc" x="490" y="62" text-anchor="middle" style="font-size:10.5px">A=14 B=4.5 PM=250 N=80</text>
+
+  <rect class="sv-b5" x="640" y="34" width="300" height="34" rx="6" fill-opacity=".5"/>
+  <text class="sv-tc" x="790" y="49" text-anchor="middle">T3 · 11–15 ene</text>
+  <text class="sv-tc" x="790" y="62" text-anchor="middle" style="font-size:10.5px">A=3 B=1 PM=170 N=190</text>
+
+  <!-- orden 1 -->
+  <line x1="110" y1="96" x2="300" y2="96" stroke="var(--x4)" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="110" cy="96" r="5" fill="var(--x4)"/><circle cx="165" cy="96" r="5" fill="var(--warn)"/>
+  <circle cx="300" cy="96" r="6" fill="var(--ok)"/>
+  <text class="sv-tm" x="316" y="100">orden #1 — nace y muere en T1 · atribución correcta</text>
+
+  <!-- orden 2 -->
+  <line x1="200" y1="126" x2="760" y2="126" stroke="var(--dgr)" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="200" cy="126" r="5" fill="var(--x4)"/><circle cx="250" cy="126" r="5" fill="var(--warn)"/>
+  <circle cx="760" cy="126" r="6" fill="var(--dgr)"/>
+  <text class="sv-tm" x="776" y="130" style="fill:var(--dgr)">orden #2 — cruza T1→T2→T3</text>
+  <text class="sv-tm" x="200" y="150"><tspan x="200" dy="0" style="fill:var(--dgr)">su fila 'oc' guarda A=3, B=1, PM=170, N=190 (los de T3) — pero se colocó bajo A=6 y sobrevivió T2 con A=14</tspan></text>
+
+  <text class="sv-tm" x="110" y="84" text-anchor="middle" style="font-size:10px">OE</text>
+  <text class="sv-tm" x="165" y="84" text-anchor="middle" style="font-size:10px">OA</text>
+  <text class="sv-tm" x="300" y="84" text-anchor="middle" style="font-size:10px">OC</text>
+
+  <!-- PANEL B: equity -->
+  <text class="sv-tb" x="24" y="196">B · la ganancia acumulada del activo en el tiempo</text>
+
+  <line x1="60" y1="380" x2="960" y2="380" class="sv-l"/>
+  <line x1="60" y1="212" x2="60" y2="380" class="sv-l"/>
+  <text class="sv-tm" x="52" y="216" text-anchor="end">USD</text>
+
+  <path class="sv-dash" d="M340,206 V386"/>
+  <path class="sv-dash" d="M640,206 V386"/>
+
+  <!-- GC: escalera -->
+  <path fill="none" stroke="var(--x4)" stroke-width="2.2" stroke-linejoin="round"
+        d="M60,368 H140 V352 H240 V360 H330 V330 H470 V318 H600 V326 H700 V292 H830 V280 H940"/>
+  <!-- equity = GC + GA -->
+  <polyline fill="none" stroke="var(--ok)" stroke-width="2.4"
+        points="60,366 100,356 140,346 180,358 220,352 260,364 300,340 340,326 380,336 420,314 460,320 500,310 540,326 580,316 620,304 660,310 700,286 740,294 780,274 820,280 860,266 900,274 940,262"/>
+
+  <circle cx="60" cy="366" r="4" fill="var(--ok)"/>
+  <circle cx="340" cy="326" r="4" fill="var(--ok)"/>
+  <circle cx="640" cy="298" r="4" fill="var(--ok)"/>
+  <circle cx="940" cy="262" r="4" fill="var(--ok)"/>
+
+  <text class="sv-tc" x="948" y="284" style="fill:var(--x4)">GC</text>
+  <text class="sv-tc" x="948" y="258" style="fill:var(--ok)">GC+GA</text>
+
+  <!-- brackets -->
+  <path class="sv-a5" d="M62,398 H338"/><path class="sv-a5" d="M62,394 V402"/><path class="sv-a5" d="M338,394 V402"/>
+  <text class="sv-tc" x="200" y="418" text-anchor="middle" style="fill:var(--x5)">T1: Δequity/día</text>
+  <path class="sv-a5" d="M342,398 H638"/><path class="sv-a5" d="M342,394 V402"/><path class="sv-a5" d="M638,394 V402"/>
+  <text class="sv-tc" x="490" y="418" text-anchor="middle" style="fill:var(--x5)">T2: Δequity/día</text>
+  <path class="sv-a5" d="M642,398 H938"/><path class="sv-a5" d="M642,394 V402"/><path class="sv-a5" d="M938,394 V402"/>
+  <text class="sv-tc" x="790" y="418" text-anchor="middle" style="fill:var(--x5)">T3: Δequity/día</text>
+</svg>
+<figcaption>Esquema (no datos reales). Panel B: <b>GC</b> (<code>pnl_cerrado_activo</code>) es una escalera que solo
+salta cuando algo cierra; la línea verde es <b>GC+GA</b> (equity del activo), y la distancia entre ambas es el
+flotante <b>GA</b>. El target del head <code>acumulado</code> es la pendiente de la verde dentro de cada tramo.</figcaption>
+</figure>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Sigue la orden #2, paso a paso</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <ol>
+      <li><b>2 ene, tramo T1</b> (<code>A=6</code>). <code>_paso_F</code> coloca la OE en un soporte, porque
+        <code>(precio − soporte)·L = 7 ≥ 6</code>. Se congela <code>x3_oe</code>/<code>x2_oe</code>.</li>
+      <li><b>3 ene, T1.</b> El precio toca el nivel: <code>_paso_B</code> abre la OA y congela
+        <code>x3_oa</code>/<code>x2_oa</code>.</li>
+      <li><b>6 ene, empieza T2</b> (<code>A=14</code>, <code>B=4.5</code>, <code>PERDIDA_MAX=250</code>).
+        La posición sigue abierta. <b>Desde ahora <code>_paso_C</code> le exige 14 USD de ganancia flotante</b>
+        para activar el trailing, no los 6 con los que se decidió abrirla. Y <code>_paso_D</code> le tolera
+        250 USD de pérdida en vez de 120.</li>
+      <li><b>11 ene, empieza T3</b> (<code>A=3</code>, <code>B=1</code>). Ahora basta con 3 USD de ganancia y el
+        stop la sigue a 1 USD de distancia.</li>
+      <li><b>13 ene, T3.</b> El precio retrocede al stop. <code>_paso_E</code> cierra la posición y escribe la
+        fila con <code>A=3</code>, <code>B=1</code>, <code>PERDIDA_MAX=170</code>, <code>N=190</code>.</li>
+    </ol>
+    <div class="warnbox"><span class="t">Lo que el modelo «aprende» de esa fila</span>
+      «Con <code>A=3</code>, <code>B=1</code>, <code>N=190</code> y este contexto de mercado de hace 11 días, el
+      retorno fue X.» Es falso en dos sentidos: los params del cierre <b>no</b> son los que gobernaron la vida de
+      la orden, y el crédito completo se lo lleva el tramo del cierre, cuando T1 y T2 hicieron la mayor parte del
+      trabajo.</div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · qué tan frecuente es esto</span>
+    <p>Depende de la duración típica de una orden frente a los 5 días del tramo. Órdenes que cierran rápido
+    (intra-vela, o en pocas horas) tienen atribución correcta: nacen y mueren en el mismo tramo. Las que se quedan
+    semanas esperando que el precio vuelva son las problemáticas — y suelen ser justamente las que terminan en
+    <code>perdida_max</code>.</p>
+    <p><b>Sesgo resultante:</b> las operaciones largas y perdedoras se atribuyen sistemáticamente a un tramo que no
+    las originó. El modelo <code>retorno</code> aprende una relación diluida y ruidosa entre parámetros y retorno.</p>
+    <p>Para medirlo en tu store:</p>
+    <pre><code><span class="k">import</span> pandas <span class="k">as</span> pd
+s = pd.read_csv(<span class="s">'resources/x5/BTCUSD_store.csv'</span>, sep=<span class="s">';'</span>)
+oc = s[s.tipo_registro == <span class="s">'oc'</span>].copy()
+oc[<span class="s">'dias_vida'</span>] = (pd.to_datetime(oc.timestamp_oc) -
+                    pd.to_datetime(oc.timestamp_oe)).dt.total_seconds() / <span class="n">86400</span>
+
+<span class="c"># fracción de órdenes que cruzaron al menos un tramo (delta_recalculo = 5 días)</span>
+<span class="fn">print</span>((oc.dias_vida &gt; <span class="n">5</span>).mean())
+<span class="c"># ¿y esas, qué retorno tienen?</span>
+<span class="fn">print</span>(oc.groupby(oc.dias_vida &gt; <span class="n">5</span>).retorno_usd.agg([<span class="s">'count'</span>, <span class="s">'mean'</span>, <span class="s">'median'</span>]))</code></pre>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · dos efectos que se confunden</span>
+    <p>Hay <b>dos</b> desajustes distintos, y conviene no mezclarlos:</p>
+    <div class="grid2">
+      <div class="mini"><h4>1 · Desajuste de gestión</h4><p>Los params que gestionaron la orden cambiaron durante
+      su vida (pasos C, D, F usan <code>cfg</code> actual). Afecta al <b>resultado real</b> de la orden.</p></div>
+      <div class="mini"><h4>2 · Desajuste de registro</h4><p>La fila guarda los params del cierre. Afecta a la
+      <b>etiqueta</b> con que el modelo ve esa orden.</p></div>
+    </div>
+    <p>El (1) es una propiedad del sistema, no un bug: en producción también pasaría, porque X5 en Fase 2
+    recalcula params al cierre de cada vela H1 y X1 los aplica a todas sus posiciones vivas. El (2) sí es una
+    decisión de instrumentación, y es la que el head <code>acumulado</code> corrige.</p>
+    <p>Hay además un tercer efecto, más sutil: <code>N</code> y <code>K</code>/<code>N_EXP</code>/<code>LAMBDA</code>
+    no gestionan órdenes — <b>generan los soportes</b>. Su efecto es indirecto y desfasado: los soportes calculados
+    en T1 producen órdenes que cierran en T2 o T3. Para esos cuatro parámetros, atribuir por tramo de cierre es
+    aún menos defendible que para <code>A</code>/<code>B</code>/<code>PERDIDA_MAX</code>.</p>
+  </div>
+</div>
+
+
+<h3 style="margin-top:34px">13.3 · La solución: el head <code>acumulado</code></h3>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Cambiar la unidad de análisis: de la orden al tramo</h3><span class="hint">doble clic → código</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>En vez de preguntar «¿qué retorno tuvo <b>esta orden</b>?», se pregunta <b>«¿cuánto se movió la cuenta del
+    activo mientras <b>estos</b> parámetros estuvieron vigentes?»</b>.</p>
+    <pre><code>retorno_acumulado_dia  =  ( equity(inicio del tramo siguiente)
+                          - equity(inicio de este tramo) ) / duración_en_días
+
+<span class="k">donde</span>   equity = pnl_cerrado_activo + pnl_flotante_activo    <span class="c"># = GC + GA</span></code></pre>
+    <div class="key"><span class="t">Por qué esto arregla la atribución</span>
+      <b>Pasar de «flotante» a «cerrado» no cambia la suma <code>GC + GA</code>.</b> Cuando una orden cierra, su
+      P&amp;L simplemente se muda de <code>GA</code> a <code>GC</code>: el total no da un salto. Por eso el tramo en
+      el que una orden finalmente cierra <b>no se lleva crédito de más</b> — cada tramo recibe exactamente el
+      movimiento de cuenta que ocurrió mientras sus parámetros estuvieron vigentes, esté ese movimiento realizado
+      o no.</div>
+  </div>
+  <div class="l l2">
+    <pre><code><span class="k">def</span> <span class="fn">_construir_tramos</span>(store):
+    df = store.copy()
+    df[<span class="s">'_ts'</span>] = pd.to_datetime(df[<span class="s">'timestamp_oc'</span>])
+    df = df.dropna(subset=[<span class="s">'_ts'</span>]).sort_values(<span class="s">'_ts'</span>)     <span class="c"># oc + periodico, en orden</span>
+
+    <span class="c"># La única serie que no da saltos artificiales al cerrar una orden.</span>
+    df[<span class="s">'_equity'</span>] = df[<span class="s">'pnl_cerrado_activo'</span>] + df[<span class="s">'pnl_flotante_activo'</span>]
+
+    <span class="c"># Un tramo = un bloque consecutivo con los 8 config params idénticos.</span>
+    cambio = (df[PARAM_STORE_COLS] != df[PARAM_STORE_COLS].shift()).any(axis=<span class="n">1</span>)
+    df[<span class="s">'_tramo'</span>] = cambio.cumsum()
+
+    <span class="c"># Features = la fila MÁS TEMPRANA del tramo, o sea el contexto tal como</span>
+    <span class="c"># estaba EN EL MOMENTO DE DECIDIR esos params. Alineación causal correcta.</span>
+    primeras = df.drop_duplicates(subset=<span class="s">'_tramo'</span>, keep=<span class="s">'first'</span>).set_index(<span class="s">'_tramo'</span>)
+
+    filas = []
+    <span class="k">for</span> t, t_sig <span class="k">in</span> <span class="fn">zip</span>(tramo_ids[:<span class="n">-1</span>], tramo_ids[<span class="n">1</span>:]):
+        ini, fin = primeras.loc[t], primeras.loc[t_sig]
+        dias = (fin[<span class="s">'_ts'</span>] - ini[<span class="s">'_ts'</span>]).total_seconds() / <span class="n">86400</span>
+        <span class="k">if</span> dias &lt;= <span class="n">0</span>:
+            <span class="k">continue</span>
+        fila = ini.drop(labels=[<span class="s">'_ts'</span>, <span class="s">'_equity'</span>]).to_dict()
+        fila[<span class="s">'retorno_acumulado_dia'</span>] = (fin[<span class="s">'_equity'</span>] - ini[<span class="s">'_equity'</span>]) / dias
+        filas.append(fila)
+
+    <span class="c"># El ÚLTIMO tramo se descarta: sigue abierto, no tiene "inicio del siguiente".</span>
+    <span class="k">return</span> pd.DataFrame(filas)</code></pre>
+    <p class="ref"><code>X5_macro_brain.py:265-322</code></p>
+    <p><b>Dividir por días</b> importa: sin eso, un tramo que por casualidad duró el doble tendría el doble de
+    target, y el modelo aprendería a preferir los parámetros de los tramos largos en vez de los buenos.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · cómo se entrena y cómo se usa</span>
+    <pre><code><span class="k">def</span> <span class="fn">_entrenar_acumulado</span>(activo, store):
+    tramos       = _construir_tramos(store)
+    feature_cols = _feature_cols_de_store(store)        <span class="c"># las MISMAS columnas</span>
+    X, y, w = _preparar_features(tramos, feature_cols,
+                                 TARGET_ACUMULADO, (<span class="s">'oc'</span>, <span class="s">'periodico'</span>))
+
+    <span class="k">if</span> <span class="fn">len</span>(X) &lt; cfg.X5_MIN_TRAMOS_TRAIN:      <span class="c"># 30 tramos</span>
+        <span class="k">return</span> <span class="k">False</span>                            <span class="c"># todavía no; se usa el fallback</span>
+
+    model = lgb.LGBMRegressor(**_LGBM_PARAMS_DEFAULT)   <span class="c"># SIEMPRE LightGBM</span>
+    model.fit(X_tr, y_tr, sample_weight=w_tr, ...)
+    pickle.dump(model, <span class="fn">open</span>(out / <span class="s">f'{activo}_lgbm_acumulado.pkl'</span>, <span class="s">'wb'</span>))</code></pre>
+    <pre><code><span class="c"># Y en inferencia — el head 'acumulado' MANDA siempre que exista:</span>
+<span class="k">def</span> <span class="fn">inferir_con_contexto</span>(activo, tipo, bundle, contexto, param_ranges, acumulado):
+    <span class="k">if</span> acumulado <span class="k">is</span> <span class="k">not</span> <span class="k">None</span>:
+        model_ac, feature_cols_ac = acumulado
+        <span class="k">return</span> _optimizar_optuna(activo, model_ac, feature_cols_ac, contexto)
+    ...   <span class="c"># fallback: head 'retorno' (Optuna en lgbm, gradient ascent en ftt)</span></code></pre>
+    <div class="note"><span class="t">La frase que resume el cambio respecto a <code>algoritmos.pdf</code></span>
+      Maximizar el <code>retorno_usd</code> <b>promedio por trade</b> no implica maximizar lo que se acumula en el
+      tiempo: unos parámetros pueden dar trades individualmente mejores pero cerrar mucho menos seguido, o dejar
+      capital inmovilizado en posiciones que no avanzan. El head <code>acumulado</code> optimiza directamente
+      <b>la pendiente de la curva de equity del activo</b>, que es lo que realmente importa.</div>
+    <p>Verifícalo con <code>--status</code>: para cada activo entrenado imprime el número de tramos y si el head
+    <code>acumulado</code> está activo:</p>
+    <pre><code>BTCUSD     1843 OC     4210 filas  [lgbm     ]  modelo ok | 3157 OC para FTT
+             112 tramos            acumulado: modelo ok — gobierna la elección de params</code></pre>
+  </div>
+</div>
+
+
+<h3 style="margin-top:34px">13.4 · Cómo se ve el retorno en el tiempo: las cuatro series</h3>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Qué mira cada target y qué forma tiene</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <div class="tw"><table>
+      <thead><tr><th>Serie</th><th>Forma en el tiempo</th><th>Se acumula</th><th>Qué responde</th></tr></thead>
+      <tbody>
+        <tr><td><code>retorno_usd</code></td><td>puntos dispersos, uno por OC. Irregular en el tiempo (depende de cuándo cierre algo). Media cercana a 0 con colas.</td><td style="color:var(--dgr)">no</td><td>«¿cuánto gané en <b>esta</b> operación?»</td></tr>
+        <tr><td><code>pnl_cerrado_activo</code> (GC)</td><td><b>escalera monótona a saltos</b>: solo cambia cuando algo cierra. Es la suma acumulada de todos los <code>retorno_usd</code>.</td><td style="color:var(--ok)">sí</td><td>«¿cuánto llevo <b>realizado</b> en este activo?»</td></tr>
+        <tr><td><code>pnl_flotante_activo</code> (GA)</td><td>oscila con el precio, sin tendencia propia. Puede ser muy negativo en un drawdown sin que nada haya cerrado.</td><td style="color:var(--dgr)">no</td><td>«¿cuánto tengo <b>en riesgo</b> ahora mismo?»</td></tr>
+        <tr><td><b><code>GC + GA</code></b></td><td>línea continua: escalera + oscilación. <b>No salta cuando una orden cierra</b> (el P&amp;L solo se muda de GA a GC).</td><td style="color:var(--ok)">sí</td><td>«¿cuánto vale mi posición en este activo, todo incluido?»</td></tr>
+      </tbody></table></div>
+    <p><b>La que responde tu pregunta «ganancia acumulada en el tiempo» es la cuarta.</b> Y es exactamente la que
+    el head <code>acumulado</code> deriva por tramos.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · mirarlo en tus datos, ahora</span>
+    <pre><code><span class="k">import</span> pandas <span class="k">as</span> pd, sys
+sys.path.insert(<span class="n">0</span>, <span class="s">'scripts'</span>)
+
+s = pd.read_csv(<span class="s">'resources/x5/BTCUSD_store.csv'</span>, sep=<span class="s">';'</span>, encoding=<span class="s">'utf-8-sig'</span>)
+s[<span class="s">'ts'</span>] = pd.to_datetime(s[<span class="s">'timestamp_oc'</span>], errors=<span class="s">'coerce'</span>)
+s = s.dropna(subset=[<span class="s">'ts'</span>]).sort_values(<span class="s">'ts'</span>)
+s[<span class="s">'equity'</span>] = s[<span class="s">'pnl_cerrado_activo'</span>] + s[<span class="s">'pnl_flotante_activo'</span>]
+
+<span class="c"># ── Las tres series juntas ────────────────────────────────────────────</span>
+s.set_index(<span class="s">'ts'</span>)[[<span class="s">'pnl_cerrado_activo'</span>, <span class="s">'pnl_flotante_activo'</span>, <span class="s">'equity'</span>]].plot(
+    figsize=(<span class="n">14</span>, <span class="n">5</span>), title=<span class="s">'BTCUSD — GC, GA y equity del activo'</span>)
+
+<span class="c"># ── Los tramos y su retorno por día ───────────────────────────────────</span>
+<span class="k">from</span> X5_macro_brain <span class="k">import</span> _construir_tramos, PARAM_STORE_COLS
+tramos = _construir_tramos(s)
+<span class="fn">print</span>(<span class="fn">len</span>(tramos), <span class="s">'tramos'</span>)
+<span class="fn">print</span>(tramos[<span class="s">'retorno_acumulado_dia'</span>].describe())
+
+<span class="c"># ¿qué parámetros están asociados a los mejores tramos?</span>
+<span class="fn">print</span>(tramos.nlargest(<span class="n">10</span>, <span class="s">'retorno_acumulado_dia'</span>)[PARAM_STORE_COLS + [<span class="s">'retorno_acumulado_dia'</span>]])
+<span class="fn">print</span>(tramos.nsmallest(<span class="n">10</span>, <span class="s">'retorno_acumulado_dia'</span>)[PARAM_STORE_COLS + [<span class="s">'retorno_acumulado_dia'</span>]])
+
+<span class="c"># ── Comparar las dos atribuciones ─────────────────────────────────────</span>
+oc = s[s.tipo_registro == <span class="s">'oc'</span>]
+por_tramo_cierre = oc.groupby(<span class="fn">list</span>(PARAM_STORE_COLS)).retorno_usd.mean()   <span class="c"># sesgado</span>
+<span class="c"># vs. tramos.retorno_acumulado_dia — no tienen por qué ordenar igual</span></code></pre>
+    <p class="ref">Ya existe un notebook con este tipo de análisis:
+    <code>scripts/X5_analisis_exploratorio.ipynb</code> (exploración ceteris paribus del store).</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · lo que queda sin cubrir (honesto)</span>
+    <ul>
+      <li><b>El bloque de params sigue siendo el del cierre en las filas <code>'oc'</code>.</b> El head
+        <code>acumulado</code> lo evita usando la <i>primera</i> fila de cada tramo, pero los heads
+        <code>retorno</code>, <code>flotante</code> y <code>cerrado</code> se siguen entrenando con la atribución
+        sesgada. Solo importa mientras el activo no junte 30 tramos (ahí <code>retorno</code> es el fallback).</li>
+      <li><b>Los tramos sin actividad son invisibles.</b> Si en un tramo no cerró ninguna orden y no hubo ninguna
+        OA abierta, no se escribe ninguna fila y ese tramo se fusiona con el vecino en
+        <code>_construir_tramos</code>. Unos parámetros que <b>no generan actividad ninguna</b> —que puede ser
+        justamente lo que quieres saber— no aparecen en el dataset.</li>
+      <li><b>La duración del tramo se mide entre filas, no entre recálculos.</b> <code>dias</code> es la distancia
+        entre la primera fila de un tramo y la primera del siguiente, no los 5 días nominales. Si un tramo empieza
+        con una fila tardía, su duración medida es menor que la real y su
+        <code>retorno_acumulado_dia</code> queda inflado.</li>
+      <li><b>O0 nunca entra al dataset.</b> Subir <code>A</code> deja soportes sin colocar; el modelo solo ve el
+        efecto indirecto (menos OC), nunca la causa.</li>
+      <li><b>Las OA vivas al final del backtest no producen fila.</b> Sus pérdidas o ganancias no realizadas
+        quedan fuera de todo target excepto del <code>pnl_flotante_activo</code> de la última fila.</li>
+      <li><b>El equity se mide por activo, no del portfolio.</b> <code>GC</code> y <code>GA</code> del store son del
+        activo, no globales — correcto, porque cada modelo es por activo, pero significa que el modelo no puede
+        aprender interacciones entre activos.</li>
+    </ul>
+    <div class="note"><span class="t">Mejora barata pendiente, si quieres cerrar el círculo</span>
+      Guardar los 8 params vigentes también en el dict de la OE y en el de la OA (junto a
+      <code>x3_oe</code>/<code>x3_oa</code>), y emitir columnas <code>K_oe</code>, <code>A_oe</code>,
+      <code>A_oa</code>… Con eso, el modelo tendría como feature la <b>magnitud del cambio de reglas</b> durante
+      la vida de la orden (<code>A_oc − A_oe</code>), que hoy es información perdida. Son ~6 líneas en
+      <code>_paso_F</code>, <code>_paso_B</code> y <code>_construir_fila_oc</code>.</div>
+  </div>
+</div>
+
+<!-- ═══════════════ 14 · INTERACCIÓN ═══════════════ -->
+<h2 id="interaccion"><span class="num">14</span>Interacción X4 ↔ X5</h2>
+
+<div class="card" data-lvl="1">
+  <div class="ch"><h3>Supuestos, riesgos y cómo saber si el bucle funciona</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <h4>Riesgos conocidos del bucle</h4>
+    <ul>
+      <li><b>Realimentación positiva.</b> El modelo se entrena con datos que él mismo generó. Si en el ciclo 2
+        empieza a preferir cierta zona del espacio de parámetros, los ciclos siguientes generan más datos en esa
+        zona y menos en el resto. <code>EXPLORATION_RATE = 0.30</code> es la única defensa: un 30 % de los tramos
+        sigue siendo aleatorio incluso con modelo entrenado.</li>
+      <li><b>Sobreajuste a un único histórico.</b> Todos los ciclos recorren el mismo período (2024-01-01 → hoy).
+        Lo que varía entre ciclos son los parámetros y el azar de la intra-vela, no el mercado. El modelo puede
+        aprender particularidades de <i>ese</i> tramo de historia.</li>
+      <li><b>El backtest es optimista.</b> Sin spread, comisiones ni slippage (§1, nivel 3). Los parámetros
+        óptimos según X5 lo son para un mundo sin fricción.</li>
+      <li><b>La intra-vela introduce ruido irreducible.</b> Dos corridas idénticas dan datasets distintos. Parte
+        de lo que el modelo lee como señal es ese azar.</li>
+    </ul>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · señales de que el bucle está sano</span>
+    <div class="tw"><table>
+      <thead><tr><th>Señal</th><th>Dónde mirarla</th><th>Qué esperar</th></tr></thead>
+      <tbody>
+        <tr><td>El store crece</td><td><code>--status</code>: columna OC por activo</td><td>+cientos por ciclo; si un ciclo aporta ~0, algo se está reiniciando o quebrando temprano</td></tr>
+        <tr><td>Los tramos crecen</td><td><code>--status</code>: fila «N tramos»</td><td>≈125 por ciclo completo. Si crece mucho menos, hay muchos tramos sin actividad (invisibles)</td></tr>
+        <tr><td>El modelo mejora</td><td><code>Performance/{ACTIVO}_performance.json</code></td><td>R² de test subiendo (o al menos no bajando) entrenamiento a entrenamiento</td></tr>
+        <tr><td>EXPLOIT aparece</td><td>stdout de X4: líneas <code>EXPLOIT/lgbm</code></td><td>~70 % de los tramos a partir del primer ciclo con modelo</td></tr>
+        <tr><td>Los params recomendados se mueven</td><td><code>active_parameters.json</code> entre corridas</td><td>que cambien con el contexto; si son siempre idénticos, el modelo no está discriminando</td></tr>
+        <tr><td>No hay stop-outs constantes</td><td><code>events.json</code>: eventos <code>stop_out</code></td><td>con 1M USD virtuales debería ser raro; si ocurre seguido, los rangos de <code>PERDIDA_MAX</code>/<code>LOTAJES_M</code> están mal</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · el warm start de soportes, que atraviesa ambos</span>
+    <p>Buscar los N soportes en <code>t</code> nunca parte de cero si el combo <code>(valor, N)</code> ya se
+    resolvió en un <code>t* &lt;= t</code>: esa solución es el punto de partida del optimizador.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Modo</th><th>Fuente de la solución previa</th><th><code>t*</code></th></tr></thead>
+      <tbody>
+        <tr><td>X0 producción</td><td><code>conjuntos_N/{VALOR}_{N}.json</code></td><td>mtime del JSON</td></tr>
+        <tr><td>X0/X4 backtesting</td><td><code>{VALOR}_{N}_bt.json</code> (cache por datetime)</td><td>clave más reciente ≤ <code>t</code></td></tr>
+        <tr><td>X5 (<code>X4 --x5</code>)</td><td>mismo cache, aislado en <code>resources/x5/bt_{ACTIVO}/</code></td><td>ídem</td></tr>
+      </tbody></table></div>
+    <p><code>_procesar_valor_N</code> separa dos cosas que suenan parecidas:</p>
+    <ul>
+      <li><b><code>warm_start</code></b> (default <code>True</code>): de dónde sale la <b>solución inicial</b>.
+        <code>False</code> → puntos aleatorios.</li>
+      <li><b><code>cold_start</code></b>: si se hereda el <code>delta_inicial</code> adaptado del combo o se parte
+        del semilla. <b>X5 lo activa siempre</b>, porque cada tramo cambia <code>K</code>/<code>N_EXP</code>/<code>LAMBDA</code>:
+        heredar la presión acumulada dejaría al optimizador convergido de entrada sobre una FO que ya no es la misma.</li>
+    </ul>
+    <p>En X5 se desactiva el warm start con <code>X5_WARM_START_SOPORTES = False</code>, a costa de re-converger
+    desde cero en cada tramo (mucho más lento).</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 15 · PERILLAS ═══════════════ -->
+<h2 id="params"><span class="num">15</span>Las perillas y qué hace cada una</h2>
+
+<div class="card x4" data-lvl="1">
+  <div class="ch"><h3>Parámetros de X4</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <div class="tw"><table>
+      <thead><tr><th>Parámetro</th><th>Valor (X5)</th><th>Qué controla</th><th>Si sube</th></tr></thead>
+      <tbody>
+        <tr><td><code>A</code></td><td>2–20 USD</td><td>ganancia que activa el trailing · y distancia mínima para colocar una OE</td><td>menos OE colocadas (más O0), trailing más tardío, operaciones más largas</td></tr>
+        <tr><td><code>B</code></td><td>0.3·A – 0.7·A</td><td>distancia del stop bajo el máximo</td><td>el stop da más aire: menos cierres prematuros, pero se devuelve más ganancia</td></tr>
+        <tr><td><code>PERDIDA_MAX_BT</code></td><td>100–300 USD</td><td>pérdida flotante que fuerza el cierre</td><td>más tolerancia: menos cierres a pérdida, pero pérdidas más grandes cuando ocurren</td></tr>
+        <tr><td><code>n_sizes_ejecucion</code></td><td>40–200</td><td>N soportes activos</td><td>más cobertura y entradas más finas, capital más fragmentado, optimización más lenta</td></tr>
+        <tr><td><code>delta_recalculo_soportes</code></td><td>5 días</td><td>duración del tramo</td><td>menos tramos por ciclo → menos diversidad de params, pero menos velas congeladas</td></tr>
+        <tr><td><code>MARGEN_LIBRE_MIN_BT</code></td><td>50 USD</td><td>buffer para abrir/ejecutar</td><td>más conservador: se rechazan más OE por margen</td></tr>
+        <tr><td><code>STOP_OUT_LEVEL</code></td><td>50 %</td><td>nivel de margen que declara quiebra</td><td>corta antes las pasadas</td></tr>
+        <tr><td><code>X5_FREQ_REGISTRO_PERIODICO</code></td><td>4 velas</td><td>densidad de filas <code>'periodico'</code></td><td>menos filas: peor resolución del equity intra-tramo</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · los cuatro del algoritmo de soportes</span>
+    <div class="tw"><table>
+      <thead><tr><th>Parámetro</th><th>Rango X5</th><th>Efecto</th></tr></thead>
+      <tbody>
+        <tr><td><code>K</code></td><td>0.5–2.0</td><td>peso del aislamiento <b>futuro</b> vs. pasado en <code>y</code>. ↑K prioriza niveles que permanecieron intactos mucho tiempo después de formarse (ya validados por el tiempo).</td></tr>
+        <tr><td><code>N_EXP</code></td><td>0.5–3.0</td><td>exponente de recencia en <code>w = t^N_EXP</code>. ↑ concentra el peso en velas recientes (más reactivo, menos memoria); &lt;1 reparte parejo (más estable).</td></tr>
+        <tr><td><code>LAMBDA</code></td><td>1/1000 – 1/50</td><td>penalización por dispersión desigual en <code>FO = mean(z) − LAMBDA·cv(H_n)</code>. ↑ empuja los soportes a distribuirse parejo en el rango; ↓ los deja concentrarse donde hay más evidencia.</td></tr>
+        <tr><td><code>M</code></td><td>30 (fijo)</td><td>candidatos evaluados por soporte en cada paso del optimizador. No lo explora X5.</td></tr>
+      </tbody></table></div>
+    <div class="note"><span class="t">Los cuatro anteriores no gestionan órdenes</span>
+      <code>K</code>, <code>N_EXP</code>, <code>LAMBDA</code> y <code>N</code> solo afectan <b>dónde se calculan
+      los soportes</b>. Su efecto sobre el retorno es indirecto y desfasado: los soportes de T1 producen órdenes
+      que cierran en T2 o T3. Ver §13.2, nivel 3.</div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · parámetros de X5</span>
+    <div class="tw"><table>
+      <thead><tr><th>Parámetro</th><th>Valor</th><th>Qué controla</th></tr></thead>
+      <tbody>
+        <tr><td><code>X5_MIN_TRADES_TRAIN</code></td><td>500</td><td>OC mínimas para entrenar. Bajo eso: <code>untrained</code> → params baseline de <code>config.py</code>.</td></tr>
+        <tr><td><code>X5_MIN_TRADES_FTT</code></td><td>5000</td><td>OC a partir de las cuales se cambia LightGBM por FT-Transformer.</td></tr>
+        <tr><td><code>X5_MIN_TRAMOS_TRAIN</code></td><td>30</td><td>tramos mínimos para el head <code>acumulado</code>. Bajo eso, fallback al head <code>retorno</code>.</td></tr>
+        <tr><td><code>X5_LAMBDA_DECAY</code></td><td>0.001</td><td>decay exponencial del peso por antigüedad. ↑ hace que solo importe lo reciente.</td></tr>
+        <tr><td><code>X5_WINDOW_TRAIN</code></td><td><code>None</code></td><td><code>None</code> = todo el store; un int = últimas N filas.</td></tr>
+        <tr><td><code>EXPLORATION_RATE</code></td><td>0.30</td><td>fracción de tramos con params aleatorios aun teniendo modelo.</td></tr>
+        <tr><td><code>N_CICLOS_BT</code></td><td>10</td><td>ciclos máximos por activo en <code>--recolectar</code>.</td></tr>
+        <tr><td><code>X5_N_OPTUNA_TRIALS</code></td><td>200</td><td>intentos por inferencia (~10–30 s).</td></tr>
+        <tr><td><code>X5_ASCENT_RESTARTS / STEPS / LR</code></td><td>10 / 300 / 0.01</td><td>gradient ascent del FTT.</td></tr>
+        <tr><td><code>X5_AIRBAG_THRESHOLD</code></td><td>~5 %</td><td>caída en 4 velas H1 que fuerza lotaje y N mínimos (solo live).</td></tr>
+        <tr><td><code>X5_VENTANAS_RETORNO_DIAS</code></td><td>[1,3,5,10,20]</td><td>ventanas de las features <code>px_ret_*d</code>.</td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 16 · ANEXO ═══════════════ -->
+<h2 id="anexo"><span class="num">16</span>Anexo: mapa de archivos y funciones</h2>
+
+<div class="card" data-lvl="1">
+  <div class="ch"><h3>Dónde queda cada cosa</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <pre><code>Alginvesting/
+├── scripts/
+│   ├── X4_backtester.py            <span class="c"># el backtester</span>
+│   ├── X5_macro_brain.py           <span class="c"># el cerebro macro</span>
+│   ├── x5_demo.py                  <span class="c"># narrador guiado (D01–D10)</span>
+│   ├── config.py                   <span class="c"># producción (X0/X1) + constantes X5_*</span>
+│   ├── config_x5_default.py        <span class="c"># config del pipeline X5 — versionada en git</span>
+│   └── X5_analisis_exploratorio.ipynb
+│
+├── config/
+│   └── active_parameters.json      <span class="c"># salida de X5, entrada de X1 (Fase 2)</span>
+│
+├── Data/{ACTIVO}.csv               <span class="c"># velas H1        (fuera de git)</span>
+├── Data_minuto/{ACTIVO}.csv        <span class="c"># velas M1        (fuera de git)</span>
+│
+└── resources/                      <span class="c"># TODO fuera de git — se genera en Windows</span>
+    ├── conjuntos_N/                <span class="c"># soportes de producción + cache bt</span>
+    ├── x2/  x3/                    <span class="c"># scores fundamentales, features técnicas</span>
+    ├── x4/versionV1/               <span class="c"># modo versión: config + resultados</span>
+    └── x5/
+        ├── {ACTIVO}_store.csv          <span class="c"># ← EL DATASET</span>
+        ├── {ACTIVO}_store_demo.csv     <span class="c"># namespace demo, aislado</span>
+        ├── models/{ACTIVO}/
+        │   ├── {ACTIVO}_lgbm_retorno.pkl
+        │   ├── {ACTIVO}_lgbm_flotante.pkl
+        │   ├── {ACTIVO}_lgbm_cerrado.pkl
+        │   ├── {ACTIVO}_lgbm_acumulado.pkl        <span class="c"># ← el que manda (§13)</span>
+        │   ├── {ACTIVO}_lgbm_features.json
+        │   ├── {ACTIVO}_lgbm_acumulado_features.json
+        │   └── {ACTIVO}_ftt.pt                    <span class="c"># a partir de 5.000 OC</span>
+        ├── Performance/{ACTIVO}_performance.json  <span class="c"># historial de métricas</span>
+        ├── bt_{ACTIVO}/                           <span class="c"># checkpoint/equity/logs aislados</span>
+        │   ├── checkpoint.json  trades.json  events.json
+        │   ├── equity_global.csv  equity_activos.csv
+        │   └── conjuntos_N/                       <span class="c"># cache de soportes del bt</span>
+        └── demo_plots/{ACTIVO}/*.png              <span class="c"># gráfico de cada búsqueda</span></code></pre>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · índice de funciones — X4_backtester.py</span>
+    <div class="tw"><table>
+      <thead><tr><th>Función</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td><code>ejecutar_backtest</code></td><td>el loop principal (§3)</td></tr>
+        <tr><td><code>_procesar_candle</code></td><td>una vela de un activo: contadores + A + intra-vela o B–F</td></tr>
+        <tr><td><code>_paso_A … _paso_F</code></td><td>la lógica de trading (§4)</td></tr>
+        <tr><td><code>_necesita_intravela</code> / <code>_simular_intravela</code> / <code>_escalar_bloque_m1</code></td><td>simulación intra-vela (§5)</td></tr>
+        <tr><td><code>_calcular_estado_cuenta</code> / <code>_append_equity</code></td><td>contabilidad (§6)</td></tr>
+        <tr><td><code>_recalcular_soportes</code> / <code>_worker_recalcular</code></td><td>llama a X0 en paralelo, as-of-t</td></tr>
+        <tr><td><code>_cargar_checkpoint</code> / <code>_guardar_checkpoint</code></td><td>reanudación</td></tr>
+        <tr><td><code>_registrar_trade</code> / <code>_id_orden</code></td><td>fila de <code>trades.json</code>, id determinístico</td></tr>
+        <tr><td><code>_compute_x5_snapshot</code> / <code>_leer_x2_bt</code></td><td>contexto X3/X2 as-of-t</td></tr>
+        <tr><td><code>_contexto_portfolio_x5</code></td><td>las 7 features de portfolio</td></tr>
+        <tr><td><code>_construir_fila_oc</code> / <code>_construir_fila_periodica</code></td><td>las dos filas del store (§9, §13.1)</td></tr>
+        <tr><td><code>_append_x5_store</code></td><td>escritura defensiva del CSV</td></tr>
+        <tr><td><code>_seleccionar_params_x5</code> / <code>_aplicar_params_x5</code></td><td>explore/exploit + mutación de <code>cfg</code> (§7)</td></tr>
+        <tr><td><code>ejecutar_x5_ciclo</code></td><td>entry point del modo <code>--x5</code>, aislamiento por activo</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · índice de funciones — X5_macro_brain.py</span>
+    <div class="tw"><table>
+      <thead><tr><th>Función</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td><code>_cargar_store</code> / <code>_n_oc</code> / <code>_seleccionar_tipo</code></td><td>lectura del store y elección de arquitectura</td></tr>
+        <tr><td><code>_feature_cols_de_store</code></td><td>el orden reproducible del vector de features</td></tr>
+        <tr><td><code>_preparar_features</code></td><td>X, y, sample_weight con decay temporal</td></tr>
+        <tr><td><code>_construir_tramos</code></td><td><b>el dataset de tramos y <code>retorno_acumulado_dia</code> (§13.3)</b></td></tr>
+        <tr><td><code>_enriquecer_con_precios</code> / <code>_retornos_precio</code></td><td>columnas <code>px_*</code> en memoria</td></tr>
+        <tr><td><code>_entrenar_lgbm</code> / <code>_entrenar_ftt</code> / <code>_entrenar_acumulado</code></td><td>los tres entrenamientos (§11)</td></tr>
+        <tr><td><code>FTTransformer</code> / <code>_FeatureTokenizer</code> / <code>_TransformerBlock</code></td><td>la arquitectura</td></tr>
+        <tr><td><code>_optimizar_optuna</code> / <code>_inferir_ftt</code></td><td>las dos optimizaciones (§12)</td></tr>
+        <tr><td><code>inferir_con_contexto</code></td><td><b>el router: acumulado &gt; retorno</b></td></tr>
+        <tr><td><code>_inferir_params</code> / <code>_aplicar_airbag</code></td><td>camino live, con airbag</td></tr>
+        <tr><td><code>_leer_contexto_actual</code></td><td>contexto «ahora» (Fase 2)</td></tr>
+        <tr><td><code>_escribir_active_parameters</code></td><td>merge atómico del JSON de salida</td></tr>
+        <tr><td><code>_recolectar</code> / <code>_worker_recolectar_activo</code> / <code>_recolectar_guiado</code></td><td>los tres modos de recolección (§10)</td></tr>
+        <tr><td><code>_mostrar_status</code></td><td>diagnóstico, incluye n_tramos y estado del head acumulado</td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+
+<hr>
+<p class="sub">Generado a partir de <code>docs/plans/algoritmos.tex</code>, <code>scripts/X4_backtester.py</code>,
+<code>scripts/X5_macro_brain.py</code> y <code>scripts/config_x5_default.py</code>.
+Si el código cambia, esta página no se actualiza sola.</p>
+
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── glosario ────────────────────────────────────────────────────── */
+  var G = {
+    O0:  ['O0 — orden potencial', 'Un soporte que todavía está demasiado cerca del precio: (precio − soporte)·L < A. No se coloca todavía. NO existe como registro: es un `continue` dentro de _paso_F.'],
+    OE:  ['OE — Orden en Espera', 'Buy limit ya colocado en un soporte, esperando que el precio baje hasta él. Mientras no se ejecute no consume capital, solo reserva margen al ejecutarse.'],
+    OA:  ['OA — Orden Abierta', 'La OE se ejecutó: hay una posición viva ganando o perdiendo. Vive en est_a[\'OA\'][precio_apertura].'],
+    OC:  ['OC — Orden Cerrada', 'La posición cerró, por trailing stop (paso E) o por pérdida máxima (paso D). Es el único momento en que se escribe una fila en el store.'],
+    A:   ['A — umbral de activación', 'Ganancia flotante en USD que debe alcanzar una posición para que se active por primera vez su stop protector. También es la distancia mínima precio−soporte para colocar una OE.'],
+    B:   ['B — distancia del trailing', 'Distancia en USD a la que el stop sigue al precio una vez activado: sl = precio_max − B/L. Se samplea como una fracción de A (0.3–0.7) para que B < A.'],
+    L:   ['L — tamaño efectivo', 'lote × units. Convierte diferencias de precio en dólares. Para BTCUSD con lote 0.01 y units 1, L = 0.01: un dólar de movimiento vale un centavo.'],
+    PERDIDA_MAX: ['PERDIDA_MAX', 'Pérdida flotante en USD que fuerza el cierre de la posición (paso D). En X5 se explora entre 100 y 300.'],
+    gap: ['Hueco (gap)', 'Salto de precio entre el cierre de una vela y la apertura de la siguiente, sin cotizaciones intermedias. Típico de fines de semana. Hace que una orden límite se ejecute a un precio peor que el pedido.'],
+    margin_level: ['Nivel de margen', 'equity / margen_usado × 100. Es lo que vigila el bróker: por debajo de STOP_OUT_LEVEL (50 %) empieza a cerrar posiciones por su cuenta. 1000 % es holgado.'],
+    tramo: ['Tramo', 'Período entre dos recálculos de soportes (delta_recalculo_soportes = 5 días ≈ 120 velas). Durante un tramo los 8 config params quedan FIJOS. Es la unidad de análisis del head "acumulado".'],
+    explore: ['EXPLORE', 'El tramo usa parámetros sorteados al azar dentro de X5_PARAM_RANGES. Ocurre siempre si no hay modelo, y en un 30 % de los tramos aunque lo haya (EXPLORATION_RATE) — evita el sesgo de selección observacional.'],
+    exploit: ['EXPLOIT', 'El tramo usa parámetros inferidos por el modelo de X5, con el contexto del instante simulado (as-of-t, sin datos del futuro).'],
+    surrogate: ['Modelo sustituto (surrogate)', 'Un modelo barato que aproxima una función cara de evaluar. Aquí: en vez de correr un backtest por cada combinación de parámetros (horas de CPU), se consulta un modelo entrenado sobre miles de backtests (milisegundos).']
+  };
+
+  var tip = document.getElementById('tip');
+  document.querySelectorAll('.g[data-g]').forEach(function (el) {
+    el.addEventListener('mouseenter', function (e) {
+      var d = G[el.dataset.g];
+      if (!d) return;
+      tip.innerHTML = '<b></b><span></span>';
+      tip.firstChild.textContent = d[0];
+      tip.lastChild.textContent = d[1];
+      tip.classList.add('on');
+      place(e);
+    });
+    el.addEventListener('mousemove', place);
+    el.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+  });
+  function place(e) {
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    var x = e.clientX + 16, y = e.clientY + 18;
+    if (x + w > window.innerWidth - 12) x = e.clientX - w - 16;
+    if (y + h > window.innerHeight - 12) y = e.clientY - h - 16;
+    tip.style.left = Math.max(8, x) + 'px';
+    tip.style.top = Math.max(8, y) + 'px';
+  }
+
+  /* ── niveles de detalle ──────────────────────────────────────────── */
+  function paint(card) {
+    var lvl = +card.dataset.lvl;
+    card.querySelectorAll(':scope > .ch .dots button').forEach(function (b, i) {
+      b.classList.toggle('f', i < lvl);
+    });
+    var hint = card.querySelector(':scope > .ch .hint');
+    if (hint) {
+      hint.textContent = lvl === 3
+        ? 'doble clic → volver al resumen'
+        : (lvl === 1 ? 'doble clic → más detalle' : 'doble clic → full detalle');
+    }
+  }
+  function setLvl(card, n) { card.dataset.lvl = n; paint(card); }
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+  cards.forEach(function (card) {
+    paint(card);
+    card.addEventListener('dblclick', function (e) {
+      if (e.target.closest('pre') || e.target.closest('a') || e.target.closest('button')) return;
+      if (e.target.closest('.card') !== card) return;   // que gane la tarjeta más interna
+      var sel = window.getSelection(); if (sel) sel.removeAllRanges();
+      setLvl(card, (+card.dataset.lvl % 3) + 1);
+    });
+    card.querySelectorAll(':scope > .ch .dots button').forEach(function (b) {
+      b.addEventListener('click', function (e) { e.stopPropagation(); setLvl(card, +b.dataset.set); });
+      b.addEventListener('dblclick', function (e) { e.stopPropagation(); });
+    });
+  });
+
+  document.querySelectorAll('[data-all]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var n = +btn.dataset.all;
+      cards.forEach(function (c) { setLvl(c, n); });
+      document.querySelectorAll('[data-all]').forEach(function (b) {
+        b.classList.toggle('on', b === btn);
+      });
+    });
+  });
+
+  /* ── tema ────────────────────────────────────────────────────────── */
+  var root = document.documentElement;
+  var saved = null;
+  try { saved = localStorage.getItem('x4x5-theme'); } catch (err) {}
+  if (saved) root.setAttribute('data-theme', saved);
+  document.getElementById('theme').addEventListener('click', function () {
+    var dark = root.getAttribute('data-theme') === 'dark' ||
+               (!root.getAttribute('data-theme') &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var next = dark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('x4x5-theme', next); } catch (err) {}
+  });
+
+  /* ── scrollspy ───────────────────────────────────────────────────── */
+  var links = {};
+  document.querySelectorAll('nav.side a').forEach(function (a) {
+    links[a.getAttribute('href').slice(1)] = a;
+  });
+  var heads = Array.prototype.slice.call(document.querySelectorAll('h2[id]'));
+  function spy() {
+    var best = null, bestTop = -Infinity;
+    heads.forEach(function (h) {
+      var t = h.getBoundingClientRect().top - 90;
+      if (t <= 0 && t > bestTop) { bestTop = t; best = h.id; }
+    });
+    Object.keys(links).forEach(function (k) { links[k].classList.toggle('act', k === best); });
+  }
+  window.addEventListener('scroll', spy, { passive: true });
+  spy();
+})();
+</script>
+</body>
+</html>

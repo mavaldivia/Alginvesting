@@ -651,7 +651,7 @@ Quiero entender mejor toda esta parte
 /new_todo X4 & X5
 Basado en docs/plans/algoritmos.tex o algoritmos.pdf 
 + scripts X4_backtester.py + x5_macro_brain.py
-Crea un HTML con el mismo sentido pero que sea interactivo, con vistas generales y simples, y con la opción de
+Crea un HTML con el mismo sentido pero que sea interactivo (que se llame X4_X5 y que quede guardado en docs/plans), con vistas generales y simples, y con la opción de
 "ir haciendo doble click para ir a más detalle".
 Si posiciono el mouse en un concepto que me muestre la definición.
 Muestrame flujos! Generales, con más detalle y full detalle
@@ -666,3 +666,34 @@ if condicion:
     # Se hace la asignación de ..... (aunque sea un mensaje tipo comentario, explicandome)
 else:
     # ....
+  
+Además, agrega esto en la documentación del HTML
+"""
+X5: Quiero entender como se ve la "ganancia acumulada en el tiempo" considerando que pueden
+haber diferencias de los parámetros de configuración en una orden cuando transita entre
+O0 > OE > OA > OC
+en cuales de estas etapas se están tomando los parámetros de configuración como variables 
+explicativas de el retorno de esa orden en particular?
+Como se ve en general el retorno en el tiempo de los registros en las ordenes?
+Quiero entender mejor toda esta parte
+"""
+
+
+Quiero crear una skill llamada /documentar
+Esta skill toma como input, uno o más secciones (ej: X0, X1 + X2, X5, X0 + X1 + X4, etc)
+Si no existe el html llamado documentación en docs/plan, entonces crealo
+Si ya existe, entonces reemplazalo
+Si la seccion que se está pidiendo documentar existe en el html, entonces editala, si no existe, entonces creala
+Si existe la seccion en documentacion, y no la estoy pidiendo en /documentar, entonces
+tambien puede ser levemente modificada si es necesario para explicar mejor relación entre secciones
+Iré modificando la skill con más contexto en el tiempo y de forma iterativa hasta que logre encontrar una forma que me guste
+Muestrame dentro de cada "fragmento/módulo" en el html una especie de combobox donde pueda declarar mi nivel de entendimiento del 0 al 10
+Esto para así ir guardando el html y despues que puedas modificar ciertas cosas
+Tambien en los "fragmentos" dame un botón para "dejar comentarios" en caso de que quiera escribir algo, lo hago directamente ahí
+Por ahora, solo crea la skill
+
+-----
+/new_todo Transversal
+Ocupa la skill /documentar, pero aplicando todo lo de la skill al archivo
+docs/polans/X4_X5.html (de hecho, renombralo como documentación.html y luego aplica /documentar X4+X5)
+Edita el html si es necesario y agrega todo lo que especifica la skill

@@ -20,8 +20,8 @@ El sistema está organizado en 6 módulos (X0→X5):
 | **X1** | Loop semi-automático de trading: buy limits, trailing stop, control de pérdida máxima. `TIPO_EJECUCION="est\|din"` | Operativo |
 | **X2** | Score fundamental por activo (yfinance + CoinGecko + Fear & Greed) con historial diario | Operativo |
 | **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) — alimenta X5 ([plan](docs/plans/x3_plan.md)) | Operativo |
-| **X4** | Backtester histórico sobre datos reales, vela a vela con simulación intra-vela M1 ([plan](docs/plans/x4_plan.md)) | Operativo |
-| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](docs/plans/x5_plan.md)) | Operativo (recolectando datos) |
+| **X4** | Backtester histórico sobre datos reales, vela a vela con simulación intra-vela M1 ([plan](docs/plans/x4_plan.md) · [doc interactiva](docs/plans/X4_X5.html)) | Operativo |
+| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](docs/plans/x5_plan.md) · [doc interactiva](docs/plans/X4_X5.html)) | Operativo (recolectando datos) |
 
 ---
 
@@ -133,7 +133,7 @@ resources/               # Todo generado en Windows, fuera de git
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
 docs/
   context/               # decisiones.md, vision.md, guías de git, documentacion_V0.md
-  plans/                 # Planes de implementación por módulo (x2, x3, x4, x5)
+  plans/                 # Planes de implementación por módulo (x2, x3, x4, x5) + X4_X5.html (doc interactiva de X4/X5)
   tracking/              # todos.md, done.md, records.md
 Alginvesting_base/       # Versión anterior Windows/notebooks (solo lectura, referencia)
 ```
@@ -219,6 +219,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-06** — docs: X4_X5.html — doc interactiva de X4 y X5 con niveles, glosario y algoritmos en Python
 - **2026-09-06** — feat: skill /documentar — genera/actualiza docs/plans/documentacion.html por secciones
 - **2026-09-05** — fix(x0): cache bt de soportes con escritura atómica (crash en X5 --recolectar)
 - **2026-09-05** — feat(x0): tope MAX_CAMBIOS=50000 en nuevo_optimizador_2 — corta y toma la mejor solución si no converge
