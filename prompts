@@ -648,6 +648,7 @@ Como se ve en general el retorno en el tiempo de los registros en las ordenes?
 Quiero entender mejor toda esta parte
 
 ---------
+[OK]
 /new_todo X4 & X5
 Basado en docs/plans/algoritmos.tex o algoritmos.pdf 
 + scripts X4_backtester.py + x5_macro_brain.py
@@ -678,7 +679,8 @@ Como se ve en general el retorno en el tiempo de los registros en las ordenes?
 Quiero entender mejor toda esta parte
 """
 
-
+-----
+[OK]
 Quiero crear una skill llamada /documentar
 Esta skill toma como input, uno o más secciones (ej: X0, X1 + X2, X5, X0 + X1 + X4, etc)
 Si no existe el html llamado documentación en docs/plan, entonces crealo
@@ -697,3 +699,4 @@ Por ahora, solo crea la skill
 Ocupa la skill /documentar, pero aplicando todo lo de la skill al archivo
 docs/polans/X4_X5.html (de hecho, renombralo como documentación.html y luego aplica /documentar X4+X5)
 Edita el html si es necesario y agrega todo lo que especifica la skill
+Esta sería como la "inicialización" del html: documentacion

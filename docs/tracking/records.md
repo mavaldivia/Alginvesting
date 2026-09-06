@@ -1410,3 +1410,10 @@ Claude: Documentó las cuatro series de retorno en el tiempo con su forma, más 
 Claude: Validó el HTML de forma estática (0 errores de anidamiento, 28 tarjetas con sus tres niveles, sin `<`/`>` crudos en los bloques de código). No pudo verificar el render ni el doble clic en el navegador: la extensión de Chrome no está conectada.
 Mauricio: "A priori me gusta bastante".
 (Cierre: 2026-09-06 01:30)
+
+## SECCIÓN 164
+Mauricio: Pidió (vía `/new_todo`) usar la skill `/documentar` para inicializar `docs/plans/documentacion.html` a partir de `docs/plans/X4_X5.html` (renombrándolo) aplicando `/documentar X4 X5` sobre ese archivo.
+Claude: Renombró (`git mv`) `X4_X5.html` → `documentacion.html`. Agregó un control `.doc-meta` (nivel de entendimiento 0-10 + botón "Dejar comentario" con textarea) más un botón global "Guardar cambios" (Blob download, sin backend) en el topbar. Primera pasada: un control por módulo (X4, X5). Actualizó referencias en `README.md` y registró el ítem en `docs/tracking/done.md` → Transversal.
+Mauricio: Corrigió el alcance: el control debe ir en cada uno de los módulos pequeños (0, 0.1, 0.2 y 1 al 13), no uno solo por X4/X5 general — y pidió modificar la skill `/documentar` para dejar esa granularidad fija.
+Claude: Preguntó si las secciones 14-16 (Interacción, Perillas, Anexo) también debían llevar el control — Mauricio confirmó que sí, todas. Quitó los 2 controles a nivel de módulo y agregó uno por cada una de las 19 subsecciones numeradas (§0 a §16) del documento. Actualizó `~/.claude/skills/documentar/SKILL.md` fijando la granularidad por subsección numerada (no por script completo) como definitiva, y actualizó el ítem en `done.md`.
+(Cierre: 2026-09-06 02:01)

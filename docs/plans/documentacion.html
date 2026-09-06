@@ -222,6 +222,26 @@ blockquote p{margin:5px 0}
   border:1px solid var(--line2); border-bottom-width:2px; border-radius:5px; padding:0 5px;
   font-size:11.5px; background:var(--card2); font-family:ui-monospace,monospace;
 }
+
+/* ── doc-meta: nivel de entendimiento + comentario por sección ─────── */
+.doc-meta{
+  background:var(--card2); border:1px solid var(--line); border-radius:10px;
+  padding:10px 14px; margin:16px 0 24px; font-size:12.8px;
+}
+.dm-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.dm-row .tag{
+  font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;
+  color:var(--muted); margin-right:auto;
+}
+.dm-row select{
+  border:1px solid var(--line2); background:var(--card); color:var(--ink2); font:inherit;
+  font-size:12.5px; border-radius:7px; padding:4px 7px;
+}
+.dm-comment{
+  width:100%; margin-top:9px; border:1px solid var(--line2); background:var(--card);
+  color:var(--ink); font:inherit; font-size:12.8px; border-radius:8px; padding:8px 10px;
+  min-height:60px; resize:vertical;
+}
 </style>
 </head>
 <body>
@@ -239,6 +259,7 @@ blockquote p{margin:5px 0}
       <button class="btn" data-all="3">3 · full</button>
     </div>
     <div class="ctl"><button class="btn" id="theme">tema</button></div>
+    <div class="ctl"><button class="btn" id="guardar">Guardar cambios</button></div>
   </div>
 </div>
 
@@ -293,6 +314,22 @@ parámetros en inferencia (§13).</p>
 
 
 <!-- ═══════════════════════════ 0 · MAPA ═══════════════════════════ -->
+<div class="doc-meta" data-section="0">
+  <div class="dm-row">
+    <span class="tag">§0</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="mapa"><span class="num">0</span>El mapa general</h2>
 <p>Antes de cualquier detalle, la única imagen que hay que tener en la cabeza. El sistema tiene seis scripts;
 este documento cubre los dos de la derecha. La flecha de arriba y la de abajo forman <b>un bucle cerrado</b>:
@@ -417,6 +454,22 @@ _append_x5_store(activo, _construir_fila_oc(...))   <span class="c"># resources/
 
 
 <!-- ═══════════════ 0.1 VOCABULARIO ═══════════════ -->
+<div class="doc-meta" data-section="0.1">
+  <div class="dm-row">
+    <span class="tag">§0.1</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="vocab"><span class="num">0.1</span>Vocabulario mínimo</h2>
 <p>Todo el resto del documento da por sabidas estas siglas. La progresión natural de una orden es:</p>
 <div class="chips">
@@ -485,6 +538,22 @@ _append_x5_store(activo, _construir_fila_oc(...))   <span class="c"># resources/
 
 
 <!-- ═══════════════ 0.2 RELOJES ═══════════════ -->
+<div class="doc-meta" data-section="0.2">
+  <div class="dm-row">
+    <span class="tag">§0.2</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="relojes"><span class="num">0.2</span>Los tres relojes</h2>
 <p>Buena parte de la confusión al leer el código viene de que hay <b>tres escalas de tiempo</b> funcionando a la vez,
 y las tres se llaman «ciclo» en algún comentario. Separarlas de una vez ahorra horas.</p>
@@ -525,6 +594,22 @@ combinaciones de parámetros distintas. Ese es el orden de magnitud necesario pa
 </div>
 
 <!-- ═══════════════════════════ X4 ═══════════════════════════ -->
+<div class="doc-meta" data-section="1">
+  <div class="dm-row">
+    <span class="tag">§1</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x4-contrato"><span class="num">1</span>X4 — el contrato</h2>
 
 <div class="card x4" data-lvl="1">
@@ -577,6 +662,22 @@ combinaciones de parámetros distintas. Ese es el orden de magnitud necesario pa
 </div>
 
 
+<div class="doc-meta" data-section="2">
+  <div class="dm-row">
+    <span class="tag">§2</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x4-estado"><span class="num">2</span>El estado: una sola estructura que lo contiene todo</h2>
 
 <div class="card x4" data-lvl="1">
@@ -649,6 +750,22 @@ est_a[<span class="s">'OE'</span>] = {<span class="fn">float</span>(k): v <span 
 </div>
 
 
+<div class="doc-meta" data-section="3">
+  <div class="dm-row">
+    <span class="tag">§3</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x4-loop"><span class="num">3</span>El loop principal</h2>
 <p>Este es el algoritmo completo de X4. Todo lo demás del documento son notas al pie de estas líneas.</p>
 
@@ -732,6 +849,22 @@ est_a[<span class="s">'OE'</span>] = {<span class="fn">float</span>(k): v <span 
 </div>
 
 
+<div class="doc-meta" data-section="4">
+  <div class="dm-row">
+    <span class="tag">§4</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x4-pasos"><span class="num">4</span>Los pasos A–F: la lógica de trading de una vela</h2>
 <p>Todo lo que ocurre dentro de <code>_procesar_candle</code>, en orden. El orden <b>no es arbitrario</b> — al final
 de la sección está la cadena de dependencias que lo justifica.</p>
@@ -1019,6 +1152,22 @@ motivo        = <span class="s">'trailing_stop'</span></code></pre></div>
 </div>
 
 
+<div class="doc-meta" data-section="5">
+  <div class="dm-row">
+    <span class="tag">§5</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x4-intravela"><span class="num">5</span>Simulación intra-vela</h2>
 
 <div class="card x4" data-lvl="1">
@@ -1089,6 +1238,22 @@ motivo        = <span class="s">'trailing_stop'</span></code></pre></div>
 </div>
 
 
+<div class="doc-meta" data-section="6">
+  <div class="dm-row">
+    <span class="tag">§6</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x4-cuenta"><span class="num">6</span>Contabilidad de la cuenta</h2>
 
 <div class="card x4" data-lvl="1">
@@ -1137,6 +1302,22 @@ motivo        = <span class="s">'trailing_stop'</span></code></pre></div>
 </div>
 
 
+<div class="doc-meta" data-section="7">
+  <div class="dm-row">
+    <span class="tag">§7</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x4-x5mode"><span class="num">7</span>Modo <code>--x5</code>: X4 al servicio de la recolección</h2>
 <p>Cuatro cosas cambian respecto al modo versión. Solo la primera es conceptualmente grande.</p>
 
@@ -1250,6 +1431,22 @@ motivo        = <span class="s">'trailing_stop'</span></code></pre></div>
 </div>
 
 <!-- ═══════════════════════════ X5 ═══════════════════════════ -->
+<div class="doc-meta" data-section="8">
+  <div class="dm-row">
+    <span class="tag">§8</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x5-que"><span class="num">8</span>X5 — qué es y qué problema resuelve</h2>
 
 <div class="card x5" data-lvl="1">
@@ -1298,6 +1495,22 @@ python scripts/X5_macro_brain.py --status              <span class="c"># diagnó
 </div>
 
 
+<div class="doc-meta" data-section="9">
+  <div class="dm-row">
+    <span class="tag">§9</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x5-store"><span class="num">9</span>El store: el conjunto de datos</h2>
 <p><code>resources/x5/{ACTIVO}_store.csv</code>, separador <code>;</code>. Un archivo por activo — los seis modelos
 son independientes, nunca se entrena un modelo global.</p>
@@ -1367,6 +1580,22 @@ son independientes, nunca se entrena un modelo global.</p>
 </div>
 
 
+<div class="doc-meta" data-section="10">
+  <div class="dm-row">
+    <span class="tag">§10</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x5-recolectar"><span class="num">10</span>Recolección</h2>
 
 <div class="card x5" data-lvl="1">
@@ -1448,6 +1677,22 @@ son independientes, nunca se entrena un modelo global.</p>
 </div>
 
 
+<div class="doc-meta" data-section="11">
+  <div class="dm-row">
+    <span class="tag">§11</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x5-train"><span class="num">11</span>Entrenamiento</h2>
 
 <div class="card x5" data-lvl="1">
@@ -1549,6 +1794,22 @@ loss = l_retorno + <span class="n">0.3</span> * l_flotante + <span class="n">0.3
 </div>
 
 
+<div class="doc-meta" data-section="12">
+  <div class="dm-row">
+    <span class="tag">§12</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="x5-infer"><span class="num">12</span>Inferencia: del modelo a una recomendación</h2>
 
 <div class="card x5" data-lvl="1">
@@ -1654,6 +1915,22 @@ loss = l_retorno + <span class="n">0.3</span> * l_flotante + <span class="n">0.3
 </div>
 
 <!-- ═══════════════ 13 · LA PREGUNTA ═══════════════ -->
+<div class="doc-meta" data-section="13">
+  <div class="dm-row">
+    <span class="tag">§13</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="pregunta"><span class="num">13</span>Ganancia acumulada en el tiempo y atribución de parámetros</h2>
 
 <blockquote>
@@ -2101,6 +2378,22 @@ por_tramo_cierre = oc.groupby(<span class="fn">list</span>(PARAM_STORE_COLS)).re
 </div>
 
 <!-- ═══════════════ 14 · INTERACCIÓN ═══════════════ -->
+<div class="doc-meta" data-section="14">
+  <div class="dm-row">
+    <span class="tag">§14</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="interaccion"><span class="num">14</span>Interacción X4 ↔ X5</h2>
 
 <div class="card" data-lvl="1">
@@ -2161,6 +2454,22 @@ por_tramo_cierre = oc.groupby(<span class="fn">list</span>(PARAM_STORE_COLS)).re
 
 
 <!-- ═══════════════ 15 · PERILLAS ═══════════════ -->
+<div class="doc-meta" data-section="15">
+  <div class="dm-row">
+    <span class="tag">§15</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="params"><span class="num">15</span>Las perillas y qué hace cada una</h2>
 
 <div class="card x4" data-lvl="1">
@@ -2217,6 +2526,22 @@ por_tramo_cierre = oc.groupby(<span class="fn">list</span>(PARAM_STORE_COLS)).re
 
 
 <!-- ═══════════════ 16 · ANEXO ═══════════════ -->
+<div class="doc-meta" data-section="16">
+  <div class="dm-row">
+    <span class="tag">§16</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
 <h2 id="anexo"><span class="num">16</span>Anexo: mapa de archivos y funciones</h2>
 
 <div class="card" data-lvl="1">
@@ -2427,6 +2752,38 @@ Si el código cambia, esta página no se actualiza sola.</p>
   }
   window.addEventListener('scroll', spy, { passive: true });
   spy();
+
+  /* ── doc-meta: nivel de entendimiento + comentario ──────────────────── */
+  document.querySelectorAll('.dm-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var ta = btn.closest('.doc-meta').querySelector('.dm-comment');
+      var open = ta.style.display !== 'none';
+      ta.style.display = open ? 'none' : 'block';
+      btn.textContent = open ? 'Dejar comentario' : 'Ocultar comentario';
+    });
+    var ta0 = btn.closest('.doc-meta').querySelector('.dm-comment');
+    if (ta0.textContent.trim()) { ta0.style.display = 'block'; btn.textContent = 'Ocultar comentario'; }
+  });
+
+  document.getElementById('guardar').addEventListener('click', function () {
+    document.querySelectorAll('.dm-nivel').forEach(function (sel) {
+      Array.prototype.forEach.call(sel.options, function (o) { o.removeAttribute('selected'); });
+      if (sel.value) sel.querySelector('option[value="' + sel.value + '"]').setAttribute('selected', '');
+    });
+    document.querySelectorAll('.dm-comment').forEach(function (ta) {
+      ta.textContent = ta.value;
+      ta.style.display = ta.value.trim() ? 'block' : 'none';
+    });
+    var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    var blob = new Blob([html], { type: 'text/html' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'documentacion.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  });
 })();
 </script>
 </body>
