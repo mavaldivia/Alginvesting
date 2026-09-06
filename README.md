@@ -219,6 +219,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-06** — feat: skill /documentar — genera/actualiza docs/plans/documentacion.html por secciones
 - **2026-09-05** — fix(x0): cache bt de soportes con escritura atómica (crash en X5 --recolectar)
 - **2026-09-05** — feat(x0): tope MAX_CAMBIOS=50000 en nuevo_optimizador_2 — corta y toma la mejor solución si no converge
 - **2026-09-05** — fix(x1): liberar_orden_lejana no toca OE de mercado cerrado
