@@ -508,6 +508,7 @@ Revisa todo lo que sea necesario y agrega mensajes de traceback para trackear lo
 Con eso podremos facilitar el entendimiento de cualquier nueva caida indeseada
 
 --------------------
+[OK]
 Crea un script que lea algún store.csv y muestre análisis de ML del tipo ceteris paribus en la variable dependiente
 "Como afecta x el retorno y"....
 Quiero hacer una especie de análisis rápido y tener insights de la data almacenada en store.csv, aunque sea parcial
@@ -517,3 +518,131 @@ que en una corrida rápida, y tomando como input solamente store.csv para algun 
 me permita tener una idea de cuanto están afectando los parámetros al retorno y a las otras variables dependientes (recuerdo que eran dos
 tipos de registro: histórico y oc...ideal ver el análisis por separado)
 Tambien agrega prints...como si me estuvieras contando una historia con los datos. Escribe bastante y anda explicando conceptos técnicos en el script
+
+-----------
+2026-09-05
+-----------
+
+TO DO PERSONAL: Validar que en X5, los parámetros se vean eficiente en el sentido de generar ganancias en el tiempo (P*Q)
+------------
+[WIP]
+/new_todo X1:
+Cuando el mercado de acciones se cierra, se están eliminando las OE
+
+------------
+/new_todo X1:
+Demasiados intentos sin converger
+
+Procesando AMZN N=120
+  Rango: 2022-01-03 11:00:00 → 2026-09-01 19:00:00 (11666 velas)
+  Último cierre: 254.25
+  Warm start: 120 soportes desde la solución de t*=2026-09-01 15:33:39
+  delta_inicial: 1.34 x E-8
+  FO warm start (última corrida): -7.68 x E-2
+GOOGL 120: pasos=173308 iter=35       FO=-8.7844e-02    [corriendo]        
+NVDA 120: pasos=23691  iter=34       FO=-1.0390e-01    [corriendo]        
+TSLA 120: pasos=122242 iter=31       FO=-6.6700e-02    [corriendo]        
+BTCUSD 120: pasos=44842  iter=34       FO=-7.3697e-02    [corriendo]      
+ETHUSD 120: pasos=21094  iter=14       FO=-6.5476e-02    [corriendo]      
+AMZN 120: pasos=146040 iter=18       FO=-5.7735e-02    [corriendo] 
+
+Es mejor que se detenga a los 50.000 pasos, tome la mejor solución (para cada activo) y pase al siguiente ciclo
+Así, cada {valor} termina si converge o si llega a los 50.000 pasos
+
+---------
+
+/new_todo X5: Revisar este error
+[OE→OA] BTCUSD  id=BTCUSD_20250223T1500_95550.4  ejecutada @ 95550.37  ts=2025-02-23 15:00:00
+  [A→C] BTCUSD  id=BTCUSD_20250223T1500_95550.4  motivo=trailing_stop  lote=0.01  precio_apertura=95550.37  precio_cierre=96241.21  retorno=$6.91  ts=2025-02-23 23:00:00
+  [2025-02-24 00:00:00] EXPLORE       BTCUSD: N=77 K=0.630 N_EXP=1.714 LAMBDA=0.01499 A=9.18 B=5.12 LOTAJES_M=1 PERDIDA_MAX=203
+  [2025-02-24 00:00:00] Recalculando soportes...
+concurrent.futures.process._RemoteTraceback:
+"""
+Traceback (most recent call last):
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 261, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 210, in _process_chunk
+    return [fn(*args) for args in chunk]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 210, in <listcomp>
+    return [fn(*args) for args in chunk]
+            ^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 147, in _worker_recalcular
+    return _procesar_valor_N(
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X0_data_supports.py", line 1101, in _procesar_valor_N
+    ws_t, conjunto_N_prev = _bt_solucion_previa(carpeta_n_bt, valor, N, fecha_hora_max)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X0_data_supports.py", line 939, in _bt_solucion_previa
+    cache = _leer_json_reintentos(bt_path)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X0_data_supports.py", line 921, in _leer_json_reintentos
+    return json.load(f)
+           ^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+                 ^^^^^^^^^
+OSError: [Errno 22] Invalid argument
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 1451, in <module>
+    ejecutar_x5_ciclo(cfg, activo=args.activo)
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 1422, in ejecutar_x5_ciclo
+    ejecutar_backtest(cfg, reset=False, x5_mode=True, min_lotajes=dict(cfg.LOTAJES))
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 1128, in ejecutar_backtest
+    _infos = _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2\scripts\X4_backtester.py", line 248, in _recalcular_soportes
+    infos = list(executor.map(_worker_recalcular, tasks))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\process.py", line 620, in _chain_from_iterable_of_lists
+    for element in iterable:
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mvaldiviad\AppData\Local\miniconda3\envs\revenAI\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+OSError: [Errno 22] Invalid argument
+  ciclo 1: X4 terminó con error (cód 1).
+
+──────────────────────────────────────────────────────────────────
+  [D09] Convergencia — fin de la recolección
+  (HITO — primera aparición)
+──────────────────────────────────────────────────────────────────
+  La recolección de este activo terminó: alcanzó el umbral de OC
+  objetivo o se agotaron los ciclos configurados (N_CICLOS_BT).
+
+  En --demo, el store y el modelo quedaron aislados de los datos
+  reales (sufijo _demo) y no tocaron tu store de producción. En
+  recolección oficial de un solo activo, en cambio, estos SÍ son el
+  store y el modelo reales del activo.
+
+  Datos: activo=BTCUSD  n_oc=2714  store_demo=BTCUSD_store.csv
+
+
+════════════════════════════════════════════════════════════════════════
+  Recolección oficial finalizada para BTCUSD: 2714 OC en BTCUSD_store.csv
+════════════════════════════════════════════════════════════════════════
+
+(revenAI) PS C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2> 
+
+
+
+---------
+X5: Quiero entender como se ve la "ganancia acumulada en el tiempo" considerando que pueden
+haber diferencias de los parámetros de configuración en una orden cuando transita entre
+O0 > OE > OA > OC
+en cuales de estas etapas se están tomando los parámetros de configuración como variables 
+explicativas de el retorno de esa orden en particular?
+Como se ve en general el retorno en el tiempo de los registros en las ordenes?
+Quiero entender mejor toda esta parte

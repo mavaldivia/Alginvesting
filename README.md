@@ -219,6 +219,8 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-05** — fix(x1): liberar_orden_lejana no toca OE de mercado cerrado
+- **2026-09-05** — feat(x5): head retorno_acumulado_dia — optimiza retorno acumulado en el tiempo, no promedio por trade
 - **2026-08-31** — feat(x5): notebook de análisis exploratorio ceteris paribus del store
 - **2026-08-31** — feat(x5): features de precio px_ret/px_accel para entrenamiento
 - **2026-08-31** — fix(x0): UTC-aware en backfill + detección automática de vacíos BTC/ETH

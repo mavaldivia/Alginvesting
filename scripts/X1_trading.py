@@ -307,9 +307,16 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
 
 def liberar_orden_lejana(dic_bloqueados: dict):
     """Ante el límite de posiciones/órdenes pendientes de la cuenta (retcode 10040),
-    cancela el buy limit más lejano del precio actual entre TODOS los activos —
-    libera espacio para priorizar los soportes más cercanos, sin importar qué activo
-    sea dueño de la orden lejana. Marca el precio cancelado como temporalmente bloqueado.
+    cancela el buy limit más lejano del precio actual entre TODOS los activos con
+    mercado abierto — libera espacio para priorizar los soportes más cercanos, sin
+    importar qué activo sea dueño de la orden lejana. Marca el precio cancelado
+    como temporalmente bloqueado.
+
+    Los activos con mercado cerrado quedan excluidos: su último precio (bid) queda
+    stale desde el cierre, así que la distancia calculada no refleja el precio real
+    y puede aparentar ser la "más lejana" solo por el tiempo transcurrido sin ticks
+    (ej. una acción recién cerrada) — cancelaría una OE que no debería tocarse hasta
+    que el mercado reabra, igual que ya evita limpiar_ordenes_pendientes_no_validas.
 
     Retorna (symbol, precio) de la orden liberada, o None si no había nada que liberar.
     """
@@ -320,6 +327,8 @@ def liberar_orden_lejana(dic_bloqueados: dict):
     mayor_distancia = -float('inf')
     for orden in candidatas:
         if orden.symbol not in LOTAJES:
+            continue
+        if not mercado_abierto(orden.symbol):
             continue
         try:
             P0 = obtener_precio_actual(orden.symbol, modo='B')
