@@ -525,11 +525,12 @@ Tambien agrega prints...como si me estuvieras contando una historia con los dato
 
 TO DO PERSONAL: Validar que en X5, los parámetros se vean eficiente en el sentido de generar ganancias en el tiempo (P*Q)
 ------------
-[WIP]
+[OK]
 /new_todo X1:
 Cuando el mercado de acciones se cierra, se están eliminando las OE
 
 ------------
+[WIP]
 /new_todo X1:
 Demasiados intentos sin converger
 
@@ -637,7 +638,6 @@ OSError: [Errno 22] Invalid argument
 (revenAI) PS C:\Users\mvaldiviad\OneDrive - Falabella\Escritorio\Proyectos Personales\Alginvesting_v2> 
 
 
-
 ---------
 X5: Quiero entender como se ve la "ganancia acumulada en el tiempo" considerando que pueden
 haber diferencias de los parámetros de configuración en una orden cuando transita entre
@@ -646,3 +646,13 @@ en cuales de estas etapas se están tomando los parámetros de configuración co
 explicativas de el retorno de esa orden en particular?
 Como se ve en general el retorno en el tiempo de los registros en las ordenes?
 Quiero entender mejor toda esta parte
+
+---------
+/new_todo X4 & X5
+Basado en docs/plans/algoritmos.tex o algoritmos.pdf 
++ scripts X4_backtester.py + x5_macro_brain.py
+Crea un HTML con el mismo sentido pero que sea interactivo, con vistas generales y simples, y con la opción de
+"ir haciendo doble click para ir a más detalle".
+Si posiciono el mouse en un concepto que me muestre la definición.
+Muestrame flujos! Generales, con más detalle y full detalle
+Al final, busco entender

@@ -104,6 +104,7 @@ FACTOR_DELTA = 0.7    # factor de presión al converger: si el optimizador conve
 BLOQUE_DISTANCIAS = 2000
 
 MAX_ITERS = 10000  # tope de iteraciones del optimizador (cota del tiempo de ejecución)
+MAX_CAMBIOS = 50000  # tope de cambios aceptados por corrida; al llegarse, corta y usa la mejor solución hallada
 
 # Combos a ejecutar por ciclo en modo --loop.
 # None = todos los combos en cada ciclo (comportamiento original).

@@ -1384,3 +1384,8 @@ Claude: inspeccionó el store real de BTCUSD (10.169 filas, esquema real con `re
 Mauricio: reportó que al cerrar el mercado de acciones se están eliminando las OE (buy limits pendientes) — pidió confirmar la causa e informar antes de corregir, vía `/new_todo`.
 Claude: revisó `X1_trading.py` completo. Encontró que `limpiar_ordenes_pendientes_no_validas` ya estaba correctamente gateada por `mercado_abierto(valor)` (fix previo), pero `liberar_orden_lejana` (usada al chocar con el límite de órdenes de la cuenta, retcode 10040, típicamente disparado por BTCUSD/ETHUSD 24/7) escaneaba las OE de TODOS los activos sin filtrar por mercado abierto — el precio bid stale de una acción recién cerrada podía aparentar ser "el más lejano" y esa OE se cancelaba igual. Fix: agregado `if not mercado_abierto(orden.symbol): continue` en el scan de candidatas de `liberar_orden_lejana`. Registrado en `docs/tracking/done.md` sección X1.
 (Cierre: 2026-09-05 23:36)
+
+## SECCIÓN 160
+Mauricio: vía `/new_todo` reportó que X0 lanzaba demasiados intentos sin converger (ej. GOOGL 120 con pasos=173308 sin parar) y pidió que cada activo corte a los 50.000 pasos, tome la mejor solución hallada y pase al siguiente ciclo.
+Claude: agregó `MAX_CAMBIOS = 50000` en `config.py` y el parámetro `max_cambios` en `nuevo_optimizador_2` (`X0_data_supports.py`) — al alcanzar el tope de cambios aceptados, corta el `while True` y retorna `dic_N` (mejor solución) con `convergio=False`, dejando que el ciclo siga con el siguiente (valor, N). Verificó compilación con `py_compile` y registró el ítem en `docs/tracking/done.md` → sección X0.
+(Cierre: 2026-09-05 23:42)

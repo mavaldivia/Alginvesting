@@ -50,7 +50,7 @@ from config import (
     CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
-    M, M_COARSE, LAMBDA, MAX_ITERS, DELTA_INICIAL, FACTOR_DELTA,
+    M, M_COARSE, LAMBDA, MAX_ITERS, MAX_CAMBIOS, DELTA_INICIAL, FACTOR_DELTA,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes, n_sizes_ejecucion, N_MAX_MODELS, reiniciar_x0,
 )
@@ -386,7 +386,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                          prueba_cercanos: bool = False,
                          delta_inicial: float = 1e-4,
                          estado_compartido=None, llave: str = '',
-                         verbose: bool = True) -> tuple:
+                         verbose: bool = True, max_cambios: int = MAX_CAMBIOS) -> tuple:
     """
     Optimizador de búsqueda local sobre el conjunto N de soportes.
 
@@ -402,10 +402,13 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
 
     ordenes_activas: precios fijos (ya están ejecutados en la plataforma, no se mueven).
     prueba_cercanos: si True, prioriza vecinos del soporte cambiado en la siguiente iteración.
+    max_cambios: tope de cambios aceptados; al alcanzarse, corta y retorna la mejor solución
+      hallada hasta ese punto con convergio=False (evita ciclos que nunca convergen).
     """
     if verbose:
         print(f'Iniciando optimizador | max_iters={max_iters} | N={N} | M={M}')
     convergio = False
+    limite_cambios_alcanzado = False
     cambios = 0
     max_pasos = 0  # máx. posición alcanzada en el inner loop antes de aceptar un cambio
 
@@ -553,7 +556,14 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 'ratio': [particion_FO[0] / particion_FO[1]],
             })])
 
-        if convergio:
+            if cambios >= max_cambios:
+                limite_cambios_alcanzado = True
+                if verbose:
+                    print(f'--- Límite de {max_cambios} cambios alcanzado, '
+                          f'se toma la mejor solución hallada hasta ahora ---')
+                break
+
+        if convergio or limite_cambios_alcanzado:
             break
         iter_offset += max_iters
         ciclo += 1
@@ -562,6 +572,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
             print(f'--- Ciclo {ciclo}: {max_iters} iteraciones agotadas sin convergencia, '
                   f'reinicio desde la mejor solución encontrada hasta ahora ---')
 
+    conjunto_N = set(dic_N.values())
     return conjunto_N, df_extremos, df_FO, convergio, cambios, max_pasos
 
 

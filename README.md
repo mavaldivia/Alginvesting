@@ -86,7 +86,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Paralelización por (valor, N)**: `ProcessPoolExecutor` corre todos los pares en paralelo; monitor en vivo muestra progreso, FO y estado por combo.
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
-El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`. Si se agotan `MAX_ITERS` sin converger, no se detiene: reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos.
+El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`. Si se agotan `MAX_ITERS` sin converger, no se detiene: reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos — salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`.
 
 ---
 
@@ -219,6 +219,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-05** — feat(x0): tope MAX_CAMBIOS=50000 en nuevo_optimizador_2 — corta y toma la mejor solución si no converge
 - **2026-09-05** — fix(x1): liberar_orden_lejana no toca OE de mercado cerrado
 - **2026-09-05** — feat(x5): head retorno_acumulado_dia — optimiza retorno acumulado en el tiempo, no promedio por trade
 - **2026-08-31** — feat(x5): notebook de análisis exploratorio ceteris paribus del store
