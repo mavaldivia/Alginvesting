@@ -1322,7 +1322,7 @@ def _seleccionar_params_x5(cfg, estado: dict, ts: pd.Timestamp, datos_h1: dict,
     bundles = getattr(cfg, '_x5_bundles', {})
     params, tipos = {}, {}
     for activo in cfg.valores:
-        tipo, bundle = bundles.get(activo, ('untrained', None))
+        tipo, bundle, acumulado = bundles.get(activo, ('untrained', None, None))
         es_explore = (bundle is None) or (random.random() < cfg.EXPLORATION_RATE)
         if es_explore:
             params[activo] = _params_explore_activo(cfg, activo)
@@ -1338,7 +1338,7 @@ def _seleccionar_params_x5(cfg, estado: dict, ts: pd.Timestamp, datos_h1: dict,
                                       est_a['soportes'], precio, est_a, carpeta_fund)
         import X5_macro_brain as X5
         params[activo] = X5.inferir_con_contexto(
-            activo, tipo, bundle, ctx, cfg.X5_PARAM_RANGES)
+            activo, tipo, bundle, ctx, cfg.X5_PARAM_RANGES, acumulado=acumulado)
         tipos[activo] = f'EXPLOIT/{tipo}'
     return params, tipos
 

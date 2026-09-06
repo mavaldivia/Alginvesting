@@ -120,6 +120,17 @@ TARGET_RETORNO  = 'retorno_usd'            # Y de filas 'oc'; USD y no % de capi
                                             # una constante, no por la señal del trade.
 TARGET_FLOTANTE = 'pnl_flotante_activo'    # Y de filas 'oc' y 'periodico'
 TARGET_CERRADO  = 'pnl_cerrado_activo'     # Y de filas 'oc'
+TARGET_ACUMULADO = 'retorno_acumulado_dia' # Y del head 'acumulado' (ver _construir_tramos):
+                                            # no es un target por fila — es la variación de
+                                            # equity del activo (pnl_cerrado_activo +
+                                            # pnl_flotante_activo) entre el inicio de un tramo
+                                            # y el inicio del siguiente, por día. A diferencia
+                                            # de retorno_usd (retorno de UNA operación cerrada),
+                                            # este es el que realmente gobierna la elección de
+                                            # params en inferencia: maximizar retorno_usd
+                                            # promedio no implica maximizar lo que se acumula
+                                            # en el tiempo si esos params además reducen cuántas
+                                            # veces cierra el activo.
 
 # ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -249,6 +260,66 @@ def _preparar_features(
     w = np.exp(cfg.X5_LAMBDA_DECAY * (np.arange(n) - n + 1)).astype(np.float32)
     w = w / w.mean()  # normalizar: media = 1 para no distorsionar la loss
     return X, y, w
+
+
+def _construir_tramos(store: pd.DataFrame) -> pd.DataFrame:
+    """Reconstruye los tramos de X5: períodos entre recálculos de soportes en
+    los que los config_params (PARAM_STORE_COLS) quedan fijos (ver
+    X5_RECALC_SOPORTES_CADA). Se detectan como changepoints en esas columnas,
+    ordenando oc + periodico por timestamp_oc.
+
+    Una orden puede abrirse en un tramo y cerrarse varios tramos después: el
+    trailing/breakeven de X4 evalúa TODAS las OA abiertas con el A/B *actual*
+    en cada vela, no el vigente cuando cada una se abrió (ver
+    X4_backtester.py, gestión de OA). Atribuirle el retorno_usd completo al
+    tramo de cierre sobrestimaría ese tramo y ocultaría el efecto de los
+    tramos intermedios. Por eso el target no se arma sumando retorno_usd por
+    tramo: se mide la variación de equity total del activo
+    (pnl_cerrado_activo + pnl_flotante_activo, presentes en toda fila oc y
+    periodico) entre el inicio de un tramo y el inicio del siguiente. Pasar
+    de "flotante" a "cerrado" no cambia esa suma, así que el tramo en que un
+    trade finalmente cierra no se lleva crédito de más — solo el movimiento
+    de cuenta que ocurrió mientras SUS params estuvieron vigentes.
+
+    Retorna un DataFrame con una fila por tramo (features = la fila más
+    temprana del tramo, o sea el contexto tal como estaba al decidir esos
+    params) y la columna `TARGET_ACUMULADO`. El último tramo se descarta:
+    sigue abierto, no tiene un "inicio del siguiente" con el que medir
+    duración ni variación de equity.
+    """
+    if store.empty:
+        return pd.DataFrame()
+
+    df = store.copy()
+    df['_ts'] = pd.to_datetime(df['timestamp_oc'], errors='coerce')
+    df = df.dropna(subset=['_ts']).sort_values('_ts').reset_index(drop=True)
+    if df.empty:
+        return pd.DataFrame()
+
+    df['_equity'] = (pd.to_numeric(df.get('pnl_cerrado_activo'), errors='coerce') +
+                      pd.to_numeric(df.get('pnl_flotante_activo'), errors='coerce'))
+
+    cols_param = [c for c in PARAM_STORE_COLS if c in df.columns]
+    cambio = (df[cols_param] != df[cols_param].shift()).any(axis=1)
+    df['_tramo'] = cambio.cumsum()
+
+    # Primera fila de cada tramo (df ya viene ordenado por _ts).
+    primeras = df.drop_duplicates(subset='_tramo', keep='first').set_index('_tramo')
+    tramo_ids = primeras.index.tolist()
+    if len(tramo_ids) < 2:
+        return pd.DataFrame()
+
+    filas = []
+    for t, t_sig in zip(tramo_ids[:-1], tramo_ids[1:]):
+        ini, fin = primeras.loc[t], primeras.loc[t_sig]
+        duracion_dias = (fin['_ts'] - ini['_ts']).total_seconds() / 86400
+        if duracion_dias <= 0:
+            continue
+        fila = ini.drop(labels=['_ts', '_equity']).to_dict()
+        fila[TARGET_ACUMULADO] = (fin['_equity'] - ini['_equity']) / duracion_dias
+        filas.append(fila)
+
+    return pd.DataFrame(filas)
 
 # ─── Context actual ───────────────────────────────────────────────────────────
 
@@ -499,6 +570,16 @@ def _model_dir(activo: str) -> Path:
 
 # ─── LightGBM ────────────────────────────────────────────────────────────────
 
+_LGBM_PARAMS_DEFAULT = {
+    'objective': 'regression', 'metric': 'rmse',
+    'n_estimators': 1000, 'learning_rate': 0.05,
+    'num_leaves': 31, 'min_child_samples': 10,
+    'subsample': 0.8, 'colsample_bytree': 0.8,
+    'reg_alpha': 0.1, 'reg_lambda': 0.1,
+    'verbose': -1,
+}
+
+
 def _entrenar_lgbm(activo: str, store: pd.DataFrame) -> bool:
     if not _LGBM_OK:
         print(f'  [{activo}] lightgbm no instalado → pip install lightgbm')
@@ -532,23 +613,15 @@ def _entrenar_lgbm(activo: str, store: pd.DataFrame) -> bool:
         n_train_total = split
         n_test_total  = len(X_val)
 
-        lgb_params = {
-            'objective': 'regression', 'metric': 'rmse',
-            'n_estimators': 1000, 'learning_rate': 0.05,
-            'num_leaves': 31, 'min_child_samples': 10,
-            'subsample': 0.8, 'colsample_bytree': 0.8,
-            'reg_alpha': 0.1, 'reg_lambda': 0.1,
-            'verbose': -1,
-        }
-        model = lgb.LGBMRegressor(**lgb_params)
+        model = lgb.LGBMRegressor(**_LGBM_PARAMS_DEFAULT)
         if len(X_val) >= 10:
             cbs = [lgb.early_stopping(50, verbose=False), lgb.log_evaluation(period=-1)]
             model.fit(X_tr, y_tr, sample_weight=w_tr,
                       eval_set=[(X_val, y_val)], callbacks=cbs)
-            best_iter = getattr(model, 'best_iteration_', lgb_params['n_estimators'])
+            best_iter = getattr(model, 'best_iteration_', _LGBM_PARAMS_DEFAULT['n_estimators'])
         else:
             model.fit(X_tr, y_tr, sample_weight=w_tr)
-            best_iter = lgb_params['n_estimators']
+            best_iter = _LGBM_PARAMS_DEFAULT['n_estimators']
 
         metricas[key] = {
             'train': _calcular_metricas(y_tr, model.predict(X_tr)),
@@ -580,6 +653,73 @@ def _cargar_lgbm(activo: str):
             with open(p, 'rb') as f:
                 models[key] = pickle.load(f)
     return (models, feature_cols) if models else None
+
+
+def _entrenar_acumulado(activo: str, store: pd.DataFrame) -> bool:
+    """Entrena SIEMPRE con LightGBM el head 'acumulado' (TARGET_ACUMULADO),
+    sin importar si el resto del modelo ya pasó a FT-Transformer: el n de
+    tramos es órdenes de magnitud menor al de OC (ver _construir_tramos /
+    X5_MIN_TRAMOS_TRAIN) y nunca va a justificar un Transformer. Se guarda
+    aparte de `_entrenar_lgbm` (propio .pkl y features.json) porque vive en
+    un dataset distinto (tramos, no filas oc/periodico) y debe existir aunque
+    el activo ya esté en fase FTT."""
+    if not _LGBM_OK:
+        print(f'  [{activo}] lightgbm no instalado → pip install lightgbm')
+        return False
+
+    tramos = _construir_tramos(store)
+    feature_cols = _feature_cols_de_store(store)
+    X, y, w = _preparar_features(tramos, feature_cols, TARGET_ACUMULADO, ('oc', 'periodico'))
+    if len(X) < cfg.X5_MIN_TRAMOS_TRAIN:
+        print(f'  [{activo}] Acumulado: solo {len(X)} tramos '
+              f'(mínimo {cfg.X5_MIN_TRAMOS_TRAIN}) — omitido.')
+        return False
+
+    out = _model_dir(activo)
+    out.mkdir(parents=True, exist_ok=True)
+
+    split = max(10, int(len(X) * 0.8))
+    X_tr, y_tr, w_tr = X[:split], y[:split], w[:split]
+    X_val, y_val     = X[split:], y[split:]
+
+    model = lgb.LGBMRegressor(**_LGBM_PARAMS_DEFAULT)
+    if len(X_val) >= 10:
+        cbs = [lgb.early_stopping(50, verbose=False), lgb.log_evaluation(period=-1)]
+        model.fit(X_tr, y_tr, sample_weight=w_tr,
+                  eval_set=[(X_val, y_val)], callbacks=cbs)
+        best_iter = getattr(model, 'best_iteration_', _LGBM_PARAMS_DEFAULT['n_estimators'])
+    else:
+        model.fit(X_tr, y_tr, sample_weight=w_tr)
+        best_iter = _LGBM_PARAMS_DEFAULT['n_estimators']
+
+    with open(out / f'{activo}_lgbm_acumulado.pkl', 'wb') as f:
+        pickle.dump(model, f)
+    with open(out / f'{activo}_lgbm_acumulado_features.json', 'w') as f:
+        json.dump(feature_cols, f)
+
+    metricas = {
+        'acumulado': {
+            'train': _calcular_metricas(y_tr, model.predict(X_tr)),
+            'test':  _calcular_metricas(y_val, model.predict(X_val)) if len(X_val) > 0 else {},
+        }
+    }
+    _guardar_performance(activo, 'lgbm_acumulado', split, len(X_val), metricas)
+    print(f'  [{activo}] LGBM acumulado: {split} train | {len(X_val)} val | '
+          f'iter={best_iter} | {len(X)} tramos')
+    return True
+
+
+def _cargar_acumulado(activo: str):
+    out = _model_dir(activo)
+    model_path = out / f'{activo}_lgbm_acumulado.pkl'
+    feat_path  = out / f'{activo}_lgbm_acumulado_features.json'
+    if not model_path.exists() or not feat_path.exists():
+        return None
+    with open(feat_path) as f:
+        feature_cols = json.load(f)
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f)
+    return model, feature_cols
 
 # ─── FT-Transformer ──────────────────────────────────────────────────────────
 
@@ -821,16 +961,17 @@ def _rango(param_store: str, activo: str) -> tuple:
 
 # ─── Inferencia LightGBM (Optuna) ────────────────────────────────────────────
 
-def _inferir_lgbm(activo: str, models: dict, contexto: dict, feature_cols: list) -> dict:
+def _optimizar_optuna(activo: str, model, feature_cols: list, contexto: dict) -> dict:
     """
-    Busca los config_params que maximizan retorno_usd predicho mediante Optuna
-    (optimización bayesiana: concentra los trials en zonas prometedoras del espacio).
+    Busca los config_params que maximizan `model.predict` mediante Optuna
+    (optimización bayesiana: concentra los trials en zonas prometedoras del
+    espacio). Sirve para cualquier regresor sklearn-compatible — se reusa
+    para el head 'acumulado' (siempre LightGBM, ver _entrenar_acumulado) y
+    como fallback para 'retorno' cuando el activo todavía no tiene suficientes
+    tramos (ver inferir_con_contexto).
     """
     if not _OPTUNA_OK:
         print(f'  [{activo}] optuna no instalado → pip install optuna')
-        return _params_baseline(activo)
-    model_r = models.get('retorno')
-    if model_r is None:
         return _params_baseline(activo)
 
     def objective(trial):
@@ -852,7 +993,7 @@ def _inferir_lgbm(activo: str, models: dict, contexto: dict, feature_cols: list)
             'PERDIDA_MAX': trial.suggest_float('PERDIDA_MAX', *_rango('PERDIDA_MAX', activo)),
         }
         vec = _construir_vector(contexto, p, feature_cols)
-        return float(model_r.predict([vec])[0])
+        return float(model.predict([vec])[0])
 
     study = optuna.create_study(
         direction='maximize',
@@ -871,6 +1012,16 @@ def _inferir_lgbm(activo: str, models: dict, contexto: dict, feature_cols: list)
         'LOTAJES_M':   int(best['LOTAJES_M']),
         'PERDIDA_MAX': round(best['PERDIDA_MAX'],  1),
     }
+
+
+def _inferir_lgbm(activo: str, models: dict, contexto: dict, feature_cols: list) -> dict:
+    """Fallback: optimiza el head 'retorno' (por trade) — se usa solo mientras
+    el activo no junta suficientes tramos para el head 'acumulado' (ver
+    inferir_con_contexto)."""
+    model_r = models.get('retorno')
+    if model_r is None:
+        return _params_baseline(activo)
+    return _optimizar_optuna(activo, model_r, feature_cols, contexto)
 
 # ─── Inferencia FTT (gradient ascent) ────────────────────────────────────────
 
@@ -994,29 +1145,42 @@ def _entrenar(activo: str) -> str:
         _entrenar_lgbm(activo, store)
     else:
         _entrenar_ftt(activo, store)
+    _entrenar_acumulado(activo, store)
     return tipo
 
 
 def cargar_modelo_para_activo(activo: str) -> tuple:
     """Carga el modelo del activo una sola vez, para reuso externo (X4 --x5).
 
-    Retorna (tipo, bundle):
+    Retorna (tipo, bundle, acumulado):
       - tipo: 'untrained' | 'lgbm' | 'ftt'
-      - bundle: lo que devuelve _cargar_lgbm/_cargar_ftt, o None si no hay modelo
-        entrenado (cuenta insuficiente o archivo ausente).
+      - bundle: lo que devuelve _cargar_lgbm/_cargar_ftt (heads retorno/flotante/
+        cerrado), o None si no hay modelo entrenado (cuenta insuficiente o
+        archivo ausente).
+      - acumulado: lo que devuelve _cargar_acumulado (siempre LightGBM), o None
+        si el activo todavía no junta X5_MIN_TRAMOS_TRAIN tramos.
     """
     tipo = _seleccionar_tipo(_n_oc(_cargar_store(activo)))
     if tipo == 'untrained':
-        return 'untrained', None
+        return 'untrained', None, None
     bundle = _cargar_lgbm(activo) if tipo == 'lgbm' else _cargar_ftt(activo)
     if bundle is None:
-        return 'untrained', None
-    return tipo, bundle
+        return 'untrained', None, None
+    return tipo, bundle, _cargar_acumulado(activo)
 
 
 def inferir_con_contexto(activo: str, tipo: str, bundle, contexto: dict,
-                         param_ranges: dict | None = None) -> dict:
+                         param_ranges: dict | None = None,
+                         acumulado: tuple | None = None) -> dict:
     """Infiere params con un contexto inyectado (as-of-t histórico), sin leer 'now'.
+
+    Si `acumulado` está disponible, la elección de params se hace SIEMPRE
+    maximizándolo vía Optuna (funciona igual en fase lgbm o ftt, porque
+    'acumulado' es siempre LightGBM — ver _entrenar_acumulado) — es el head
+    que mide retorno acumulado en el tiempo, no promedio por trade. Mientras
+    el activo no junta suficientes tramos, cae al comportamiento anterior:
+    Optuna sobre 'retorno' en fase lgbm, gradient ascent sobre 'retorno' en
+    fase ftt.
 
     No aplica airbag: en recolección se busca variedad causal en el store,
     incluida la de regímenes de caída (el airbag es una capa de seguridad live,
@@ -1026,6 +1190,9 @@ def inferir_con_contexto(activo: str, tipo: str, bundle, contexto: dict,
     global _RANGES_OVERRIDE
     _RANGES_OVERRIDE = param_ranges
     try:
+        if acumulado is not None:
+            model_ac, feature_cols_ac = acumulado
+            return _optimizar_optuna(activo, model_ac, feature_cols_ac, contexto)
         if tipo == 'lgbm':
             models, feature_cols = bundle
             return _inferir_lgbm(activo, models, contexto, feature_cols)
@@ -1041,12 +1208,12 @@ def _inferir_params(activo: str, contexto: dict | None = None) -> tuple:
     contexto=None → usa el contexto actual (live, Fase 2). Si se inyecta un
     contexto (backtest as-of-t), se usa ese. Retorna (params_dict_json, model_status).
     """
-    tipo, bundle = cargar_modelo_para_activo(activo)
+    tipo, bundle, acumulado = cargar_modelo_para_activo(activo)
     if tipo == 'untrained':
         return _params_baseline(activo), 'untrained'
     if contexto is None:
         contexto = _leer_contexto_actual(activo)
-    params = inferir_con_contexto(activo, tipo, bundle, contexto)
+    params = inferir_con_contexto(activo, tipo, bundle, contexto, acumulado=acumulado)
     params = _aplicar_airbag(activo, params)
     return params, tipo
 
@@ -1106,6 +1273,18 @@ def _mostrar_status() -> None:
             detalle = m_ok
 
         print(f'  {activo:<8}  {n:>5} OC  {total:>7} filas  [{tipo:<9}]  {detalle}')
+
+        if tipo != 'untrained':
+            n_tramos     = len(_construir_tramos(store))
+            acumulado_ok = (out / f'{activo}_lgbm_acumulado.pkl').exists()
+            if acumulado_ok:
+                ac_detalle = 'modelo ok — gobierna la elección de params'
+            elif n_tramos >= cfg.X5_MIN_TRAMOS_TRAIN:
+                ac_detalle = 'SIN MODELO — ejecutar --train (fallback: retorno por trade)'
+            else:
+                falta_tramos = cfg.X5_MIN_TRAMOS_TRAIN - n_tramos
+                ac_detalle = f'faltan {falta_tramos} tramos (fallback: retorno por trade)'
+            print(f'  {"":<8}  {n_tramos:>5} tramos{"":<9}  acumulado: {ac_detalle}')
 
     if ACTIVE_PARAMS.exists():
         with open(ACTIVE_PARAMS) as f:

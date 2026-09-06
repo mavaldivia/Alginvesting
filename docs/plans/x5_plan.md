@@ -9,6 +9,14 @@
 > y se corrigió un bug de desalineación de columnas en el store — ver `docs/context/decisiones.md`
 > 2026-08-31. Las menciones a `retorno_pct` en este documento (schema, Y, inferencia) no se
 > reescribieron todavía.
+> **Desactualizado (2026-09-05):** la elección de params en inferencia ya NO optimiza el head
+> `retorno` (por trade) cuando hay suficiente historia — optimiza un head nuevo,
+> `retorno_acumulado_dia` (variación de equity por tramo, siempre LightGBM), con fallback a
+> `retorno` mientras el activo no junta `X5_MIN_TRAMOS_TRAIN` tramos. Motivo: maximizar el
+> retorno promedio por trade (P) no maximiza el retorno acumulado en el tiempo (P×Q) si esos
+> mismos params reducen cuántas veces cierra el activo. Ver `docs/context/decisiones.md`
+> 2026-09-05. Las secciones "Variables objetivo (Y)", "Arquitectura del modelo" e "Inferencia —
+> cómo X5 elige los params" de este documento describen solo los 3 heads originales.
 
 ---
 

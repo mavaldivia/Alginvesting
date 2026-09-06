@@ -272,6 +272,10 @@ X5_DEMO_ABRIR_PLOTS = True   # además abrirlo en el visor del sistema al genera
 # Umbrales de modelo
 X5_MIN_TRADES_TRAIN      = 500    # mínimo de OC para entrenar (menor → untrained)
 X5_MIN_TRADES_FTT        = 5000   # a partir de aquí usa FT-Transformer en vez de LightGBM
+X5_MIN_TRAMOS_TRAIN      = 30     # mínimo de tramos cerrados para entrenar el head 'acumulado'
+                                   # (ver _construir_tramos en X5_macro_brain.py) — el n de
+                                   # tramos es ~1 orden de magnitud menor al de OC (cada tramo
+                                   # agrupa varios trades), así que el umbral es mucho más bajo
 
 # Reentrenamiento (modo LightGBM)
 X5_RETRAIN_EVERY_N_VELAS = 48     # reentrenamiento completo cada N velas H1 (≈2 días)
