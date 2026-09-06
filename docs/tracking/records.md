@@ -1389,3 +1389,8 @@ Claude: revisó `X1_trading.py` completo. Encontró que `limpiar_ordenes_pendien
 Mauricio: vía `/new_todo` reportó que X0 lanzaba demasiados intentos sin converger (ej. GOOGL 120 con pasos=173308 sin parar) y pidió que cada activo corte a los 50.000 pasos, tome la mejor solución hallada y pase al siguiente ciclo.
 Claude: agregó `MAX_CAMBIOS = 50000` en `config.py` y el parámetro `max_cambios` en `nuevo_optimizador_2` (`X0_data_supports.py`) — al alcanzar el tope de cambios aceptados, corta el `while True` y retorna `dic_N` (mejor solución) con `convergio=False`, dejando que el ciclo siga con el siguiente (valor, N). Verificó compilación con `py_compile` y registró el ítem en `docs/tracking/done.md` → sección X0.
 (Cierre: 2026-09-05 23:42)
+
+## SECCIÓN 161
+Mauricio: `/new_todo` con un traceback de `--recolectar` en BTCUSD: `OSError: [Errno 22] Invalid argument` al leer `BTCUSD_{N}_bt.json` desde `_bt_solucion_previa`, justo tras la convergencia [D09] con n_oc=2714.
+Claude: Ubicó la causa en `X0_data_supports.py` — `_bt_guardar` escribía el cache bt con `open(path, 'w')` directo (no atómico) mientras otros workers del `ProcessPoolExecutor` de X4 lo leían vía `_leer_json_reintentos`, mismo patrón ya resuelto antes en `_flush_json_list`/`json_act`. Aplicó el fix: `_bt_guardar` ahora escribe atómico (tmp + `os.replace`); `_leer_json_reintentos` sube a 10 intentos/0.2s y reintenta también ante `JSONDecodeError`/`PermissionError`. Registrado en `done.md` (sección X0).
+(Cierre: 2026-09-05 23:47)

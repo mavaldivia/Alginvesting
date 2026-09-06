@@ -530,7 +530,7 @@ TO DO PERSONAL: Validar que en X5, los parámetros se vean eficiente en el senti
 Cuando el mercado de acciones se cierra, se están eliminando las OE
 
 ------------
-[WIP]
+[OK]
 /new_todo X1:
 Demasiados intentos sin converger
 
@@ -551,7 +551,7 @@ Es mejor que se detenga a los 50.000 pasos, tome la mejor solución (para cada a
 Así, cada {valor} termina si converge o si llega a los 50.000 pasos
 
 ---------
-
+[WIP]
 /new_todo X5: Revisar este error
 [OE→OA] BTCUSD  id=BTCUSD_20250223T1500_95550.4  ejecutada @ 95550.37  ts=2025-02-23 15:00:00
   [A→C] BTCUSD  id=BTCUSD_20250223T1500_95550.4  motivo=trailing_stop  lote=0.01  precio_apertura=95550.37  precio_cierre=96241.21  retorno=$6.91  ts=2025-02-23 23:00:00
@@ -655,4 +655,14 @@ Crea un HTML con el mismo sentido pero que sea interactivo, con vistas generales
 "ir haciendo doble click para ir a más detalle".
 Si posiciono el mouse en un concepto que me muestre la definición.
 Muestrame flujos! Generales, con más detalle y full detalle
-Al final, busco entender
+Al final, busco entender más o menos bien la estructura de X4 y X5 pero me ha costado bastante hasta ahora con las documentaciones en pdf
+Considera que X5 ha cambiado desde algoritmos.pdf
+Piensa que tengo que comenzar bien con un correcto overview e ir bajando al detalle cada vez más, pero tener una especie
+de "mapa general" que me ordene (cosa que hasta el momento no he logrado)
+Lo otro que no me gustó del pdf, fue de la forma que me mostraste los algoritmos
+Mi lenguaje de programación siempre ha sido Python, entonces estoy mucho más familiarizado con su nomeclatura -> Ocupa nomeclatura Python
+Ej:
+if condicion:
+    # Se hace la asignación de ..... (aunque sea un mensaje tipo comentario, explicandome)
+else:
+    # ....

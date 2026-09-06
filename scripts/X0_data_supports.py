@@ -923,14 +923,17 @@ def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path):
 
 # ─── Etapa 2: Búsqueda de soportes óptimos ───────────────────────────────────
 
-def _leer_json_reintentos(path: Path, intentos: int = 3, espera: float = 0.1) -> dict:
-    """Lee un JSON reabriendo el archivo en cada intento ante OSError transitorios
-    (sync de OneDrive u otro proceso escribiendo el mismo cache al mismo tiempo)."""
+def _leer_json_reintentos(path: Path, intentos: int = 10, espera: float = 0.2) -> dict:
+    """Lee un JSON reabriendo el archivo en cada intento ante OSError/JSONDecodeError/
+    PermissionError transitorios (sync de OneDrive u otro proceso escribiendo el mismo
+    cache al mismo tiempo — varios workers de ProcessPoolExecutor comparten este archivo
+    en modo bt). Mismo patrón que `_flush_json_list` (X4_backtester.py) y `json_act`
+    (X1_trading.py)."""
     for intento in range(intentos):
         try:
             with open(path) as f:
                 return json.load(f)
-        except OSError:
+        except (json.JSONDecodeError, PermissionError, OSError):
             if intento == intentos - 1:
                 raise
             time.sleep(espera)
@@ -961,12 +964,20 @@ def _bt_warm_start(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_max) -> se
 
 
 def _bt_guardar(carpeta_n_bt: Path, valor: str, N: int, fecha_hora_clave, conjunto_N: set):
-    """Upsert de conjunto_N en el cache bt con clave = último datetime de los datos usados."""
+    """Upsert de conjunto_N en el cache bt con clave = último datetime de los datos usados.
+
+    Escritura atómica (tmp + os.replace): varios workers de ProcessPoolExecutor
+    (uno por activo) pueden escribir su propio `{valor}_{N}_bt.json` mientras otro
+    worker lee el mismo archivo vía `_bt_solucion_previa` — sin esto, un lector podía
+    encontrar el archivo truncado a mitad de escritura (`OSError: [Errno 22]`).
+    """
     bt_path = carpeta_n_bt / f'{valor}_{N}_bt.json'
     cache = _leer_json_reintentos(bt_path) if bt_path.exists() else {}
     cache[str(fecha_hora_clave)] = sorted(conjunto_N)
-    with open(bt_path, 'w') as f:
+    tmp_path = bt_path.with_suffix(bt_path.suffix + '.tmp')
+    with open(tmp_path, 'w') as f:
         json.dump(cache, f)
+    os.replace(tmp_path, bt_path)
 
 
 def _log_diagnostico_conjunto_N(identificador: str, escenario: str, datos: dict):
