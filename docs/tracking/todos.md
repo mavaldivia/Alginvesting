@@ -47,6 +47,29 @@
 - [ ] Antes de considerar el modelo confiable, revisar `resources/x5/Performance/BTCUSD_performance.json`: R² test positivo y no muy por debajo del train para el target `retorno` (ya redefinido en USD).
 - [ ] Si más adelante se activan los otros 5 activos, correr el mismo chequeo de corrupción (0% esperado) antes de asumir que sus stores están limpios — el bug era del código compartido, pero conviene confirmar con datos reales de cada uno.
 
+### X5_alt — versión alternativa y simplificada de X5
+
+> Versión paralela a X5 (no la reemplaza). Contexto completo: [`docs/plans/X5_alternativo.md`](../plans/X5_alternativo.md)
+> `X5_P1` y `X5_P2` reciben `{valor}` (el activo) como input — inicialmente `BTCUSD`.
+> El orden de abajo es por score, no de implementación: Fase 1 (X5_P1) debe completarse antes que Fase 2 (X5_P2) — ver el plan para la secuencia real.
+
+- [ ] **X5_P1 — crear notebook y cargar precio**: crear `scripts/X5_P1.ipynb`, parametrizado por `{valor}` (inicialmente `BTCUSD`); leer `Data/{valor}.csv`, parsear `DateTime`, ordenar y eliminar duplicados (el CSV actual no viene ordenado). (I:9 C:2 H:10 → 4.74)
+- [ ] **X5_P2 — crear script y cargar tabla de X5_P1**: crear `scripts/X5_P2.py`, parametrizado por `{valor}` (inicialmente `BTCUSD`); toma como input la tabla maestra generada por X5_P1. (I:9 C:2 H:9 → 4.50)
+- [ ] **X5_P2 — regresión ceteris paribus**: variables estandarizadas, efecto de cada una controlando por las demás (mismo enfoque manual con numpy/scipy que ya usa `X5_analisis_exploratorio.ipynb`). (I:8 C:2 H:7 → 3.74)
+- [ ] **X5_P1 — ensamblar DataFrame final**: una fila por vela H1, columnas de precio (OHLCV) + `x3_*` + `x2_*`. (I:7 C:2 H:7 → 3.50)
+- [ ] **X5_P2 — correlación contemporánea**: de cada variable (`x3_*`, `x2_*`) vs. precio de cierre. (I:7 C:2 H:6 → 3.24)
+- [ ] **X5_P1 — mergear fundamentales de X2**: cargar `resources/x2/x2_history.json`, filtrar por `{valor}`, pegar a la tabla H1 con `merge_asof` (dirección `backward`). (I:6 C:2 H:6 → 3.00)
+- [ ] **X5_P1 — guardar tabla final**: a `resources/x5_alt/{valor}_tabla_maestra.csv`, para que X5_P2 la consuma sin recalcular. (I:6 C:2 H:6 → 3.00)
+- [ ] **X5_P2 — correlación rezagada**: lags de N velas vs. precio, para detectar anticipación o persistencia. (I:6 C:2 H:5 → 2.74)
+- [ ] **X5_P1 — calcular indicadores técnicos**: llamar `_calcular_todos_indicadores(df, conjunto_N)` de `X3_technical_features.py` sobre el histórico completo (sin distancia a soportes en v0). (I:8 C:3 H:8 → 2.67)
+- [ ] **X5_P2 — gráficos**: series de tiempo superpuestas (variable vs. precio), scatter plots, heatmap de correlaciones. (I:5 C:2 H:5 → 2.50)
+- [ ] **X5_P2 — reporte final**: qué variables muestran señal real vs. cuáles no aportan nada — insumo directo para reducir el universo de información. (I:6 C:2 H:4 → 2.45)
+- [ ] Confirmar con Mauricio las decisiones de la sección 5 de `X5_alternativo.md` antes de escribir código — ya reflejan lo conversado, conviene una pasada rápida antes de implementar. (I:2 C:1 H:3 → 2.45)
+- [ ] **X5_P1 — reporte de calidad de datos**: % missing por columna, huecos temporales en el precio, cobertura real de fundamentales vs. forward-filled. (I:5 C:2 H:4 → 2.24)
+- [ ] **X5_P2 — revisar notebook existente**: `X5_analisis_exploratorio.ipynb` ya hace un análisis ceteris paribus similar sobre el *store* de eventos de X5 actual — decidir si X5_P2 reutiliza esa lógica o parte de cero. (I:4 C:2 H:5 → 2.24)
+- [ ] **X5_P2 — correlación móvil (rolling)**: vs. precio, para detectar cambios de régimen. (I:6 C:3 H:5 → 1.83)
+- [ ] Fase 3 (`X5_alternativo.py`): no empezar todavía — se define recién después de ver resultados concretos de X5_P1 y X5_P2. (I:2 C:2 H:2 → 1.00)
+
 ### Backlog
 
 - [ ] Evaluar compatibilidad de librería MT5 en macOS — si se resuelve, simplifica mucho el flujo Mac↔Windows. (I:6 C:3 H:5 → 1.83)

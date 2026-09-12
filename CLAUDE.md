@@ -38,6 +38,8 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | `X5_macro_brain.py` | Surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia. Output: `config/active_parameters.json`. **En Fase 1**: se entrena con datos de X5 backtesters dedicados (por activo). **En Fase 2**: X1 live con `TIPO_EJECUCION="din"` alimenta el store directamente → ciclo de retroalimentación cerrado. `--recolectar --demo` es un recorrido guiado interactivo de UN activo (lo pregunta al inicio): corre los ciclos secuencialmente sobre store/modelo/backtest demo aislados (`_demo`) y explica cada suceso nuevo (IDs D01–D10) pausando la primera vez, vía el módulo compartido `scripts/x5_demo.py`; reanudable por activo. Cada recálculo de soportes reporta `t` del backtest, el rango de precios usado (`t0 → tf`) y el warm start, y guarda/abre el gráfico de esa búsqueda en `resources/x5/demo_plots/`. Plan: `docs/plans/x5_plan.md`. |
 | `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, configuración de X0 (algoritmo) y X1 (trading). `TIPO_EJECUCION = "est" \| "din"` controla si X1/X0/X4 usan params estáticos o los recomendados por X5. |
 
+> **X5_alt** (versión alternativa y simplificada de X5, en desarrollo paralelo — no reemplaza `X5_macro_brain.py`): todo el contexto vive en [`docs/plans/X5_alternativo.md`](docs/plans/X5_alternativo.md) — documento vivo, no de solo lectura, se actualiza a medida que avanza el trabajo. Primeros scripts: `X5_P1.ipynb` (tabla maestra tabulada en el tiempo) y `X5_P2.py` (análisis ceteris paribus vs. precio), ambos parametrizados por `{valor}` — inicialmente `BTCUSD`.
+
 ### Directorios de datos
 
 | Carpeta | Contenido |

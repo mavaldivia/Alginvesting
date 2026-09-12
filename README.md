@@ -133,7 +133,7 @@ resources/               # Todo generado en Windows, fuera de git
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
 docs/
   context/               # decisiones.md, vision.md, guías de git, documentacion_V0.md
-  plans/                 # Planes de implementación por módulo (x2, x3, x4, x5) + documentacion.html (doc interactiva por sección, ver /documentar)
+  plans/                 # Planes de implementación por módulo (x2, x3, x4, x5) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + documentacion.html (doc interactiva por sección, ver /documentar)
   tracking/              # todos.md, done.md, records.md
 Alginvesting_base/       # Versión anterior Windows/notebooks (solo lectura, referencia)
 ```
@@ -219,6 +219,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-12** — docs(x5): plan X5_alt + traspaso de TODOs
 - **2026-09-06** — docs: documentacion.html — control de nivel de entendimiento + comentario por subsección
 - **2026-09-06** — docs: X4_X5.html — doc interactiva de X4 y X5 con niveles, glosario y algoritmos en Python
 - **2026-09-06** — feat: skill /documentar — genera/actualiza docs/plans/documentacion.html por secciones
