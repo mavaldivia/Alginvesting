@@ -6,11 +6,11 @@ Surrogate model de Alginvesting. Aprende la relación:
 y optimiza config_params en inferencia para cada activo.
 
 Modos (3 + casilla --train):
-  python scripts/X5_macro_brain.py --recolectar   # genera datos + auto-entrena; pregunta el alcance al inicio
-  python scripts/X5_macro_brain.py --recolectar --demo  # recorrido guiado de 1 activo, store/modelo demo, con pausas
-  python scripts/X5_macro_brain.py --infer         # recomienda params con el modelo actual → active_parameters.json
-  python scripts/X5_macro_brain.py --infer --train # reentrena desde el store y luego recomienda
-  python scripts/X5_macro_brain.py --status        # diagnóstico: n_trades y modelo activo por activo
+  python Otros/scripts/X5_macro_brain.py --recolectar   # genera datos + auto-entrena; pregunta el alcance al inicio
+  python Otros/scripts/X5_macro_brain.py --recolectar --demo  # recorrido guiado de 1 activo, store/modelo demo, con pausas
+  python Otros/scripts/X5_macro_brain.py --infer         # recomienda params con el modelo actual → active_parameters.json
+  python Otros/scripts/X5_macro_brain.py --infer --train # reentrena desde el store y luego recomienda
+  python Otros/scripts/X5_macro_brain.py --status        # diagnóstico: n_trades y modelo activo por activo
 
 `--train` es una casilla, no un modo: solo tiene efecto junto a `--infer`
 (reentrena antes de recomendar). `--recolectar` ya entrena por su cuenta.
@@ -44,6 +44,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'scripts'))
 import config as cfg
 import x5_demo
 
@@ -1346,7 +1347,7 @@ def _worker_recolectar_activo(activo: str, x4_path: Path, n_ciclos: int) -> tupl
 def _cargar_config_x5():
     """Config dedicada del pipeline X5 (independiente de las versiones de X4).
 
-    Se carga directo desde scripts/config_x5_default.py (versionada en git,
+    Se carga directo desde Otros/scripts/config_x5_default.py (versionada en git,
     igual que config.py) — sin copia a resources/x5/, para que un fix en la
     plantilla llegue a todas las máquinas con un simple git pull.
     """
@@ -1391,7 +1392,7 @@ def _recolectar() -> None:
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    x4_path = Path(__file__).parent / 'X4_backtester.py'
+    x4_path = Path(__file__).parent.parent.parent / 'scripts' / 'X4_backtester.py'
     if not x4_path.exists():
         print(f'  X4_backtester.py no encontrado en {x4_path}')
         return
@@ -1556,7 +1557,7 @@ def _recolectar_guiado(activo: str, cfg_x5, n_ciclos: int, *, oficial: bool) -> 
       En ambos casos se pregunta si reiniciar desde cero (mismo significado
       en los dos namespaces — ver `_borrar_checkpoints_activo`).
     """
-    x4_path = Path(__file__).parent / 'X4_backtester.py'
+    x4_path = Path(__file__).parent.parent.parent / 'scripts' / 'X4_backtester.py'
     if not x4_path.exists():
         print(f'  X4_backtester.py no encontrado en {x4_path}')
         return

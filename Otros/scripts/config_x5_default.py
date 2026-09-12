@@ -1,4 +1,4 @@
-# scripts/config_x5_default.py
+# Otros/scripts/config_x5_default.py
 # Config del pipeline de X5 (versionada en git — se carga directo desde aquí,
 # igual que config.py, sin copia a resources/x5/: cualquier fix llega a todas
 # las máquinas con un simple git pull).
@@ -6,7 +6,7 @@
 
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent.parent  # raíz del proyecto
+BASE_DIR = Path(__file__).parent.parent.parent  # raíz del proyecto
 
 # ─── Versión ─────────────────────────────────────────────────────────────────
 # Identificador del pipeline (X4 --x5 lo usa en prints/checkpoints). No es una

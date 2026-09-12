@@ -1,5 +1,5 @@
 # Referencia histórica (solo lectura)
-Alginvesting_base/
+Otros/Alginvesting_base/
 Data/
 Data_minuto/
 
@@ -24,7 +24,6 @@ __pycache__/
 Cofre/Valor
 Otros recursos
 scripts/__pycache__
-scripts/Otros
 scripts/Respaldo 240614
 scripts/Respaldos
 scripts/Respaldos de v1

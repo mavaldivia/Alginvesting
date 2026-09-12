@@ -20,7 +20,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 ```
 
 - El código se desarrolla en Mac y se ejecuta en Windows donde está MT5.
-- `Alginvesting_base/` es el repo clonado de la versión Windows (solo lectura, referencia histórica).
+- `Otros/Alginvesting_base/` es el repo clonado de la versión Windows (solo lectura, referencia histórica).
 - `Data/`, `Data_minuto/` y `resources/` están fuera de git (`.gitignore`). Se generan y mantienen íntegramente desde Windows al ejecutar X0/X1. Nunca se commiten desde Mac.
 
 ---
@@ -35,10 +35,11 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 | `X1_trading.py` | Loop semi-automático (`while True`): lee soportes, gestiona buy limits en MT5, trailing stop, y cierra posiciones si pérdida > `PERDIDA_MAX`. Con `TIPO_EJECUCION="est"` usa params de `config.py`; con `"din"` lee `config/active_parameters.json` generado por X5 (por activo, con fallback automático si `model_status="untrained"`). En Fase 2, cada OC cerrada alimenta el store de X5. |
 | `X2_fundamentals.py` | Score fundamental por activo `[0,1]` (yfinance + CoinGecko + Fear & Greed). Llamado desde X0 vía subprocess; guard de día para no ejecutar más de una vez. Alimenta X5. Output: `resources/x2/`. |
 | `X3_technical_features.py` | Features técnicas incrementales por activo (SMA, EMA, RSI, MACD, ATR, Bollinger, momentum, volatilidad, drawdown, tendencia, distancia a soportes). Importado y llamado desde X0 tras cada descarga H1. Output: `resources/x3/{VALOR}.csv`. Alimenta X5. Features de contexto operativo (órdenes, PnL, exposición) son responsabilidad de X1/X4. Plan: `docs/plans/x3_plan.md`. |
-| `X5_macro_brain.py` | Surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia. Output: `config/active_parameters.json`. **En Fase 1**: se entrena con datos de X5 backtesters dedicados (por activo). **En Fase 2**: X1 live con `TIPO_EJECUCION="din"` alimenta el store directamente → ciclo de retroalimentación cerrado. `--recolectar --demo` es un recorrido guiado interactivo de UN activo (lo pregunta al inicio): corre los ciclos secuencialmente sobre store/modelo/backtest demo aislados (`_demo`) y explica cada suceso nuevo (IDs D01–D10) pausando la primera vez, vía el módulo compartido `scripts/x5_demo.py`; reanudable por activo. Cada recálculo de soportes reporta `t` del backtest, el rango de precios usado (`t0 → tf`) y el warm start, y guarda/abre el gráfico de esa búsqueda en `resources/x5/demo_plots/`. Plan: `docs/plans/x5_plan.md`. |
 | `config.py` | Parámetros centralizados: rutas, `VALORES`, `n_sizes`, `n_sizes_ejecucion`, configuración de X0 (algoritmo) y X1 (trading). `TIPO_EJECUCION = "est" \| "din"` controla si X1/X0/X4 usan params estáticos o los recomendados por X5. |
 
-> **X5_alt** (versión alternativa y simplificada de X5, en desarrollo paralelo — no reemplaza `X5_macro_brain.py`): todo el contexto vive en [`docs/plans/X5_alternativo.md`](docs/plans/X5_alternativo.md) — documento vivo, no de solo lectura, se actualiza a medida que avanza el trabajo. Primeros scripts: `X5_P1.ipynb` (tabla maestra tabulada en el tiempo) y `X5_P2.py` (análisis ceteris paribus vs. precio), ambos parametrizados por `{valor}` — inicialmente `BTCUSD`.
+> **X5 original** (`X5_macro_brain.py`): surrogate model que predice retorno esperado dado (X2+X3+config_params+portfolio) y optimiza config_params en inferencia (output `config/active_parameters.json`). Dejó de ser el foco día a día — movido a `Otros/scripts/X5_macro_brain.py` junto con `config_x5_default.py`, `x5_demo.py` y `X5_analisis_exploratorio.ipynb` (ver [`docs/context/propuesta_restructuracion.md`](docs/context/propuesta_restructuracion.md)). `X4_backtester.py` (modo `--x5`) sigue importándolo en tiempo de ejecución para recolección/inferencia. Plan: `Otros/docs/plans/x5_plan.md`.
+>
+> **X5_alt** (versión alternativa y simplificada de X5, en desarrollo paralelo — no reemplaza a X5 original): todo el contexto vive en [`docs/plans/X5_alternativo.md`](docs/plans/X5_alternativo.md) — documento vivo, no de solo lectura, se actualiza a medida que avanza el trabajo. Primeros scripts: `X5_P1.ipynb` (tabla maestra tabulada en el tiempo) y `X5_P2.py` (análisis ceteris paribus vs. precio), ambos parametrizados por `{valor}` — inicialmente `BTCUSD`.
 
 ### Directorios de datos
 
@@ -183,9 +184,13 @@ valores = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
 
 Ver [`docs/tracking/todos.md`](docs/tracking/todos.md).
 
+## Otros/
+
+Todo lo que no es foco operativo hoy vive en `Otros/` (X5 original completo, guías git supersedidas, docs históricos, `Alginvesting_base/`, `prompts`) — mismo criterio y detalle en [`docs/context/propuesta_restructuracion.md`](docs/context/propuesta_restructuracion.md).
+
 ## Referencia base
 
-`Alginvesting_base/` contiene la versión anterior (Windows, notebooks). Solo lectura. No modificar.
+`Otros/Alginvesting_base/` contiene la versión anterior (Windows, notebooks). Solo lectura. No modificar.
 
 ---
 

@@ -21,7 +21,7 @@ El sistema está organizado en 6 módulos (X0→X5):
 | **X2** | Score fundamental por activo (yfinance + CoinGecko + Fear & Greed) con historial diario | Operativo |
 | **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) — alimenta X5 ([plan](docs/plans/x3_plan.md)) | Operativo |
 | **X4** | Backtester histórico sobre datos reales, vela a vela con simulación intra-vela M1 ([plan](docs/plans/x4_plan.md) · [doc interactiva](docs/plans/documentacion.html)) | Operativo |
-| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](docs/plans/x5_plan.md) · [doc interactiva](docs/plans/documentacion.html)) | Operativo (recolectando datos) |
+| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](Otros/docs/plans/x5_plan.md) · [doc interactiva](docs/plans/documentacion.html)) | En `Otros/` — dejó de ser el foco día a día (ver X5_alt) |
 
 ---
 
@@ -113,11 +113,7 @@ scripts/
   X3_technical_features.py  # Features técnicas incrementales por activo
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
-  X5_macro_brain.py      # Surrogate model: entrena sobre el store y optimiza params
-  x5_demo.py             # Narrador guiado del modo --recolectar --demo (IDs D01-D10)
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
-  config_x5_default.py   # Config del pipeline X5 (versionada, se carga directo — sin copia a resources/)
-  X5_analisis_exploratorio.ipynb  # Notebook: análisis ceteris paribus del store (correlaciones, regresión, PDP)
   X5_P1.ipynb            # Notebook X5_alt: tabla maestra H1 por activo (precio + X3 + X2, forward-fill)
   X5_P2.py               # Script X5_alt: análisis ceteris paribus sobre la tabla de X5_P1 (carga de tabla implementada; análisis pendiente)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
@@ -135,10 +131,15 @@ resources/               # Todo generado en Windows, fuera de git
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
   x5_alt/                # {VALOR}_tabla_maestra.csv — output de X5_P1.ipynb (X5_alt, ver plan)
 docs/
-  context/               # decisiones.md, vision.md, guías de git, documentacion_V0.md
-  plans/                 # Planes de implementación por módulo (x2, x3, x4, x5) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + documentacion.html (doc interactiva por sección, ver /documentar)
+  context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md
+  plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + documentacion.html (doc interactiva por sección, ver /documentar)
   tracking/              # todos.md, done.md, records.md
-Alginvesting_base/       # Versión anterior Windows/notebooks (solo lectura, referencia)
+Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Alginvesting_base/, prompts (ver docs/context/propuesta_restructuracion.md)
+  scripts/               # X5_macro_brain.py, x5_demo.py, config_x5_default.py, X5_analisis_exploratorio.ipynb
+  docs/context/          # guia_git.md, paso_a_paso_git.md, documentacion_V0.md, correcciones_x5.md
+  docs/plans/            # x5_plan.md, x5_plan_redes_neuronales.md, x5_opus_review.md, x5_documento(_extendido).tex/pdf
+  docs/tracking/         # oportunidad de mejora.md
+  Alginvesting_base/     # Versión anterior Windows/notebooks (solo lectura, referencia) — fuera de git
 ```
 
 ---
@@ -173,7 +174,7 @@ Desarrollo + refactor  →  git push   →    git pull
                                           python scripts/X2_fundamentals.py
 ```
 
-MT5 solo disponible en Windows. El desarrollo ocurre en Mac. `Data/`, `Data_minuto/` y `resources/` están fuera de git: se generan y mantienen desde Windows. Ver [`docs/context/guia_git.md`](docs/context/guia_git.md).
+MT5 solo disponible en Windows. El desarrollo ocurre en Mac. `Data/`, `Data_minuto/` y `resources/` están fuera de git: se generan y mantienen desde Windows. Ver [`docs/context/guia_git_v2.md`](docs/context/guia_git_v2.md).
 
 ---
 
@@ -222,6 +223,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-12** — refactor: mover a Otros/ lo fuera de foco (X5 original, docs legado)
 - **2026-09-12** — feat(x5-alt): X5_P2 script — carga tabla maestra de X5_P1
 - **2026-09-12** — feat(x5-alt): X5_P1 notebook — tabla maestra H1 (precio+X3+X2)
 - **2026-09-12** — docs(x5): plan X5_alt + traspaso de TODOs

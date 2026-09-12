@@ -26,6 +26,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / 'Otros' / 'scripts'))
 from X0_data_supports import _procesar_valor_N, _bt_warm_start
 from X3_technical_features import compute_snapshot
 import x5_demo
@@ -50,11 +51,11 @@ def _cargar_config_x5():
     exploración, baselines). Independiente de las versiones V0/V1/... de X4:
     la recolección de X5 no tiene relación con ellas.
 
-    Se carga directo desde scripts/config_x5_default.py (versionada en git,
+    Se carga directo desde Otros/scripts/config_x5_default.py (versionada en git,
     igual que config.py) — sin copia a resources/x5/, para que un fix en la
     plantilla llegue a todas las máquinas con un simple git pull.
     """
-    config_path = Path(__file__).parent / 'config_x5_default.py'
+    config_path = Path(__file__).parent.parent / 'Otros' / 'scripts' / 'config_x5_default.py'
     if not config_path.exists():
         raise FileNotFoundError(f'Config X5 no encontrada: {config_path}')
     spec = importlib.util.spec_from_file_location('config_x5', config_path)
