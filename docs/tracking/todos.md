@@ -36,16 +36,15 @@
 
 
 
-- [ ] **Actualizar docs de X5**: revisar `X5_macro_brain.py` en su estado actual y actualizar `docs/plans/x5_plan.md` y `docs/plans/x5_plan_redes_neuronales.md` para que reflejen la implementación real (funciones existentes, estructura del store, CLI disponible, métricas calculadas). (I:3 C:3 H:3 → 1.00)
-- [ ] **Head `flotante` con filas periódicas en FT-Transformer**: en LightGBM el target `pnl_flotante_activo` ya entrena con filas `('oc','periodico')`, pero en FTT los 3 heads comparten el mismo tensor `X` (solo filas `oc`), así que las periódicas no llegan al head flotante. Incorporarlas vía pase separado o Deep Sets en V2 (aplica cuando el store supere `X5_MIN_TRADES_FTT`). Ver `docs/plans/x5_opus_review.md` y TO DOs de `x5_plan.md`. (I:3 C:6 H:2 → 0.41)
-
 **Puntos a validar tras el reinicio de BTCUSD (2026-08-31)** — se detectó y corrigió un bug de desalineación de columnas en el store (ver `docs/context/decisiones.md`) y se cambió el target de `retorno_pct` a `retorno_usd`. Antes de confiar en datos/modelo nuevos:
 
-- [ ] Tras recolectar un lote nuevo, correr `--status` y confirmar que el conteo de OC coincide 1:1 con las filas realmente válidas (`retorno_usd` no vacío) — 0% de corrupción, a diferencia del 79.6% que tenía el store viejo.
-- [ ] Revisar 5-10 filas nuevas del store (con pandas/csv, no Excel) y confirmar rangos sanos: `hora`/`hora_oa` en [0,23], `x2_score`/`x2_score_oa` en [0,1], `retorno_usd` en escala de dólares razonable (no ~1e-5 como el `retorno_pct` viejo).
-- [ ] No abrir ni guardar `{ACTIVO}_store.csv` desde Excel mientras el backtester lo está escribiendo — riesgo de reintroducir corrupción de BOM/separador decimal (ver commits `fix(x4,x5)` recientes).
-- [ ] Antes de considerar el modelo confiable, revisar `resources/x5/Performance/BTCUSD_performance.json`: R² test positivo y no muy por debajo del train para el target `retorno` (ya redefinido en USD).
-- [ ] Si más adelante se activan los otros 5 activos, correr el mismo chequeo de corrupción (0% esperado) antes de asumir que sus stores están limpios — el bug era del código compartido, pero conviene confirmar con datos reales de cada uno.
+- [ ] Antes de considerar el modelo confiable, revisar `resources/x5/Performance/BTCUSD_performance.json`: R² test positivo y no muy por debajo del train para el target `retorno` (ya redefinido en USD). (I:7 C:1 H:8 → 7.48)
+- [ ] Tras recolectar un lote nuevo, correr `--status` y confirmar que el conteo de OC coincide 1:1 con las filas realmente válidas (`retorno_usd` no vacío) — 0% de corrupción, a diferencia del 79.6% que tenía el store viejo. (I:6 C:1 H:7 → 6.48)
+- [ ] Revisar 5-10 filas nuevas del store (con pandas/csv, no Excel) y confirmar rangos sanos: `hora`/`hora_oa` en [0,23], `x2_score`/`x2_score_oa` en [0,1], `retorno_usd` en escala de dólares razonable (no ~1e-5 como el `retorno_pct` viejo). (I:5 C:1 H:6 → 5.48)
+- [ ] No abrir ni guardar `{ACTIVO}_store.csv` desde Excel mientras el backtester lo está escribiendo — riesgo de reintroducir corrupción de BOM/separador decimal (ver commits `fix(x4,x5)` recientes). (I:4 C:1 H:3 → 3.46)
+- [ ] Si más adelante se activan los otros 5 activos, correr el mismo chequeo de corrupción (0% esperado) antes de asumir que sus stores están limpios — el bug era del código compartido, pero conviene confirmar con datos reales de cada uno. (I:5 C:2 H:5 → 2.50)
+- [ ] **Actualizar docs de X5**: revisar `X5_macro_brain.py` en su estado actual y actualizar `docs/plans/x5_plan.md` y `docs/plans/x5_plan_redes_neuronales.md` para que reflejen la implementación real (funciones existentes, estructura del store, CLI disponible, métricas calculadas). (I:3 C:3 H:3 → 1.00)
+- [ ] **Head `flotante` con filas periódicas en FT-Transformer**: en LightGBM el target `pnl_flotante_activo` ya entrena con filas `('oc','periodico')`, pero en FTT los 3 heads comparten el mismo tensor `X` (solo filas `oc`), así que las periódicas no llegan al head flotante. Incorporarlas vía pase separado o Deep Sets en V2 (aplica cuando el store supere `X5_MIN_TRADES_FTT`). Ver `docs/plans/x5_opus_review.md` y TO DOs de `x5_plan.md`. (I:3 C:6 H:2 → 0.41)
 
 ### X5_alt — versión alternativa y simplificada de X5
 
@@ -53,18 +52,12 @@
 > `X5_P1` y `X5_P2` reciben `{valor}` (el activo) como input — inicialmente `BTCUSD`.
 > El orden de abajo es por score, no de implementación: Fase 1 (X5_P1) debe completarse antes que Fase 2 (X5_P2) — ver el plan para la secuencia real.
 
-- [ ] **X5_P1 — crear notebook y cargar precio**: crear `scripts/X5_P1.ipynb`, parametrizado por `{valor}` (inicialmente `BTCUSD`); leer `Data/{valor}.csv`, parsear `DateTime`, ordenar y eliminar duplicados (el CSV actual no viene ordenado). (I:9 C:2 H:10 → 4.74)
 - [ ] **X5_P2 — crear script y cargar tabla de X5_P1**: crear `scripts/X5_P2.py`, parametrizado por `{valor}` (inicialmente `BTCUSD`); toma como input la tabla maestra generada por X5_P1. (I:9 C:2 H:9 → 4.50)
 - [ ] **X5_P2 — regresión ceteris paribus**: variables estandarizadas, efecto de cada una controlando por las demás (mismo enfoque manual con numpy/scipy que ya usa `X5_analisis_exploratorio.ipynb`). (I:8 C:2 H:7 → 3.74)
-- [ ] **X5_P1 — ensamblar DataFrame final**: una fila por vela H1, columnas de precio (OHLCV) + `x3_*` + `x2_*`. (I:7 C:2 H:7 → 3.50)
 - [ ] **X5_P2 — correlación contemporánea**: de cada variable (`x3_*`, `x2_*`) vs. precio de cierre. (I:7 C:2 H:6 → 3.24)
-- [ ] **X5_P1 — mergear fundamentales de X2**: cargar `resources/x2/x2_history.json`, filtrar por `{valor}`, pegar a la tabla H1 con `merge_asof` (dirección `backward`). (I:6 C:2 H:6 → 3.00)
-- [ ] **X5_P1 — guardar tabla final**: a `resources/x5_alt/{valor}_tabla_maestra.csv`, para que X5_P2 la consuma sin recalcular. (I:6 C:2 H:6 → 3.00)
 - [ ] **X5_P2 — correlación rezagada**: lags de N velas vs. precio, para detectar anticipación o persistencia. (I:6 C:2 H:5 → 2.74)
-- [ ] **X5_P1 — calcular indicadores técnicos**: llamar `_calcular_todos_indicadores(df, conjunto_N)` de `X3_technical_features.py` sobre el histórico completo (sin distancia a soportes en v0). (I:8 C:3 H:8 → 2.67)
 - [ ] **X5_P2 — gráficos**: series de tiempo superpuestas (variable vs. precio), scatter plots, heatmap de correlaciones. (I:5 C:2 H:5 → 2.50)
 - [ ] **X5_P2 — reporte final**: qué variables muestran señal real vs. cuáles no aportan nada — insumo directo para reducir el universo de información. (I:6 C:2 H:4 → 2.45)
-- [ ] Confirmar con Mauricio las decisiones de la sección 5 de `X5_alternativo.md` antes de escribir código — ya reflejan lo conversado, conviene una pasada rápida antes de implementar. (I:2 C:1 H:3 → 2.45)
 - [ ] **X5_P1 — reporte de calidad de datos**: % missing por columna, huecos temporales en el precio, cobertura real de fundamentales vs. forward-filled. (I:5 C:2 H:4 → 2.24)
 - [ ] **X5_P2 — revisar notebook existente**: `X5_analisis_exploratorio.ipynb` ya hace un análisis ceteris paribus similar sobre el *store* de eventos de X5 actual — decidir si X5_P2 reutiliza esa lógica o parte de cero. (I:4 C:2 H:5 → 2.24)
 - [ ] **X5_P2 — correlación móvil (rolling)**: vs. precio, para detectar cambios de régimen. (I:6 C:3 H:5 → 1.83)

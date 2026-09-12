@@ -58,3 +58,9 @@ El detalle de tareas pendientes vive en [`docs/tracking/todos.md`](../tracking/t
 - No tocar `X5_macro_brain.py`, `X1_trading.py`, ni `config.py` (`TIPO_EJECUCION`).
 - No expandir a otros activos (`ETHUSD`, `TSLA`, `GOOGL`, `NVDA`, `AMZN`) hasta validar el enfoque con BTCUSD.
 - No definir la arquitectura de `X5_alternativo.py` (Fase 3) todavía.
+
+## 8. Estado de avance
+
+- **Fase 1 (`X5_P1.ipynb`) — pipeline base completo (2026-09-12)**: carga precio, calcula técnicos (X3) sin distancia a soportes, mergea fundamentales (X2) con `merge_asof` backward, ensambla la tabla (37 columnas, 40.283 filas para BTCUSD) y la guarda en `resources/x5_alt/BTCUSD_tabla_maestra.csv`. Ruta agregada a `config.py` como `CARPETA_X5_ALT`.
+- **Hallazgo de datos**: con el `Data/BTCUSD.csv` actual en Mac (termina 2026-06-02) y los únicos 2 registros de X2 para BTCUSD (2026-06-12 y 2026-06-14, *posteriores* al fin del precio), `x2_score` queda `NaN` en el 100% de las filas de la tabla — el forward-fill no tiene nada hacia adelante que propagar. No es un bug: es la limitación de escasez de X2 ya señalada en la sección 4, agravada por el desfase de fechas entre ambas fuentes en esta copia de datos. Pendiente el ítem de backlog "reporte de calidad de datos" para cuantificar esto formalmente; se puede repetir el ejercicio con datos más frescos de Windows si hace falta ver `x2_score` variando.
+- **Próximo paso**: Fase 2 (`X5_P2.py`, análisis ceteris paribus) — pendiente en `docs/tracking/todos.md`.

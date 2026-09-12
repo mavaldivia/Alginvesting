@@ -342,6 +342,10 @@ X5_US_HOLIDAYS = [
     '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
 ]
 
+# ─── X5_alt — versión alternativa y simplificada (paralela, no reemplaza X5) ──
+
+CARPETA_X5_ALT = BASE_DIR / 'resources' / 'x5_alt'
+
 # ─── X4 — Backtester ─────────────────────────────────────────────────────────
 X4_VERSION_ACTIVA = 'V1'
 X4_VERSIONES = {

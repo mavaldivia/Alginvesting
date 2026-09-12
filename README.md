@@ -118,6 +118,7 @@ scripts/
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   config_x5_default.py   # Config del pipeline X5 (versionada, se carga directo — sin copia a resources/)
   X5_analisis_exploratorio.ipynb  # Notebook: análisis ceteris paribus del store (correlaciones, regresión, PDP)
+  X5_P1.ipynb            # Notebook X5_alt: tabla maestra H1 por activo (precio + X3 + X2, forward-fill)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
@@ -131,6 +132,7 @@ resources/               # Todo generado en Windows, fuera de git
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
+  x5_alt/                # {VALOR}_tabla_maestra.csv — output de X5_P1.ipynb (X5_alt, ver plan)
 docs/
   context/               # decisiones.md, vision.md, guías de git, documentacion_V0.md
   plans/                 # Planes de implementación por módulo (x2, x3, x4, x5) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + documentacion.html (doc interactiva por sección, ver /documentar)
@@ -219,6 +221,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-12** — feat(x5-alt): X5_P1 notebook — tabla maestra H1 (precio+X3+X2)
 - **2026-09-12** — docs(x5): plan X5_alt + traspaso de TODOs
 - **2026-09-06** — docs: documentacion.html — control de nivel de entendimiento + comentario por subsección
 - **2026-09-06** — docs: X4_X5.html — doc interactiva de X4 y X5 con niveles, glosario y algoritmos en Python
