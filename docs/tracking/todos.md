@@ -52,7 +52,6 @@
 > `X5_P1` y `X5_P2` reciben `{valor}` (el activo) como input — inicialmente `BTCUSD`.
 > El orden de abajo es por score, no de implementación: Fase 1 (X5_P1) debe completarse antes que Fase 2 (X5_P2) — ver el plan para la secuencia real.
 
-- [ ] **X5_P2 — crear script y cargar tabla de X5_P1**: crear `scripts/X5_P2.py`, parametrizado por `{valor}` (inicialmente `BTCUSD`); toma como input la tabla maestra generada por X5_P1. (I:9 C:2 H:9 → 4.50)
 - [ ] **X5_P2 — regresión ceteris paribus**: variables estandarizadas, efecto de cada una controlando por las demás (mismo enfoque manual con numpy/scipy que ya usa `X5_analisis_exploratorio.ipynb`). (I:8 C:2 H:7 → 3.74)
 - [ ] **X5_P2 — correlación contemporánea**: de cada variable (`x3_*`, `x2_*`) vs. precio de cierre. (I:7 C:2 H:6 → 3.24)
 - [ ] **X5_P2 — correlación rezagada**: lags de N velas vs. precio, para detectar anticipación o persistencia. (I:6 C:2 H:5 → 2.74)

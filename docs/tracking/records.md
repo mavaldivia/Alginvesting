@@ -1435,3 +1435,10 @@ Claude: Marcó como hechos en `docs/done.md` los ítems de X5_P1 completados (cr
 Mauricio: Pidió confirmar el nombre del output y dejar el notebook bien comentado.
 Claude: Confirmó que el output es `BTCUSD_tabla_maestra.csv` y agregó comentarios inline a cada celda de código del notebook explicando decisiones no obvias (por qué descartar distancia a soportes, por qué `merge_asof backward`, por qué ordenar antes de calcular X3). Volvió a ejecutar el notebook para verificar que sigue corriendo sin errores.
 (Cierre: 2026-09-12 16:26)
+
+## SECCIÓN 167
+Mauricio: Invocó `/todos X5_alt` para ver pendientes de esa sección, y luego pidió avanzar en el ítem 1 (crear `X5_P2.py` y cargar la tabla de X5_P1).
+Claude: Mostró los 3 próximos pendientes de X5_alt. Confirmó el alcance del ítem 1, revisó `docs/plans/X5_alternativo.md`, `X5_P1.ipynb` y `X5_analisis_exploratorio.ipynb` (para no reinventar las funciones de correlación/regresión ceteris paribus que ya existen ahí, aunque su reúso es tarea de un ítem posterior).
+Claude: Creó `scripts/X5_P2.py` con CLI `argparse --valor` (default `BTCUSD`, siguiendo la convención de `X5_macro_brain.py`) y la función `cargar_tabla_maestra()` que lee `resources/x5_alt/{valor}_tabla_maestra.csv` (falla con mensaje claro si no existe). Probó el script contra la tabla real de BTCUSD (40.283 filas x 37 columnas) en el entorno conda `revenAI` — corrió sin errores.
+Claude: Marcó el ítem como hecho — lo movió de `docs/tracking/todos.md` a una nueva sección `### X5_P2 — X5_P2.py` en `docs/done.md`.
+(Cierre: 2026-09-12 16:30)

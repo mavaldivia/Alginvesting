@@ -16,3 +16,7 @@
 - [x] **X5_P1 — mergear fundamentales de X2**: carga `resources/x2/x2_history.json`, filtra por `{valor}`, extrae `score`/`score_cross`/`score_tendencia` como `x2_*` y pega a la tabla H1 con `merge_asof` (dirección `backward`).
 - [x] **X5_P1 — ensamblar DataFrame final**: una fila por vela H1 con columnas de precio (OHLCV) + `x3_*` + `x2_*` (37 columnas, 40.283 filas para BTCUSD).
 - [x] **X5_P1 — guardar tabla final**: a `resources/x5_alt/{valor}_tabla_maestra.csv`. Nueva ruta `CARPETA_X5_ALT` agregada a `config.py`. Nota: el precio en Mac termina 2026-06-02 y los únicos 2 registros de X2 para BTCUSD son 2026-06-12/14 (posteriores), así que hoy `x2_score` queda NaN en el 100% de las filas — limitación de datos ya anticipada en el plan, no un bug.
+
+### X5_P2 — X5_P2.py
+
+- [x] **X5_P2 — crear script y cargar tabla de X5_P1**: creado `scripts/X5_P2.py`, con `--valor` (default `BTCUSD`); `cargar_tabla_maestra` lee `resources/x5_alt/{valor}_tabla_maestra.csv` (falla con mensaje claro si no existe, indicando correr X5_P1 primero).

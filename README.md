@@ -119,6 +119,7 @@ scripts/
   config_x5_default.py   # Config del pipeline X5 (versionada, se carga directo — sin copia a resources/)
   X5_analisis_exploratorio.ipynb  # Notebook: análisis ceteris paribus del store (correlaciones, regresión, PDP)
   X5_P1.ipynb            # Notebook X5_alt: tabla maestra H1 por activo (precio + X3 + X2, forward-fill)
+  X5_P2.py               # Script X5_alt: análisis ceteris paribus sobre la tabla de X5_P1 (carga de tabla implementada; análisis pendiente)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
@@ -221,6 +222,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-12** — feat(x5-alt): X5_P2 script — carga tabla maestra de X5_P1
 - **2026-09-12** — feat(x5-alt): X5_P1 notebook — tabla maestra H1 (precio+X3+X2)
 - **2026-09-12** — docs(x5): plan X5_alt + traspaso de TODOs
 - **2026-09-06** — docs: documentacion.html — control de nivel de entendimiento + comentario por subsección
