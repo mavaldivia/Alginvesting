@@ -50,7 +50,7 @@ El detalle de tareas pendientes vive en [`docs/tracking/todos.md`](../tracking/t
 
 - **Fase 0 — Fundacional**: confirmar las decisiones abiertas de la sección 5 antes de escribir código.
 - **Fase 1 — `X5_P1.ipynb`**: recolección y tabulación en el tiempo, parametrizado por `{valor}` (inicialmente `BTCUSD`). Debe completarse antes que la Fase 2.
-- **Fase 2 — `X5_P2.py`**: análisis ceteris paribus vs. precio sobre la tabla de `X5_P1`, mismo `{valor}`. Revisar primero `scripts/X5_analisis_exploratorio.ipynb` (ya hace un análisis similar, pero sobre el *store* de eventos de X5 actual, no sobre una tabla continua) antes de decidir si se reutiliza esa lógica.
+- **Fase 2 — `X5_P2.ipynb`**: notebook exhaustivo de investigación y análisis exploratorio (no un script de carga simple) sobre la tabla maestra de `X5_P1`, mismo `{valor}`. Especificación completa en [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](solicitud_claude_code_X5_P2_notebook_v2.md), resumida en la sección 9 de este documento. Revisar primero `scripts/X5_analisis_exploratorio.ipynb` (ya hace un análisis similar, pero sobre el *store* de eventos de X5 actual, no sobre una tabla continua) antes de decidir si se reutiliza esa lógica. Reemplaza en este rol a `X5_P2.py` (decisión pendiente sobre qué hacer con él, ver sección 9.11).
 - **Fase 3 — hacia `X5_alternativo.py`**: no empezar todavía. Se define recién después de ver los resultados concretos de `X5_P1` y `X5_P2` — no adelantar arquitectura sin evidencia.
 
 ## 7. Fuera de alcance por ahora
@@ -63,4 +63,57 @@ El detalle de tareas pendientes vive en [`docs/tracking/todos.md`](../tracking/t
 
 - **Fase 1 (`X5_P1.ipynb`) — pipeline base completo (2026-09-12)**: carga precio, calcula técnicos (X3) sin distancia a soportes, mergea fundamentales (X2) con `merge_asof` backward, ensambla la tabla (37 columnas, 40.283 filas para BTCUSD) y la guarda en `resources/x5_alt/BTCUSD_tabla_maestra.csv`. Ruta agregada a `config.py` como `CARPETA_X5_ALT`.
 - **Hallazgo de datos**: con el `Data/BTCUSD.csv` actual en Mac (termina 2026-06-02) y los únicos 2 registros de X2 para BTCUSD (2026-06-12 y 2026-06-14, *posteriores* al fin del precio), `x2_score` queda `NaN` en el 100% de las filas de la tabla — el forward-fill no tiene nada hacia adelante que propagar. No es un bug: es la limitación de escasez de X2 ya señalada en la sección 4, agravada por el desfase de fechas entre ambas fuentes en esta copia de datos. Pendiente el ítem de backlog "reporte de calidad de datos" para cuantificar esto formalmente; se puede repetir el ejercicio con datos más frescos de Windows si hace falta ver `x2_score` variando.
-- **Próximo paso**: Fase 2 (`X5_P2.py`, análisis ceteris paribus) — pendiente en `docs/tracking/todos.md`.
+- **Próximo paso**: Fase 2 (`X5_P2.ipynb`, notebook exhaustivo de investigación — ver sección 9) — pendiente en `docs/tracking/todos.md`.
+
+## 9. Especificación de X5_P2 — notebook exhaustivo de investigación
+
+Contexto completo: [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](solicitud_claude_code_X5_P2_notebook_v2.md). Reemplaza el rol de `X5_P2.py` (hoy solo carga la tabla maestra e imprime dimensiones/rango) — P2 pasa a ser `X5_P2.ipynb`, un notebook exhaustivo de investigación y análisis exploratorio, no un script de carga.
+
+### 9.1. Filosofía y objetivo
+
+- P1 construye la información, P2 la entiende, P3 (futuro) la usa para gobernar/optimizar los parámetros configurables de X5.
+- Pregunta rectora: ¿qué información tenemos y cómo se han relacionado históricamente el precio, los técnicos y los fundamentales?
+- P2 no optimiza ni decide valores de parámetros (`N`, `A`, `B`, etc.) — eso queda para P3.
+- Input: la tabla maestra de X5_P1 (`resources/x5_alt/{valor}_tabla_maestra.csv`), sin recalcular nada que ya resuelva P1. Foco inicial: BTCUSD.
+
+### 9.2. Tres capas explícitas (peso orientativo, no exacto en cantidad de celdas)
+
+1. Descriptiva/histórica (~70-80%) — el core del notebook.
+2. Prospectiva/potencial predictivo (~15-20%) — extensión secundaria, separada explícitamente.
+3. Implicancias/hipótesis para X5 (~5-10%) — cierre, hipótesis a contrastar en P3, nunca reglas ya decididas.
+
+### 9.3. Documentación obligatoria dentro del notebook
+
+Cada sección/subsección relevante debe abrir con una celda Markdown que explique: qué se analiza, por qué, qué pregunta responde, qué métricas/gráficos usa, cómo interpretarlos, sus limitaciones, y si es descriptivo/prospectivo/hipotético. Agregar celda de interpretación/hallazgos después de análisis importantes. Debe leerse como un documento de investigación reproducible, no bloques de código sin narrativa.
+
+### 9.4. Estructura — Parte I: Descriptivo/histórico (core)
+
+Config y carga → auditoría e inventario de variables (familia Precio/Técnico/Fundamental, cobertura, nulos, frecuencia observada) → **frecuencia efectiva de actualización** (distinguir frecuencia de filas de frecuencia real de nueva información, crítico en fundamentales por forward-fill) → estadística descriptiva → evolución temporal → **relación contemporánea variable↔precio** (scatter, Pearson, Spearman, cuantiles) → variable vs. comportamiento histórico reciente del precio (retornos hacia atrás) → relaciones entre variables/redundancia → no linealidades y umbrales → ceteris paribus histórico (regresión multivariable, controla por otras variables, no implica causalidad) → regímenes (bull/bear/sideways, volatilidad, drawdown) → estabilidad histórica (por año, rolling) → síntesis técnicos / síntesis fundamentales → ranking descriptivo consolidado.
+
+### 9.5. Estructura — Parte II: Prospectivo/potencial predictivo (secundaria, separada)
+
+Retornos futuros por horizonte → radiografía temporal pasado/contemporáneo/futuro (distinguir `X_t↔retorno pasado` de `X_t↔retorno futuro`, detecta variables rezagadas/contemporáneas/adelantadas) → potencial predictivo preliminar → validación temporal preliminar sin leakage (train/test temporal, walk-forward simple). No es un proyecto de forecasting.
+
+### 9.6. Estructura — Parte III: Implicancias/hipótesis para X5 (corta)
+
+Traducir hallazgos robustos en hipótesis explícitas del tipo `parámetro = f(pocas variables)` (ej. `N = f(drawdown)`, `A = f(volatilidad)`) — sin implementarlas como reglas. Cierra con tabla variable explicativa → evidencia → estabilidad → régimen → potencial prospectivo → parámetro X5 candidato → relación hipotética → prioridad de prueba en P3.
+
+### 9.7. Orden obligatorio de relevancia dentro del notebook
+
+Dentro de cada parte, ir de lo más relevante/general a lo más específico/complementario — el orden refleja importancia analítica para X5, no el orden tradicional de un análisis estadístico. La auditoría inicial debe ser breve: el notebook debe llegar rápido al bloque **variable vs. precio** (Nivel 2: gráficos, scatter, Pearson, Spearman, cuantiles, ranking inicial), antes de profundizar en no linealidades/relaciones entre variables/ceteris paribus (Nivel 3), regímenes/estabilidad (Nivel 4) y síntesis (Nivel 5). Solo después de cerrar la Parte I descriptiva comienza la Parte II prospectiva.
+
+### 9.8. Filosofía estadística (aplica a todo el notebook)
+
+No confundir correlación con causalidad; no confundir relación contemporánea con predicción (`Corr(X_t,P_t)` no implica anticipar `P_{t+h}`); no confundir repetición de datos con información nueva (fundamentales con forward-fill); no asumir linealidad ni estabilidad; no sobrecomplicar — favorecer interpretabilidad sobre maximizar una métrica de ML.
+
+### 9.9. Requisitos técnicos
+
+Ejecutar de arriba hacia abajo sin estado oculto; reutilizar `config.py` y rutas existentes; no duplicar lógica de P1; funcionar inicialmente para BTCUSD pero razonablemente preparado para otro `valor`; minimizar dependencias nuevas. Antes de dar por terminado: ejecutar el notebook completo desde cero y confirmar que todas las celdas corren en orden y generan tablas/gráficos correctamente.
+
+### 9.10. Primer To Do obligatorio (arranque)
+
+El primer ítem de implementación debe ser crear `X5_P2.ipynb` y su celda de arranque: declarar `valor` (inicialmente `'BTCUSD'`), construir la ruta del CSV, leer `{valor}_tabla_maestra.csv`, dejarlo cargado como DataFrame — todo el análisis posterior parte de ahí.
+
+### 9.11. Qué hacer con `X5_P2.py`
+
+Decisión abierta: revisar las convenciones del repo y decidir si se elimina, se deja como helper, o se reemplaza — evitando que quede ambigüedad sobre cuál es el P2 oficial una vez exista `X5_P2.ipynb`. Reutilizar de él lo que tenga sentido (configuración, rutas, carga de tabla).

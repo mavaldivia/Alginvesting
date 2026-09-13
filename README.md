@@ -115,7 +115,7 @@ scripts/
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   X5_P1.ipynb            # Notebook X5_alt: tabla maestra H1 por activo (precio + X3 + X2, forward-fill)
-  X5_P2.py               # Script X5_alt: análisis ceteris paribus sobre la tabla de X5_P1 (carga de tabla implementada; análisis pendiente)
+  X5_P2.py               # Script X5_alt actual (solo carga la tabla de X5_P1) — pendiente de convertirse en X5_P2.ipynb, notebook exhaustivo de investigación (ver docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
@@ -223,6 +223,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-13** — docs(x5-alt): incorporar spec X5_P2.ipynb y reemplazar TODOs
 - **2026-09-12** — refactor: mover a Otros/ lo fuera de foco (X5 original, docs legado)
 - **2026-09-12** — feat(x5-alt): X5_P2 script — carga tabla maestra de X5_P1
 - **2026-09-12** — feat(x5-alt): X5_P1 notebook — tabla maestra H1 (precio+X3+X2)
