@@ -223,6 +223,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-13** — docs(x5-alt): prioridad máxima notebook X5_P2
 - **2026-09-13** — docs(x5-alt): incorporar spec X5_P2.ipynb y reemplazar TODOs
 - **2026-09-12** — refactor: mover a Otros/ lo fuera de foco (X5 original, docs legado)
 - **2026-09-12** — feat(x5-alt): X5_P2 script — carga tabla maestra de X5_P1
