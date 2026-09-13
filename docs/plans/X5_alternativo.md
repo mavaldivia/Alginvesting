@@ -50,7 +50,7 @@ El detalle de tareas pendientes vive en [`docs/tracking/todos.md`](../tracking/t
 
 - **Fase 0 — Fundacional**: confirmar las decisiones abiertas de la sección 5 antes de escribir código.
 - **Fase 1 — `X5_P1.ipynb`**: recolección y tabulación en el tiempo, parametrizado por `{valor}` (inicialmente `BTCUSD`). Debe completarse antes que la Fase 2.
-- **Fase 2 — `X5_P2.ipynb`**: notebook exhaustivo de investigación y análisis exploratorio (no un script de carga simple) sobre la tabla maestra de `X5_P1`, mismo `{valor}`. Especificación completa en [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](solicitud_claude_code_X5_P2_notebook_v2.md), resumida en la sección 9 de este documento. Revisar primero `scripts/X5_analisis_exploratorio.ipynb` (ya hace un análisis similar, pero sobre el *store* de eventos de X5 actual, no sobre una tabla continua) antes de decidir si se reutiliza esa lógica. Reemplaza en este rol a `X5_P2.py` (decisión pendiente sobre qué hacer con él, ver sección 9.11).
+- **Fase 2 — `X5_P2.ipynb`**: notebook exhaustivo de investigación y análisis exploratorio (no un script de carga simple) sobre la tabla maestra de `X5_P1`, mismo `{valor}`. Especificación completa en [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](solicitud_claude_code_X5_P2_notebook_v2.md), resumida en la sección 9 de este documento. Revisar primero `scripts/X5_analisis_exploratorio.ipynb` (ya hace un análisis similar, pero sobre el *store* de eventos de X5 actual, no sobre una tabla continua) antes de decidir si se reutiliza esa lógica. Reemplazó en este rol a `X5_P2.py`, eliminado (ver sección 9.11).
 - **Fase 3 — hacia `X5_alternativo.py`**: no empezar todavía. Se define recién después de ver los resultados concretos de `X5_P1` y `X5_P2` — no adelantar arquitectura sin evidencia.
 
 ## 7. Fuera de alcance por ahora
@@ -67,7 +67,7 @@ El detalle de tareas pendientes vive en [`docs/tracking/todos.md`](../tracking/t
 
 ## 9. Especificación de X5_P2 — notebook exhaustivo de investigación
 
-Contexto completo: [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](solicitud_claude_code_X5_P2_notebook_v2.md). Reemplaza el rol de `X5_P2.py` (hoy solo carga la tabla maestra e imprime dimensiones/rango) — P2 pasa a ser `X5_P2.ipynb`, un notebook exhaustivo de investigación y análisis exploratorio, no un script de carga.
+Contexto completo: [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](solicitud_claude_code_X5_P2_notebook_v2.md). Reemplazó el rol de `X5_P2.py` (solo cargaba la tabla maestra e imprimía dimensiones/rango) — P2 ya es `X5_P2.ipynb`, un notebook exhaustivo de investigación y análisis exploratorio, no un script de carga.
 
 ### 9.1. Filosofía y objetivo
 
@@ -110,10 +110,10 @@ No confundir correlación con causalidad; no confundir relación contemporánea 
 
 Ejecutar de arriba hacia abajo sin estado oculto; reutilizar `config.py` y rutas existentes; no duplicar lógica de P1; funcionar inicialmente para BTCUSD pero razonablemente preparado para otro `valor`; minimizar dependencias nuevas. Antes de dar por terminado: ejecutar el notebook completo desde cero y confirmar que todas las celdas corren en orden y generan tablas/gráficos correctamente.
 
-### 9.10. Primer To Do obligatorio (arranque)
+### 9.10. Primer To Do obligatorio (arranque) — hecho (2026-09-13)
 
-El primer ítem de implementación debe ser crear `X5_P2.ipynb` y su celda de arranque: declarar `valor` (inicialmente `'BTCUSD'`), construir la ruta del CSV, leer `{valor}_tabla_maestra.csv`, dejarlo cargado como DataFrame — todo el análisis posterior parte de ahí.
+El primer ítem de implementación era crear `X5_P2.ipynb` y su celda de arranque: declarar `valor` (inicialmente `'BTCUSD'`), construir la ruta del CSV, leer `{valor}_tabla_maestra.csv`, dejarlo cargado como DataFrame — todo el análisis posterior parte de ahí. Completado: `scripts/X5_P2.ipynb` carga `resources/x5_alt/{valor}_tabla_maestra.csv` (40.283 filas x 37 columnas para BTCUSD) y queda como base para las secciones de análisis siguientes.
 
-### 9.11. Qué hacer con `X5_P2.py`
+### 9.11. Qué hacer con `X5_P2.py` — decidido (2026-09-13)
 
-Decisión abierta: revisar las convenciones del repo y decidir si se elimina, se deja como helper, o se reemplaza — evitando que quede ambigüedad sobre cuál es el P2 oficial una vez exista `X5_P2.ipynb`. Reutilizar de él lo que tenga sentido (configuración, rutas, carga de tabla).
+Se eliminó `X5_P2.py`. Su lógica de carga (ruta vía `config.CARPETA_X5_ALT`, `pd.read_csv` con `parse_dates=['DateTime']`, validación de existencia con mensaje claro) se reutilizó tal cual en la primera sección de `X5_P2.ipynb`.

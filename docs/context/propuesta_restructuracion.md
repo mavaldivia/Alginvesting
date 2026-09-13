@@ -44,7 +44,7 @@ Alginvesting/
 │   ├── X4_backtester.py
 │   ├── X4B_crear_version_backtesting.py
 │   ├── X5_P1.ipynb
-│   └── X5_P2.py
+│   └── X5_P2.ipynb
 │   (__pycache__/ eliminado — se regenera solo)
 │
 ├── docs/

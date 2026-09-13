@@ -190,9 +190,10 @@
 - [x] **X5_P1 — ensamblar DataFrame final**: una fila por vela H1 con columnas de precio (OHLCV) + `x3_*` + `x2_*` (37 columnas, 40.283 filas para BTCUSD).
 - [x] **X5_P1 — guardar tabla final**: a `resources/x5_alt/{valor}_tabla_maestra.csv`. Nueva ruta `CARPETA_X5_ALT` agregada a `config.py`. Nota: el precio en Mac termina 2026-06-02 y los únicos 2 registros de X2 para BTCUSD son 2026-06-12/14 (posteriores), así que hoy `x2_score` queda NaN en el 100% de las filas — limitación de datos ya anticipada en el plan, no un bug.
 
-### X5_P2 — X5_P2.py
+### X5_P2 — X5_P2.ipynb
 
 - [x] **X5_P2 — crear script y cargar tabla de X5_P1**: creado `scripts/X5_P2.py`, con `--valor` (default `BTCUSD`); `cargar_tabla_maestra` lee `resources/x5_alt/{valor}_tabla_maestra.csv` (falla con mensaje claro si no existe, indicando correr X5_P1 primero).
+- [x] **X5_P2 — crear el notebook oficial con carga de la tabla maestra**: creado `scripts/X5_P2.ipynb` (reemplaza a `X5_P2.py`, eliminado) como implementación oficial de investigación, reutilizando su lógica de carga (`config.CARPETA_X5_ALT`, validación de existencia, `parse_dates`). Primera celda de código declara `valor = 'BTCUSD'`; celda siguiente carga `{valor}_tabla_maestra.csv` como DataFrame (40.283 filas x 37 columnas para BTCUSD). Ejecutado de punta a punta con el kernel de `revenAI` sin errores.
 - [x] **Reconciliación `docs/done.md` → `docs/tracking/done.md`**: fusionados los 4 ítems que solo existían en `docs/done.md` (duplicado accidental de esta misma ruta, ver commit `8623c88` que ya la había movido a `docs/tracking/done.md`) y eliminado `docs/done.md`.
 
 ---

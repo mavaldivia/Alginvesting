@@ -54,10 +54,6 @@
 > Especificación completa de `X5_P2.ipynb` (notebook exhaustivo de investigación, no un script de carga): [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](../plans/solicitud_claude_code_X5_P2_notebook_v2.md).
 > El orden de abajo es por score, no de implementación: Fase 1 (X5_P1) debe completarse antes que Fase 2 (X5_P2.ipynb). Dentro de Fase 2, respetar el orden narrativo de la sección 15 de ese documento: tabla maestra válida → auditoría inicial suficiente → core variable vs. precio → profundización de relaciones → cerrar lo descriptivo antes de dar protagonismo a lo prospectivo → hipótesis para P3 solo al final.
 
-**Prioridad máxima**
-
-- [ ] **X5_P2 — crear el notebook oficial con carga de la tabla maestra**: crear `X5_P2.ipynb` como implementación oficial de investigación (Jupyter Notebook), reutilizando del actual `X5_P2.py` la carga/configuración que tenga sentido y evitando dos implementaciones divergentes. La primera celda de código debe declarar `valor = 'BTCUSD'`, construir la ruta de `{valor}_tabla_maestra.csv` y cargar ese CSV como DataFrame — todo el análisis posterior debe partir desde esa tabla. (I:10 C:1 H:10 → 10.00)
-
 **Core descriptivo/histórico**
 
 - [ ] **X5_P2 — mapeo visual y estadístico variable vs. precio**: para cada `x3_*`, `x2_*` y cualquier otra variable explicativa relevante, generar el núcleo del análisis descriptivo: serie temporal junto al precio, series normalizadas cuando corresponda, scatter variable-precio, Pearson, Spearman, dirección/fuerza de asociación, cuantiles/bins y medidas adicionales de asociación que aporten valor. Es el core analítico de P2 y debe quedar muy arriba en el notebook. (I:10 C:3 H:10 → 3.33)
