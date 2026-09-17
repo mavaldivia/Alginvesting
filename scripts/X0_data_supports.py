@@ -1263,6 +1263,10 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
 
 
 def _monitor_tabla(estado, tuplas, stop_event):
+    if os.name == 'nt':
+        # Windows (cmd.exe) no procesa \033[{n}A por defecto: sin esto, cada redraw()
+        # imprime líneas nuevas en vez de sobrescribir las existentes.
+        os.system('')
     n = len(tuplas)
     for _ in range(n):
         sys.stdout.write('\n')

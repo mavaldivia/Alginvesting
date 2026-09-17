@@ -1486,3 +1486,8 @@ Mauricio: reportó `KeyError: 'date'` al ejecutar X5_P1.ipynb, en la celda que a
 Claude: identificó la causa — el schema de `x2_history.json` migró de `date` a `periodo_inicio`/`periodo_fin` (ítem "Historial por periodos" en X2), y la celda de X5_P1 seguía asumiendo `date`. Verificó con el JSON local (formato viejo) que el fix no rompe nada.
 Claude: corrigió la celda (`e.get('periodo_inicio') or e['date']`, usando `periodo_inicio` para no retrasar el forward-fill) y registró el fix en `docs/tracking/done.md` bajo nueva sección "X5_alt" (a pedido de Mauricio, en vez de sumarlo a X5_P1 existente).
 (Cierre: 2026-09-17 16:20)
+
+## SECCIÓN 175
+Mauricio: invocó `/new_todo` con "X0" y un dump de prints de consola mostrando el monitor de convergencia. Ante la pregunta de qué registrar, aclaró: como estaba antes, cada valor debe mostrar una única línea con su evolución, en formato compacto — una sola línea por valor en cada ciclo, no líneas repetidas.
+Claude: identificó que `_monitor_tabla` (X0_data_supports.py) ya estaba diseñado para eso — una línea por valor sobrescrita en el lugar cada segundo vía `\033[{n}A` — pero cmd.exe en Windows no procesa ANSI por defecto, causando que cada redraw imprimiera líneas nuevas en vez de pisar las anteriores. Fix: agregado `os.system('')` al inicio de `_monitor_tabla` (truco estándar para activar procesamiento ANSI en consola Windows). Registrado en `docs/tracking/done.md` → sección X0.
+(Cierre: 2026-09-17 16:25)
