@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-17** — fix(x0): monitor ANSI robusto en Windows
 - **2026-09-17** — fix(x0): monitor ANSI en Windows
 - **2026-09-17** — fix(x5-alt): KeyError 'date' en X5_P1 (schema x2_history)
 - **2026-09-17** — feat(x5-alt): sección variable vs. precio en X5_P2 (sin ejecutar)

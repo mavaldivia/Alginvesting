@@ -1262,11 +1262,57 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     }
 
 
+def _ansi_redraw_disponible() -> bool:
+    """True si es seguro usar \\033[nA para sobrescribir líneas ya impresas.
+
+    `os.system('')` (truco usado antes) es folclore de Stack Overflow: en algunos
+    hosts de consola de Windows no activa ENABLE_VIRTUAL_TERMINAL_PROCESSING, y
+    ahí cada redraw() termina imprimiendo líneas nuevas en vez de pisar las
+    existentes. Se reemplaza por la llamada directa a SetConsoleMode (API real).
+    Si falla, o si stdout no es una consola interactiva (isatty()==False, ej.
+    salida redirigida a archivo o capturada por un IDE), no hay forma de
+    sobrescribir en el lugar.
+    """
+    if os.name != 'nt':
+        return True
+    if not sys.stdout.isatty():
+        return False
+    try:
+        import ctypes
+        STD_OUTPUT_HANDLE = -11
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+        modo = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(modo)):
+            return False
+        return bool(kernel32.SetConsoleMode(handle, modo.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+    except Exception:
+        return False
+
+
 def _monitor_tabla(estado, tuplas, stop_event):
-    if os.name == 'nt':
-        # Windows (cmd.exe) no procesa \033[{n}A por defecto: sin esto, cada redraw()
-        # imprime líneas nuevas en vez de sobrescribir las existentes.
-        os.system('')
+    def linea(v, N):
+        llave = f'{v}_{N}'
+        cambios, iters, FO, estado_str = estado.get(llave, (0, 0, None, 'esperando'))
+        fo_str = f'{FO:.4e}' if FO is not None else '---'
+        iter_str = str(iters) if iters >= 0 else 'conv.'
+        return f'{v} {N}: pasos={cambios:<6} iter={iter_str:<8} FO={fo_str:<14} [{estado_str}]'
+
+    if not _ansi_redraw_disponible():
+        # Sin soporte de cursor no hay forma de sobrescribir: se imprime un
+        # resumen consolidado en una sola línea cada 5s, en vez de un bloque
+        # de N líneas por segundo (lo que inundaba la consola).
+        def redraw():
+            sys.stdout.write(' | '.join(linea(v, N) for v, N in tuplas) + '\n')
+            sys.stdout.flush()
+
+        while not stop_event.is_set():
+            redraw()
+            stop_event.wait(5)
+        redraw()
+        return
+
     n = len(tuplas)
     for _ in range(n):
         sys.stdout.write('\n')
@@ -1275,12 +1321,7 @@ def _monitor_tabla(estado, tuplas, stop_event):
     def redraw():
         sys.stdout.write(f'\033[{n}A')
         for v, N in tuplas:
-            llave = f'{v}_{N}'
-            cambios, iters, FO, estado_str = estado.get(llave, (0, 0, None, 'esperando'))
-            fo_str = f'{FO:.4e}' if FO is not None else '---'
-            iter_str = str(iters) if iters >= 0 else 'conv.'
-            line = f'{v} {N}: pasos={cambios:<6} iter={iter_str:<8} FO={fo_str:<14} [{estado_str}]'
-            sys.stdout.write(f'\r{line:<75}\n')
+            sys.stdout.write(f'\r{linea(v, N):<75}\n')
         sys.stdout.flush()
 
     while not stop_event.is_set():
