@@ -116,6 +116,8 @@ scripts/
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   X5_P1.ipynb            # Notebook X5_alt: tabla maestra H1 por activo (precio + X3 + X2, forward-fill)
   X5_P2.ipynb            # Notebook X5_alt: investigación exploratoria vs. precio sobre la tabla maestra de X5_P1 (ver docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md)
+  limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
+  estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
@@ -223,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-17** — feat: script limpieza de estructura obsoleta
 - **2026-09-13** — feat(x5-alt): X5_P2 notebook oficial + carga tabla maestra
 - **2026-09-13** — docs(x5-alt): prioridad máxima notebook X5_P2
 - **2026-09-13** — docs(x5-alt): incorporar spec X5_P2.ipynb y reemplazar TODOs

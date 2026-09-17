@@ -1,0 +1,18 @@
+{
+  "_comentario": "Estructura de referencia para scripts/limpiar_estructura.py. Rutas relativas a la raíz del proyecto, separadas con '/'. Ver --help del script para el detalle de cada campo.",
+  "opacas": [
+    "Data",
+    "Data_minuto",
+    "config",
+    "resources",
+    "Otros",
+    ".claude"
+  ],
+  "validas": [
+    "scripts",
+    "docs",
+    "docs/context",
+    "docs/plans",
+    "docs/tracking"
+  ]
+}
