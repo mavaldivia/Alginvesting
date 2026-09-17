@@ -99,7 +99,7 @@ El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste 
 
 Score final = `(1 - W_TENDENCIA) × score_cross + W_TENDENCIA × score_tendencia` (0.5 neutral si < 7 días de historia).
 
-Guarda historial en `fundamentals/x2_history.json` (upsert por fecha+activo), guard de día para no ejecutar dos veces, flag `--forzar`. Los pesos por activo son override-ables desde `config/active_parameters.json` (escrito por X5).
+Guarda historial en `fundamentals/x2_history.json` por periodos (`periodo_inicio`/`periodo_fin`; extiende `periodo_fin` si el score no cambió, abre entrada nueva si cambió), guard de día para no ejecutar dos veces, flag `--forzar`. Los pesos por activo son override-ables desde `config/active_parameters.json` (escrito por X5).
 
 ---
 
@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-17** — fix(x5-alt): KeyError 'date' en X5_P1 (schema x2_history)
 - **2026-09-17** — feat(x5-alt): sección variable vs. precio en X5_P2 (sin ejecutar)
 - **2026-09-17** — feat: script limpieza de estructura obsoleta
 - **2026-09-13** — feat(x5-alt): X5_P2 notebook oficial + carga tabla maestra

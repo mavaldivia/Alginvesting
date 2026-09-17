@@ -1480,3 +1480,9 @@ Claude: ejecutó el notebook completo con `jupyter nbconvert --execute` y redact
 Mauricio: corrigió — no ejecutar en Mac (la tabla maestra local está incompleta/desactualizada) y no escribir hallazgos; eso corresponde hacerlo en Windows con datos reales.
 Claude: revirtió — limpió los outputs de las celdas ejecutadas, eliminó la celda de hallazgos, y ajustó la entrada de `docs/tracking/done.md` para reflejar que el código quedó listo pero sin ejecutar ni interpretar. Movió el ítem de `docs/tracking/todos.md` a `docs/tracking/done.md`.
 (Cierre: 2026-09-17 16:16)
+
+## SECCIÓN 174
+Mauricio: reportó `KeyError: 'date'` al ejecutar X5_P1.ipynb, en la celda que arma `df_x2` desde `x2_history.json`.
+Claude: identificó la causa — el schema de `x2_history.json` migró de `date` a `periodo_inicio`/`periodo_fin` (ítem "Historial por periodos" en X2), y la celda de X5_P1 seguía asumiendo `date`. Verificó con el JSON local (formato viejo) que el fix no rompe nada.
+Claude: corrigió la celda (`e.get('periodo_inicio') or e['date']`, usando `periodo_inicio` para no retrasar el forward-fill) y registró el fix en `docs/tracking/done.md` bajo nueva sección "X5_alt" (a pedido de Mauricio, en vez de sumarlo a X5_P1 existente).
+(Cierre: 2026-09-17 16:20)

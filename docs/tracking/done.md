@@ -198,4 +198,8 @@
 - [x] **X5_P2 — crear el notebook oficial con carga de la tabla maestra**: creado `scripts/X5_P2.ipynb` (reemplaza a `X5_P2.py`, eliminado) como implementación oficial de investigación, reutilizando su lógica de carga (`config.CARPETA_X5_ALT`, validación de existencia, `parse_dates`). Primera celda de código declara `valor = 'BTCUSD'`; celda siguiente carga `{valor}_tabla_maestra.csv` como DataFrame (40.283 filas x 37 columnas para BTCUSD). Ejecutado de punta a punta con el kernel de `revenAI` sin errores.
 - [x] **Reconciliación `docs/done.md` → `docs/tracking/done.md`**: fusionados los 4 ítems que solo existían en `docs/done.md` (duplicado accidental de esta misma ruta, ver commit `8623c88` que ya la había movido a `docs/tracking/done.md`) y eliminado `docs/done.md`.
 
+### X5_alt
+
+- [x] **Fix X5_P1: `KeyError: 'date'` al cargar `x2_history.json`**: la celda de fundamentales (X2) armaba `df_x2` leyendo `e['date']`, pero el schema de `x2_history.json` migró a `periodo_inicio`/`periodo_fin` (ver ítem "Historial por periodos en `x2_history.json`" en X2), que ya no incluye `date` en las entradas nuevas. Fix: `e.get('periodo_inicio') or e['date']`, compatible con ambos formatos — se usa `periodo_inicio` (no `periodo_fin`) porque es el momento en que el score empieza a regir; usar `periodo_fin` retrasaría el forward-fill sin motivo.
+
 ---
