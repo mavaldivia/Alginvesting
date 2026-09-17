@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-17** — feat(x5-alt): sección variable vs. precio en X5_P2 (sin ejecutar)
 - **2026-09-17** — feat: script limpieza de estructura obsoleta
 - **2026-09-13** — feat(x5-alt): X5_P2 notebook oficial + carga tabla maestra
 - **2026-09-13** — docs(x5-alt): prioridad máxima notebook X5_P2
