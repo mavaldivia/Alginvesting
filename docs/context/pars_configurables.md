@@ -56,7 +56,7 @@ Multiplicador aplicado al lote mínimo del broker: `LOTAJES[v] = LOTAJES_M[v] * 
 **Falta en la lista original pero es parte de la misma familia**: es el único otro parámetro por activo que X5 explora junto a `K`, `N_EXP`, `LAMBDA`, `A`, `B`, `LOTAJES_M`, `PERDIDA_MAX` (`X5_PARAM_RANGES`, `config.py:316-329`). Define cuántos soportes mantiene activos X1 para ese activo (ver también la sección N en `CLAUDE.md`).
 
 - **Ubicación**: `config.py:65-72` (`n_sizes_ejecucion`)
-- **Valor actual**: `120` para todos los activos
+- **Valor actual**: `180` para todos los activos
 - **Rango de exploración X5**: `(50, 200)` para BTCUSD/ETHUSD, `(40, 180)` para TSLA/GOOGL/NVDA/AMZN (`config.py:322-325`)
 - **↑ N**: más cobertura del rango de precios y entradas más finas, pero capital más fragmentado por posición.
 - **↓ N**: posiciones más concentradas, cobertura más gruesa del rango.

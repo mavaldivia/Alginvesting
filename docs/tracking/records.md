@@ -1512,3 +1512,8 @@ Claude: detectó discrepancia entre `CLAUDE.md` (documentaba `LAMBDA = 1/500`) y
 Mauricio: confirmó que el valor correcto es `1/5`.
 Claude: corrigió `CLAUDE.md:144` y la nota en `pars_configurables.md`, y actualizó el registro en `done.md` reflejando la corrección.
 (Cierre: 2026-09-18 13:09)
+
+## SECCIÓN 179
+Mauricio: invocó `/new_todo` con "Transversal" para cambiar `n_sizes` y `n_sizes_ejecucion` en `config.py` a 180 para todos los activos.
+Claude: editó `scripts/config.py` (ambos diccionarios, de 120 a 180 para BTCUSD/ETHUSD/TSLA/GOOGL/NVDA/AMZN) y registró el cambio en `docs/tracking/done.md` → Transversal.
+(Cierre: 2026-09-18 13:13)

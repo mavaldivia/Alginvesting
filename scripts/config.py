@@ -53,22 +53,22 @@ n_sizes = {
 """
 
 n_sizes = {
-    'BTCUSD': [120],
-    'ETHUSD': [120],
-    'TSLA':   [120],
-    'GOOGL':  [120],
-    'NVDA':   [120],
-    'AMZN':   [120],
+    'BTCUSD': [180],
+    'ETHUSD': [180],
+    'TSLA':   [180],
+    'GOOGL':  [180],
+    'NVDA':   [180],
+    'AMZN':   [180],
 }
 
 # Cantidad de soportes activos en producción, usada por X1
 n_sizes_ejecucion = {
-    'BTCUSD': 120,
-    'ETHUSD': 120,
-    'TSLA': 120,
-    'GOOGL': 120,
-    'NVDA': 120,
-    'AMZN': 120,
+    'BTCUSD': 180,
+    'ETHUSD': 180,
+    'TSLA': 180,
+    'GOOGL': 180,
+    'NVDA': 180,
+    'AMZN': 180,
 }
 
 # ─── Datos históricos ─────────────────────────────────────────────────────────

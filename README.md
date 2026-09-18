@@ -150,7 +150,7 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 
 | Parámetro | Valor producción | Efecto |
 |-----------|-----------------|--------|
-| `N` (n_sizes) | 120 (todos los activos) | Cantidad de soportes activos por activo |
+| `N` (n_sizes) | 180 (todos los activos) | Cantidad de soportes activos por activo |
 | `K` | 1 | Peso aislamiento futuro vs. pasado |
 | `N_EXP` | 1.3 | Exponente de recencia |
 | `M` | 30 | Candidatos evaluados por soporte en cada paso |
@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-18** — config: n_sizes/n_sizes_ejecucion a 180 para todos los activos
 - **2026-09-18** — docs: definición exacta de parámetros configurables (A, B, PERDIDA_MAX, LOTAJES_M, LAMBDA, K, N_EXP, N)
 - **2026-09-18** — fix(x0): wrap de líneas en monitor por ancho de terminal
 - **2026-09-18** — feat(x5-alt): sección ceteris paribus histórico en X5_P2 (sin ejecutar)
