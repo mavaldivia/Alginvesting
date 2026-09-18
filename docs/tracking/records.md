@@ -1517,3 +1517,8 @@ Claude: corrigió `CLAUDE.md:144` y la nota en `pars_configurables.md`, y actual
 Mauricio: invocó `/new_todo` con "Transversal" para cambiar `n_sizes` y `n_sizes_ejecucion` en `config.py` a 180 para todos los activos.
 Claude: editó `scripts/config.py` (ambos diccionarios, de 120 a 180 para BTCUSD/ETHUSD/TSLA/GOOGL/NVDA/AMZN) y registró el cambio en `docs/tracking/done.md` → Transversal.
 (Cierre: 2026-09-18 13:13)
+
+## SECCIÓN 180
+Mauricio: invocó `/new_todo` con "Transversal" para cambiar `PERDIDA_MAX` a 200 y `LOTAJES_M` a 2 en `config.py`, para todos los activos.
+Claude: editó `scripts/config.py` (ambos diccionarios, BTCUSD/ETHUSD/TSLA/GOOGL/NVDA/AMZN) y actualizó el comentario de `LOTAJES_M` (ya no "fijo en 1", queda desactualizado tras el cambio). Registró el cambio en `docs/tracking/done.md` → Transversal.
+(Cierre: 2026-09-18 14:44)

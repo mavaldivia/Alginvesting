@@ -194,12 +194,12 @@ X1_RETRY_BLOQUEADOS_S = 300
 
 # USD — si la pérdida de una posición abierta supera este valor, se cierra
 PERDIDA_MAX = {
-    'BTCUSD': 120,
-    'ETHUSD': 120,
-    'TSLA':   120,
-    'GOOGL':  120,
-    'NVDA':   120,
-    'AMZN':   120,
+    'BTCUSD': 200,
+    'ETHUSD': 200,
+    'TSLA':   200,
+    'GOOGL':  200,
+    'NVDA':   200,
+    'AMZN':   200,
 }
 
 # Tamaño mínimo de lote por activo (granularidad del broker)
@@ -212,14 +212,14 @@ MIN_LOTAJES = {
     'AMZN':   0.01,
 }
 
-# Multiplicador de lote por activo — fijo en 1 (X5 siempre opera a lotaje mínimo)
+# Multiplicador de lote por activo
 LOTAJES_M = {
-    'BTCUSD': 1,
-    'ETHUSD': 1,
-    'TSLA':   1,
-    'GOOGL':  1,
-    'NVDA':   1,
-    'AMZN':   1,
+    'BTCUSD': 2,
+    'ETHUSD': 2,
+    'TSLA':   2,
+    'GOOGL':  2,
+    'NVDA':   2,
+    'AMZN':   2,
 }
 
 # Lote efectivo: LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]
