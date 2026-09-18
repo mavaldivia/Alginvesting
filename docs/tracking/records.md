@@ -1504,3 +1504,11 @@ Claude: mientras investigaba `_monitor_tabla`, Mauricio interrumpió: "al reinic
 Claude: encontró un bug real e independiente del soporte ANSI: `redraw()` pisaba cada línea con `\033[{n}A` asumiendo 1 fila física por tupla, pero el padding (`:<75`) solo fija un mínimo, no un máximo — confirmó con Python que líneas en estado `ERROR: ...` superan 90 caracteres y que cualquier línea normal (~68-75) ya hace wrap en una terminal con menos de ~75 columnas (ventana angosta o panel dividido), lo que desalinea el cursor para el resto de la corrida y apila bloques repetidos. Esto explica también por qué reiniciar "arregló" el síntoma (nueva ventana con ancho suficiente) sin que el bug real estuviera resuelto.
 Claude: corrigió `_monitor_tabla` (`X0_data_supports.py:1321-1333`) truncando/paddeando cada línea al ancho real de la terminal vía `shutil.get_terminal_size()`, recalculado en cada `redraw()` para adaptarse si la ventana se resizea. Registrado en `docs/tracking/done.md` → X0.
 (Cierre: 2026-09-18 13:01)
+
+## SECCIÓN 178
+Mauricio: pidió un md en `docs/context/pars_configurables.md` con la definición exacta de los parámetros configurables A, B, PERDIDA_MAX, LOTAJES_M, LAMBDA, K, N_EXP, indicando si faltaba alguno.
+Claude: revisó `config.py`, `X1_trading.py` (`crear_ordenes_espera`, `trailing_stop`, `controlar_perdida_max`) y `X0_data_supports.py` (`obtener_df_extremos`, `calcular_FO`) para documentar fórmula/uso real, ubicación, valor actual y rango de exploración de X5 de cada parámetro; agregó `N` (`n_sizes_ejecucion`) como parámetro faltante de la misma familia (también en `X5_PARAM_RANGES`). Registrado en `done.md` → Transversal.
+Claude: detectó discrepancia entre `CLAUDE.md` (documentaba `LAMBDA = 1/500`) y `config.py:95` (`1/5`); preguntó cuál era el valor real.
+Mauricio: confirmó que el valor correcto es `1/5`.
+Claude: corrigió `CLAUDE.md:144` y la nota en `pars_configurables.md`, y actualizó el registro en `done.md` reflejando la corrección.
+(Cierre: 2026-09-18 13:09)

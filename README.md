@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-18** — docs: definición exacta de parámetros configurables (A, B, PERDIDA_MAX, LOTAJES_M, LAMBDA, K, N_EXP, N)
 - **2026-09-18** — fix(x0): wrap de líneas en monitor por ancho de terminal
 - **2026-09-18** — feat(x5-alt): sección ceteris paribus histórico en X5_P2 (sin ejecutar)
 - **2026-09-17** — fix(x0): monitor ANSI robusto en Windows

@@ -141,7 +141,7 @@ Genera M precios equidistantes (`linspace`) entre los soportes vecinos y evalúa
 - **↑ M**: barrido más fino entre soportes vecinos → más probabilidad de hallar el óptimo local exacto (o una buena base para el ajuste cuadrático), pero cada paso cuesta M evaluaciones de `calcular_FO` adicionales.
 - **↓ M**: pasos más rápidos, pero candidatos más espaciados → más riesgo de saltarse el máximo real entre dos soportes vecinos.
 
-### LAMBDA = 1/500 — penalización por dispersión desigual: `FO = mean(z) - LAMBDA * cv(H_n)`
+### LAMBDA = 1/5 — penalización por dispersión desigual: `FO = mean(z) - LAMBDA * cv(H_n)`
 - **↑ LAMBDA**: castiga con más fuerza que los soportes se amontonen en una zona del rango — empuja el conjunto N hacia una distribución más pareja en precio, aunque sacrifique algo de `mean(z)` (calidad de asignación).
 - **↓ LAMBDA**: la FO se guía casi solo por `mean(z)` — permite que los soportes se concentren donde hay más "evidencia" (velas aisladas y recientes), aunque dejen huecos grandes en otras zonas del rango.
 
