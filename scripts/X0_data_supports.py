@@ -1319,9 +1319,17 @@ def _monitor_tabla(estado, tuplas, stop_event):
     sys.stdout.flush()
 
     def redraw():
+        # Ancho real de la terminal (puede cambiar si la ventana se resizea):
+        # si una línea supera el ancho hace wrap a una fila física extra y
+        # desalinea \033[{n}A para el resto de la corrida (líneas que se
+        # apilan sin sobrescribirse). Se trunca/pad al ancho para garantizar
+        # 1 fila física por tupla siempre.
+        ancho = max(shutil.get_terminal_size(fallback=(80, 24)).columns - 1, 20)
         sys.stdout.write(f'\033[{n}A')
         for v, N in tuplas:
-            sys.stdout.write(f'\r{linea(v, N):<75}\n')
+            texto = linea(v, N)
+            texto = texto[:ancho] if len(texto) > ancho else f'{texto:<{ancho}}'
+            sys.stdout.write(f'\r{texto}\n')
         sys.stdout.flush()
 
     while not stop_event.is_set():

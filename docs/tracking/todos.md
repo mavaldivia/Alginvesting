@@ -56,7 +56,6 @@
 
 **Core descriptivo/histórico**
 
-- [ ] **X5_P2 — ceteris paribus histórico**: estandarizar variables y estimar el efecto/asociación de cada una controlando por las demás, revisando multicolinealidad, signo, magnitud, estabilidad y sensibilidad. Revisar y reutilizar cuando corresponda el enfoque manual con numpy/scipy ya usado en `X5_analisis_exploratorio.ipynb`, sin asumir que debe copiarse literalmente. (I:9 C:3 H:8 → 2.83)
 - [ ] **X5_P2 — auditoría e inventario inicial de la tabla maestra**: cargar la salida de X5_P1, validar `DateTime`, orden, duplicados, rango, tipos y construir el inventario de variables con familia Precio/Técnico/Fundamental/Otra, cobertura, missingness y frecuencia observada. Mantener esta sección concisa y orientada a habilitar rápido el core variable-precio. (I:8 C:2 H:8 → 4.00)
 - [ ] **X5_P2 — frecuencia efectiva de actualización**: medir cada cuánto cambia realmente cada variable, diferenciando frecuencia de filas de llegada efectiva de nueva información; prestar especial atención a fundamentales y forward-fill. (I:8 C:2 H:8 → 4.00)
 - [ ] **X5_P2 — no linealidades y umbrales**: ampliar el análisis variable-precio mediante cuantiles, bins, suavizados, extremos, posibles umbrales, saturaciones, formas U/U invertida y asimetrías, evitando asumir que Pearson/regresión lineal capturan toda la relación. (I:8 C:3 H:7 → 2.49)
