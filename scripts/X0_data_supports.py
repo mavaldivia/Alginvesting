@@ -106,6 +106,12 @@ def notacion_cientifica(numero: float, decimales: int = 2) -> str:
     return f'{base:.{decimales}f} x E{exp}'
 
 
+# Compartido con _monitor_tabla: un print() de este hilo principal (ej. el traceback
+# de un combo que falló) intercalado a mitad de una escritura del monitor corrompía
+# la línea de estado en pantalla.
+_stdout_lock = threading.Lock()
+
+
 def _log_error(carpeta_logs: Path, contexto: str, exc: Exception) -> None:
     """Imprime el traceback completo de exc y lo agrega a {carpeta_logs}/errores.log.
 
@@ -117,7 +123,8 @@ def _log_error(carpeta_logs: Path, contexto: str, exc: Exception) -> None:
     carpeta_logs.mkdir(parents=True, exist_ok=True)
     ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     tb = traceback.format_exc()
-    print(f'\n[{ts}] {contexto}: {exc}\n{tb}')
+    with _stdout_lock:
+        print(f'\n[{ts}] {contexto}: {exc}\n{tb}')
     with open(carpeta_logs / 'errores.log', 'a') as f:
         f.write(f'\n[{ts}] {contexto}: {exc}\n{tb}')
 
@@ -1262,80 +1269,52 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     }
 
 
-def _ansi_redraw_disponible() -> bool:
-    """True si es seguro usar \\033[nA para sobrescribir líneas ya impresas.
-
-    `os.system('')` (truco usado antes) es folclore de Stack Overflow: en algunos
-    hosts de consola de Windows no activa ENABLE_VIRTUAL_TERMINAL_PROCESSING, y
-    ahí cada redraw() termina imprimiendo líneas nuevas en vez de pisar las
-    existentes. Se reemplaza por la llamada directa a SetConsoleMode (API real).
-    Si falla, o si stdout no es una consola interactiva (isatty()==False, ej.
-    salida redirigida a archivo o capturada por un IDE), no hay forma de
-    sobrescribir en el lugar.
-    """
-    if os.name != 'nt':
-        return True
-    if not sys.stdout.isatty():
-        return False
-    try:
-        import ctypes
-        STD_OUTPUT_HANDLE = -11
-        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
-        modo = ctypes.c_uint32()
-        if not kernel32.GetConsoleMode(handle, ctypes.byref(modo)):
-            return False
-        return bool(kernel32.SetConsoleMode(handle, modo.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
-    except Exception:
-        return False
-
-
 def _monitor_tabla(estado, tuplas, stop_event):
     def linea(v, N):
         llave = f'{v}_{N}'
         cambios, iters, FO, estado_str = estado.get(llave, (0, 0, None, 'esperando'))
-        fo_str = f'{FO:.4e}' if FO is not None else '---'
+        fo_str = f'{FO:.3e}' if FO is not None else '---'
         iter_str = str(iters) if iters >= 0 else 'conv.'
-        return f'{v} {N}: pasos={cambios:<6} iter={iter_str:<8} FO={fo_str:<14} [{estado_str}]'
+        return f'{v}_{N} {cambios}/{iter_str} {fo_str} [{estado_str}]'
 
-    if not _ansi_redraw_disponible():
-        # Sin soporte de cursor no hay forma de sobrescribir: se imprime un
-        # resumen consolidado en una sola línea cada 5s, en vez de un bloque
-        # de N líneas por segundo (lo que inundaba la consola).
-        def redraw():
-            sys.stdout.write(' | '.join(linea(v, N) for v, N in tuplas) + '\n')
-            sys.stdout.flush()
+    def resumen():
+        return ' | '.join(linea(v, N) for v, N in tuplas)
 
+    if not sys.stdout.isatty():
+        # Redirigido a archivo o capturado por un IDE: no hay cursor que sobrescribir,
+        # así que se imprime una línea nueva cada 5s en vez de refrescar cada 1s
+        # (inundaría el log con líneas casi idénticas).
         while not stop_event.is_set():
-            redraw()
+            with _stdout_lock:
+                sys.stdout.write(resumen() + '\n')
+                sys.stdout.flush()
             stop_event.wait(5)
-        redraw()
+        with _stdout_lock:
+            sys.stdout.write(resumen() + '\n')
+            sys.stdout.flush()
         return
 
-    n = len(tuplas)
-    for _ in range(n):
-        sys.stdout.write('\n')
-    sys.stdout.flush()
-
+    # Una sola línea de estado sobrescrita con \r: a diferencia de \033[nA (cursor-up
+    # multi-línea, usado antes), \r es un control ASCII plano que no depende de que
+    # Windows procese secuencias VT100 ni de contar filas físicas exactas por línea —
+    # sin bloque multi-línea no hay nada que desalinear si algo más escribe a stdout
+    # de por medio (ver _stdout_lock, que evita justamente eso). Se trunca/paddea al
+    # ancho real de la terminal para garantizar que siempre pisa el contenido anterior.
     def redraw():
-        # Ancho real de la terminal (puede cambiar si la ventana se resizea):
-        # si una línea supera el ancho hace wrap a una fila física extra y
-        # desalinea \033[{n}A para el resto de la corrida (líneas que se
-        # apilan sin sobrescribirse). Se trunca/pad al ancho para garantizar
-        # 1 fila física por tupla siempre.
         ancho = max(shutil.get_terminal_size(fallback=(80, 24)).columns - 1, 20)
-        sys.stdout.write(f'\033[{n}A')
-        for v, N in tuplas:
-            texto = linea(v, N)
-            texto = texto[:ancho] if len(texto) > ancho else f'{texto:<{ancho}}'
-            sys.stdout.write(f'\r{texto}\n')
-        sys.stdout.flush()
+        texto = resumen()
+        texto = texto[:ancho] if len(texto) > ancho else texto.ljust(ancho)
+        with _stdout_lock:
+            sys.stdout.write('\r' + texto)
+            sys.stdout.flush()
 
     while not stop_event.is_set():
         redraw()
-        time.sleep(1)
+        stop_event.wait(1)
     redraw()
+    with _stdout_lock:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
 
 def _seleccionar_combos(valores: list, n_sizes: dict, carpeta_n_prod: Path, n_max=None) -> list:

@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-21** — fix(x0): monitor de progreso a línea única con \r
 - **2026-09-21** — fix(x1): escalar A/B/PERDIDA_MAX por lotaje real de cada orden
 - **2026-09-18** — config: PERDIDA_MAX 200 y LOTAJES_M 2 para todos los activos
 - **2026-09-18** — config: n_sizes/n_sizes_ejecucion a 180 para todos los activos
