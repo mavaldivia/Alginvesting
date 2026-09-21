@@ -210,7 +210,7 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
     for p in actual_OA:
         if p.ticket not in pos_info:
             if ya_inicializado:
-                print(f'  [OE > OA] {valor}  ticket={p.ticket}  ejecutada @ {p.price_open:.2f}')
+                print(f'  [OE > OA] {valor}  ticket={p.ticket}  lotaje={p.volume}  ejecutada @ {p.price_open:.2f}')
             pos_info[p.ticket] = {'valor': valor, 'lote': p.volume, 'precio_apertura': p.price_open}
 
     tickets_previos = [t for t, info in pos_info.items() if info['valor'] == valor]
@@ -351,7 +351,7 @@ def liberar_orden_lejana(dic_bloqueados: dict):
     symbol = mas_lejana.symbol
     precio = round(mas_lejana.price_open, 2)
     dic_bloqueados.setdefault(symbol, {})[precio] = time.time()
-    print(f'  Límite de órdenes alcanzado: liberando {symbol} @ {precio:.2f} '
+    print(f'  Límite de órdenes alcanzado: liberando {symbol} @ {precio:.2f}  lotaje={mas_lejana.volume} '
           f'(distancia {mayor_distancia:.2f} USD) para priorizar soportes cercanos')
     return symbol, precio
 
@@ -424,10 +424,10 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
             bloqueadas.append(Pi)
 
     if ejecutadas:
-        print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}')
+        print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}  lotaje={lotajes[valor]}')
     if bloqueadas:
         print(f'  {valor}: {len(bloqueadas)} buy limits bloqueados temporalmente entre '
-              f'{min(bloqueadas):.2f} y {max(bloqueadas):.2f} (límite de órdenes en la cuenta)')
+              f'{min(bloqueadas):.2f} y {max(bloqueadas):.2f}  lotaje={lotajes[valor]}  (límite de órdenes en la cuenta)')
 
 
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
@@ -451,15 +451,17 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     corte = math.ceil(len(salientes) * fraccion_inicial)
     primera_tanda, segunda_tanda = salientes[:corte], salientes[corte:]
 
-    eliminadas = [round(o.price_open, 2) for o in primera_tanda if _cancelar_orden(o, valor)]
+    eliminadas = [(round(o.price_open, 2), o.volume) for o in primera_tanda if _cancelar_orden(o, valor)]
 
     lista_OE_vigente = [round(o.price_open, 2) for o in actual_OE if o not in primera_tanda]
     crear_ordenes_espera(lista_OA, lista_OE_vigente, lista_N, valor, L, a, lotajes, dic_bloqueados)
 
-    eliminadas += [round(o.price_open, 2) for o in segunda_tanda if _cancelar_orden(o, valor)]
+    eliminadas += [(round(o.price_open, 2), o.volume) for o in segunda_tanda if _cancelar_orden(o, valor)]
 
     if eliminadas:
-        print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(eliminadas)} hasta {max(eliminadas)}')
+        precios = [p for p, _ in eliminadas]
+        lotaje_total = sum(v for _, v in eliminadas)
+        print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
 
 
 def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):
@@ -470,9 +472,11 @@ def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):
     if exceso <= 0:
         return
     a_podar = sorted(actual_OE, key=lambda o: o.price_open)[:exceso]
-    podadas = [round(o.price_open, 2) for o in a_podar if _cancelar_orden(o, valor)]
+    podadas = [(round(o.price_open, 2), o.volume) for o in a_podar if _cancelar_orden(o, valor)]
     if podadas:
-        print(f'  {valor}: poda por saturación — {len(podadas)} OE eliminadas desde {min(podadas)} hasta {max(podadas)}')
+        precios = [p for p, _ in podadas]
+        lotaje_total = sum(v for _, v in podadas)
+        print(f'  {valor}: poda por saturación — {len(podadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
 
 
 def cambiar_SL(orden, valor: str, sl: float, silent: bool = False) -> bool:
@@ -582,7 +586,7 @@ def cerrar_posicion(orden, valor: str, lotajes: dict):
         clave = result.retcode if result is not None else 'order_send_none'
         _print_throttled(valor, clave, f'  {valor}: Error al cerrar posición {orden.ticket}: {mt5.last_error()}')
     else:
-        print(f'  Posición cerrada por perdida_max: {valor} ticket={orden.ticket} @ {precio:.2f}')
+        print(f'  Posición cerrada por perdida_max: {valor} ticket={orden.ticket}  lotaje={orden.volume}  @ {precio:.2f}')
 
 
 def controlar_perdida_max(actual_OA: list, valor: str,
@@ -600,7 +604,7 @@ def controlar_perdida_max(actual_OA: list, valor: str,
         Pi = orden.price_open
         perdida = (Pi - P0) * L
         if perdida > perdida_max_efectivo:
-            print(f'  PERDIDA_MAX alcanzada: {valor} Pi={Pi:.2f} P0={P0:.2f} pérdida={perdida:.2f} USD')
+            print(f'  PERDIDA_MAX alcanzada: {valor} lotaje={orden.volume} Pi={Pi:.2f} P0={P0:.2f} pérdida={perdida:.2f} USD')
             cerrar_posicion(orden, valor, lotajes)
 
 
