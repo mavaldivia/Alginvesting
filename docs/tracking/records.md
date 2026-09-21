@@ -1558,3 +1558,11 @@ Claude: preguntó (AskUserQuestion) formato de print (redraw en vivo vs. log scr
 Claude: implementó `_ciclo_activo` (un hilo por activo, ciclo propio, dispara datos+X3+optimizador de forma independiente sobre un `ProcessPoolExecutor` compartido, MT5 serializado con lock), `_monitor_log` (línea nueva por activo al cambiar estado, tageada `[cN]`) y `_x2_watchdog` (hilo propio, corre 1x/hora respetando el guard diario existente). Reemplazó `_monitor_tabla`/`_seleccionar_combos`/`buscar_soportes`. `N_MAX_MODELS` pasó a ser `max_workers` del pool; `--ciclos` ahora cuenta por activo.
 Claude: validó con `py_compile`, `pyflakes` (sin nombres indefinidos) y un smoke test real (`--opcion 1 --ciclos 1` sin MT5) — los 6 activos arrancaron su ciclo 0 en paralelo, X2 corrió desacoplado, sin errores. Registró la decisión en `docs/context/decisiones.md` (2026-09-21) y el ítem en `docs/tracking/done.md` (sección X0).
 (Cierre: 2026-09-21 13:35)
+
+## SECCIÓN 186
+Mauricio: tras probar en Windows el cambio de la sección anterior, reportó que en ciclo 0 aparecían líneas nuevas todo el tiempo (flood) y que además no entendía el campo `a/b` de cada línea, y que se había perdido el `_{N}` del identificador de cada activo.
+Claude: diagnosticó la causa del flood — en cold start (ciclo 0, sin warm start) el optimizador acepta muchos cambios por segundo, así que el chequeo de "¿cambió el estado?" cada 1s casi siempre encontraba un cambio real. Espació el muestreo de `_monitor_log` a 15s (los headers de ciclo y los resúmenes de convergencia siguen imprimiéndose al instante, no dependen de ese intervalo).
+Claude: restituyó el `_{N}` en el identificador de cada línea (`BTCUSD_180` en vez de `BTCUSD`) y reemplazó el `a/b` críptico por campos con etiqueta (`cambios=`, `pasos_max=`, `FO=`), explicándole a Mauricio qué significa cada uno.
+Claude: corrió un smoke test completo en Mac (`--opcion 1 --ciclos 1`, datos reales, 6 activos) que terminó solo en 2m36s — confirmó líneas espaciadas sin flood, formato con `_{N}` y etiquetas, y el comportamiento clave pedido: GOOGL/TSLA/NVDA/AMZN convergieron y cerraron su ciclo mientras BTCUSD/ETHUSD (datasets más grandes) seguían optimizando, sin bloquearse entre sí.
+Claude: preguntó si subir el fix con commit+push; Mauricio respondió "Esperar" — el fix queda en el working tree sin commitear.
+(Cierre: 2026-09-21 13:51)

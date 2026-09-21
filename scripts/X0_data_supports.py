@@ -1286,12 +1286,17 @@ def _x2_watchdog(stop_event, intervalo_seg: int = 3600):
 
 
 def _monitor_log(estado_compartido, ciclos_estado, combos: list, stop_event,
-                  intervalo_seg: float = 1.0):
+                  intervalo_seg: float = 15.0):
     """Imprime una línea nueva por combo (valor, N) cada vez que su estado cambia — nunca
     sobrescribe. A diferencia del redraw multi-línea con cursor-up (abandonado porque se
     desincroniza en Windows si algo más escribe a stdout de por medio, ver histórico de
     _monitor_tabla), un log que solo agrega líneas no tiene nada que desalinear: cada activo
     progresa a su propio ciclo/ritmo y puede imprimir en cualquier momento sin pisar a los demás.
+
+    intervalo_seg controla cada cuánto se toma una foto del estado, no cada cuánto cambia:
+    en cold start (ciclo 0, sin warm start) el optimizador acepta muchos cambios por segundo,
+    así que muestrear cada 1s imprimía una línea nueva por activo casi todos los segundos. Un
+    intervalo más espaciado da una línea de estado ocasional por activo en vez de un chorro.
     """
     ultimo = {}
     while not stop_event.is_set():
@@ -1306,7 +1311,8 @@ def _monitor_log(estado_compartido, ciclos_estado, combos: list, stop_event,
             fo_str = f'{FO:.3e}' if FO is not None else '---'
             iter_str = str(iters) if iters >= 0 else 'conv.'
             with _stdout_lock:
-                print(f'{v:8s} [c{ciclo}] {cambios}/{iter_str} {fo_str} [{estado_str}]')
+                print(f'{v}_{n} [c{ciclo}] cambios={cambios} pasos_max={iter_str} '
+                      f'FO={fo_str} [{estado_str}]')
         stop_event.wait(intervalo_seg)
 
 
