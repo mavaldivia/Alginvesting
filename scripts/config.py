@@ -106,9 +106,9 @@ BLOQUE_DISTANCIAS = 2000
 MAX_ITERS = 10000  # tope de iteraciones del optimizador (cota del tiempo de ejecución)
 MAX_CAMBIOS = 50000  # tope de cambios aceptados por corrida; al llegarse, corta y usa la mejor solución hallada
 
-# Combos a ejecutar por ciclo en modo --loop.
-# None = todos los combos en cada ciclo (comportamiento original).
-# Entero = selecciona los N pares (valor, N) con mayor delta_inicial actual (más prometedores).
+# Tope de combos (valor, N) corriendo a la vez en el pool de procesos compartido por los
+# ciclos independientes de cada activo (X0_data_supports.py). None/0 = sin tope (todos a la
+# vez, uno por CPU disponible).
 N_MAX_MODELS = 6
 
 # ─── Visualizaciones ──────────────────────────────────────────────────────────

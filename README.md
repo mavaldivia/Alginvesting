@@ -83,7 +83,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Inicialización inteligente** (`_inicializar_conjunto_smart`): cold start por cuantiles de precio ordenados por `y×w`, en lugar de uniforme aleatorio.
 - **Priorización por historial** (`mejora_acumulada`): EMA de mejoras aceptadas por soporte — los más activos se evalúan primero.
 - **`DELTA_INICIAL` adaptativo**: se reduce (`* FACTOR_DELTA`) cada vez que converge, sin tocar el delta entre corridas cuando no converge.
-- **Paralelización por (valor, N)**: `ProcessPoolExecutor` corre todos los pares en paralelo; monitor en vivo muestra progreso, FO y estado por combo.
+- **Ciclos independientes por activo**: cada activo corre su propio hilo con su propio contador de ciclo — al converger, re-descarga sus datos y arranca el siguiente ciclo de inmediato, sin esperar a los demás. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un log muestra una línea nueva por activo cada vez que cambia su estado (progreso, FO, ciclo).
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
 El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`. Si se agotan `MAX_ITERS` sin converger, no se detiene: reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos — salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`.
@@ -158,7 +158,7 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 | `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
 | `DELTA_INICIAL` | 1e-4 | Mejora relativa mínima para aceptar cambio |
 | `FACTOR_DELTA` | 0.7 | Factor de reducción del delta al converger |
-| `N_MAX_MODELS` | 6 | Top N combos a procesar por ciclo (None = todos) |
+| `N_MAX_MODELS` | 6 | Tope de combos corriendo a la vez en el pool de procesos compartido (None/0 = sin tope) |
 | `FECHA_INICIAL` | 2022-01-01 | Inicio de la ventana de precios usada para buscar soportes |
 | `W_TENDENCIA` | 0.20 | Peso del score_tendencia en X2 |
 | `DIAS_TENDENCIA` | 30 | Ventana de comparación histórica en X2 |
@@ -204,8 +204,9 @@ python scripts/X0_data_supports.py --opcion 1
 # Recalcular soportes sin actualizar precios
 python scripts/X0_data_supports.py --opcion 2
 
-# Loop continuo (reinicia el ciclo completo al terminar)
-python scripts/X0_data_supports.py --opcion 1 --loop
+# Por defecto corre en loop infinito (cada activo, de forma independiente).
+# --ciclos limita cuántos ciclos hace cada activo antes de terminar (0 = infinito).
+python scripts/X0_data_supports.py --ciclos 5
 
 # Backfill puntual: trae historial H1 completo desde una fecha vía MT5
 # (copy_rates_range, sin el tope de 1000 velas), mergea con el CSV existente y termina
@@ -225,6 +226,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-21** — feat(x0): ciclos independientes por activo
 - **2026-09-21** — feat(x1): lotaje en prints de activos
 - **2026-09-21** — feat(x1): reemplazo de OE en 3 pasos + poda por saturación
 - **2026-09-21** — fix(x0): monitor de progreso a línea única con \r

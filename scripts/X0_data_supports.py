@@ -70,7 +70,7 @@ def json_act(file_path: str, variable=None, mode: str = 'open',
     escribiendo el mismo archivo), igual que `_leer_json_reintentos` para los cache bt.
     Los errores se relanzan (nunca sys.exit): un worker de ProcessPoolExecutor que hace
     sys.exit() termina en SystemExit, que al no ser Exception escapa del `except Exception`
-    de buscar_soportes y mata el script completo sin dejar rastro.
+    de _ciclo_activo y mata el script completo sin dejar rastro.
     """
     path = f'{file_path}.json'
     if mode == 'save':
@@ -106,9 +106,9 @@ def notacion_cientifica(numero: float, decimales: int = 2) -> str:
     return f'{base:.{decimales}f} x E{exp}'
 
 
-# Compartido con _monitor_tabla: un print() de este hilo principal (ej. el traceback
-# de un combo que falló) intercalado a mitad de una escritura del monitor corrompía
-# la línea de estado en pantalla.
+# Compartido por todos los hilos del proceso principal (_ciclo_activo x N activos,
+# _monitor_log, _x2_watchdog) para que sus print() de varias líneas salgan completos y
+# nunca se intercalen entre sí.
 _stdout_lock = threading.Lock()
 
 
@@ -993,7 +993,7 @@ def _log_diagnostico_conjunto_N(identificador: str, escenario: str, datos: dict)
     Estos fallos ocurren dentro de un worker de ProcessPoolExecutor, cuyo stdout está
     silenciado (línea ~24): sin este archivo, el print de contexto nunca se vería.
     El caller relanza como RuntimeError (nunca sys.exit) para que `except Exception` en
-    buscar_soportes lo capture, marque solo ese combo como error y siga con el resto.
+    _ciclo_activo lo capture, marque solo ese combo como error y siga con el resto.
     """
     carpeta = CARPETA_LOGS / 'diag_conjunto_N'
     carpeta.mkdir(parents=True, exist_ok=True)
@@ -1269,185 +1269,176 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     }
 
 
-def _monitor_tabla(estado, tuplas, stop_event):
-    def linea(v, N):
-        llave = f'{v}_{N}'
-        cambios, iters, FO, estado_str = estado.get(llave, (0, 0, None, 'esperando'))
-        fo_str = f'{FO:.3e}' if FO is not None else '---'
-        iter_str = str(iters) if iters >= 0 else 'conv.'
-        return f'{v}_{N} {cambios}/{iter_str} {fo_str} [{estado_str}]'
-
-    def resumen():
-        return ' | '.join(linea(v, N) for v, N in tuplas)
-
-    if not sys.stdout.isatty():
-        # Redirigido a archivo o capturado por un IDE: no hay cursor que sobrescribir,
-        # así que se imprime una línea nueva cada 5s en vez de refrescar cada 1s
-        # (inundaría el log con líneas casi idénticas).
-        while not stop_event.is_set():
-            with _stdout_lock:
-                sys.stdout.write(resumen() + '\n')
-                sys.stdout.flush()
-            stop_event.wait(5)
-        with _stdout_lock:
-            sys.stdout.write(resumen() + '\n')
-            sys.stdout.flush()
-        return
-
-    # Una sola línea de estado sobrescrita con \r: a diferencia de \033[nA (cursor-up
-    # multi-línea, usado antes), \r es un control ASCII plano que no depende de que
-    # Windows procese secuencias VT100 ni de contar filas físicas exactas por línea —
-    # sin bloque multi-línea no hay nada que desalinear si algo más escribe a stdout
-    # de por medio (ver _stdout_lock, que evita justamente eso). Se trunca/paddea al
-    # ancho real de la terminal para garantizar que siempre pisa el contenido anterior.
-    def redraw():
-        ancho = max(shutil.get_terminal_size(fallback=(80, 24)).columns - 1, 20)
-        texto = resumen()
-        texto = texto[:ancho] if len(texto) > ancho else texto.ljust(ancho)
-        with _stdout_lock:
-            sys.stdout.write('\r' + texto)
-            sys.stdout.flush()
-
+def _x2_watchdog(stop_event, intervalo_seg: int = 3600):
+    """X2 corre desacoplado del ciclo de cada activo: el scoring normaliza cada activo
+    contra el mínimo/máximo del universo completo (VALORES), así que no existe una versión
+    'solo para un activo'. Ya trae guard de un día (_ya_ejecutado_hoy), así que reintentar
+    cada intervalo es barato — la mayoría de las llamadas son no-op."""
+    x2_script = Path(__file__).parent / 'X2_fundamentals.py'
     while not stop_event.is_set():
-        redraw()
-        stop_event.wait(1)
-    redraw()
-    with _stdout_lock:
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        with _stdout_lock:
+            print('\n── X2: Datos fundamentales (global) ────────────────────')
+        try:
+            subprocess.run([sys.executable, str(x2_script)], check=False)
+        except Exception as e:
+            _log_error(CARPETA_LOGS, 'X2 falló (subprocess), continuando', e)
+        stop_event.wait(intervalo_seg)
 
 
-def _seleccionar_combos(valores: list, n_sizes: dict, carpeta_n_prod: Path, n_max=None) -> list:
+def _monitor_log(estado_compartido, ciclos_estado, combos: list, stop_event,
+                  intervalo_seg: float = 1.0):
+    """Imprime una línea nueva por combo (valor, N) cada vez que su estado cambia — nunca
+    sobrescribe. A diferencia del redraw multi-línea con cursor-up (abandonado porque se
+    desincroniza en Windows si algo más escribe a stdout de por medio, ver histórico de
+    _monitor_tabla), un log que solo agrega líneas no tiene nada que desalinear: cada activo
+    progresa a su propio ciclo/ritmo y puede imprimir en cualquier momento sin pisar a los demás.
     """
-    Retorna la lista de tuplas (valor, N) a procesar en el próximo ciclo.
-
-    Si n_max es None o >= total de combos: retorna todos, ordenados por antigüedad del JSON
-    (misma lógica que antes).
-    Si n_max < total: selecciona los n_max con mayor delta_inicial (más prometedores,
-    es decir, los que tienen más terreno que ganar en la próxima corrida), con tie-break
-    aleatorio. Dentro de los seleccionados, mantiene el orden por antigüedad del JSON.
-    """
-    tuplas = []
-    for valor in valores:
-        if valor not in n_sizes:
-            continue
-        for N in n_sizes[valor]:
-            json_path = carpeta_n_prod / f'{valor}_{N}.json'
-            delta_path = carpeta_n_prod / f'{valor}_{N}_delta.json'
-
-            if delta_path.exists():
-                with open(delta_path) as f:
-                    delta = json.load(f)['delta_inicial']
-            else:
-                delta = DELTA_INICIAL
-
-            fecha_mtime = (datetime.datetime.fromtimestamp(json_path.stat().st_mtime)
-                           if json_path.exists() else datetime.datetime(2000, 1, 1))
-            tuplas.append((valor, N, delta, fecha_mtime))
-
-    if not tuplas:
-        return []
-
-    if n_max is None or n_max <= 0 or n_max >= len(tuplas):
-        return [(v, n) for v, n, _, _ in sorted(tuplas, key=lambda x: x[3])]
-
-    # Shuffle para tie-break aleatorio antes de ordenar por delta desc (sort estable)
-    random.shuffle(tuplas)
-    seleccionados = sorted(tuplas, key=lambda x: -x[2])[:n_max]
-    return [(v, n) for v, n, _, _ in sorted(seleccionados, key=lambda x: x[3])]
-
-
-def buscar_soportes(valores: list, n_sizes: dict, carpeta_data: Path,
-                    carpeta_n_prod: Path, carpeta_n_bt: Path,
-                    ordenes_activas_mt5: dict = None, n_max=None):
-    if ordenes_activas_mt5 is None:
-        ordenes_activas_mt5 = {v: [] for v in valores}
-
-    tuplas_ordenadas = _seleccionar_combos(valores, n_sizes, carpeta_n_prod, n_max)
-    total_combos = sum(len(ns) for ns in n_sizes.values())
-    filtrado = f'{len(tuplas_ordenadas)}/{total_combos} (top delta)' if (n_max and n_max < total_combos) else str(len(tuplas_ordenadas))
-    print(f'Combos a procesar ({filtrado}):', tuplas_ordenadas)
-
-    # Info previa por combo (secuencial, antes del monitor)
-    for v, n in tuplas_ordenadas:
-        csv_path = carpeta_data / f'{v}.csv'
-        print(f'\n{"="*55}\nProcesando {v} N={n}')
-        if not csv_path.exists():
-            print(f'  CSV no encontrado: {csv_path}')
-            continue
-        df_info = pd.read_csv(csv_path, usecols=['DateTime', 'Close'])
-        df_info['DateTime'] = pd.to_datetime(df_info['DateTime'])
-        df_info = (df_info.sort_values('DateTime').drop_duplicates(subset=['DateTime'])
-                   .reset_index(drop=True))
-        df_info = df_info[df_info['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
-        if len(df_info):
-            print(f'  Rango: {df_info["DateTime"].iloc[0]} → {df_info["DateTime"].iloc[-1]} ({len(df_info)} velas)')
-            print(f'  Último cierre: {df_info["Close"].iloc[-1]:.2f}')
-        json_path = carpeta_n_prod / f'{v}_{n}'
-        if Path(f'{json_path}.json').exists():
-            prev = set(json_act(str(json_path)))
-            t_prev = datetime.datetime.fromtimestamp(
-                Path(f'{json_path}.json').stat().st_mtime).replace(microsecond=0)
-            print(f'  Warm start: {len(prev)} soportes desde la solución de t*={t_prev}')
-        else:
-            print('  Warm start: sin solución previa (arranque aleatorio)')
-        delta_path = carpeta_n_prod / f'{v}_{n}_delta.json'
-        if delta_path.exists():
-            with open(delta_path) as f:
-                delta_val = json.load(f)['delta_inicial']
-            print(f'  delta_inicial: {notacion_cientifica(delta_val)}')
-        else:
-            print(f'  delta_inicial: {notacion_cientifica(DELTA_INICIAL)} (semilla)')
-        log_path = CARPETA_LOGS / f'{v}_{n}.jsonl'
-        if log_path.exists():
-            with open(log_path) as f:
-                lineas = [linea for linea in f if linea.strip()]
-            if lineas:
-                print(f'  FO warm start (última corrida): {notacion_cientifica(json.loads(lineas[-1])["FO_final"])}')
-
-    with multiprocessing.Manager() as manager:
-        estado = manager.dict()
-        for v, n in tuplas_ordenadas:
-            estado[f'{v}_{n}'] = (0, 0, None, 'esperando')
-
-        stop_event = threading.Event()
-        monitor = threading.Thread(target=_monitor_tabla, args=(estado, tuplas_ordenadas, stop_event), daemon=True)
-        monitor.start()
-
-        resultados_tiempo = {}
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            futures = {
-                executor.submit(_procesar_valor_N, v, n, carpeta_data, carpeta_n_prod, carpeta_n_bt,
-                                ordenes_activas_mt5.get(v, []), None, estado, False): (v, n)
-                for v, n in tuplas_ordenadas
-            }
-            for future in concurrent.futures.as_completed(futures):
-                valor, N = futures[future]
-                try:
-                    resultados_tiempo[f'{valor}_{N}'] = future.result()
-                except Exception as exc:
-                    prev = estado.get(f'{valor}_{N}', (0, 0, None, 'ERROR'))
-                    estado[f'{valor}_{N}'] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
-                    _log_error(CARPETA_LOGS, f'Error en combo ({valor}, N={N})', exc)
-
-        stop_event.set()
-        monitor.join()
-
-        print()
-        for v, n in tuplas_ordenadas:
-            res = resultados_tiempo.get(f'{v}_{n}')
-            if res is None:
+    ultimo = {}
+    while not stop_event.is_set():
+        for v, n in combos:
+            llave = f'{v}_{n}'
+            cambios, iters, FO, estado_str = estado_compartido.get(llave, (0, 0, None, 'esperando'))
+            ciclo = ciclos_estado.get(v, 0)
+            actual = (ciclo, cambios, iters, estado_str)
+            if ultimo.get(llave) == actual:
                 continue
-            dur = res['duracion']
-            mins = int(dur // 60)
-            segs = dur % 60
-            tiempo_str = f'{mins}m {segs:.1f}s' if mins > 0 else f'{segs:.1f}s'
-            conv_str = 'convergió' if res['convergio'] else 'no convergió'
-            ws = (f'warm start {res["warm_start_n"]} @ t*={res["warm_start_t"]}'
-                  if res['warm_start_n'] else 'sin solución previa')
-            print(f'  {v} N={n}: {tiempo_str} | {conv_str} | '
-                  f'precios {res["t0"]} → {res["tf"]} ({res["n_velas"]} velas) | {ws}')
+            ultimo[llave] = actual
+            fo_str = f'{FO:.3e}' if FO is not None else '---'
+            iter_str = str(iters) if iters >= 0 else 'conv.'
+            with _stdout_lock:
+                print(f'{v:8s} [c{ciclo}] {cambios}/{iter_str} {fo_str} [{estado_str}]')
+        stop_event.wait(intervalo_seg)
 
+
+def _info_previa_combo(v: str, n: int, carpeta_data: Path, carpeta_n_prod: Path):
+    """Diagnóstico pre-corrida (rango de precios, warm start, delta_inicial, FO previa) para
+    un combo — se imprime desde el hilo del activo (proceso principal) porque los workers del
+    ProcessPoolExecutor tienen stdout silenciado (ver comentario al inicio del archivo)."""
+    csv_path = carpeta_data / f'{v}.csv'
+    lineas_out = [f'\n{"="*55}\nProcesando {v} N={n}']
+    if not csv_path.exists():
+        lineas_out.append(f'  CSV no encontrado: {csv_path}')
+        with _stdout_lock:
+            print('\n'.join(lineas_out))
+        return
+    df_info = pd.read_csv(csv_path, usecols=['DateTime', 'Close'])
+    df_info['DateTime'] = pd.to_datetime(df_info['DateTime'])
+    df_info = (df_info.sort_values('DateTime').drop_duplicates(subset=['DateTime'])
+               .reset_index(drop=True))
+    df_info = df_info[df_info['DateTime'] >= FECHA_INICIAL].reset_index(drop=True)
+    if len(df_info):
+        lineas_out.append(f'  Rango: {df_info["DateTime"].iloc[0]} → {df_info["DateTime"].iloc[-1]} ({len(df_info)} velas)')
+        lineas_out.append(f'  Último cierre: {df_info["Close"].iloc[-1]:.2f}')
+    json_path = carpeta_n_prod / f'{v}_{n}'
+    if Path(f'{json_path}.json').exists():
+        prev = set(json_act(str(json_path)))
+        t_prev = datetime.datetime.fromtimestamp(
+            Path(f'{json_path}.json').stat().st_mtime).replace(microsecond=0)
+        lineas_out.append(f'  Warm start: {len(prev)} soportes desde la solución de t*={t_prev}')
+    else:
+        lineas_out.append('  Warm start: sin solución previa (arranque aleatorio)')
+    delta_path = carpeta_n_prod / f'{v}_{n}_delta.json'
+    if delta_path.exists():
+        with open(delta_path) as f:
+            delta_val = json.load(f)['delta_inicial']
+        lineas_out.append(f'  delta_inicial: {notacion_cientifica(delta_val)}')
+    else:
+        lineas_out.append(f'  delta_inicial: {notacion_cientifica(DELTA_INICIAL)} (semilla)')
+    log_path = CARPETA_LOGS / f'{v}_{n}.jsonl'
+    if log_path.exists():
+        with open(log_path) as f:
+            lineas = [linea for linea in f if linea.strip()]
+        if lineas:
+            lineas_out.append(f'  FO warm start (última corrida): {notacion_cientifica(json.loads(lineas[-1])["FO_final"])}')
+    with _stdout_lock:
+        print('\n'.join(lineas_out))
+
+
+def _resumen_combo(v: str, n: int, res: dict):
+    dur = res['duracion']
+    mins = int(dur // 60)
+    segs = dur % 60
+    tiempo_str = f'{mins}m {segs:.1f}s' if mins > 0 else f'{segs:.1f}s'
+    conv_str = 'convergió' if res['convergio'] else 'no convergió'
+    ws = (f'warm start {res["warm_start_n"]} @ t*={res["warm_start_t"]}'
+          if res['warm_start_n'] else 'sin solución previa')
+    with _stdout_lock:
+        print(f'  {v} N={n}: {tiempo_str} | {conv_str} | '
+              f'precios {res["t0"]} → {res["tf"]} ({res["n_velas"]} velas) | {ws}')
+
+
+def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_minuto: Path,
+                   carpeta_n_prod: Path, executor, estado_compartido, ciclos_estado,
+                   mt5_lock, stop_event, opcion: int, max_ciclos: int):
+    """Loop independiente por activo: descarga sus datos, actualiza X3, busca sus soportes
+    hasta convergencia, y arranca el siguiente ciclo de inmediato — sin esperar a los demás
+    activos, que siguen en el suyo propio (ver ciclos_estado). Las llamadas a MT5 se
+    serializan con mt5_lock (la API no es thread-safe para llamadas concurrentes); el cómputo
+    pesado del optimizador sigue corriendo en paralelo real vía el ProcessPoolExecutor
+    compartido entre los 6 hilos de activo.
+    """
+    ciclo = 0
+    while not stop_event.is_set():
+        ciclos_estado[valor] = ciclo
+        with _stdout_lock:
+            print(f'\n── {valor}: ciclo {ciclo} ──')
+        try:
+            if opcion in (0, 2):
+                with mt5_lock:
+                    try:
+                        descargar_datos([valor], carpeta_data)
+                    except Exception as e:
+                        _log_error(CARPETA_LOGS, f'Descarga H1 falló para {valor}, continuando', e)
+                    if valor in ('BTCUSD', 'ETHUSD'):
+                        try:
+                            fecha_inicial_dt = datetime.datetime.strptime(FECHA_INICIAL, '%Y-%m-%d')
+                            gap = detectar_gap_bt_eth(carpeta_data, fecha_inicial_dt)
+                            if gap is not None:
+                                print(f'\n⚠ Vacío detectado en BTC/ETH desde {gap} — '
+                                      f'backfill automático para todos los activos')
+                                backfill_historico(VALORES, carpeta_data, gap)
+                        except Exception as e:
+                            _log_error(CARPETA_LOGS, 'Detección/backfill de vacíos falló, continuando', e)
+                    try:
+                        descargar_datos_minuto([valor], carpeta_data_minuto)
+                    except Exception as e:
+                        _log_error(CARPETA_LOGS, f'Descarga M1 falló para {valor}, continuando', e)
+
+                csv_h1 = carpeta_data / f'{valor}.csv'
+                if csv_h1.exists():
+                    try:
+                        df_v = pd.read_csv(csv_h1)
+                        n_prod = n_sizes_ejecucion.get(valor, 120)
+                        json_path = carpeta_n_prod / f'{valor}_{n_prod}.json'
+                        conjunto_n_v = (set(json.load(open(json_path)))
+                                        if json_path.exists() else set())
+                        _x3_actualizar_features(valor, df_v, conjunto_n_v)
+                    except Exception as e:
+                        _log_error(CARPETA_LOGS, f'X3 falló para {valor}, continuando', e)
+
+            if opcion in (1, 2):
+                with mt5_lock:
+                    ordenes_activas = obtener_ordenes_activas_mt5([valor]).get(valor, [])
+                for n in n_list:
+                    llave = f'{valor}_{n}'
+                    _info_previa_combo(valor, n, carpeta_data, carpeta_n_prod)
+                    estado_compartido[llave] = (0, 0, None, 'esperando')
+                    future = executor.submit(_procesar_valor_N, valor, n, carpeta_data, carpeta_n_prod,
+                                              None, ordenes_activas, None, estado_compartido, False)
+                    try:
+                        res = future.result()
+                        if res is not None:
+                            _resumen_combo(valor, n, res)
+                    except Exception as exc:
+                        prev = estado_compartido.get(llave, (0, 0, None, 'ERROR'))
+                        estado_compartido[llave] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
+                        _log_error(CARPETA_LOGS, f'Error en combo ({valor}, N={n})', exc)
+        except Exception as e:
+            _log_error(CARPETA_LOGS, f'Error en ciclo {ciclo} de {valor}. Reintentando en el próximo ciclo', e)
+
+        ciclo += 1
+        if max_ciclos > 0 and ciclo >= max_ciclos:
+            break
 
 
 def _reset_x0_state():
@@ -1474,7 +1465,8 @@ if __name__ == '__main__':
                         choices=[0, 1, 2],
                         help='0=solo datos, 1=solo soportes, 2=ambos (default)')
     parser.add_argument('--ciclos', type=int, default=0,
-                        help='Número de ciclos a ejecutar. 0 = infinito (default).')
+                        help='Número de ciclos por activo a ejecutar (cada activo cuenta el '
+                             'suyo, de forma independiente). 0 = infinito (default).')
     parser.add_argument('--backfill', type=str, default=None, metavar='YYYY-MM-DD',
                         help='Trae historial H1 completo desde esta fecha vía MT5 '
                              '(copy_rates_range, sin tope de 1000 velas), lo mergea '
@@ -1502,77 +1494,44 @@ if __name__ == '__main__':
 
     print(f'\nLAMBDA = {LAMBDA} ({notacion_cientifica(LAMBDA)})')
 
-    ciclo = 0
-    _pendiente_reset = reiniciar_x0  # capturado al inicio; se consume una sola vez
+    if reiniciar_x0:
+        _reset_x0_state()
+
+    combos = [(v, n) for v in VALORES for n in n_sizes.get(v, [])]
+
     try:
-        while True:
-            ciclo += 1
-            print(f'\n{"═"*55}\n CICLO {ciclo}'
-                  + (f' — top {N_MAX_MODELS} combos' if N_MAX_MODELS else ' — todos los combos')
-                  + f'\n{"═"*55}')
+        with multiprocessing.Manager() as manager:
+            estado_compartido = manager.dict({f'{v}_{n}': (0, 0, None, 'esperando') for v, n in combos})
+            ciclos_estado = manager.dict({v: 0 for v in VALORES})
+            stop_event = threading.Event()
+            mt5_lock = threading.Lock()
 
-            try:
-                print('\n── X2: Datos fundamentales ─────────────────────────────')
-                try:
-                    x2_script = Path(__file__).parent / 'X2_fundamentals.py'
-                    subprocess.run([sys.executable, str(x2_script)], check=False)
-                except Exception as e:
-                    _log_error(CARPETA_LOGS, 'X2 falló (subprocess), continuando', e)
+            threading.Thread(target=_x2_watchdog, args=(stop_event,), daemon=True).start()
+            threading.Thread(target=_monitor_log, args=(estado_compartido, ciclos_estado, combos, stop_event),
+                              daemon=True).start()
 
-                if args.opcion in (0, 2):
-                    print('\n── Etapa 1: Descarga de datos ──────────────────────────')
-                    try:
-                        descargar_datos(VALORES, CARPETA_DATA)
-                    except Exception as e:
-                        _log_error(CARPETA_LOGS, 'Descarga H1 falló, continuando con datos existentes', e)
-                    try:
-                        fecha_inicial_dt = datetime.datetime.strptime(FECHA_INICIAL, '%Y-%m-%d')
-                        gap = detectar_gap_bt_eth(CARPETA_DATA, fecha_inicial_dt)
-                        if gap is not None:
-                            print(f'\n⚠ Vacío detectado en BTC/ETH desde {gap} — '
-                                  f'backfill automático para todos los activos')
-                            backfill_historico(VALORES, CARPETA_DATA, gap)
-                    except Exception as e:
-                        _log_error(CARPETA_LOGS, 'Detección/backfill de vacíos falló, continuando', e)
-                    try:
-                        descargar_datos_minuto(VALORES, CARPETA_DATA_MINUTO)
-                    except Exception as e:
-                        _log_error(CARPETA_LOGS, 'Descarga M1 falló, continuando con datos existentes', e)
+            # N_MAX_MODELS acá limita cuántos combos corren a la vez en el pool compartido
+            # (antes limitaba cuántos se seleccionaban por ciclo global; ese concepto ya no
+            # existe con ciclos independientes por activo).
+            with concurrent.futures.ProcessPoolExecutor(max_workers=N_MAX_MODELS or None) as executor:
+                hilos = []
+                for valor in VALORES:
+                    t = threading.Thread(
+                        target=_ciclo_activo,
+                        args=(valor, n_sizes.get(valor, []), CARPETA_DATA, CARPETA_DATA_MINUTO,
+                              CARPETA_N_PROD, executor, estado_compartido, ciclos_estado,
+                              mt5_lock, stop_event, args.opcion, args.ciclos),
+                        daemon=True,
+                    )
+                    t.start()
+                    hilos.append(t)
+                for t in hilos:
+                    t.join()
 
-                    print('\n── X3: Features técnicas ────────────────────────────────')
-                    for valor in VALORES:
-                        csv_h1 = CARPETA_DATA / f'{valor}.csv'
-                        if not csv_h1.exists():
-                            print(f'  X3 {valor}: sin CSV H1, skip')
-                            continue
-                        try:
-                            df_v = pd.read_csv(csv_h1)
-                            n_prod = n_sizes_ejecucion.get(valor, 120)
-                            json_path = CARPETA_N_PROD / f'{valor}_{n_prod}.json'
-                            conjunto_n_v = (set(json.load(open(json_path)))
-                                            if json_path.exists() else set())
-                            _x3_actualizar_features(valor, df_v, conjunto_n_v)
-                        except Exception as e:
-                            _log_error(CARPETA_LOGS, f'X3 falló para {valor}, continuando', e)
-
-                if _pendiente_reset:
-                    _reset_x0_state()
-                    _pendiente_reset = False
-
-                if args.opcion in (1, 2):
-                    print('\n── Etapa 2: Búsqueda de soportes ───────────────────────')
-                    print('Consultando posiciones activas en MT5...')
-                    ordenes_activas_mt5 = obtener_ordenes_activas_mt5(VALORES)
-                    buscar_soportes(VALORES, n_sizes, CARPETA_DATA, CARPETA_N_PROD, None, ordenes_activas_mt5,
-                                    n_max=N_MAX_MODELS)
-
-            except Exception as e:
-                _log_error(CARPETA_LOGS, f'Error en ciclo {ciclo}. Reintentando en el próximo ciclo', e)
-
-            if args.ciclos > 0 and ciclo >= args.ciclos:
-                break
+            stop_event.set()
 
     except KeyboardInterrupt:
-        print(f'\nDetenido por el usuario tras {ciclo} ciclo(s).')
+        stop_event.set()
+        print('\nDetenido por el usuario.')
     finally:
         print(f'Tiempo total: {_fmt_duracion(time.time() - t_inicio_script)}')
