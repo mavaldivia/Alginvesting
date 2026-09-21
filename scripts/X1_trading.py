@@ -32,7 +32,7 @@ from config import (
     CARPETA_LOGS_X1,
     CARPETA_N_PROD,
     VALORES, A, B, TS, PERDIDA_MAX,
-    LOTAJES, UNITS,
+    LOTAJES, MIN_LOTAJES, UNITS,
     n_sizes_ejecucion as n_sizes,
     X1_RETRY_BLOQUEADOS_S,
 )
@@ -477,7 +477,7 @@ def cambiar_SL(orden, valor: str, sl: float, silent: bool = False) -> bool:
     return True
 
 
-def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
+def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
                    lotajes: dict, dic_seguimiento: dict, dic_bloqueados: dict):
     """
     Para cada posición abierta:
@@ -485,22 +485,29 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
     - Si ya tiene SL y el nuevo SL calculado sube → mueve el SL al alza (trailing)
 
     b: distancia en USD que debe mantener el SL bajo el precio actual (normalizada por L).
+    a y b se escalan por el multiplicador de lotaje real de cada posición
+    (orden.volume / MIN_LOTAJES[valor], no el LOTAJES_M actual de config) — así la
+    distancia en precio para activar/mover el trailing queda invariante al lotaje
+    y solo el monto en USD que representa escala con el tamaño de esa orden específica.
     """
     if not actual_OA or not mercado_abierto(valor):
         return
 
     P0 = obtener_precio_actual(valor, modo='B')
-    sl_nuevo = P0 - b / L
-    n_cambios_sl = 0
 
     for orden in actual_OA:
+        lotajes_m_efectivo = orden.volume / MIN_LOTAJES[valor]
+        L = orden.volume * UNITS[valor]
+        a_efectivo = a * lotajes_m_efectivo
+        b_efectivo = b * lotajes_m_efectivo
+        sl_nuevo = P0 - b_efectivo / L
         sl = orden.sl
         Pi = orden.price_open
         cambios = False
         ganancia = (P0 - Pi) * L
 
         if sl == 0:
-            if ganancia >= a:
+            if ganancia >= a_efectivo:
                 sl_ok = cambiar_SL(orden, valor, sl_nuevo, silent=True)
                 # Repone la orden de compra en el mismo soporte para mantener el nivel activo
                 request = generate_request_buy_limit(
@@ -519,14 +526,11 @@ def trailing_stop(actual_OA: list, valor: str, L: float, a: float, b: float,
                     dic_seguimiento[valor].remove(orden.ticket)
 
         if cambios:
-            n_cambios_sl += 1
             if valor not in dic_seguimiento:
                 dic_seguimiento[valor] = []
             if orden.ticket not in dic_seguimiento[valor]:
                 dic_seguimiento[valor].append(orden.ticket)
-
-    if n_cambios_sl:
-        print(f'  Cambio de SL de {n_cambios_sl} operaciones del valor {valor} al precio {sl_nuevo:.2f}')
+            print(f'  Cambio de SL: {valor} orden {orden.ticket} → {sl_nuevo:.2f}')
 
 
 def cerrar_posicion(orden, valor: str, lotajes: dict):
@@ -553,14 +557,21 @@ def cerrar_posicion(orden, valor: str, lotajes: dict):
         print(f'  Posición cerrada por perdida_max: {valor} ticket={orden.ticket} @ {precio:.2f}')
 
 
-def controlar_perdida_max(actual_OA: list, valor: str, L: float,
+def controlar_perdida_max(actual_OA: list, valor: str,
                            lotajes: dict, perdida_max: float):
-    """Cierra cualquier posición abierta cuya pérdida actual supere perdida_max USD."""
+    """Cierra cualquier posición abierta cuya pérdida actual supere perdida_max USD.
+
+    perdida_max se escala por el multiplicador de lotaje real de esa posición
+    (orden.volume / MIN_LOTAJES[valor]), igual que en trailing_stop.
+    """
     P0 = obtener_precio_actual(valor, modo='B')
     for orden in actual_OA:
+        lotajes_m_efectivo = orden.volume / MIN_LOTAJES[valor]
+        L = orden.volume * UNITS[valor]
+        perdida_max_efectivo = perdida_max * lotajes_m_efectivo
         Pi = orden.price_open
         perdida = (Pi - P0) * L
-        if perdida > perdida_max:
+        if perdida > perdida_max_efectivo:
             print(f'  PERDIDA_MAX alcanzada: {valor} Pi={Pi:.2f} P0={P0:.2f} pérdida={perdida:.2f} USD')
             cerrar_posicion(orden, valor, lotajes)
 
@@ -723,10 +734,10 @@ if __name__ == '__main__':
                             crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados, precio_max_saliente)
 
                         # C: Trailing stop en posiciones abiertas
-                        trailing_stop(actual_OA, valor, L, A[valor], B[valor], LOTAJES, dic_seguimiento, dic_bloqueados)
+                        trailing_stop(actual_OA, valor, A[valor], B[valor], LOTAJES, dic_seguimiento, dic_bloqueados)
 
                         # D: Cierre por pérdida máxima
-                        controlar_perdida_max(actual_OA, valor, L, LOTAJES, PERDIDA_MAX[valor])
+                        controlar_perdida_max(actual_OA, valor, LOTAJES, PERDIDA_MAX[valor])
 
                     except Exception as e:
                         print(f'  [X1] Error en {valor}: {e} — saltando activo este ciclo')
