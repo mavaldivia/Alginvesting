@@ -192,6 +192,11 @@ TS = 0.01  # segundos de espera entre ciclos cuando no hay posiciones activas en
 # (límite de posiciones/órdenes pendientes de la cuenta alcanzado)
 X1_RETRY_BLOQUEADOS_S = 300
 
+# Fracción de las OE salientes que se elimina ANTES de colocar las entrantes en un
+# reemplazo total (caso a); el resto se elimina después — así nunca se vacía la
+# cobertura cercana al precio mientras se espera a que las nuevas OE queden colocadas.
+X1_REEMPLAZO_FRACCION_INICIAL = 0.2
+
 # USD — si la pérdida de una posición abierta supera este valor, se cierra
 PERDIDA_MAX = {
     'BTCUSD': 200,

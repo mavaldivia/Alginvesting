@@ -4,9 +4,12 @@ X1_trading.py
 Loop de trading semi-automático. Lee los N soportes generados por X0 y gestiona
 órdenes en MetaTrader5 en tiempo real.
 
-Por cada ciclo y activo:
-  A) Elimina órdenes pendientes que ya no corresponden a soportes válidos
-  B) Crea nuevas órdenes de compra pendientes (buy limit) en los soportes bajo el precio actual
+Por cada ciclo y activo, con el mercado abierto:
+  A) Si el conjunto de soportes cambió (caso a): reemplaza el total de órdenes pendientes
+     (OE) en 3 pasos, sin dejar nunca la zona cercana al precio sin cobertura
+  B) Si no cambió: crea nuevas órdenes de compra pendientes (buy limit) en los soportes
+     bajo el precio actual con suficiente margen, y poda las OE sobrantes si hay más
+     que el N configurado (caso c)
   C) Gestiona el trailing stop en posiciones abiertas
   D) Cierra posiciones cuya pérdida supere perdida_max
 
@@ -16,6 +19,7 @@ Uso:
 
 import datetime
 import json
+import math
 import os
 import sys
 import time
@@ -35,6 +39,7 @@ from config import (
     LOTAJES, MIN_LOTAJES, UNITS,
     n_sizes_ejecucion as n_sizes,
     X1_RETRY_BLOQUEADOS_S,
+    X1_REEMPLAZO_FRACCION_INICIAL,
 )
 
 
@@ -222,39 +227,27 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
     return lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento
 
 
-def limpiar_ordenes_pendientes_no_validas(valor: str, actual_OE: list, lista_N: list):
-    """Cancela órdenes pendientes cuyo precio ya no está en la lista de soportes válidos.
-
-    Retorna el precio más alto entre las OE canceladas (la más cercana al precio
-    actual), o None si no se canceló ninguna. Lo usa crear_ordenes_espera para
-    recuperar la cobertura cercana al precio que deja el buy limit saliente.
-    """
-    eliminadas = []
-    for orden in actual_OE:
-        precio_OE = round(orden.price_open, 2)
-        if precio_OE not in lista_N:
-            request = {
-                'action': mt5.TRADE_ACTION_REMOVE,
-                'order': orden.ticket,
-                'symbol': valor,
-                'type': orden.type,
-                'position': orden.position_id,
-                'comment': 'Eliminacion de orden',
-            }
-            result = mt5.order_send(request)
-            if result is None:
-                _print_throttled(valor, 'order_send_none',
-                                  f'  {valor}: order_send failed: {mt5.last_error()}')
-            elif result.retcode != mt5.TRADE_RETCODE_DONE:
-                if result.retcode not in [10018]:  # 10018: mercado cerrado
-                    _print_throttled(valor, result.retcode,
-                                      f'  {valor}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
-            else:
-                eliminadas.append(precio_OE)
-    if eliminadas:
-        print(f'  {valor}: {len(eliminadas)} órdenes eliminadas desde {min(eliminadas)} hasta {max(eliminadas)}')
-        return max(eliminadas)
-    return None
+def _cancelar_orden(orden, valor: str) -> bool:
+    """Cancela una orden pendiente (buy limit) en MT5. Retorna True si se canceló."""
+    request = {
+        'action': mt5.TRADE_ACTION_REMOVE,
+        'order': orden.ticket,
+        'symbol': valor,
+        'type': orden.type,
+        'position': orden.position_id,
+        'comment': 'Eliminacion de orden',
+    }
+    result = mt5.order_send(request)
+    if result is None:
+        _print_throttled(valor, 'order_send_none',
+                          f'  {valor}: order_send failed: {mt5.last_error()}')
+        return False
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
+        if result.retcode not in [10018]:  # 10018: mercado cerrado
+            _print_throttled(valor, result.retcode,
+                              f'  {valor}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
+        return False
+    return True
 
 
 def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: float, sl: float = 0) -> dict:
@@ -316,7 +309,7 @@ def liberar_orden_lejana(dic_bloqueados: dict):
     stale desde el cierre, así que la distancia calculada no refleja el precio real
     y puede aparentar ser la "más lejana" solo por el tiempo transcurrido sin ticks
     (ej. una acción recién cerrada) — cancelaría una OE que no debería tocarse hasta
-    que el mercado reabra, igual que ya evita limpiar_ordenes_pendientes_no_validas.
+    que el mercado reabra, igual que ya evita reemplazar_ordenes_espera / podar_ordenes_saturacion.
 
     Retorna (symbol, precio) de la orden liberada, o None si no había nada que liberar.
     """
@@ -394,16 +387,10 @@ def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio:
 
 def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
                           valor: str, L: float, a: float, lotajes: dict,
-                          dic_bloqueados: dict, precio_max_saliente: float = None):
+                          dic_bloqueados: dict):
     """
     Para cada soporte en lista_N que no tenga ya una orden activa o pendiente,
     crea una orden buy limit si el precio actual está al menos a distancia `a` USD por encima.
-
-    Regla de reemplazo: cuando este ciclo se canceló al menos un buy limit
-    (precio_max_saliente = el más cercano al precio), un soporte también entra si
-    queda por debajo del promedio entre el precio actual y ese buy limit saliente.
-    Recupera la cobertura cercana al precio que si no se perdería, porque el filtro
-    de distancia `a` deja el primer soporte de reemplazo al menos `a` bajo el precio.
 
     Si la cuenta alcanza su límite de posiciones/órdenes (retcode 10040), se libera
     la orden más lejana del precio entre todos los activos y se reintenta una vez
@@ -412,9 +399,6 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     """
     P0 = obtener_precio_actual(valor, modo='B')
     lista_OAE = lista_OA + lista_OE
-    umbral_reemplazo = None
-    if precio_max_saliente is not None and precio_max_saliente < P0:
-        umbral_reemplazo = (P0 + precio_max_saliente) / 2
     ejecutadas = []
     bloqueadas = []
     bloqueados_valor = dic_bloqueados.setdefault(valor, {})
@@ -425,26 +409,70 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
         ts_bloqueo = bloqueados_valor.get(Pi)
         if ts_bloqueo is not None and (time.time() - ts_bloqueo) < X1_RETRY_BLOQUEADOS_S:
             continue
-        distancia_ok = (P0 - Pi) * L >= a
-        reemplazo_ok = umbral_reemplazo is not None and Pi < umbral_reemplazo
-        if distancia_ok or reemplazo_ok:
-            request = generate_request_buy_limit(
-                valor,
-                order_type=mt5.ORDER_TYPE_BUY_LIMIT,
-                volumen=lotajes[valor],
-                precio=Pi,
-            )
-            if _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True):
-                ejecutadas.append(Pi)
-                bloqueados_valor.pop(Pi, None)
-            elif Pi in bloqueados_valor:
-                bloqueadas.append(Pi)
+        if (P0 - Pi) * L < a:
+            continue
+        request = generate_request_buy_limit(
+            valor,
+            order_type=mt5.ORDER_TYPE_BUY_LIMIT,
+            volumen=lotajes[valor],
+            precio=Pi,
+        )
+        if _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True):
+            ejecutadas.append(Pi)
+            bloqueados_valor.pop(Pi, None)
+        elif Pi in bloqueados_valor:
+            bloqueadas.append(Pi)
 
     if ejecutadas:
         print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}')
     if bloqueadas:
         print(f'  {valor}: {len(bloqueadas)} buy limits bloqueados temporalmente entre '
               f'{min(bloqueadas):.2f} y {max(bloqueadas):.2f} (límite de órdenes en la cuenta)')
+
+
+def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
+                               L: float, a: float, lotajes: dict, dic_bloqueados: dict,
+                               fraccion_inicial: float = X1_REEMPLAZO_FRACCION_INICIAL):
+    """Caso (a): reemplazo total — el conjunto de soportes cambió y hay OE cuyo precio
+    ya no está en lista_N. El caller (loop principal) solo llama esto con el mercado
+    abierto: eliminar OE sin poder reponerlas dejaría el activo desprotegido.
+
+    Para no dejar nunca la zona cercana al precio sin OE activas mientras se espera a
+    que las nuevas queden colocadas, el reemplazo va en 3 pasos, todos de mayor a
+    menor precio:
+      i)   elimina `fraccion_inicial` (ej. 20%) de las OE salientes, las de precio más alto
+      ii)  coloca todas las OE entrantes (nuevos soportes de lista_N)
+      iii) elimina el resto de las OE salientes
+    """
+    salientes = sorted(
+        (o for o in actual_OE if round(o.price_open, 2) not in lista_N),
+        key=lambda o: o.price_open, reverse=True,
+    )
+    corte = math.ceil(len(salientes) * fraccion_inicial)
+    primera_tanda, segunda_tanda = salientes[:corte], salientes[corte:]
+
+    eliminadas = [round(o.price_open, 2) for o in primera_tanda if _cancelar_orden(o, valor)]
+
+    lista_OE_vigente = [round(o.price_open, 2) for o in actual_OE if o not in primera_tanda]
+    crear_ordenes_espera(lista_OA, lista_OE_vigente, lista_N, valor, L, a, lotajes, dic_bloqueados)
+
+    eliminadas += [round(o.price_open, 2) for o in segunda_tanda if _cancelar_orden(o, valor)]
+
+    if eliminadas:
+        print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(eliminadas)} hasta {max(eliminadas)}')
+
+
+def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):
+    """Caso (c): sin reemplazo (caso a) en curso, si hay más OE activas que
+    `max_ordenes` elimina las de precio más bajo (las más lejanas del precio
+    actual) hasta volver al máximo — evita que el sistema de OE crezca sin límite."""
+    exceso = len(actual_OE) - max_ordenes
+    if exceso <= 0:
+        return
+    a_podar = sorted(actual_OE, key=lambda o: o.price_open)[:exceso]
+    podadas = [round(o.price_open, 2) for o in a_podar if _cancelar_orden(o, valor)]
+    if podadas:
+        print(f'  {valor}: poda por saturación — {len(podadas)} OE eliminadas desde {min(podadas)} hasta {max(podadas)}')
 
 
 def cambiar_SL(orden, valor: str, sl: float, silent: bool = False) -> bool:
@@ -730,8 +758,15 @@ if __name__ == '__main__':
                         # Si hay un SL activo en el sistema (sl_activo_global), se saltan
                         # A/B para priorizar la revisión del trailing stop.
                         if mercado_abierto(valor) and not sl_activo_global:
-                            precio_max_saliente = limpiar_ordenes_pendientes_no_validas(valor, actual_OE, lista_N)
-                            crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados, precio_max_saliente)
+                            hay_salientes = any(round(o.price_open, 2) not in lista_N for o in actual_OE)
+                            if hay_salientes:
+                                # Caso (a): el conjunto de soportes cambió — reemplazo total
+                                reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados)
+                            else:
+                                # Caso (b): promoción normal de O0 a OE por margen
+                                crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados)
+                                # Caso (c): poda por saturación, solo sin reemplazo en curso
+                                podar_ordenes_saturacion(actual_OE, valor, N)
 
                         # C: Trailing stop en posiciones abiertas
                         trailing_stop(actual_OA, valor, A[valor], B[valor], LOTAJES, dic_seguimiento, dic_bloqueados)

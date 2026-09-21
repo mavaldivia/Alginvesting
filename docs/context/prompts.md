@@ -5,7 +5,7 @@ Con la definición específica y lo más exacta posible de estos parámetros con
 
 A, B, PERDIDA_MAX, LOTAJES_M, LAMBDA, K, N_EXP (si es que falta algún otro)
 
-[2] new_todo X1: que no se eliminen OE si no se pueden poner nuevas por mercado cerrado
+[2] [WIP] new_todo X1: que no se eliminen OE si no se pueden poner nuevas por mercado cerrado
 Hay dos tipos de eliminación / colocación de ordenes (en un activo específico)
 a. Reemplazo de todas las OEs, por nuevas O0s
 b. Una O0 pasa a OE porque el precio ha subido y tiene suficiente "margen"
