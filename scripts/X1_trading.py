@@ -396,6 +396,12 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     la orden más lejana del precio entre todos los activos y se reintenta una vez
     (`_ejecutar_con_liberacion`); los soportes bloqueados temporalmente (en
     `dic_bloqueados[valor]`) no se reintentan hasta pasado X1_RETRY_BLOQUEADOS_S.
+
+    lista_N ya viene redondeada a 2 decimales (leer_lista_N) pero X0 optimiza a
+    precisión float completa: dos soportes distintos pueden colapsar al mismo precio
+    redondeado. Se deduplica antes de iterar para no crear más de una OE por precio
+    en la misma pasada (el chequeo `Pi in lista_OAE` es un snapshot fijo tomado al
+    inicio de la función y no ve las órdenes que este mismo loop ya creó).
     """
     P0 = obtener_precio_actual(valor, modo='B')
     lista_OAE = lista_OA + lista_OE
@@ -403,7 +409,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     bloqueadas = []
     bloqueados_valor = dic_bloqueados.setdefault(valor, {})
 
-    for Pi in sorted(lista_N, reverse=True):
+    for Pi in sorted(set(lista_N), reverse=True):
         if Pi in lista_OAE:
             continue
         ts_bloqueo = bloqueados_valor.get(Pi)
@@ -510,10 +516,10 @@ def cambiar_SL(orden, valor: str, sl: float, silent: bool = False) -> bool:
 
 
 def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
-                   lotajes: dict, dic_seguimiento: dict, dic_bloqueados: dict):
+                   dic_seguimiento: dict):
     """
     Para cada posición abierta:
-    - Si no tiene SL y la ganancia >= a USD → pone el primer SL ganador y repone la orden
+    - Si no tiene SL y la ganancia >= a USD → pone el primer SL ganador
     - Si ya tiene SL y el nuevo SL calculado sube → mueve el SL al alza (trailing)
 
     b: distancia en USD que debe mantener el SL bajo el precio actual (normalizada por L).
@@ -521,6 +527,10 @@ def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
     (orden.volume / MIN_LOTAJES[valor], no el LOTAJES_M actual de config) — así la
     distancia en precio para activar/mover el trailing queda invariante al lotaje
     y solo el monto en USD que representa escala con el tamaño de esa orden específica.
+
+    No repone una OE en el mismo soporte mientras la OA siga abierta: una OE nunca
+    debe poder convertirse en OA si ya existe una OA en ese precio. `crear_ordenes_espera`
+    ya recrea la OE ahí solo (por su chequeo `Pi in lista_OAE`) apenas esta OA cierre.
     """
     if not actual_OA or not mercado_abierto(valor):
         return
@@ -540,16 +550,7 @@ def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
 
         if sl == 0:
             if ganancia >= a_efectivo:
-                sl_ok = cambiar_SL(orden, valor, sl_nuevo, silent=True)
-                # Repone la orden de compra en el mismo soporte para mantener el nivel activo
-                request = generate_request_buy_limit(
-                    valor,
-                    order_type=mt5.ORDER_TYPE_BUY_LIMIT,
-                    volumen=lotajes[valor],
-                    precio=Pi,
-                )
-                _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados)
-                cambios = sl_ok
+                cambios = cambiar_SL(orden, valor, sl_nuevo, silent=True)
         else:
             if sl_nuevo > sl:
                 if cambiar_SL(orden, valor, sl_nuevo, silent=True):
@@ -773,7 +774,7 @@ if __name__ == '__main__':
                                 podar_ordenes_saturacion(actual_OE, valor, N)
 
                         # C: Trailing stop en posiciones abiertas
-                        trailing_stop(actual_OA, valor, A[valor], B[valor], LOTAJES, dic_seguimiento, dic_bloqueados)
+                        trailing_stop(actual_OA, valor, A[valor], B[valor], dic_seguimiento)
 
                         # D: Cierre por pérdida máxima
                         controlar_perdida_max(actual_OA, valor, LOTAJES, PERDIDA_MAX[valor])

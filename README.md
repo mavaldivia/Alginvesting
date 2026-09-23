@@ -226,6 +226,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-22** — fix(x1): OE no reabre soporte con OA activa
 - **2026-09-22** — fix(x1): Falta_USD sin escalar por lotaje
 - **2026-09-22** — fix(x1): TradeOrder.volume_initial en vez de .volume
 - **2026-09-21** — feat(x0): ciclos independientes por activo
