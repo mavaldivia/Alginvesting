@@ -226,6 +226,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-22** — fix(x1): TradeOrder.volume_initial en vez de .volume
 - **2026-09-21** — feat(x0): ciclos independientes por activo
 - **2026-09-21** — feat(x1): lotaje en prints de activos
 - **2026-09-21** — feat(x1): reemplazo de OE en 3 pasos + poda por saturación

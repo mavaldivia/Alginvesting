@@ -1566,3 +1566,9 @@ Claude: restituyó el `_{N}` en el identificador de cada línea (`BTCUSD_180` en
 Claude: corrió un smoke test completo en Mac (`--opcion 1 --ciclos 1`, datos reales, 6 activos) que terminó solo en 2m36s — confirmó líneas espaciadas sin flood, formato con `_{N}` y etiquetas, y el comportamiento clave pedido: GOOGL/TSLA/NVDA/AMZN convergieron y cerraron su ciclo mientras BTCUSD/ETHUSD (datasets más grandes) seguían optimizando, sin bloquearse entre sí.
 Claude: preguntó si subir el fix con commit+push; Mauricio respondió "Esperar" — el fix queda en el working tree sin commitear.
 (Cierre: 2026-09-21 13:51)
+
+## SECCIÓN 187
+Mauricio: reportó (vía /new_todo) un error en producción en X1 — `AttributeError: 'TradeOrder' object has no attribute 'volume'` en `reemplazar_ordenes_espera`, saltando activos completos (AMZN, TSLA, NVDA) ciclo tras ciclo desde las 09:21.
+Claude: identificó que el bug venía del ítem de la sesión anterior (lotaje en prints, commit `bfb7c7b`) — `o.volume` asume objetos `TradePosition` (de `mt5.positions_get()`, tienen `.volume`), pero `reemplazar_ordenes_espera`/`podar_ordenes_saturacion`/`liberar_orden_lejana` operan sobre `TradeOrder` (de `mt5.orders_get()`, órdenes pendientes), que expone `volume_initial`/`volume_current` en vez de `.volume`. Encontró una 4ta ocurrencia latente del mismo bug en `liberar_orden_lejana` (línea 354) que no había disparado aún en producción.
+Claude: corrigió las 4 ocurrencias en `X1_trading.py` (líneas 354, 454, 459, 475) a `volume_initial`, y registró el fix en `done.md` bajo "X1 — X1_trading.py".
+(Cierre: 2026-09-22 21:06)

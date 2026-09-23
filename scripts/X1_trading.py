@@ -351,7 +351,7 @@ def liberar_orden_lejana(dic_bloqueados: dict):
     symbol = mas_lejana.symbol
     precio = round(mas_lejana.price_open, 2)
     dic_bloqueados.setdefault(symbol, {})[precio] = time.time()
-    print(f'  Límite de órdenes alcanzado: liberando {symbol} @ {precio:.2f}  lotaje={mas_lejana.volume} '
+    print(f'  Límite de órdenes alcanzado: liberando {symbol} @ {precio:.2f}  lotaje={mas_lejana.volume_initial} '
           f'(distancia {mayor_distancia:.2f} USD) para priorizar soportes cercanos')
     return symbol, precio
 
@@ -451,12 +451,12 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     corte = math.ceil(len(salientes) * fraccion_inicial)
     primera_tanda, segunda_tanda = salientes[:corte], salientes[corte:]
 
-    eliminadas = [(round(o.price_open, 2), o.volume) for o in primera_tanda if _cancelar_orden(o, valor)]
+    eliminadas = [(round(o.price_open, 2), o.volume_initial) for o in primera_tanda if _cancelar_orden(o, valor)]
 
     lista_OE_vigente = [round(o.price_open, 2) for o in actual_OE if o not in primera_tanda]
     crear_ordenes_espera(lista_OA, lista_OE_vigente, lista_N, valor, L, a, lotajes, dic_bloqueados)
 
-    eliminadas += [(round(o.price_open, 2), o.volume) for o in segunda_tanda if _cancelar_orden(o, valor)]
+    eliminadas += [(round(o.price_open, 2), o.volume_initial) for o in segunda_tanda if _cancelar_orden(o, valor)]
 
     if eliminadas:
         precios = [p for p, _ in eliminadas]
@@ -472,7 +472,7 @@ def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):
     if exceso <= 0:
         return
     a_podar = sorted(actual_OE, key=lambda o: o.price_open)[:exceso]
-    podadas = [(round(o.price_open, 2), o.volume) for o in a_podar if _cancelar_orden(o, valor)]
+    podadas = [(round(o.price_open, 2), o.volume_initial) for o in a_podar if _cancelar_orden(o, valor)]
     if podadas:
         precios = [p for p, _ in podadas]
         lotaje_total = sum(v for _, v in podadas)
