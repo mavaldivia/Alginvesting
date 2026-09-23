@@ -645,7 +645,7 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dic
         if actual_OE:
             df_a = pd.DataFrame(sorted({round(o.price_open, 2) for o in actual_OE}, reverse=True),
                                  columns=['Precio_OE'])
-            df_a['Falta_baja_USD'] = ((P0 - df_a['Precio_OE']) * L).round(2)
+            df_a['Falta_baja_USD'] = (P0 - df_a['Precio_OE']).round(2)
             df_a = df_a.sort_values('Falta_baja_USD').head(3).reset_index(drop=True)
 
         pendientes = [p for p in lista_N if round(p, 2) not in precios_declarados]
@@ -653,7 +653,7 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dic
         if pendientes:
             df_b = pd.DataFrame(pendientes, columns=['Precio_OE'])
             df_b['Precio_activacion_OE_OA'] = (df_b['Precio_OE'] + a_valor / L).round(2)
-            df_b['Falta_sube_USD'] = ((df_b['Precio_activacion_OE_OA'] - P0) * L).round(2)
+            df_b['Falta_sube_USD'] = (df_b['Precio_activacion_OE_OA'] - P0).round(2)
             df_b = df_b[df_b['Falta_sube_USD'] > 0]
             df_b = df_b.sort_values('Falta_sube_USD').head(3).reset_index(drop=True)
             df_b = df_b[['Precio_activacion_OE_OA', 'Precio_OE', 'Falta_sube_USD']]

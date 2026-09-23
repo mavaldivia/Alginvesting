@@ -1572,3 +1572,8 @@ Mauricio: reportó (vía /new_todo) un error en producción en X1 — `Attribute
 Claude: identificó que el bug venía del ítem de la sesión anterior (lotaje en prints, commit `bfb7c7b`) — `o.volume` asume objetos `TradePosition` (de `mt5.positions_get()`, tienen `.volume`), pero `reemplazar_ordenes_espera`/`podar_ordenes_saturacion`/`liberar_orden_lejana` operan sobre `TradeOrder` (de `mt5.orders_get()`, órdenes pendientes), que expone `volume_initial`/`volume_current` en vez de `.volume`. Encontró una 4ta ocurrencia latente del mismo bug en `liberar_orden_lejana` (línea 354) que no había disparado aún en producción.
 Claude: corrigió las 4 ocurrencias en `X1_trading.py` (líneas 354, 454, 459, 475) a `volume_initial`, y registró el fix en `done.md` bajo "X1 — X1_trading.py".
 (Cierre: 2026-09-22 21:06)
+
+## SECCIÓN 188
+Mauricio: vía /new_todo pidió que en los logs de X1, las columnas de USD de subida y bajada dejen de escalar por lotaje y muestren directamente la diferencia en USD del precio del activo.
+Claude: ubicó el cálculo en `informacion()` (`X1_trading.py`) — `Falta_baja_USD` y `Falta_sube_USD` se calculaban como `(P0 - Precio_OE) * L` con `L = lotajes[valor] * units[valor]`. Quitó el `* L` en ambas columnas dejando la diferencia de precio directa; `L` se mantiene donde sí corresponde (umbral `Precio_activacion_OE_OA = Precio_OE + a/L`). Registrado en `docs/tracking/done.md` sección X1.
+(Cierre: 2026-09-22 21:08)

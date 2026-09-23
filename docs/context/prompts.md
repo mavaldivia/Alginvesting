@@ -23,3 +23,5 @@ Es decir, si esa orden de compra específica se convierte en OA y luego OC, actu
 [4] Detallar como quiero los logs en X0
 
 [5] Revisar logs de x1 en usd de subida y de bajada considerando lotajes_m mayor a 1
+/new_todo X1:
+En los logs, de X1 con usd de subida y de bajada, para no tener problemas con el lotaje, mejor pon la diferencia en usd del precio del activo directamente
