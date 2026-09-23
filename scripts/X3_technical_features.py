@@ -222,7 +222,8 @@ def compute_snapshot(df_ohlcv: pd.DataFrame, soportes: list) -> dict:
     return df_feat.iloc[-1].drop('datetime').to_dict()
 
 
-def actualizar_features(valor: str, df_ohlcv: pd.DataFrame, conjunto_N: set) -> None:
+def actualizar_features(valor: str, df_ohlcv: pd.DataFrame, conjunto_N: set,
+                        verbose: bool = True, console=None) -> None:
     """
     Actualiza resources/x3/{valor}.csv con las filas nuevas de df_ohlcv.
 
@@ -231,7 +232,13 @@ def actualizar_features(valor: str, df_ohlcv: pd.DataFrame, conjunto_N: set) -> 
     valor      : ticker del activo (ej. 'BTCUSD')
     df_ohlcv   : DataFrame OHLCV H1 completo (columna DateTime + OHLC + volumen)
     conjunto_N : set de N soportes activos del activo (puede ser vacío → NaN en dist_*)
+    verbose    : si False, no imprime (X0 lo silencia tras el primer ciclo por activo —
+                 el estado de la fase se refleja en la línea en vivo del monitor).
+    console    : rich.console.Console opcional del caller (X0). Si se pasa, se imprime a
+                 través de él en vez de print() — necesario para no corromper el redraw en
+                 vivo del monitor (Live) de X0 si este módulo imprime mientras está activo.
     """
+    _imprimir = console.print if console is not None else print
     CARPETA_FEATURES.mkdir(parents=True, exist_ok=True)
     csv_path = CARPETA_FEATURES / f'{valor}.csv'
 
@@ -262,7 +269,8 @@ def actualizar_features(valor: str, df_ohlcv: pd.DataFrame, conjunto_N: set) -> 
         df_nuevas = df_feat
 
     if df_nuevas.empty:
-        print(f'  X3 {valor}: sin filas nuevas')
+        if verbose:
+            _imprimir(f'  X3 {valor}: sin filas nuevas')
         return
 
     primer_escritura = not csv_path.exists() or ultimo_t is None
@@ -272,4 +280,5 @@ def actualizar_features(valor: str, df_ohlcv: pd.DataFrame, conjunto_N: set) -> 
         header=primer_escritura,
         index=False,
     )
-    print(f'  X3 {valor}: {len(df_nuevas)} filas → {csv_path.name}')
+    if verbose:
+        _imprimir(f'  X3 {valor}: {len(df_nuevas)} filas → {csv_path.name}')

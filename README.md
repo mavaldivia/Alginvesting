@@ -83,7 +83,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Inicialización inteligente** (`_inicializar_conjunto_smart`): cold start por cuantiles de precio ordenados por `y×w`, en lugar de uniforme aleatorio.
 - **Priorización por historial** (`mejora_acumulada`): EMA de mejoras aceptadas por soporte — los más activos se evalúan primero.
 - **`DELTA_INICIAL` adaptativo**: se reduce (`* FACTOR_DELTA`) cada vez que converge, sin tocar el delta entre corridas cuando no converge.
-- **Ciclos independientes por activo**: cada activo corre su propio hilo con su propio contador de ciclo — al converger, re-descarga sus datos y arranca el siguiente ciclo de inmediato, sin esperar a los demás. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un log muestra una línea nueva por activo cada vez que cambia su estado (progreso, FO, ciclo).
+- **Ciclos independientes por activo**: cada activo corre su propio hilo con su propio contador de ciclo — al converger, re-descarga sus datos y arranca el siguiente ciclo de inmediato, sin esperar a los demás. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo con su fase actual (descarga de datos, distancias, optimizador con FO/cambios, convergencia).
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
 El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`. Si se agotan `MAX_ITERS` sin converger, no se detiene: reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos — salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`.
@@ -188,7 +188,7 @@ conda activate revenAI
 
 Requiere MetaTrader5 instalado (solo Windows) con cuenta de broker configurada.
 
-Librerías clave: `MetaTrader5`, `yfinance`, `pandas`, `numpy`, `matplotlib`, `mplfinance`
+Librerías clave: `MetaTrader5`, `yfinance`, `pandas`, `numpy`, `matplotlib`, `mplfinance`, `rich`
 
 ---
 
@@ -226,6 +226,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-22** — feat(x0): monitor en vivo con rich.Live
 - **2026-09-22** — fix(x1): OE no reabre soporte con OA activa
 - **2026-09-22** — fix(x1): Falta_USD sin escalar por lotaje
 - **2026-09-22** — fix(x1): TradeOrder.volume_initial en vez de .volume

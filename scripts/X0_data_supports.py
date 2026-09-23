@@ -43,6 +43,12 @@ import mplfinance as mpf
 import numpy as np
 import pandas as pd
 import tqdm
+try:
+    from rich.console import Console, Group
+    from rich.live import Live
+    from rich.text import Text
+except ImportError:
+    sys.exit('Falta instalar rich en revenAI: pip install rich')
 
 warnings.filterwarnings('ignore')
 
@@ -81,7 +87,7 @@ def json_act(file_path: str, variable=None, mode: str = 'open',
             os.replace(tmp_path, path)
             return None
         except Exception as e:
-            print(f'Error json_act (save, {path}): {e}')
+            console.print(f'Error json_act (save, {path}): {e}')
             raise
 
     for intento in range(intentos):
@@ -90,11 +96,11 @@ def json_act(file_path: str, variable=None, mode: str = 'open',
                 return json.load(f)
         except OSError as e:
             if intento == intentos - 1:
-                print(f'Error json_act (open, {path}): {e}')
+                console.print(f'Error json_act (open, {path}): {e}')
                 raise
             time.sleep(espera)
         except Exception as e:
-            print(f'Error json_act (open, {path}): {e}')
+            console.print(f'Error json_act (open, {path}): {e}')
             raise
 
 
@@ -106,9 +112,18 @@ def notacion_cientifica(numero: float, decimales: int = 2) -> str:
     return f'{base:.{decimales}f} x E{exp}'
 
 
+# Console único del proceso principal: todo print concurrente con el Live del monitor
+# (_ciclo_activo x N activos, _x2_watchdog, _log_error) debe salir por acá — es lo que le
+# permite a rich.Live pausar el redraw, imprimir la línea "normal" en el scroll de arriba,
+# y redibujar el bloque en vivo debajo sin corromperlo. Un print() suelto (o un segundo
+# Console) escribe ANSI sin coordinar con el Live y revive el desync de _monitor_tabla
+# (ver docs/context/decisiones.md, 2026-09-21).
+console = Console()
+
 # Compartido por todos los hilos del proceso principal (_ciclo_activo x N activos,
-# _monitor_log, _x2_watchdog) para que sus print() de varias líneas salgan completos y
-# nunca se intercalen entre sí.
+# _x2_watchdog) para que los print() de varias líneas salgan completos y nunca se
+# intercalen entre sí — Console.print ya es thread-safe por su cuenta, pero varias
+# llamadas separadas (ej. banner + detalle) igual pueden alternarse entre hilos sin este lock.
 _stdout_lock = threading.Lock()
 
 
@@ -124,7 +139,7 @@ def _log_error(carpeta_logs: Path, contexto: str, exc: Exception) -> None:
     ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     tb = traceback.format_exc()
     with _stdout_lock:
-        print(f'\n[{ts}] {contexto}: {exc}\n{tb}')
+        console.print(Text(f'\n[{ts}] {contexto}: {exc}\n{tb}', style='bold red'))
     with open(carpeta_logs / 'errores.log', 'a') as f:
         f.write(f'\n[{ts}] {contexto}: {exc}\n{tb}')
 
@@ -734,14 +749,14 @@ def obtener_ordenes_activas_mt5(valores: list) -> dict:
     try:
         import MetaTrader5 as mt5
         if not mt5.initialize():
-            print('MT5 no disponible — ordenes_activas vacías para todos los activos')
+            console.print('MT5 no disponible — ordenes_activas vacías para todos los activos')
             return {v: [] for v in valores}
         result = {}
         for valor in valores:
             positions = mt5.positions_get(symbol=valor) or []
             result[valor] = [p.price_open for p in positions]
             if result[valor]:
-                print(f'  {valor}: {len(result[valor])} posición(es) activa(s) → fija(s) en optimizador')
+                console.print(f'  {valor}: {len(result[valor])} posición(es) activa(s) → fija(s) en optimizador')
         mt5.shutdown()
         return result
     except ImportError:
@@ -784,26 +799,29 @@ def _mergear_con_historico(df: pd.DataFrame, csv_path: Path) -> pd.DataFrame:
     return df
 
 
-def descargar_datos(valores: list, carpeta_data: Path):
+def descargar_datos(valores: list, carpeta_data: Path, verbose: bool = True):
     import MetaTrader5 as mt5
 
     if not mt5.initialize():
         raise RuntimeError(f'MT5 initialize() falló: {mt5.last_error()}')
 
     for valor in valores:
-        print(f'\nDescargando {valor}...')
+        if verbose:
+            console.print(f'\nDescargando {valor}...')
         mt5.symbol_select(valor, True)
         rates = mt5.copy_rates_from_pos(valor, mt5.TIMEFRAME_H1, 0, 1000)
 
         if rates is None:
-            print(f'  Sin datos para {valor}, skip')
+            if verbose:
+                console.print(f'  Sin datos para {valor}, skip')
             continue
 
         df = pd.DataFrame(rates)
         try:
             df['time'] = pd.to_datetime(df['time'], unit='s')
         except Exception as e:
-            print(f'  Error al convertir tiempo para {valor}: {e}')
+            if verbose:
+                console.print(f'  Error al convertir tiempo para {valor}: {e}')
             continue
 
         df.columns = ['DateTime', 'Open', 'High', 'Low', 'Close', 'Tick_Volume', 'Spread', 'Real_Volume']
@@ -812,7 +830,8 @@ def descargar_datos(valores: list, carpeta_data: Path):
         csv_path = carpeta_data / f'{valor}.csv'
         data = _mergear_con_historico(df, csv_path)
         _guardar_csv_atomico(data, csv_path)
-        print(f'  Guardado: {csv_path.name} ({len(data)} velas, último: {df["DateTime"].iloc[-1]})')
+        if verbose:
+            console.print(f'  Guardado: {csv_path.name} ({len(data)} velas, último: {df["DateTime"].iloc[-1]})')
 
     mt5.shutdown()
 
@@ -858,7 +877,7 @@ def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.
         fecha_desde = fecha_desde.replace(tzinfo=datetime.timezone.utc)
     fecha_hasta = datetime.datetime.now(datetime.timezone.utc)
     for valor in valores:
-        print(f'\nBackfill {valor} desde {fecha_desde.date()}...')
+        console.print(f'\nBackfill {valor} desde {fecha_desde.date()}...')
         mt5.symbol_select(valor, True)
 
         # copy_rates_range devuelve None (sin excepción) cuando el terminal todavía no
@@ -872,15 +891,15 @@ def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.
             if rates is not None and len(rates) > 0:
                 break
             if intento < intentos_backfill - 1:
-                print(f'  Sin datos aún (intento {intento + 1}/{intentos_backfill}, '
-                      f'last_error={mt5.last_error()}), esperando descarga del broker...')
+                console.print(f'  Sin datos aún (intento {intento + 1}/{intentos_backfill}, '
+                              f'last_error={mt5.last_error()}), esperando descarga del broker...')
                 time.sleep(3)
 
         if rates is None or len(rates) == 0:
-            print(f'  Sin datos para {valor} tras {intentos_backfill} intentos '
-                  f'(last_error={mt5.last_error()}) — probablemente el terminal no tiene '
-                  f'esa historia cacheada. Abre el gráfico H1 de {valor} en MT5 y haz scroll '
-                  f'hasta {fecha_desde.date()} para forzar la descarga, luego reintenta.')
+            console.print(f'  Sin datos para {valor} tras {intentos_backfill} intentos '
+                          f'(last_error={mt5.last_error()}) — probablemente el terminal no tiene '
+                          f'esa historia cacheada. Abre el gráfico H1 de {valor} en MT5 y haz scroll '
+                          f'hasta {fecha_desde.date()} para forzar la descarga, luego reintenta.')
             continue
 
         df = pd.DataFrame(rates)
@@ -890,32 +909,35 @@ def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.
         csv_path = carpeta_data / f'{valor}.csv'
         data = _mergear_con_historico(df, csv_path)
         _guardar_csv_atomico(data, csv_path)
-        print(f'  Guardado: {csv_path.name} ({len(data)} velas totales, {len(df)} traídas del broker, '
-              f'rango {data["DateTime"].min()} → {data["DateTime"].max()})')
+        console.print(f'  Guardado: {csv_path.name} ({len(data)} velas totales, {len(df)} traídas del broker, '
+                      f'rango {data["DateTime"].min()} → {data["DateTime"].max()})')
 
     mt5.shutdown()
 
 
-def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path):
+def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path, verbose: bool = True):
     import MetaTrader5 as mt5
 
     if not mt5.initialize():
         raise RuntimeError(f'MT5 initialize() falló: {mt5.last_error()}')
 
     for valor in valores:
-        print(f'\nDescargando M1 {valor}...')
+        if verbose:
+            console.print(f'\nDescargando M1 {valor}...')
         mt5.symbol_select(valor, True)
         rates = mt5.copy_rates_from_pos(valor, mt5.TIMEFRAME_M1, 0, 1000)
 
         if rates is None:
-            print(f'  Sin datos para {valor}, skip')
+            if verbose:
+                console.print(f'  Sin datos para {valor}, skip')
             continue
 
         df = pd.DataFrame(rates)
         try:
             df['time'] = pd.to_datetime(df['time'], unit='s')
         except Exception as e:
-            print(f'  Error al convertir tiempo para {valor}: {e}')
+            if verbose:
+                console.print(f'  Error al convertir tiempo para {valor}: {e}')
             continue
 
         df.columns = ['DateTime', 'Open', 'High', 'Low', 'Close', 'Tick_Volume', 'Spread', 'Real_Volume']
@@ -923,7 +945,8 @@ def descargar_datos_minuto(valores: list, carpeta_data_minuto: Path):
         csv_path = carpeta_data_minuto / f'{valor}.csv'
         data = _mergear_con_historico(df, csv_path)
         _guardar_csv_atomico(data, csv_path)
-        print(f'  Guardado: {csv_path.name} ({len(data)} velas M1, último: {df["DateTime"].iloc[-1]})')
+        if verbose:
+            console.print(f'  Guardado: {csv_path.name} ({len(data)} velas M1, último: {df["DateTime"].iloc[-1]})')
 
     mt5.shutdown()
 
@@ -1256,7 +1279,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
               f'({mins}m {segs:.1f}s | iters={len(df_FO)} | convergio={convergio})')
 
     if estado_compartido is not None:
-        estado_compartido[llave] = (cambios_netos, -1, FO_final, f'listo {round(duracion)}s')
+        estado_compartido[llave] = (cambios_netos, -1, FO_final, 'convergencia')
 
     return {
         'valor': valor, 'N': N,
@@ -1269,50 +1292,101 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     }
 
 
-def _x2_watchdog(stop_event, intervalo_seg: int = 3600):
+# Mapeo estado_str → texto de fase mostrado en la línea en vivo de cada combo. Los estados
+# no listados acá (ej. 'corriendo', 'ERROR: ...') tienen formato especial en _texto_linea_combo;
+# cualquier estado nuevo no mapeado cae al fallback (se muestra tal cual, ver abajo).
+_FASES = {
+    'esperando': 'Esperando',
+    'preparando': 'Preparando',
+    'iniciando': 'Iniciando optimizador',
+    'sin CSV': 'Sin CSV',
+    'sin datos': 'Sin datos',
+    'rango degenerado': 'Rango de precio degenerado',
+    'actualizando data (hora)': 'Actualizando data por hora',
+    'actualizando data (minuto)': 'Actualizando data por minuto',
+    'actualizando X3': 'Actualizando X3',
+    'calc. distancias': 'Calculando distancias',
+    'convergencia': 'Convergencia',
+}
+
+
+def _texto_linea_combo(v: str, n: int, ciclo: int, cambios: int, iters: int, FO, estado_str: str) -> Text:
+    prefijo = f'[Ciclo {ciclo}] {v}_{n}: '
+    if estado_str == 'corriendo':
+        fo_str = f'{FO:.3e}' if FO is not None else '---'
+        return Text(f'{prefijo}cambios={cambios} pasos_max={iters} FO={fo_str} [corriendo]')
+    if estado_str.startswith('ERROR'):
+        return Text(prefijo + estado_str, style='bold red')
+    return Text(prefijo + _FASES.get(estado_str, estado_str))
+
+
+def _texto_linea_x2(x2_estado: dict) -> Text:
+    """X2 corre desacoplado del ciclo de cada activo (scoring cross-sectional sobre todo
+    VALORES, ver _x2_watchdog) — no tiene sentido matemático re-correrlo por activo, así
+    que su estado se muestra en una línea global propia en vez de dentro de cada combo."""
+    texto = x2_estado.get('texto', 'esperando')
+    if texto == 'actualizando':
+        return Text('X2 (global): actualizando datos fundamentales...', style='dim')
+    if texto == 'ERROR':
+        return Text('X2 (global): ERROR en última corrida (ver errores.log)', style='bold red')
+    ultima_ok = x2_estado.get('ultima_ok')
+    if ultima_ok is None:
+        return Text('X2 (global): esperando primera corrida', style='dim')
+    mins = int((time.time() - ultima_ok) // 60)
+    return Text(f'X2 (global): OK — última corrida hace {mins}min', style='dim')
+
+
+def _construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado: dict, combos: list) -> Group:
+    lineas = []
+    for v, n in combos:
+        llave = f'{v}_{n}'
+        cambios, iters, FO, estado_str = estado_compartido.get(llave, (0, 0, None, 'esperando'))
+        ciclo = ciclos_estado.get(v, 0)
+        lineas.append(_texto_linea_combo(v, n, ciclo, cambios, iters, FO, estado_str))
+    lineas.append(_texto_linea_x2(x2_estado))
+    return Group(*lineas)
+
+
+def _x2_watchdog(x2_estado: dict, stop_event, intervalo_seg: int = 3600):
     """X2 corre desacoplado del ciclo de cada activo: el scoring normaliza cada activo
     contra el mínimo/máximo del universo completo (VALORES), así que no existe una versión
     'solo para un activo'. Ya trae guard de un día (_ya_ejecutado_hoy), así que reintentar
-    cada intervalo es barato — la mayoría de las llamadas son no-op."""
+    cada intervalo es barato — la mayoría de las llamadas son no-op.
+
+    Corre con stdout/stderr capturados (no heredados): un subprocess escribiendo directo a
+    la consola no está coordinado con el Console del Live (son procesos de SO distintos, no
+    hilos) y corrompería el redraw igual que el problema que este mismo cambio busca evitar.
+    El output capturado se imprime de una sola vez, a través del Console compartido, al terminar.
+    """
     x2_script = Path(__file__).parent / 'X2_fundamentals.py'
     while not stop_event.is_set():
-        with _stdout_lock:
-            print('\n── X2: Datos fundamentales (global) ────────────────────')
+        x2_estado['texto'] = 'actualizando'
         try:
-            subprocess.run([sys.executable, str(x2_script)], check=False)
+            result = subprocess.run([sys.executable, str(x2_script)], check=False,
+                                    capture_output=True, text=True)
+            salida = ((result.stdout or '') + (result.stderr or '')).rstrip()
+            with _stdout_lock:
+                console.print('\n── X2: Datos fundamentales (global) ────────────────────')
+                if salida:
+                    console.print(salida)
+            x2_estado['texto'] = 'ok'
+            x2_estado['ultima_ok'] = time.time()
         except Exception as e:
+            x2_estado['texto'] = 'ERROR'
             _log_error(CARPETA_LOGS, 'X2 falló (subprocess), continuando', e)
         stop_event.wait(intervalo_seg)
 
 
-def _monitor_log(estado_compartido, ciclos_estado, combos: list, stop_event,
-                  intervalo_seg: float = 15.0):
-    """Imprime una línea nueva por combo (valor, N) cada vez que su estado cambia — nunca
-    sobrescribe. A diferencia del redraw multi-línea con cursor-up (abandonado porque se
-    desincroniza en Windows si algo más escribe a stdout de por medio, ver histórico de
-    _monitor_tabla), un log que solo agrega líneas no tiene nada que desalinear: cada activo
-    progresa a su propio ciclo/ritmo y puede imprimir en cualquier momento sin pisar a los demás.
-
-    intervalo_seg controla cada cuánto se toma una foto del estado, no cada cuánto cambia:
-    en cold start (ciclo 0, sin warm start) el optimizador acepta muchos cambios por segundo,
-    así que muestrear cada 1s imprimía una línea nueva por activo casi todos los segundos. Un
-    intervalo más espaciado da una línea de estado ocasional por activo en vez de un chorro.
-    """
-    ultimo = {}
+def _live_monitor(live: Live, estado_compartido, ciclos_estado, x2_estado: dict, combos: list,
+                  stop_event, intervalo_seg: float = 1.0):
+    """Redibuja el bloque de líneas en vivo (una por combo + una de X2 global) cada
+    intervalo_seg. Reemplaza al _monitor_log anterior (que imprimía una línea nueva por
+    cada cambio de estado, sin sobrescribir nunca — ver histórico en decisiones.md). Acá el
+    redraw lo coordina rich.Live: cualquier console.print() concurrente se intercala arriba
+    del bloque sin corromperlo, en vez de desincronizar el cursor a mano como en los intentos
+    previos (_monitor_tabla)."""
     while not stop_event.is_set():
-        for v, n in combos:
-            llave = f'{v}_{n}'
-            cambios, iters, FO, estado_str = estado_compartido.get(llave, (0, 0, None, 'esperando'))
-            ciclo = ciclos_estado.get(v, 0)
-            actual = (ciclo, cambios, iters, estado_str)
-            if ultimo.get(llave) == actual:
-                continue
-            ultimo[llave] = actual
-            fo_str = f'{FO:.3e}' if FO is not None else '---'
-            iter_str = str(iters) if iters >= 0 else 'conv.'
-            with _stdout_lock:
-                print(f'{v}_{n} [c{ciclo}] cambios={cambios} pasos_max={iter_str} '
-                      f'FO={fo_str} [{estado_str}]')
+        live.update(_construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado, combos))
         stop_event.wait(intervalo_seg)
 
 
@@ -1325,7 +1399,7 @@ def _info_previa_combo(v: str, n: int, carpeta_data: Path, carpeta_n_prod: Path)
     if not csv_path.exists():
         lineas_out.append(f'  CSV no encontrado: {csv_path}')
         with _stdout_lock:
-            print('\n'.join(lineas_out))
+            console.print('\n'.join(lineas_out))
         return
     df_info = pd.read_csv(csv_path, usecols=['DateTime', 'Close'])
     df_info['DateTime'] = pd.to_datetime(df_info['DateTime'])
@@ -1357,7 +1431,7 @@ def _info_previa_combo(v: str, n: int, carpeta_data: Path, carpeta_n_prod: Path)
         if lineas:
             lineas_out.append(f'  FO warm start (última corrida): {notacion_cientifica(json.loads(lineas[-1])["FO_final"])}')
     with _stdout_lock:
-        print('\n'.join(lineas_out))
+        console.print('\n'.join(lineas_out))
 
 
 def _resumen_combo(v: str, n: int, res: dict):
@@ -1369,8 +1443,8 @@ def _resumen_combo(v: str, n: int, res: dict):
     ws = (f'warm start {res["warm_start_n"]} @ t*={res["warm_start_t"]}'
           if res['warm_start_n'] else 'sin solución previa')
     with _stdout_lock:
-        print(f'  {v} N={n}: {tiempo_str} | {conv_str} | '
-              f'precios {res["t0"]} → {res["tf"]} ({res["n_velas"]} velas) | {ws}')
+        console.print(f'  {v} N={n}: {tiempo_str} | {conv_str} | '
+                      f'precios {res["t0"]} → {res["tf"]} ({res["n_velas"]} velas) | {ws}')
 
 
 def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_minuto: Path,
@@ -1382,17 +1456,26 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
     serializan con mt5_lock (la API no es thread-safe para llamadas concurrentes); el cómputo
     pesado del optimizador sigue corriendo en paralelo real vía el ProcessPoolExecutor
     compartido entre los 6 hilos de activo.
+
+    Solo el primer ciclo (ciclo 0) imprime el diagnóstico completo (banner, descargas,
+    _info_previa_combo, _resumen_combo) — de ahí en más cada fase (descarga hora/minuto,
+    X3, distancias, optimizador, convergencia) se refleja únicamente en la línea en vivo
+    del monitor vía estado_compartido, sin generar líneas nuevas en pantalla.
     """
     ciclo = 0
     while not stop_event.is_set():
         ciclos_estado[valor] = ciclo
-        with _stdout_lock:
-            print(f'\n── {valor}: ciclo {ciclo} ──')
+        es_primer_ciclo = (ciclo == 0)
+        if es_primer_ciclo:
+            with _stdout_lock:
+                console.print(f'\n── {valor}: ciclo {ciclo} ──')
         try:
             if opcion in (0, 2):
+                for n in n_list:
+                    estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando data (hora)')
                 with mt5_lock:
                     try:
-                        descargar_datos([valor], carpeta_data)
+                        descargar_datos([valor], carpeta_data, verbose=es_primer_ciclo)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'Descarga H1 falló para {valor}, continuando', e)
                     if valor in ('BTCUSD', 'ETHUSD'):
@@ -1400,25 +1483,30 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                             fecha_inicial_dt = datetime.datetime.strptime(FECHA_INICIAL, '%Y-%m-%d')
                             gap = detectar_gap_bt_eth(carpeta_data, fecha_inicial_dt)
                             if gap is not None:
-                                print(f'\n⚠ Vacío detectado en BTC/ETH desde {gap} — '
-                                      f'backfill automático para todos los activos')
+                                console.print(f'\n⚠ Vacío detectado en BTC/ETH desde {gap} — '
+                                              f'backfill automático para todos los activos')
                                 backfill_historico(VALORES, carpeta_data, gap)
                         except Exception as e:
                             _log_error(CARPETA_LOGS, 'Detección/backfill de vacíos falló, continuando', e)
+                    for n in n_list:
+                        estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando data (minuto)')
                     try:
-                        descargar_datos_minuto([valor], carpeta_data_minuto)
+                        descargar_datos_minuto([valor], carpeta_data_minuto, verbose=es_primer_ciclo)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'Descarga M1 falló para {valor}, continuando', e)
 
                 csv_h1 = carpeta_data / f'{valor}.csv'
                 if csv_h1.exists():
                     try:
+                        for n in n_list:
+                            estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando X3')
                         df_v = pd.read_csv(csv_h1)
                         n_prod = n_sizes_ejecucion.get(valor, 120)
                         json_path = carpeta_n_prod / f'{valor}_{n_prod}.json'
                         conjunto_n_v = (set(json.load(open(json_path)))
                                         if json_path.exists() else set())
-                        _x3_actualizar_features(valor, df_v, conjunto_n_v)
+                        _x3_actualizar_features(valor, df_v, conjunto_n_v, verbose=es_primer_ciclo,
+                                                console=console)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'X3 falló para {valor}, continuando', e)
 
@@ -1427,13 +1515,14 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     ordenes_activas = obtener_ordenes_activas_mt5([valor]).get(valor, [])
                 for n in n_list:
                     llave = f'{valor}_{n}'
-                    _info_previa_combo(valor, n, carpeta_data, carpeta_n_prod)
+                    if es_primer_ciclo:
+                        _info_previa_combo(valor, n, carpeta_data, carpeta_n_prod)
                     estado_compartido[llave] = (0, 0, None, 'esperando')
                     future = executor.submit(_procesar_valor_N, valor, n, carpeta_data, carpeta_n_prod,
                                               None, ordenes_activas, None, estado_compartido, False)
                     try:
                         res = future.result()
-                        if res is not None:
+                        if res is not None and es_primer_ciclo:
                             _resumen_combo(valor, n, res)
                     except Exception as exc:
                         prev = estado_compartido.get(llave, (0, 0, None, 'ERROR'))
@@ -1498,12 +1587,13 @@ if __name__ == '__main__':
         m, seg = divmod(rem, 60)
         return f'{h:02d}:{m:02d}:{seg:02d}'
 
-    print(f'\nLAMBDA = {LAMBDA} ({notacion_cientifica(LAMBDA)})')
+    console.print(f'\nLAMBDA = {LAMBDA} ({notacion_cientifica(LAMBDA)})')
 
     if reiniciar_x0:
         _reset_x0_state()
 
     combos = [(v, n) for v in VALORES for n in n_sizes.get(v, [])]
+    x2_estado = {'texto': 'esperando', 'ultima_ok': None}
 
     try:
         with multiprocessing.Manager() as manager:
@@ -1512,32 +1602,41 @@ if __name__ == '__main__':
             stop_event = threading.Event()
             mt5_lock = threading.Lock()
 
-            threading.Thread(target=_x2_watchdog, args=(stop_event,), daemon=True).start()
-            threading.Thread(target=_monitor_log, args=(estado_compartido, ciclos_estado, combos, stop_event),
-                              daemon=True).start()
+            # auto_refresh=False: el redraw lo dispara _live_monitor a su propio ritmo
+            # (live.update(..., refresh=True)), no el timer interno de Live — un solo
+            # reloj conduciendo el redraw, más predecible que dos corriendo en paralelo.
+            # redirect_stdout/redirect_stderr=True (default) es la red de seguridad: cualquier
+            # print() suelto que se nos haya escapado (o de una librería de terceros, ej. MT5)
+            # también queda coordinado con el redraw en vez de corromperlo.
+            tabla_inicial = _construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado, combos)
+            with Live(tabla_inicial, console=console, auto_refresh=False) as live:
+                threading.Thread(target=_x2_watchdog, args=(x2_estado, stop_event), daemon=True).start()
+                threading.Thread(target=_live_monitor,
+                                  args=(live, estado_compartido, ciclos_estado, x2_estado, combos, stop_event),
+                                  daemon=True).start()
 
-            # N_MAX_MODELS acá limita cuántos combos corren a la vez en el pool compartido
-            # (antes limitaba cuántos se seleccionaban por ciclo global; ese concepto ya no
-            # existe con ciclos independientes por activo).
-            with concurrent.futures.ProcessPoolExecutor(max_workers=N_MAX_MODELS or None) as executor:
-                hilos = []
-                for valor in VALORES:
-                    t = threading.Thread(
-                        target=_ciclo_activo,
-                        args=(valor, n_sizes.get(valor, []), CARPETA_DATA, CARPETA_DATA_MINUTO,
-                              CARPETA_N_PROD, executor, estado_compartido, ciclos_estado,
-                              mt5_lock, stop_event, args.opcion, args.ciclos),
-                        daemon=True,
-                    )
-                    t.start()
-                    hilos.append(t)
-                for t in hilos:
-                    t.join()
+                # N_MAX_MODELS acá limita cuántos combos corren a la vez en el pool compartido
+                # (antes limitaba cuántos se seleccionaban por ciclo global; ese concepto ya no
+                # existe con ciclos independientes por activo).
+                with concurrent.futures.ProcessPoolExecutor(max_workers=N_MAX_MODELS or None) as executor:
+                    hilos = []
+                    for valor in VALORES:
+                        t = threading.Thread(
+                            target=_ciclo_activo,
+                            args=(valor, n_sizes.get(valor, []), CARPETA_DATA, CARPETA_DATA_MINUTO,
+                                  CARPETA_N_PROD, executor, estado_compartido, ciclos_estado,
+                                  mt5_lock, stop_event, args.opcion, args.ciclos),
+                            daemon=True,
+                        )
+                        t.start()
+                        hilos.append(t)
+                    for t in hilos:
+                        t.join()
 
-            stop_event.set()
+                stop_event.set()
 
     except KeyboardInterrupt:
         stop_event.set()
-        print('\nDetenido por el usuario.')
+        console.print('\nDetenido por el usuario.')
     finally:
-        print(f'Tiempo total: {_fmt_duracion(time.time() - t_inicio_script)}')
+        console.print(f'Tiempo total: {_fmt_duracion(time.time() - t_inicio_script)}')
