@@ -1595,3 +1595,8 @@ Claude: implementó el monitor con `rich.live.Live`/`rich.console.Console` compa
 Mauricio: pidió agregar un `sys.exit` con mensaje claro ("instalar rich en revenAI") si `rich` no está instalado al ejecutar, en vez de dejar que reviente con un traceback de `ModuleNotFoundError`.
 Claude: envolvió los imports de `rich` en `X0_data_supports.py` en `try/except ImportError` → `sys.exit('Falta instalar rich en revenAI: pip install rich')`. Verificó que el archivo compila y que el patrón corta con exit code 1 y el mensaje esperado.
 (Cierre: 2026-09-22 22:29)
+
+## SECCIÓN 191
+Mauricio: pidió (vía `/new_todo`) reemplazar `scripts/X0_data_supports.py` por la nueva versión que dejó en `scripts/X0_data_supports_nueva_version.py`, registrando antes los cambios entre ambas.
+Claude: el diff crudo mostraba el archivo completo como distinto; detectó que era por line endings (la nueva versión traía CRLF mixto, el resto del repo usa LF puro). Normalizó a LF y confirmó diff real acotado (53 líneas): nueva fase de monitor `'enviando al pool'` → `'en cola (Ns)'` mientras el future del `ProcessPoolExecutor` no arranca `_procesar_valor_N`, loop con `future.result(timeout=10)` en vez de bloqueante (avisa por consola si la cola supera 60s), y `live.update(..., refresh=True)`. Sobrescribió `X0_data_supports.py` con la versión normalizada, eliminó el archivo temporal, y registró el cambio en `done.md` (sección X0).
+(Cierre: 2026-09-23 21:39)

@@ -226,6 +226,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-23** — fix(x0): visibilidad de cola en monitor rich.Live
 - **2026-09-22** — feat(x0): monitor en vivo con rich.Live
 - **2026-09-22** — fix(x1): OE no reabre soporte con OA activa
 - **2026-09-22** — fix(x1): Falta_USD sin escalar por lotaje

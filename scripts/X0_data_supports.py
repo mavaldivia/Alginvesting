@@ -1297,6 +1297,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
 # cualquier estado nuevo no mapeado cae al fallback (se muestra tal cual, ver abajo).
 _FASES = {
     'esperando': 'Esperando',
+    'enviando al pool': 'Enviando al pool de procesos',
     'preparando': 'Preparando',
     'iniciando': 'Iniciando optimizador',
     'sin CSV': 'Sin CSV',
@@ -1386,7 +1387,8 @@ def _live_monitor(live: Live, estado_compartido, ciclos_estado, x2_estado: dict,
     del bloque sin corromperlo, en vez de desincronizar el cursor a mano como en los intentos
     previos (_monitor_tabla)."""
     while not stop_event.is_set():
-        live.update(_construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado, combos))
+        live.update(_construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado, combos),
+                    refresh=True)
         stop_event.wait(intervalo_seg)
 
 
@@ -1517,11 +1519,30 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     llave = f'{valor}_{n}'
                     if es_primer_ciclo:
                         _info_previa_combo(valor, n, carpeta_data, carpeta_n_prod)
-                    estado_compartido[llave] = (0, 0, None, 'esperando')
+                    estado_compartido[llave] = (0, 0, None, 'enviando al pool')
                     future = executor.submit(_procesar_valor_N, valor, n, carpeta_data, carpeta_n_prod,
                                               None, ordenes_activas, None, estado_compartido, False)
+                    # El worker puede arrancar antes de que submit retorne; no pisar su estado.
+                    if estado_compartido.get(llave, (None, None, None, ''))[3] == 'enviando al pool':
+                        estado_compartido[llave] = (0, 0, None, 'en cola (0s)')
+                    t_cola = time.monotonic()
+                    aviso_cola = False
                     try:
-                        res = future.result()
+                        while True:
+                            try:
+                                res = future.result(timeout=10)
+                                break
+                            except concurrent.futures.TimeoutError:
+                                anterior = estado_compartido.get(llave, (0, 0, None, ''))
+                                if anterior[3].startswith('en cola'):
+                                    espera = int(time.monotonic() - t_cola)
+                                    estado_compartido[llave] = (0, 0, None, f'en cola ({espera}s)')
+                                    if espera >= 60 and not aviso_cola:
+                                        aviso_cola = True
+                                        with _stdout_lock:
+                                            console.print(f'  {llave}: {espera}s en cola; el worker aún no entró '
+                                                          'a _procesar_valor_N. Revisar arranque del pool, '
+                                                          'memoria y N_MAX_MODELS.')
                         if res is not None and es_primer_ciclo:
                             _resumen_combo(valor, n, res)
                     except Exception as exc:
