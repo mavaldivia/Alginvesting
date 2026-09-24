@@ -740,7 +740,14 @@ if __name__ == '__main__':
                 # abierto, este ciclo se saltan A) limpiar OE y B) crear buy limits en
                 # TODOS los activos para acelerar la revisión del trailing stop, hasta
                 # que esa posición cierre.
-                posiciones_todas = mt5.positions_get() or []
+                posiciones_todas = mt5.positions_get()
+                if posiciones_todas is None:
+                    _print_throttled('MT5', 'conexion_perdida',
+                                      f'  [X1] Conexión con MT5 perdida: {mt5.last_error()} — reintentando inicialización')
+                    mt5.initialize()
+                    i += 1
+                    time.sleep(TS)
+                    continue
                 sl_activo_global = any(p.sl != 0 and mercado_abierto(p.symbol) for p in posiciones_todas)
                 if sl_activo_global != sl_activo_global_prev:
                     if sl_activo_global:
