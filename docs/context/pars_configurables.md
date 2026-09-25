@@ -8,10 +8,10 @@ Definición de los parámetros de `scripts/config.py` que X5 explora/optimiza po
 
 ### A — margen de activación (USD)
 
-Cumple dos roles en `X1_trading.py`, ambos como umbral de distancia en dólares:
+Cumple dos roles en `X1_trading.py`, ambos como umbral de distancia en dólares, pero con distinta base de escalado:
 
-1. **Filtro de creación de Órdenes en Espera (OE)** — en `crear_ordenes_espera` (`X1_trading.py:395-428`): un soporte solo recibe un buy limit si `(P0 - Pi) * L >= A`, donde `P0` es el precio actual, `Pi` el precio del soporte y `L = LOTAJES[valor] * UNITS[valor]` la exposición en USD por unidad de precio.
-2. **Ganancia mínima para activar el primer Stop Loss (SL) ganador** — en `trailing_stop` (`X1_trading.py:480-529`): mientras la posición no tiene SL, se le pone el primero cuando `ganancia = (P0 - Pi) * L >= A`.
+1. **Filtro de creación de Órdenes en Espera (OE)** — en `crear_ordenes_espera` (`X1_trading.py:388-436`): un soporte solo recibe un buy limit si `(P0 - Pi) * L >= A`, donde `P0` es el precio actual, `Pi` el precio del soporte y `L = MIN_LOTAJES[valor] * UNITS[valor]` — el lotaje **mínimo** del activo, no el configurado (`LOTAJES[valor]`). Decisión 2026-09-25 (`docs/context/decisiones.md`): antes usaba `LOTAJES[valor] * UNITS[valor]`, así que subir `LOTAJES_M` relajaba el gap de activación sin motivo — el gap para declarar una OE es una propiedad del activo, no del tamaño de la posición que se abriría ahí.
+2. **Ganancia mínima para activar el primer Stop Loss (SL) ganador** — en `trailing_stop` (`X1_trading.py:518-566`): mientras la posición no tiene SL, se le pone el primero cuando `ganancia = (P0 - Pi) * L >= A`, con `L = orden.volume * UNITS[valor]` — el lotaje **real** de esa posición específica (sin cambios, ver ítem "Fix: A/B/PERDIDA_MAX no escalaban con el lotaje real" en `docs/tracking/done.md`).
 
 - **Ubicación**: `config.py:171-178`
 - **Valor actual**: `3` (USD) para todos los activos
@@ -43,12 +43,12 @@ En `controlar_perdida_max` (`X1_trading.py:556-565`): si `perdida = (Pi - P0) * 
 
 ### LOTAJES_M — multiplicador de lote
 
-Multiplicador aplicado al lote mínimo del broker: `LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]` (`config.py:216-226`). `LOTAJES_M` es el único de estos parámetros que actualmente **no varía** — está fijo en `1` para todos los activos y su rango de exploración en X5 es degenerado (`(1, 1)`), porque X5 siempre opera a lotaje mínimo por diseño.
+Multiplicador aplicado al lote mínimo del broker: `LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]` (`config.py:226-233`). En producción no varía entre activos (mismo valor para los 6), pero no está "fijo" en el sentido de X5: `X5_PARAM_RANGES['LOTAJES_M']` sí es degenerado (`(1, 1)`, `config.py:327`) porque X5 siempre opera a lotaje mínimo por diseño — son dos cosas distintas que comparten nombre, no confundir una con otra.
 
-- **Ubicación**: `config.py:216-223`
-- **Valor actual**: `1` para todos los activos
-- **Rango de exploración X5**: `(1, 1)` — fijo, no se explora (`config.py:327`, comentario explícito: "X5 siempre opera a lotaje mínimo")
-- **↑ LOTAJES_M** (si se habilitara): mayor exposición en USD por posición (`L = LOTAJES[valor] * UNITS[valor]` crece) — amplifica tanto ganancias como pérdidas de cada trade, y con ello el efecto de `A`, `B` y `PERDIDA_MAX` (todos dependen de `L`).
+- **Ubicación**: `config.py:226-233` (`MIN_LOTAJES` en `config.py:216-223`)
+- **Valor actual**: `2` para todos los activos (producción, `config.py`)
+- **Rango de exploración X5**: `(1, 1)` — fijo, no se explora (`config.py:327`, comentario explícito: "X5 siempre opera a lotaje mínimo"); no refleja el valor de producción.
+- **↑ LOTAJES_M**: mayor exposición en USD por posición (`L = LOTAJES[valor] * UNITS[valor]` crece) — amplifica ganancias y pérdidas de cada trade, y con ello el efecto de `B`, `PERDIDA_MAX` y el umbral de primer SL de `A` en `trailing_stop` (los tres escalan por el lotaje **real** de cada OA, `orden.volume`, que refleja el `LOTAJES_M` vigente al abrirse esa posición). El filtro de creación de OE (el otro uso de `A`, en `crear_ordenes_espera`) es independiente de `LOTAJES_M` desde el 2026-09-25 — ver sección "A" arriba.
 - **↓ LOTAJES_M**: menor exposición por posición.
 
 ### N (n_sizes_ejecucion) — cantidad de soportes activos en producción

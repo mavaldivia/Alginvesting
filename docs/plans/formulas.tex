@@ -1,0 +1,301 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Compilar con: tectonic formulas.tex  (motor XeTeX, UTF-8 nativo) ──
+\usepackage{fontspec}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{underscore}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+
+% ── Colores (mismos que docs/plans/algoritmos.tex) ──
+\definecolor{cazul}{HTML}{2C5F8A}
+\definecolor{cverde}{HTML}{2E8B57}
+\definecolor{cnaranja}{HTML}{C1660A}
+\definecolor{cgris}{HTML}{5B6770}
+\definecolor{cfondo}{HTML}{EDF2F7}
+\definecolor{ccodefondo}{HTML}{F6F8FA}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+\renewcommand{\contentsname}{Índice}
+\renewcommand{\tablename}{Tabla}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{ccodefondo},
+  frame=single,
+  rulecolor=\color{cgris!40},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=6pt,
+  framexleftmargin=4pt,
+}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% ── Caja de nota ──
+\newenvironment{nota}{%
+  \par\medskip\noindent
+  \begin{tabular}{@{}p{0.4em}@{\hspace{8pt}}p{\dimexpr\linewidth-2em\relax}@{}}
+  \textcolor{cnaranja}{\rule{3pt}{1.1em}} &
+}{\end{tabular}\par\medskip}
+
+\newcommand{\bigsep}{\par\vspace{3pt}}
+
+\title{\vspace{-1.4cm}\textbf{Fórmulas de activación de X1}\\[6pt]
+  \large O0 $\to$ OE \quad$\cdot$\quad primer Stop Loss ganador\\[4pt]
+  \normalsize\color{cgris} Derivación algebraica y ejemplos numéricos por activo}
+\author{Proyecto Alginvesting}
+\date{25 de septiembre de 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{center}
+\begin{minipage}{0.86\linewidth}
+\small\color{cgris}
+Este documento deriva, solo con álgebra, los dos precios de activación más consultados
+de \code{X1_trading.py}: a qué precio un soporte (O0) recibe su buy limit (pasa a OE), y
+a qué precio una posición abierta (OA) recibe su primer Stop Loss (SL) — y en qué precio
+queda ese SL. Cierra con una tabla numérica por cada uno de los 6 activos operados.
+Contexto: revisión de sesión del 25-09-2026, ver \code{docs/context/decisiones.md} en
+esa fecha para el porqué del diseño actual.
+\end{minipage}
+\end{center}
+
+\vspace{8pt}
+\tableofcontents
+\newpage
+
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Notación}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X l@{}}
+\toprule
+\textbf{Símbolo} & \textbf{Significado} & \textbf{Dónde vive} \\
+\midrule
+$P_0$ & Precio actual (bid). & tick en vivo, MT5 \\
+$P_i$ & Precio de referencia: el del soporte en el Caso~1, el de apertura de la OA en el Caso~2. & JSON de soportes / \code{orden.price\_open} \\
+$A$ & Umbral en USD (gap de activación / ganancia mínima). & \code{config.py} — \code{A[valor]} \\
+$B$ & Distancia en USD que el trailing mantiene bajo $P_0$. & \code{config.py} — \code{B[valor]} \\
+$U$ & Unidades del activo por lote. & \code{config.py} — \code{UNITS[valor]} \\
+$M$ & Multiplicador de lote configurado (\code{LOTAJES\_M}). & \code{config.py} — \code{LOTAJES\_M[valor]} \\
+$m$ & Lote mínimo del bróker. & \code{config.py} — \code{MIN\_LOTAJES[valor]} \\
+$L$ & Exposición en USD por unidad de precio (\emph{qué lotaje} depende del caso). & calculado \\
+\bottomrule
+\end{tabularx}
+\caption{Símbolos usados en ambos casos.}
+\end{table}
+
+\begin{nota}
+$M$ y $m$ no son lo mismo: $m$ es una propiedad fija del bróker/activo (el lote más
+chico que se puede operar); $M$ es una decisión de trading (cuántos lotes mínimos se
+opera por posición). El lotaje configurado es \code{LOTAJES[valor]} $= M \cdot m$.
+\end{nota}
+
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Caso 1 --- O0 se convierte en OE}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Regla en código}
+
+\code{crear\_ordenes\_espera} (\code{X1\_trading.py:421}) recorre cada soporte $P_i$ de
+\code{lista\_N} y se lo salta —no lo declara como buy limit— si no cumple el gap
+mínimo:
+
+\begin{lstlisting}
+if (P0 - Pi) * MIN_LOTAJES[valor] * UNITS[valor] < a:
+    continue
+\end{lstlisting}
+
+Es decir, se \emph{crea} la OE cuando la condición de arriba es falsa: cuando
+$(P_0 - P_i)\, m\, U \geq A$.
+
+\subsection{Derivación}
+
+\begin{align}
+(P_0 - P_i)\, m\, U &\geq A \\
+P_0 - P_i &\geq \frac{A}{mU} \\
+P_0 &\geq P_i + \frac{A}{mU}
+\end{align}
+
+\begin{center}
+\colorbox{cfondo}{$\displaystyle P_{0}^{\,O0\to OE} \;=\; P_i + \frac{A}{mU}$}
+\end{center}
+
+\begin{nota}
+$M$ \textbf{no aparece.} Antes de la sesión del 25-09-2026 la fórmula usaba
+$L = M m U$ (el lotaje \emph{configurado}, no el mínimo) — subir $M$ relajaba el gap de
+activación sin motivo, porque ese gap es una propiedad del activo (qué tan lejos del
+soporte vale la pena declarar la orden), no del tamaño de la posición que se abriría
+ahí. Ver \code{docs/context/decisiones.md}, entrada 2026-09-25.
+\end{nota}
+
+\subsection{Ejemplos por activo}
+
+$P_i$ es ilustrativo (un nivel de precio razonable por activo, no una cotización en
+vivo) salvo AMZN, que usa el precio real revisado en la sesión del 25-09-2026
+(captura de MT5, posición abierta en 248,37).
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l r r r r r r r@{}}
+\toprule
+\textbf{Activo} & $m$ & $U$ & $A$ & $mU$ & $A/(mU)$ & $P_i$ & $P_0^{\,O0\to OE}$ \\
+\midrule
+BTCUSD & 0,01 & 1   & 3 & 0,01 & 300,00 & 65\,000,00 & \textbf{65\,300,00} \\
+ETHUSD & 0,10 & 1   & 3 & 0,10 & 30,00  & 3\,000,00  & \textbf{3\,030,00}  \\
+TSLA   & 0,01 & 100 & 3 & 1,00 & 3,00   & 250,00     & \textbf{253,00}     \\
+GOOGL  & 0,01 & 100 & 3 & 1,00 & 3,00   & 170,00     & \textbf{173,00}     \\
+NVDA   & 0,01 & 100 & 3 & 1,00 & 3,00   & 130,00     & \textbf{133,00}     \\
+AMZN   & 0,01 & 100 & 3 & 1,00 & 3,00   & 248,37     & \textbf{251,37}     \\
+\bottomrule
+\end{tabularx}
+\caption{Precio al que cada soporte $P_i$ recibe su buy limit (pasa de O0 a OE). Config.
+vigente: $A=3$ para los 6 activos.}
+\end{table}
+
+Lectura: un soporte de BTCUSD en 65\,000 recién se declara OE cuando el precio sube a
+65\,300 (gap de \$300, porque $U=1$ multiplica el movimiento crudo de precio 1:1); el
+mismo gap para una acción ($U=100$) es de solo \$3 de precio, porque cada \$1 de
+movimiento ya representa \$100 de exposición por lote mínimo.
+
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Caso 2 --- Primera activación del Stop Loss}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Regla en código}
+
+\code{trailing\_stop} (\code{X1\_trading.py:541-553}) opera sobre el lotaje
+\textbf{real} de la orden ya abierta (\code{orden.volume}), no sobre el lotaje
+configurado:
+
+\begin{lstlisting}
+lotajes_m_efectivo = orden.volume / MIN_LOTAJES[valor]
+L = orden.volume * UNITS[valor]
+a_efectivo = a * lotajes_m_efectivo
+b_efectivo = b * lotajes_m_efectivo
+sl_nuevo = P0 - b_efectivo / L
+...
+if sl == 0:
+    if ganancia >= a_efectivo:      # ganancia = (P0 - Pi) * L
+        cambios = cambiar_SL(orden, valor, sl_nuevo, silent=True)
+\end{lstlisting}
+
+\subsection{Derivación del umbral de activación}
+
+Si la orden se abrió al lotaje configurado, $\text{orden.volume} = Mm$:
+
+\begin{align}
+\text{lotajes\_m\_efectivo} &= \frac{Mm}{m} = M \\
+L &= Mm \cdot U \\
+a_{\text{efectivo}} &= A \cdot M \\
+\text{ganancia} &= (P_0 - P_i)\, L = (P_0 - P_i)\, M m U
+\end{align}
+
+Condición de activación ($\text{ganancia} \geq a_{\text{efectivo}}$):
+
+\begin{align}
+(P_0 - P_i)\, M m U &\geq A M \qquad \text{(dividiendo por } M>0 \text{)} \\
+(P_0 - P_i)\, m U &\geq A \\
+P_0 &\geq P_i + \frac{A}{mU}
+\end{align}
+
+\begin{center}
+\colorbox{cfondo}{$\displaystyle P_{0}^{\,SL_1} \;=\; P_i + \frac{A}{mU}$}
+\end{center}
+
+\begin{nota}
+$M$ se cancela: aparece igual en \code{ganancia} y en \code{a\_efectivo}, así que el
+umbral de precio no depende del lotaje de la posición. El resultado es
+\textbf{algebraicamente idéntico} al del Caso~1 — misma fórmula, con $P_i$ = precio de
+apertura de la OA en vez de precio del soporte. Antes de la sesión del 25-09-2026 esto
+no era exacto (el Caso~1 sí tenía $M$ en el denominador); ahora ambas reglas son
+literalmente la misma regla aplicada a dos puntos de referencia distintos.
+\end{nota}
+
+\subsection{Derivación del valor del SL}
+
+El SL no se pone en $P_i$ (breakeven): se pone a distancia $B$ bajo el precio del
+instante en que se activa.
+
+\begin{align}
+b_{\text{efectivo}} &= B \cdot M \\
+sl_{\text{nuevo}} &= P_0 - \frac{b_{\text{efectivo}}}{L} = P_0 - \frac{BM}{MmU} = P_0 - \frac{B}{mU}
+\end{align}
+
+Evaluando en el instante de activación ($P_0 = P_i + A/(mU)$):
+
+\begin{center}
+\colorbox{cfondo}{$\displaystyle SL_1 \;=\; P_i + \frac{A}{mU} - \frac{B}{mU} \;=\; P_i + \frac{A-B}{mU}$}
+\end{center}
+
+\begin{nota}
+Como $A > B$ en la configuración vigente ($3 > 1{,}5$), $(A-B)/(mU) > 0$ siempre
+$\Rightarrow SL_1 > P_i$: el primer SL queda garantizado por encima del precio de
+entrada —ya "ganador"— por construcción algebraica, no por casualidad de los valores
+actuales.
+\end{nota}
+
+\subsection{Ejemplos por activo}
+
+Mismos $P_i$ ilustrativos que la Tabla~1 (AMZN con el valor real de la sesión), para
+que se vea directamente que $P_0^{\,SL_1} = P_0^{\,O0\to OE}$ activo por activo —el
+punto no es que sea coincidencia, sino que es la misma fórmula.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l r r r r r r@{}}
+\toprule
+\textbf{Activo} & $(A-B)/(mU)$ & $B/(mU)$ & $P_i$ & $P_0^{\,SL_1}$ & $SL_1$ & $P_0-SL_1$ \\
+\midrule
+BTCUSD & 150,00 & 150,00 & 65\,000,00 & 65\,300,00 & \textbf{65\,150,00} & 150,00 \\
+ETHUSD & 15,00  & 15,00  & 3\,000,00  & 3\,030,00  & \textbf{3\,015,00}  & 15,00  \\
+TSLA   & 1,50   & 1,50   & 250,00     & 253,00     & \textbf{251,50}     & 1,50   \\
+GOOGL  & 1,50   & 1,50   & 170,00     & 173,00     & \textbf{171,50}     & 1,50   \\
+NVDA   & 1,50   & 1,50   & 130,00     & 133,00     & \textbf{131,50}     & 1,50   \\
+AMZN   & 1,50   & 1,50   & 248,37     & 251,37     & \textbf{249,87}     & 1,50   \\
+\bottomrule
+\end{tabularx}
+\caption{Precio de activación del primer SL y valor en que queda. Última columna:
+$P_0 - SL_1 = B/(mU)$, la misma distancia que \code{trailing\_stop} mantendrá de ahí
+en adelante cada vez que mueva el SL al alza.}
+\end{table}
+
+Lectura AMZN (posición real de la sesión, $P_i = 248{,}37$): recién con el precio en
+251,37 esa posición recibe su primer SL, y queda puesto en 249,87 — 1,50 por encima de
+la entrada y 1,50 por debajo del precio del instante en que se activó.
+
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Síntesis}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\begin{itemize}[leftmargin=1.4em,itemsep=3pt]
+\item Los dos precios de activación comparten la misma forma cerrada:
+  $P_i + A/(mU)$. Lo único que cambia es qué es $P_i$: el precio de un soporte
+  (Caso~1) o el precio de apertura de una posición (Caso~2).
+\item $M$ (\code{LOTAJES\_M}) no aparece en ninguno de los dos umbrales de
+  \emph{activación} — se cancela en el Caso~2 y se sacó a propósito del Caso~1. Sí
+  sigue afectando \emph{cuánto USD} representa cada evento ($L$ real de la posición),
+  vía $B$, \code{PERDIDA\_MAX} y el tamaño de la exposición — pero no el precio al que
+  ocurre.
+\item El valor del primer SL, $P_i + (A-B)/(mU)$, y la distancia que el trailing
+  mantiene después, $B/(mU)$, tampoco dependen de $M$ por la misma razón.
+\end{itemize}
+
+\end{document}

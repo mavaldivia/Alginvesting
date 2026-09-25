@@ -318,3 +318,17 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** mantener `DELTA_INICIAL`/`FACTOR_DELTA` con el refinamiento adaptativo persistido entre corridas (delta se reduce por `FACTOR_DELTA` cada vez que el optimizador converge, se guarda en `{VALOR}_{N}_delta.json`).
 
 **Efecto colateral:** los 3 ítems de `docs/tracking/todos.md` → "X0 — Validación post-revert" (validaban la lógica de delta/convergencia eliminada) quedaron obsoletos y se retiraron del TO DO.
+
+## 2026-09-25 — X1: gap de activación O0→OE deja de escalar por el lotaje configurado
+
+**Decisión:** `crear_ordenes_espera` (`distancia_ok`, `X1_trading.py:418`) evalúa el gap `(P0 - Pi) * L >= A` con `L = MIN_LOTAJES[valor] * UNITS[valor]` (lotaje mínimo del activo) en vez de `L = LOTAJES[valor] * UNITS[valor]` (lotaje configurado, dependiente de `LOTAJES_M`). `crear_ordenes_espera`/`reemplazar_ordenes_espera` pierden el parámetro `L` — ya no lo necesitan, se calcula internamente desde `MIN_LOTAJES`/`UNITS` globales, mismo estilo que ya usa `trailing_stop`. `informacion()` pierde los parámetros `lotajes`/`units` (quedaban sin otro uso tras el cambio) y replica la misma fórmula para `Precio_activacion_OE_OA`.
+
+**Motivo:** surgió al revisar una captura de MT5 (AMZN) con una OA sin SL aparentemente "debajo" de dos OE pendientes — investigado y no era bug (los soportes se reubican por ciclo de X0, SL=0 es diseño hasta que la ganancia alcanza el umbral). Al explicar la fórmula de `distancia_ok` en el camino, Mauricio notó que escalar por `L = LOTAJES[valor] * UNITS[valor]` hace que el gap de activación de una OE dependa de `LOTAJES_M` (cuántos lotes mínimos se opera) — pero ese gap debería ser una propiedad del activo (qué tan lejos del soporte vale la pena declarar la orden), no del tamaño de la posición que se abriría ahí. `trailing_stop`/`controlar_perdida_max` no cambian: ahí `L` sí debe ser el lotaje real de cada OA (`orden.volume`), porque miden P&L real de una posición que ya existe — no hay la misma ambigüedad.
+
+**Efecto numérico** (con `A=3` sin cambios en `config.py`): el gap efectivo pasa de depender de `LOTAJES_M` (hoy =2 para los 6 activos, uniforme) a no depender de él — BTCUSD 150→300, ETHUSD 15→30, TSLA/GOOGL/NVDA/AMZN 1.5→3 (todos ×2 hoy porque `LOTAJES_M=2` es parejo; si se cambia `LOTAJES_M` a futuro, estos gaps ya no se moverán con él).
+
+**Descartado:** distancia en precio crudo sin ningún escalado (`(P0-Pi) >= A` directo, sin `L`) — hubiera requerido recalibrar `A` manualmente por activo, porque `A=3` flat hoy solo funciona gracias al escalado por `L`; sin `UNITS` en la fórmula el gap de BTCUSD/ETHUSD habría colapsado a 3 (esencialmente sin filtro para cripto), efecto no buscado.
+
+**Pendiente / gap conocido, no tocado en esta sesión:** `X4_backtester.py` tiene su propia reimplementación de `distancia_ok` para backtesting (`_paso_A`/`_paso_F`, ya documentada como fuera de paridad con X1 en `docs/tracking/done.md` sección X1 — ítem "no eliminar OE si no se pueden reponer") que no importa `crear_ordenes_espera` y no se actualizó en esta sesión — sigue usando `LOTAJES[valor]*UNITS[valor]`, pendiente si se quiere mantener paridad.
+
+**Validado:** `python3 -m py_compile` sobre `X1_trading.py`/`config.py`. Sin test de integración (requiere MT5, no disponible en Mac) — pendiente validar en Windows antes de dar por buena la corrida en vivo.

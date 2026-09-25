@@ -171,8 +171,13 @@ X3_VENTANAS = {
 # ─── Trading: ejecución y gestión de riesgo (X1) ──────────────────────────────
 
 # Parámetros por activo (formato alineado con config_x5). X1 los indexa por activo.
-# A: ganancia mínima en USD para activar el primer SL ganador
-# B: distancia en USD (normalizada por L) que mantiene el SL bajo el precio actual
+# A: umbral en USD con dos usos distintos según el punto de referencia Pi:
+#    - crear_ordenes_espera (O0→OE): Pi = precio del soporte, L = MIN_LOTAJES*UNITS
+#      (lotaje mínimo del activo, no depende de LOTAJES_M/lotaje configurado)
+#    - trailing_stop: ganancia mínima para activar el primer SL ganador, Pi = precio
+#      de apertura de la posición, L = orden.volume*UNITS (lotaje real de esa OA)
+# B: distancia en USD (normalizada por el lotaje real de cada OA) que mantiene el
+#    SL bajo el precio actual — solo se usa en trailing_stop
 A = {
     'BTCUSD': 3,
     'ETHUSD': 3,

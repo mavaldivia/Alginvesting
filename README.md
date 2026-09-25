@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-25** — fix(x1): distancia_ok O0→OE invariante al lotaje configurado
 - **2026-09-25** — feat(x0): reemplaza delta adaptativo por ciclos temporales (T_UPDATE_O0/T_UPDATE_CICLO_X0)
 - **2026-09-23** — fix(x1): reconexión ante caída de MT5
 - **2026-09-23** — fix(x0): visibilidad de cola en monitor rich.Live

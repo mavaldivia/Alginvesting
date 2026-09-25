@@ -386,11 +386,16 @@ def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio:
 
 
 def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
-                          valor: str, L: float, a: float, lotajes: dict,
+                          valor: str, a: float, lotajes: dict,
                           dic_bloqueados: dict):
     """
     Para cada soporte en lista_N que no tenga ya una orden activa o pendiente,
-    crea una orden buy limit si el precio actual está al menos a distancia `a` USD por encima.
+    crea una orden buy limit si el precio actual está al menos a distancia `a` USD por
+    encima, evaluado a lotaje MÍNIMO del activo (`MIN_LOTAJES[valor]`) — independiente
+    de `LOTAJES_M`/`lotajes[valor]` (el lotaje configurado para operar). Así el gap
+    de activación no se relaja si se sube el multiplicador de lote: es una propiedad
+    del activo (cuán lejos hay que estar del soporte para que valga la pena declarar
+    la orden), no del tamaño de la posición que se abriría.
 
     Si la cuenta alcanza su límite de posiciones/órdenes (retcode 10040), se libera
     la orden más lejana del precio entre todos los activos y se reintenta una vez
@@ -415,7 +420,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
         ts_bloqueo = bloqueados_valor.get(Pi)
         if ts_bloqueo is not None and (time.time() - ts_bloqueo) < X1_RETRY_BLOQUEADOS_S:
             continue
-        if (P0 - Pi) * L < a:
+        if (P0 - Pi) * MIN_LOTAJES[valor] * UNITS[valor] < a:
             continue
         request = generate_request_buy_limit(
             valor,
@@ -437,7 +442,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
 
 
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
-                               L: float, a: float, lotajes: dict, dic_bloqueados: dict,
+                               a: float, lotajes: dict, dic_bloqueados: dict,
                                fraccion_inicial: float = X1_REEMPLAZO_FRACCION_INICIAL):
     """Caso (a): reemplazo total — el conjunto de soportes cambió y hay OE cuyo precio
     ya no está en lista_N. El caller (loop principal) solo llama esto con el mercado
@@ -460,7 +465,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     eliminadas = [(round(o.price_open, 2), o.volume_initial) for o in primera_tanda if _cancelar_orden(o, valor)]
 
     lista_OE_vigente = [round(o.price_open, 2) for o in actual_OE if o not in primera_tanda]
-    crear_ordenes_espera(lista_OA, lista_OE_vigente, lista_N, valor, L, a, lotajes, dic_bloqueados)
+    crear_ordenes_espera(lista_OA, lista_OE_vigente, lista_N, valor, a, lotajes, dic_bloqueados)
 
     eliminadas += [(round(o.price_open, 2), o.volume_initial) for o in segunda_tanda if _cancelar_orden(o, valor)]
 
@@ -609,15 +614,16 @@ def controlar_perdida_max(actual_OA: list, valor: str,
             cerrar_posicion(orden, valor, lotajes)
 
 
-def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dict):
+def informacion(valores: list, n_sizes: dict, a: dict):
     """
     Por activo, cuánto falta que P0 se mueva para que:
     A) la OE pendiente más cercana se ejecute (pase a OA) — requiere que P0 baje.
     B) el soporte/resistencia de lista_N sin orden aún (ni OE ni OA) — porque está
        muy cerca bajo el precio (distancia < a) o porque está sobre el precio
        actual — pase a tener una OE declarada, lo que requiere que P0 suba hasta
-       Precio_activacion_OE_OA = Precio_OE + a/L (mismo umbral que distancia_ok
-       en crear_ordenes_espera). Solo se muestran soportes con
+       Precio_activacion_OE_OA = Precio_OE + a/L, con L = MIN_LOTAJES[valor] *
+       UNITS[valor] (mismo umbral que distancia_ok en crear_ordenes_espera, a
+       lotaje mínimo — no depende de LOTAJES_M). Solo se muestran soportes con
        Precio_activacion_OE_OA > P0 (Falta_sube_USD > 0): un soporte que ya
        cumple distancia_ok pero sigue sin OE por estar bloqueado
        (dic_bloqueados) no aparece acá.
@@ -629,7 +635,7 @@ def informacion(valores: list, lotajes: dict, units: dict, n_sizes: dict, a: dic
         P0 = obtener_precio_actual(valor, modo='B')
         N = n_sizes[valor]
         lista_N = leer_lista_N(valor, N)
-        L = lotajes[valor] * units[valor]
+        L = MIN_LOTAJES[valor] * UNITS[valor]
         a_valor = a[valor]
 
         actual_OA = mt5.positions_get(symbol=valor)
@@ -758,8 +764,6 @@ if __name__ == '__main__':
 
                 for valor in VALORES:
                     try:
-                        L = LOTAJES[valor] * UNITS[valor]
-
                         N = n_sizes[valor]
                         lista_N = leer_lista_N(valor, N)
 
@@ -773,10 +777,10 @@ if __name__ == '__main__':
                             hay_salientes = any(round(o.price_open, 2) not in lista_N for o in actual_OE)
                             if hay_salientes:
                                 # Caso (a): el conjunto de soportes cambió — reemplazo total
-                                reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados)
+                                reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, A[valor], LOTAJES, dic_bloqueados)
                             else:
                                 # Caso (b): promoción normal de O0 a OE por margen
-                                crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, L, A[valor], LOTAJES, dic_bloqueados)
+                                crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, A[valor], LOTAJES, dic_bloqueados)
                                 # Caso (c): poda por saturación, solo sin reemplazo en curso
                                 podar_ordenes_saturacion(actual_OE, valor, N)
 
@@ -802,7 +806,7 @@ if __name__ == '__main__':
                         detalle = ', '.join(f'{v}:{len(p)}' for v, p in dic_bloqueados.items() if p)
                         print(f'  Buy limits bloqueados temporalmente: {total_bloqueados} ({detalle})')
                     try:
-                        informacion(VALORES, LOTAJES, UNITS, n_sizes, A)
+                        informacion(VALORES, n_sizes, A)
                     except Exception as e:
                         print(f'  [X1] Error en informacion: {e}')
                         _log_traceback(f'Error en informacion (iteración {i})')
