@@ -63,8 +63,6 @@ parametros_soportes = {{
 LAMBDA            = 1 / 5
 M                 = 30
 M_COARSE          = 5
-DELTA_INICIAL     = 1e-4
-FACTOR_DELTA      = 0.7
 BLOQUE_DISTANCIAS = 2000
 MAX_ITERS         = 10000
 

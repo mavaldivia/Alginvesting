@@ -95,8 +95,13 @@ parametros_soportes = {
 LAMBDA = 1 / 5    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
 M = 30              # candidatos evaluados por soporte en fase fine (linspace entre vecinos)
 M_COARSE = 5        # candidatos en fase coarse (exploración barata antes del refinamiento fino)
-DELTA_INICIAL = 1e-4  # mejora mínima relativa para aceptar un cambio (evita ruido); semilla para la primera corrida de cada (valor, N)
-FACTOR_DELTA = 0.7    # factor de presión al converger: si el optimizador convergió, delta_next = FACTOR_DELTA * delta_actual
+
+# ─── X0 producción en vivo: cadencia de ciclos (reloj real) ───────────────────
+# Solo aplica a X0 en producción (--opcion 1/2, _ciclo_activo). Backtesting/X5
+# tienen su propia cadencia de recálculo en tiempo simulado (delta_recalculo_soportes
+# en resources/x4/version{V}/config_{V}.py, X5_RECALC_SOPORTES_CADA en X5), independiente.
+T_UPDATE_O0 = 15         # minutos entre flushes del conjunto_N vigente a resources/conjuntos_N/
+T_UPDATE_CICLO_X0 = 60   # minutos entre refrescos de data H1/M1 + X2 + X3 + recálculo de distancias
 
 # ─── Velocidad / cómputo ──────────────────────────────────────────────────────
 

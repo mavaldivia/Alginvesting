@@ -82,11 +82,10 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Vectorización del loop de candidatos** (`calcular_FO_batch`): M evaluaciones de FO → 1 pasada numpy con broadcasting (M, n).
 - **Inicialización inteligente** (`_inicializar_conjunto_smart`): cold start por cuantiles de precio ordenados por `y×w`, en lugar de uniforme aleatorio.
 - **Priorización por historial** (`mejora_acumulada`): EMA de mejoras aceptadas por soporte — los más activos se evalúan primero.
-- **`DELTA_INICIAL` adaptativo**: se reduce (`* FACTOR_DELTA`) cada vez que converge, sin tocar el delta entre corridas cuando no converge.
-- **Ciclos independientes por activo**: cada activo corre su propio hilo con su propio contador de ciclo — al converger, re-descarga sus datos y arranca el siguiente ciclo de inmediato, sin esperar a los demás. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo con su fase actual (descarga de datos, distancias, optimizador con FO/cambios, convergencia).
+- **Ciclos temporales independientes por activo**: cada activo corre su propio hilo con dos relojes anidados — cada `T_UPDATE_CICLO_X0` min (60 por defecto) re-descarga datos y recalcula distancias (ciclo `i`); cada `T_UPDATE_O0` min (15 por defecto) corre el optimizador con presupuesto de tiempo y flushea el `conjunto_N` a `resources/conjuntos_N/` (bloque `j`), sin esperar a los demás activos. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo (`[C {i} | A {j}] {valor}_{N}: ...`) con su fase actual.
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
-El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta solo mejoras relativas superiores a `DELTA_INICIAL`. Si se agotan `MAX_ITERS` sin converger, no se detiene: reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos — salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`.
+El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta cualquier cambio que mejore la FO (sin umbral mínimo). En backtesting/X5 corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse sin necesidad de converger.
 
 ---
 
@@ -156,8 +155,8 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 | `M` | 30 | Candidatos evaluados por soporte en cada paso |
 | `LAMBDA` | 1/5 | Penalización por dispersión desigual |
 | `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
-| `DELTA_INICIAL` | 1e-4 | Mejora relativa mínima para aceptar cambio |
-| `FACTOR_DELTA` | 0.7 | Factor de reducción del delta al converger |
+| `T_UPDATE_O0` | 15 (min) | Cadencia de flush del `conjunto_N` a `resources/conjuntos_N/` en producción |
+| `T_UPDATE_CICLO_X0` | 60 (min) | Cadencia de refresco de data/X2/X3/distancias en producción |
 | `N_MAX_MODELS` | 6 | Tope de combos corriendo a la vez en el pool de procesos compartido (None/0 = sin tope) |
 | `FECHA_INICIAL` | 2022-01-01 | Inicio de la ventana de precios usada para buscar soportes |
 | `W_TENDENCIA` | 0.20 | Peso del score_tendencia en X2 |
@@ -226,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-25** — feat(x0): reemplaza delta adaptativo por ciclos temporales (T_UPDATE_O0/T_UPDATE_CICLO_X0)
 - **2026-09-23** — fix(x1): reconexión ante caída de MT5
 - **2026-09-23** — fix(x0): visibilidad de cola en monitor rich.Live
 - **2026-09-22** — feat(x0): monitor en vivo con rich.Live

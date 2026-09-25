@@ -41,13 +41,17 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 >
 > **X5_alt** (versión alternativa y simplificada de X5, en desarrollo paralelo — no reemplaza a X5 original): todo el contexto vive en [`docs/plans/X5_alternativo.md`](docs/plans/X5_alternativo.md) — documento vivo, no de solo lectura, se actualiza a medida que avanza el trabajo. Primeros scripts: `X5_P1.ipynb` (tabla maestra tabulada en el tiempo) y `X5_P2.ipynb` (notebook exhaustivo de investigación y análisis exploratorio vs. precio, especificación completa en [`docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md`](docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md)), ambos parametrizados por `{valor}` — inicialmente `BTCUSD`.
 
+### Principio: X4/X5 dependen de X0/X1, nunca duplican su lógica
+
+X4 (backtesting) y X5 (surrogate model / exploración) nunca reimplementan el algoritmo de búsqueda de soportes de X0 ni la lógica de órdenes de X1 — siempre importan y llaman directamente sus funciones. Ejemplo: `X4_backtester.py` importa `_procesar_valor_N`/`_bt_warm_start` desde `X0_data_supports.py` y los usa tal cual, tanto en backtesting normal como en el modo `--x5`. Un cambio algorítmico en X0/X1 se propaga automáticamente a X4/X5 por ese import — nunca hay que actualizarlo en dos lugares.
+
 ### Directorios de datos
 
 | Carpeta | Contenido |
 |---|---|
 | `Data/` | CSVs OHLCV H1 por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) — actualizados por X0, fuera de git |
 | `Data_minuto/` | CSVs OHLCV M1 por activo — usados por X4 para simulación intra-vela; se alimentan incrementalmente igual que `Data/`. Fuera de git (regenerables). |
-| `resources/conjuntos_N/` | JSONs por activo — `{VALOR}_{N}.json` (soportes producción, leído por X1), `{VALOR}_{N}_delta.json` (delta adaptativo producción), `{VALOR}_{N}_bt.json` (cache bt: `{datetime: [soportes], ...}`), `{VALOR}_{N}_bt_delta.json` (delta adaptativo bt) — generados, fuera de git |
+| `resources/conjuntos_N/` | JSONs por activo — `{VALOR}_{N}.json` (soportes producción, leído por X1, flusheado cada `T_UPDATE_O0` min), `{VALOR}_{N}_bt.json` (cache bt: `{datetime: [soportes], ...}`) — generados, fuera de git |
 | `resources/x0/` | `logs/` (JSONs de convergencia por combo) y `plots/` (FO, Soportes) — generados en Windows, fuera de git |
 | `resources/x2/` | Scores fundamentales (`scores.json`), historial (`x2_history.json`), guard de día (`x2_last_run.json`) — generados en Windows, fuera de git |
 | `resources/x3/` | Features técnicas por activo (`{VALOR}.csv`) — generados, fuera de git |
@@ -61,7 +65,7 @@ CLAUDE.md, docs        ←─────────────     (no tiene 
 - **N (n_sizes)**: Cantidad de soportes a mantener activos por activo. Actualmente 250 para todos los activos.
 - **M**: Número de precios candidatos evaluados por soporte en cada paso del optimizador (linspace equidistante entre soportes vecinos). Controla la granularidad de la búsqueda local — mayor M, barrido más fino pero más evaluaciones de FO por iteración.
 - **Conjunto N**: Los N soportes óptimos elegidos por el algoritmo de optimización.
-- **O0\* / OE / OA / OC** (progresión: `O0* > OE > OA > OC`): O0 = orden sobre un soporte que aún está por encima de precio − margen (`distancia_ok` de `crear_ordenes_espera` no se cumple todavía), a la espera de convertirse en OE / OE = Orden en Espera (buy limit colocada en un soporte, esperando que el precio baje hasta ella) / OA = Orden Abierta (posición activa; la OE fue ejecutada) / OC = Orden Cerrada (posición que ya cerró por trailing stop, PERDIDA_MAX o stop loss). El asterisco en O0\* indica que es un estado opcional: una orden puede pasar directo a OE sin haber estado nunca en O0 (ej. si su soporte ya nace fuera del margen).
+- **O0\* / OE / OA / OC** (progresión: `O0* > OE > OA > OC`): O0 = orden sobre un soporte que aún está por encima de precio − margen (`distancia_ok` de `crear_ordenes_espera` no se cumple todavía), a la espera de convertirse en OE / OE = Orden en Espera (buy limit colocada en un soporte, esperando que el precio baje hasta ella) / OA = Orden Abierta (posición activa; la OE fue ejecutada) / OC = Orden Cerrada (posición que ya cerró por trailing stop, PERDIDA_MAX o stop loss). El asterisco en O0\* indica que es un estado opcional: una orden puede pasar directo a OE sin haber estado nunca en O0 (ej. si su soporte ya nace fuera del margen). Con el modelo de ciclos temporales de X0 (ver Paso 4 más abajo), el conjunto de soportes visible para X1 se actualiza cada `T_UPDATE_O0` minutos, no en tiempo real — un soporte que el optimizador acepta en memoria recién inicia su progresión O0→OE en el siguiente flush a `resources/conjuntos_N/`.
 - **Trailing Stop**: SL que sigue el precio hacia arriba para proteger ganancias.
 - **Beta**: Riesgo por operación como % de cuenta.
 - **T**: Ventana de días históricos usada para calcular soportes (default: 60).
@@ -94,11 +98,22 @@ En cada iteración, para cada soporte `i` del conjunto N:
 2. Evalúa la FO para cada candidato.
 3. Si la curva FO(candidato) tiene forma de U invertida → ajuste cuadrático para hallar el máximo analítico exacto.
 4. Si no → toma el candidato con mayor FO.
-5. Acepta el cambio solo si la mejora relativa supera `DELTA_INICIAL`.
+5. Acepta el cambio si mejora la FO (sin umbral mínimo).
 
 Si ningún soporte mejora en la vuelta actual → expande a todos los soportes y reintenta. Si aún no hay mejora → convergencia.
 
+En **backtesting/X5**, corre sin límite hasta convergencia natural (o hasta los topes de seguridad `MAX_ITERS`/`MAX_CAMBIOS`). En **producción en vivo**, `nuevo_optimizador_2` recibe un presupuesto de tiempo (`tiempo_limite_s`) y corta al agotarse sin necesidad de converger — ver el modelo de ciclos temporales más abajo.
+
 Versión activa: `nuevo_optimizador_2`.
+
+### Producción en vivo: ciclos temporales (`T_UPDATE_O0` / `T_UPDATE_CICLO_X0`)
+
+`_ciclo_activo` (un hilo por activo) corre en dos relojes anidados, sin relación con la convergencia del optimizador:
+
+- **Ciclo `i`** — cada `T_UPDATE_CICLO_X0` minutos (60 por defecto): refresca data H1/M1 + X2 + X3, recalcula distancias (`_preparar_valor_N`) y arranca desde ahí con warm start (no reinicio aleatorio).
+- **Bloque `j`** — cada `T_UPDATE_O0` minutos dentro de esa hora (15 por defecto): corre el optimizador con presupuesto de tiempo sobre la preparación vigente (`_bloque_valor_N`) y flushea el `conjunto_N` resultante a `resources/conjuntos_N/{VALOR}_{N}.json`, para que X1 lo lea.
+
+El monitor en vivo muestra `[C {i} | A {j}] {valor}_{N}: ...` por combo — `C` (ciclo) y `A` (actualización). `j` se reinicia a 1 en cada ciclo nuevo.
 
 ### Warm start — solución inicial por combo (valor, N, t*)
 
@@ -110,17 +125,13 @@ Buscar los N soportes en `t` nunca parte de cero si el combo `(valor, N)` ya se 
 | X0/X4 backtesting | `{VALOR}_{N}_bt.json` (cache indexado por datetime) | clave más reciente ≤ `t` |
 | X5 (`X4 --x5`) | mismo cache bt, aislado por activo en `resources/x5/bt_{ACTIVO}/` | ídem |
 
-`_procesar_valor_N` separa dos cosas que suenan parecidas:
-- **`warm_start`** (default `True`): de dónde sale la solución inicial. `False` → puntos aleatorios.
-- **`cold_start`**: si se hereda el `delta_inicial` adaptado del combo o se parte del semilla. X5 lo activa porque cada tramo cambia `K/N_EXP/LAMBDA`: heredar la presión acumulada dejaría al optimizador convergido de entrada sobre una FO que ya no es la misma.
-
-En X5 se desactiva con `X5_WARM_START_SOPORTES = False` (`config_x5`), a costa de re-converger desde cero en cada tramo.
+`warm_start` (default `True`, parámetro de `_preparar_valor_N`/`_procesar_valor_N`): de dónde sale la solución inicial. `False` → puntos aleatorios. En X5 se desactiva con `X5_WARM_START_SOPORTES = False` (`config_x5`), a costa de re-converger desde cero en cada tramo.
 
 ---
 
 ## Parámetros del algoritmo — efecto de cada uno
 
-Definidos en `scripts/config.py:42-55`. Valores listados = los usados en producción (no los defaults de las funciones, que pueden diferir).
+Definidos en `scripts/config.py`, secciones "Calidad del algoritmo de búsqueda de soportes" (K/N_EXP/LAMBDA/M/M_COARSE) y "X0 producción en vivo: cadencia de ciclos" (T_UPDATE_O0/T_UPDATE_CICLO_X0). Valores listados = los usados en producción (no los defaults de las funciones, que pueden diferir).
 
 ### N — cantidad de soportes (`config.py`: 250 para todos los activos)
 - **↑ N**: más cobertura del rango de precios y entradas más finas, pero capital más fragmentado por posición y mayor costo computacional (`calcular_FO` se llama del orden de N×M veces por iteración del optimizador).
@@ -145,9 +156,13 @@ Genera M precios equidistantes (`linspace`) entre los soportes vecinos y evalúa
 - **↑ LAMBDA**: castiga con más fuerza que los soportes se amontonen en una zona del rango — empuja el conjunto N hacia una distribución más pareja en precio, aunque sacrifique algo de `mean(z)` (calidad de asignación).
 - **↓ LAMBDA**: la FO se guía casi solo por `mean(z)` — permite que los soportes se concentren donde hay más "evidencia" (velas aisladas y recientes), aunque dejen huecos grandes en otras zonas del rango.
 
-### DELTA_INICIAL = 1e-4 — mejora relativa mínima para aceptar un cambio: `(FO_iter - FO_base)/FO_base > DELTA_INICIAL`
-- **↑ DELTA_INICIAL**: exige mejoras más significativas para mover un soporte → converge más rápido (menos iteraciones), pero puede detenerse en un óptimo más alejado del ideal.
-- **↓ DELTA_INICIAL**: acepta mejoras más marginales → resultado más fino, pero más iteraciones y más riesgo de aceptar cambios por ruido numérico.
+### T_UPDATE_O0 = 15 (minutos) — cadencia de flush del conjunto_N a `resources/conjuntos_N/` en producción
+- **↑ T_UPDATE_O0**: X1 tarda más en ver soportes nuevos (progresión O0→OE más lenta), pero cada bloque le da más presupuesto de tiempo al optimizador antes de guardar → potencialmente mejores soportes por flush.
+- **↓ T_UPDATE_O0**: X1 ve cambios más rápido, pero cada bloque optimiza menos tiempo antes de guardar.
+
+### T_UPDATE_CICLO_X0 = 60 (minutos) — cadencia de refresco de data/X2/X3/distancias en producción
+- **↑ T_UPDATE_CICLO_X0**: menos overhead de descarga/recálculo de distancias, pero los soportes se optimizan más tiempo sobre datos desactualizados entre refrescos.
+- **↓ T_UPDATE_CICLO_X0**: datos más frescos con más frecuencia, pero más overhead de descarga + recálculo de distancias (el paso caro de `obtener_df_extremos`) por hora.
 
 ---
 

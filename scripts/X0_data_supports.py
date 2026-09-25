@@ -56,7 +56,8 @@ from config import (
     CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
-    M, M_COARSE, LAMBDA, MAX_ITERS, MAX_CAMBIOS, DELTA_INICIAL, FACTOR_DELTA,
+    M, M_COARSE, LAMBDA, MAX_ITERS, MAX_CAMBIOS,
+    T_UPDATE_O0, T_UPDATE_CICLO_X0,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes, n_sizes_ejecucion, N_MAX_MODELS, reiniciar_x0,
 )
@@ -406,9 +407,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                          lambda_ponderador: float, ordenes_activas: list = [],
                          M: int = 100, max_iters: int = 1000,
                          prueba_cercanos: bool = False,
-                         delta_inicial: float = 1e-4,
                          estado_compartido=None, llave: str = '',
-                         verbose: bool = True, max_cambios: int = MAX_CAMBIOS) -> tuple:
+                         verbose: bool = True, max_cambios: int = MAX_CAMBIOS,
+                         tiempo_limite_s: float = None) -> tuple:
     """
     Optimizador de búsqueda local sobre el conjunto N de soportes.
 
@@ -418,7 +419,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         - Evalúa todos en una pasada numpy vectorizada (calcular_FO_batch).
         - Si los puntos forman una U invertida → ajuste cuadrático para hallar el óptimo exacto.
         - Si no → toma el candidato con mayor FO.
-        - Acepta el cambio solo si la mejora relativa supera delta_inicial.
+        - Acepta el cambio si mejora la FO (sin umbral mínimo).
       Si ningún soporte mejoró → expande casos_moviles a todos y vuelve a intentar.
       Si aun así no mejora → converge, sale del loop.
 
@@ -426,13 +427,19 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     prueba_cercanos: si True, prioriza vecinos del soporte cambiado en la siguiente iteración.
     max_cambios: tope de cambios aceptados; al alcanzarse, corta y retorna la mejor solución
       hallada hasta ese punto con convergio=False (evita ciclos que nunca convergen).
+    tiempo_limite_s: si se pasa, corta al agotarse (sin haber convergido necesariamente) y
+      retorna el mejor dic_N hallado hasta ese punto — usado por el flujo en vivo de X0 para
+      acotar cada bloque a T_UPDATE_O0 minutos. None (default) = sin límite, corre hasta
+      convergencia natural o los topes de max_iters/max_cambios (bt/X5).
     """
     if verbose:
         print(f'Iniciando optimizador | max_iters={max_iters} | N={N} | M={M}')
     convergio = False
     limite_cambios_alcanzado = False
+    tiempo_agotado = False
     cambios = 0
     max_pasos = 0  # máx. posición alcanzada en el inner loop antes de aceptar un cambio
+    deadline = time.monotonic() + tiempo_limite_s if tiempo_limite_s is not None else None
 
     # Inicializar conjunto_N respetando las ordenes activas
     delta = N - len(set(ordenes_activas)) - len(conjunto_N)
@@ -480,6 +487,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     iter_offset = 0
     while True:
         for j in range(max_iters):
+            if deadline is not None and time.monotonic() >= deadline:
+                tiempo_agotado = True
+                break
             lista_N = list(dic_N.values())
             conjunto_N = set(lista_N)
 
@@ -503,6 +513,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 estado_compartido[llave] = (cambios, max_pasos, FO_base, 'corriendo')
 
             for pos, i in enumerate(tqdm.tqdm(casos_moviles, disable=not verbose)):
+                if deadline is not None and time.monotonic() >= deadline:
+                    tiempo_agotado = True
+                    break
                 if dic_N[i] in ordenes_activas:
                     continue  # no se mueve este soporte, ya está ejecutado en la plataforma
                 cota_inf = dic_N[i - 1] if (i - 1) in dic_N else p_min
@@ -529,10 +542,10 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                     caso = float(df_plot['caso'].iloc[idx_max])
                     FO_iter = float(df_plot['FO_iter'].iloc[idx_max])
 
-                mejora_rel = (FO_iter - FO_base) / abs(FO_base)
-                if mejora_rel > delta_inicial:
+                if FO_iter > FO_base:
                     if verbose:
-                        print(f'  Mejora {mejora_rel:.6f} en soporte i={i}, nuevo={caso:.2f}')
+                        print(f'  Mejora en soporte i={i}, nuevo={caso:.2f}: '
+                              f'{notacion_cientifica(FO_base)} -> {notacion_cientifica(FO_iter)}')
                     mejora = True
                     cambios += 1
                     max_pasos = max(max_pasos, pos + 1)
@@ -548,6 +561,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
 
                 if mejora:
                     break
+
+            if tiempo_agotado:
+                break  # corte limpio: no tocar dic_N/convergio con un pase parcial
 
             if not mejora:
                 if len(casos_moviles) == len(dic_N):
@@ -585,7 +601,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                           f'se toma la mejor solución hallada hasta ahora ---')
                 break
 
-        if convergio or limite_cambios_alcanzado:
+        if convergio or limite_cambios_alcanzado or tiempo_agotado:
             break
         iter_offset += max_iters
         ciclo += 1
@@ -1032,7 +1048,7 @@ def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
                               t_inicio: float, t_fin: float,
                               iteraciones: int, cambios: int,
                               FO_inicial: float, FO_final: float,
-                              delta_final: float, convergio: bool):
+                              convergio: bool):
     """Agrega una entrada al log de convergencia de un combo (valor, N) en resources/x0/logs/.
 
     Formato JSONL (una entrada por línea, solo apertura en modo 'a'): evita el
@@ -1053,41 +1069,32 @@ def _guardar_log_convergencia(valor: str, N: int, es_bt: bool, clave_bt: str,
         'cambios': cambios,
         'FO_inicial': round(FO_inicial, 8),
         'FO_final': round(FO_final, 8),
-        'delta_final': delta_final,
         'convergio': convergio,
     }
     with open(log_path, 'a') as f:
         f.write(json.dumps(entrada) + '\n')
 
 
-def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
-                      carpeta_n_prod: Path, carpeta_n_bt: Path,
-                      ordenes_activas: list = [], fecha_hora_max=None,
-                      estado_compartido=None, verbose: bool = True,
-                      ordenes_abiertas_bt: list = [],
-                      params_soporte: dict = None, cold_start: bool = False,
-                      warm_start: bool = True, ruta_plot=None):
-    """Worker para ProcessPoolExecutor: procesa un único par (valor, N).
+def _preparar_valor_N(valor: str, N: int, carpeta_data: Path,
+                      carpeta_n_prod: Path, carpeta_n_bt: Path = None,
+                      fecha_hora_max=None, estado_compartido=None, verbose: bool = True,
+                      params_soporte: dict = None, warm_start: bool = True):
+    """Carga y prepara todo lo necesario para optimizar un combo (valor, N): CSV,
+    warm start, obtener_df_extremos (el paso caro: calcular_distancias) y FO_ref.
 
     fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
-                   esa fecha/hora y usa/actualiza el cache _bt.json en lugar de producción.
-    ordenes_abiertas_bt: en modo bt, precios de posiciones abiertas (OA) que no deben moverse.
-                         Son buy limits que ya se ejecutaron y siguen activas en la simulación.
+                   esa fecha/hora y usa el cache _bt.json en lugar de producción.
     params_soporte: dict opcional {K, N_EXP, LAMBDA} que sobrescribe las globales de config.py.
                     Lo usa X4 --x5 para calcular soportes con los params explorados del ciclo.
-    cold_start: si True, ignora el delta adaptado del combo y parte del delta semilla
-                (DELTA_INICIAL). X4 --x5 lo activa: cambian los params en cada tramo, así que
-                heredar la presión acumulada dejaría al optimizador satisfecho de entrada.
     warm_start: si True (default), usa como solución inicial la solución previa del mismo
                 combo (valor, N) — cache bt con t* <= fecha_hora_max en backtesting, JSON de
                 producción si no. Con False parte de puntos aleatorios.
-    ruta_plot:  si se pasa, guarda ahí el gráfico de precios (t0 → tf) con los soportes
-                encontrados. Usado por el modo demo de X5, donde también aplica en bt.
 
-    Retorna un dict con la metadata de la corrida (rango usado, warm start, FO, duración)
-    o None si el combo se saltó por falta de datos.
+    Retorna None si el combo se saltó por falta de datos. Si no, un dict con todo lo que
+    _optimizar_y_guardar_valor_N necesita para correr el optimizador sobre este combo —
+    reutilizable entre varias llamadas (ej. varios bloques de 15 min dentro de una misma
+    hora en el flujo en vivo, sin recalcular distancias en cada bloque).
     """
-    t_inicio = time.time()
     es_bt = fecha_hora_max is not None
     K_      = params_soporte['K']      if params_soporte else K
     N_EXP_  = params_soporte['N_EXP']  if params_soporte else N_EXP
@@ -1104,7 +1111,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
             print(f'  CSV no encontrado: {csv_path}, skip')
         if estado_compartido is not None:
             estado_compartido[llave] = (0, 0, 0.0, 'sin CSV')
-        return
+        return None
 
     df = pd.read_csv(csv_path)
     df = df.sort_values('DateTime').drop_duplicates(subset=['DateTime']).reset_index(drop=True)
@@ -1118,7 +1125,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
             print(f'  Sin datos para el rango solicitado, skip')
         if estado_compartido is not None:
             estado_compartido[llave] = (0, 0, 0.0, 'sin datos')
-        return
+        return None
 
     # Con <2 velas (o rango de precio degenerado) no hay varianza para generar
     # N soportes distintos: np.random.uniform(p_min, p_max, N) con p_min==p_max
@@ -1130,7 +1137,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
             print(f'  Rango de precio degenerado ({len(df)} vela(s)), skip')
         if estado_compartido is not None:
             estado_compartido[llave] = (0, 0, 0.0, 'rango degenerado')
-        return
+        return None
 
     fecha_hora_clave = df['DateTime'].iloc[-1]
     if verbose:
@@ -1163,24 +1170,6 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
             if verbose:
                 print(f'  Warm start: {len(conjunto_N_prev)} soportes desde JSON (t*={ws_t})')
 
-    # Delta
-    delta_path = (carpeta_n_bt if es_bt else carpeta_n_prod) / (
-        f'{valor}_{N}_bt_delta.json' if es_bt else f'{valor}_{N}_delta.json'
-    )
-    if cold_start:
-        delta_actual = DELTA_INICIAL
-        if verbose:
-            print(f'  delta_inicial semilla (params nuevos): {notacion_cientifica(delta_actual)}')
-    elif delta_path.exists():
-        with open(delta_path) as f:
-            delta_actual = json.load(f)['delta_inicial']
-        if verbose:
-            print(f'  delta_inicial cargado: {notacion_cientifica(delta_actual)}')
-    else:
-        delta_actual = DELTA_INICIAL
-        if verbose:
-            print(f'  delta_inicial semilla (sin estado previo): {notacion_cientifica(delta_actual)}')
-
     if verbose:
         print('  Calculando distancias...')
     if estado_compartido is not None:
@@ -1194,26 +1183,56 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     if estado_compartido is not None:
         estado_compartido[llave] = (0, 0, FO_ref, 'iniciando')
 
-    oa = ordenes_abiertas_bt if es_bt else ordenes_activas
-    if oa and verbose:
-        print(f'  Órdenes activas fijas: {[round(p, 2) for p in oa]}')
-    # Fase 1: exploración barata con M_COARSE
-    conjunto_N, df_extremos, df_FO_1, _, cambios_1, max_pasos_1 = nuevo_optimizador_2(
-        N, df_extremos, conjunto_N, LAMBDA_,
-        ordenes_activas=oa, M=M_COARSE, max_iters=MAX_ITERS, delta_inicial=delta_actual,
-        estado_compartido=estado_compartido, llave=llave, verbose=verbose,
-    )
-    # Fase 2: refinamiento fino con M (warm start desde resultado de fase 1)
-    conjunto_N, df_extremos, df_FO_2, convergio, cambios_2, max_pasos_2 = nuevo_optimizador_2(
-        N, df_extremos, conjunto_N, LAMBDA_,
-        ordenes_activas=oa, M=M, max_iters=MAX_ITERS, delta_inicial=delta_actual,
-        estado_compartido=estado_compartido, llave=llave, verbose=verbose,
-    )
-    if not df_FO_2.empty:
-        df_FO_2['Iteracion'] += len(df_FO_1)
-    df_FO = pd.concat([df_FO_1, df_FO_2], ignore_index=True)
-    max_pasos = max(max_pasos_1, max_pasos_2)
+    return {
+        'df_extremos': df_extremos, 'conjunto_N': conjunto_N,
+        'K': K_, 'N_EXP': N_EXP_, 'LAMBDA': LAMBDA_, 'es_bt': es_bt,
+        'fecha_hora_clave': fecha_hora_clave,
+        't0': str(df['DateTime'].iloc[0]), 'n_velas': len(df),
+        'warm_start_n': len(conjunto_N_prev), 'warm_start_t': ws_t,
+        'conjunto_N_prev': conjunto_N_prev, 'FO_ref': FO_ref,
+    }
+
+
+def _optimizar_y_guardar_valor_N(valor: str, N: int, prep: dict, ordenes_activas: list,
+                                 carpeta_n_prod: Path, carpeta_n_bt: Path = None,
+                                 fases: tuple = ('coarse', 'fine'),
+                                 tiempo_limite_s: float = None,
+                                 estado_compartido=None, verbose: bool = True,
+                                 ruta_plot=None) -> dict:
+    """Corre nuevo_optimizador_2 una vez por fase en `fases` ('coarse' usa M_COARSE
+    candidatos de exploración barata, 'fine' usa M) sobre prep['df_extremos']/
+    prep['conjunto_N'], compartiendo tiempo_limite_s entre las fases pedidas (None =
+    sin límite, corre a convergencia natural o hasta los topes MAX_ITERS/MAX_CAMBIOS —
+    el modo usado por bt/X5 vía _procesar_valor_N). Guarda el conjunto_N resultante en
+    resources/conjuntos_N/ (producción) o en el cache bt (prep['es_bt']=True).
+    """
+    llave = f'{valor}_{N}'
+    df_extremos = prep['df_extremos']
+    conjunto_N = prep['conjunto_N']
+    LAMBDA_ = prep['LAMBDA']
+    es_bt = prep['es_bt']
+
+    if ordenes_activas and verbose:
+        print(f'  Órdenes activas fijas: {[round(p, 2) for p in ordenes_activas]}')
+
+    M_por_fase = {'coarse': M_COARSE, 'fine': M}
+    df_FO = pd.DataFrame()
+    convergio = False
+    max_pasos = 0
+    for fase in fases:
+        conjunto_N, df_extremos, df_FO_fase, convergio, _, max_pasos_fase = nuevo_optimizador_2(
+            N, df_extremos, conjunto_N, LAMBDA_,
+            ordenes_activas=ordenes_activas, M=M_por_fase[fase], max_iters=MAX_ITERS,
+            estado_compartido=estado_compartido, llave=llave, verbose=verbose,
+            tiempo_limite_s=tiempo_limite_s,
+        )
+        if not df_FO_fase.empty:
+            df_FO_fase['Iteracion'] += len(df_FO)
+        df_FO = pd.concat([df_FO, df_FO_fase], ignore_index=True)
+        max_pasos = max(max_pasos, max_pasos_fase)
+
     # Soportes cuya posición final difiere del warm start inicial
+    conjunto_N_prev = prep['conjunto_N_prev']
     cambios_netos = len(conjunto_N_prev - conjunto_N) if conjunto_N_prev else N
     if verbose:
         print(f'  Cambios netos (vs. warm start) {valor} {N}: {cambios_netos}')
@@ -1221,74 +1240,108 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     if not es_bt:
         graficar_df_extremos(df_extremos, valor=valor, N=N, graficar=GRAFICAR_EXTREMOS)
         graficar_performance_FO(df_FO, valor=valor, N=N, graficar=GRAFICAR_FO)
-        graficar_soportes_all(df, conjunto_N, valor=valor, N=N, graficar=GRAFICAR_SOPORTES, zoom=GRAFICAR_ZOOM,
-                              ordenes_activas=oa)
+        graficar_soportes_all(df_extremos, conjunto_N, valor=valor, N=N, graficar=GRAFICAR_SOPORTES,
+                              zoom=GRAFICAR_ZOOM, ordenes_activas=ordenes_activas)
 
     plot_generado = None
     if ruta_plot is not None:
         try:
-            plot_generado = str(graficar_soportes_demo(df, conjunto_N, ruta_plot,
-                                                       valor, N, ordenes_activas=oa))
+            plot_generado = str(graficar_soportes_demo(df_extremos, conjunto_N, ruta_plot,
+                                                       valor, N, ordenes_activas=ordenes_activas))
         except Exception as e:
             plot_generado = f'ERROR: {e}'
 
     # Guardar soportes
     if es_bt:
-        _bt_guardar(carpeta_n_bt, valor, N, fecha_hora_clave, conjunto_N)
+        _bt_guardar(carpeta_n_bt, valor, N, prep['fecha_hora_clave'], conjunto_N)
         if verbose:
-            print(f'  Guardado bt: {valor}_{N}_bt.json [{fecha_hora_clave}]')
+            print(f'  Guardado bt: {valor}_{N}_bt.json [{prep["fecha_hora_clave"]}]')
     else:
+        json_path = carpeta_n_prod / f'{valor}_{N}'
         json_act(str(json_path), conjunto_N, 'save')
         if verbose:
             print(f'  Guardado: {json_path}.json')
 
     FO_final, _, _ = calcular_FO(df_extremos, conjunto_N, LAMBDA_)
 
-    # Si la mejora neta es menor que delta_actual, el warm start era esencialmente óptimo:
-    # el optimizador cicló sin ganar terreno real (inner loop rompe al primer vecino mejorable,
-    # nunca completa el scan completo). Tratar como convergido para que delta se reduzca.
-    if not convergio and abs(FO_ref) > 0:
-        if abs((FO_final - FO_ref) / abs(FO_ref)) < delta_actual:
-            convergio = True
+    if estado_compartido is not None:
+        estado_str = 'convergencia' if convergio else 'bloque completo'
+        estado_compartido[llave] = (cambios_netos, -1, FO_final, estado_str)
 
-    # Guardar delta
-    delta_next = delta_actual * FACTOR_DELTA if convergio else delta_actual
-    estado_delta = (f'convergió → {notacion_cientifica(delta_actual)} → {notacion_cientifica(delta_next)}'
-                    if convergio else f'no convergió → delta sin cambio ({notacion_cientifica(delta_actual)})')
-    if verbose:
-        print(f'  Delta: {estado_delta}')
-    with open(delta_path, 'w') as f:
-        json.dump({'delta_inicial': delta_next, 'convergio': convergio}, f)
-    if verbose:
-        print(f'  Guardado: {delta_path.name}')
+    return {
+        'conjunto_N': conjunto_N, 'df_extremos': df_extremos,
+        'FO_final': FO_final, 'convergio': convergio,
+        'cambios': cambios_netos, 'n_iters': len(df_FO), 'max_pasos': max_pasos,
+        'plot': plot_generado,
+    }
+
+
+def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
+                      carpeta_n_prod: Path, carpeta_n_bt: Path,
+                      ordenes_activas: list = [], fecha_hora_max=None,
+                      estado_compartido=None, verbose: bool = True,
+                      ordenes_abiertas_bt: list = [],
+                      params_soporte: dict = None,
+                      warm_start: bool = True, ruta_plot=None):
+    """Worker para ProcessPoolExecutor: procesa un único par (valor, N) a convergencia
+    (o hasta los topes de seguridad MAX_ITERS/MAX_CAMBIOS). Usado por backtesting (X4/X5)
+    y, en producción, por la preparación horaria de _ciclo_activo. El flujo en vivo de
+    bloques de 15 min NO pasa por acá — llama _preparar_valor_N/_optimizar_y_guardar_valor_N
+    directo (ver _bloque_valor_N) para reusar la misma preparación entre varios bloques de
+    una misma hora sin recalcular distancias en cada uno.
+
+    fecha_hora_max: datetime opcional. Si se pasa, modo backtesting — filtra datos hasta
+                   esa fecha/hora y usa/actualiza el cache _bt.json en lugar de producción.
+    ordenes_abiertas_bt: en modo bt, precios de posiciones abiertas (OA) que no deben moverse.
+                         Son buy limits que ya se ejecutaron y siguen activas en la simulación.
+    params_soporte: dict opcional {K, N_EXP, LAMBDA} que sobrescribe las globales de config.py.
+                    Lo usa X4 --x5 para calcular soportes con los params explorados del ciclo.
+    warm_start: si True (default), usa como solución inicial la solución previa del mismo
+                combo (valor, N) — cache bt con t* <= fecha_hora_max en backtesting, JSON de
+                producción si no. Con False parte de puntos aleatorios.
+    ruta_plot:  si se pasa, guarda ahí el gráfico de precios (t0 → tf) con los soportes
+                encontrados. Usado por el modo demo de X5, donde también aplica en bt.
+
+    Retorna un dict con la metadata de la corrida (rango usado, warm start, FO, duración)
+    o None si el combo se saltó por falta de datos.
+    """
+    t_inicio = time.time()
+    prep = _preparar_valor_N(valor, N, carpeta_data, carpeta_n_prod, carpeta_n_bt,
+                             fecha_hora_max, estado_compartido, verbose,
+                             params_soporte, warm_start)
+    if prep is None:
+        return None
+
+    oa = ordenes_abiertas_bt if prep['es_bt'] else ordenes_activas
+    r = _optimizar_y_guardar_valor_N(
+        valor, N, prep, oa, carpeta_n_prod, carpeta_n_bt,
+        fases=('coarse', 'fine'), tiempo_limite_s=None,
+        estado_compartido=estado_compartido, verbose=verbose, ruta_plot=ruta_plot,
+    )
     t_fin = time.time()
 
-    clave_bt = str(fecha_hora_clave) if es_bt else ''
+    clave_bt = str(prep['fecha_hora_clave']) if prep['es_bt'] else ''
     _guardar_log_convergencia(
-        valor, N, es_bt, clave_bt,
+        valor, N, prep['es_bt'], clave_bt,
         t_inicio, t_fin,
-        len(df_FO), cambios_netos,
-        FO_ref, FO_final,
-        delta_next, convergio,
+        r['n_iters'], r['cambios'],
+        prep['FO_ref'], r['FO_final'], r['convergio'],
     )
     duracion = t_fin - t_inicio
     if verbose:
         mins = int(duracion // 60)
         segs = duracion % 60
-        print(f'  Log guardado: {valor}_{N}{"_bt" if es_bt else ""}.json '
-              f'({mins}m {segs:.1f}s | iters={len(df_FO)} | convergio={convergio})')
-
-    if estado_compartido is not None:
-        estado_compartido[llave] = (cambios_netos, -1, FO_final, 'convergencia')
+        print(f'  Log guardado: {valor}_{N}{"_bt" if prep["es_bt"] else ""}.json '
+              f'({mins}m {segs:.1f}s | iters={r["n_iters"]} | convergio={r["convergio"]})')
 
     return {
         'valor': valor, 'N': N,
-        't0': str(df['DateTime'].iloc[0]), 'tf': str(fecha_hora_clave),
-        'n_velas': len(df),
-        'warm_start_n': len(conjunto_N_prev), 'warm_start_t': ws_t,
-        'FO_inicial': FO_ref, 'FO_final': FO_final,
-        'convergio': convergio, 'duracion': round(duracion, 1),
-        'plot': plot_generado,
+        't0': prep['t0'], 'tf': str(prep['fecha_hora_clave']),
+        'n_velas': prep['n_velas'],
+        'warm_start_n': prep['warm_start_n'], 'warm_start_t': prep['warm_start_t'],
+        'FO_inicial': prep['FO_ref'], 'FO_final': r['FO_final'],
+        'convergio': r['convergio'], 'duracion': round(duracion, 1),
+        'plot': r['plot'],
     }
 
 
@@ -1308,11 +1361,12 @@ _FASES = {
     'actualizando X3': 'Actualizando X3',
     'calc. distancias': 'Calculando distancias',
     'convergencia': 'Convergencia',
+    'bloque completo': 'Bloque completo (sin converger, continúa)',
 }
 
 
-def _texto_linea_combo(v: str, n: int, ciclo: int, cambios: int, iters: int, FO, estado_str: str) -> Text:
-    prefijo = f'[Ciclo {ciclo}] {v}_{n}: '
+def _texto_linea_combo(v: str, n: int, i: int, j: int, cambios: int, iters: int, FO, estado_str: str) -> Text:
+    prefijo = f'[C {i} | A {j}] {v}_{n}: '
     if estado_str == 'corriendo':
         fo_str = f'{FO:.3e}' if FO is not None else '---'
         return Text(f'{prefijo}cambios={cambios} pasos_max={iters} FO={fo_str} [corriendo]')
@@ -1342,8 +1396,8 @@ def _construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado: dict, com
     for v, n in combos:
         llave = f'{v}_{n}'
         cambios, iters, FO, estado_str = estado_compartido.get(llave, (0, 0, None, 'esperando'))
-        ciclo = ciclos_estado.get(v, 0)
-        lineas.append(_texto_linea_combo(v, n, ciclo, cambios, iters, FO, estado_str))
+        i, j = ciclos_estado.get(v, (0, 0))
+        lineas.append(_texto_linea_combo(v, n, i, j, cambios, iters, FO, estado_str))
     lineas.append(_texto_linea_x2(x2_estado))
     return Group(*lineas)
 
@@ -1393,8 +1447,8 @@ def _live_monitor(live: Live, estado_compartido, ciclos_estado, x2_estado: dict,
 
 
 def _info_previa_combo(v: str, n: int, carpeta_data: Path, carpeta_n_prod: Path):
-    """Diagnóstico pre-corrida (rango de precios, warm start, delta_inicial, FO previa) para
-    un combo — se imprime desde el hilo del activo (proceso principal) porque los workers del
+    """Diagnóstico pre-corrida (rango de precios, warm start, FO previa) para un combo —
+    se imprime desde el hilo del activo (proceso principal) porque los workers del
     ProcessPoolExecutor tienen stdout silenciado (ver comentario al inicio del archivo)."""
     csv_path = carpeta_data / f'{v}.csv'
     lineas_out = [f'\n{"="*55}\nProcesando {v} N={n}']
@@ -1419,13 +1473,6 @@ def _info_previa_combo(v: str, n: int, carpeta_data: Path, carpeta_n_prod: Path)
         lineas_out.append(f'  Warm start: {len(prev)} soportes desde la solución de t*={t_prev}')
     else:
         lineas_out.append('  Warm start: sin solución previa (arranque aleatorio)')
-    delta_path = carpeta_n_prod / f'{v}_{n}_delta.json'
-    if delta_path.exists():
-        with open(delta_path) as f:
-            delta_val = json.load(f)['delta_inicial']
-        lineas_out.append(f'  delta_inicial: {notacion_cientifica(delta_val)}')
-    else:
-        lineas_out.append(f'  delta_inicial: {notacion_cientifica(DELTA_INICIAL)} (semilla)')
     log_path = CARPETA_LOGS / f'{v}_{n}.jsonl'
     if log_path.exists():
         with open(log_path) as f:
@@ -1449,35 +1496,91 @@ def _resumen_combo(v: str, n: int, res: dict):
                       f'precios {res["t0"]} → {res["tf"]} ({res["n_velas"]} velas) | {ws}')
 
 
+def _esperar_resultado_pool(future, llave: str, estado_compartido):
+    """Bloquea hasta que `future` resuelva, reflejando en estado_compartido el tiempo en
+    cola (con aviso en consola si supera 60s) — mismo patrón usado tanto para la
+    preparación horaria (_preparar_valor_N) como para cada bloque de optimización
+    (_bloque_valor_N). Relanza cualquier excepción del worker; el caller decide cómo
+    loggearla y marcar el combo en error."""
+    if estado_compartido.get(llave, (None, None, None, ''))[3] == 'enviando al pool':
+        estado_compartido[llave] = (0, 0, None, 'en cola (0s)')
+    t_cola = time.monotonic()
+    aviso_cola = False
+    while True:
+        try:
+            return future.result(timeout=10)
+        except concurrent.futures.TimeoutError:
+            anterior = estado_compartido.get(llave, (0, 0, None, ''))
+            if anterior[3].startswith('en cola'):
+                espera = int(time.monotonic() - t_cola)
+                estado_compartido[llave] = (0, 0, None, f'en cola ({espera}s)')
+                if espera >= 60 and not aviso_cola:
+                    aviso_cola = True
+                    with _stdout_lock:
+                        console.print(f'  {llave}: {espera}s en cola; el worker aún no entró '
+                                      'al pool. Revisar arranque del pool, memoria y N_MAX_MODELS.')
+
+
+def _bloque_valor_N(valor: str, N: int, prep: dict, ordenes_activas: list,
+                     carpeta_n_prod: Path, fases: tuple, tiempo_limite_s: float,
+                     estado_compartido=None, verbose: bool = False) -> dict:
+    """Un bloque de T_UPDATE_O0 minutos del flujo en vivo: corre el optimizador sobre la
+    preparación ya hecha (`prep`, de _preparar_valor_N) con presupuesto de tiempo, guarda
+    el conjunto_N resultante y loggea — delega toda la lógica de búsqueda en
+    _optimizar_y_guardar_valor_N, la misma función que usa _procesar_valor_N para bt/legacy.
+    Sin lógica de negocio propia."""
+    t_inicio = time.time()
+    r = _optimizar_y_guardar_valor_N(
+        valor, N, prep, ordenes_activas, carpeta_n_prod,
+        fases=fases, tiempo_limite_s=tiempo_limite_s,
+        estado_compartido=estado_compartido, verbose=verbose,
+    )
+    t_fin = time.time()
+    _guardar_log_convergencia(
+        valor, N, False, '',
+        t_inicio, t_fin,
+        r['n_iters'], r['cambios'],
+        prep['FO_ref'], r['FO_final'], r['convergio'],
+    )
+    r['duracion'] = round(t_fin - t_inicio, 1)
+    return r
+
+
 def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_minuto: Path,
                    carpeta_n_prod: Path, executor, estado_compartido, ciclos_estado,
                    mt5_lock, stop_event, opcion: int, max_ciclos: int):
-    """Loop independiente por activo: descarga sus datos, actualiza X3, busca sus soportes
-    hasta convergencia, y arranca el siguiente ciclo de inmediato — sin esperar a los demás
-    activos, que siguen en el suyo propio (ver ciclos_estado). Las llamadas a MT5 se
-    serializan con mt5_lock (la API no es thread-safe para llamadas concurrentes); el cómputo
-    pesado del optimizador sigue corriendo en paralelo real vía el ProcessPoolExecutor
-    compartido entre los 6 hilos de activo.
+    """Loop independiente por activo, en dos niveles anidados de reloj real — sin esperar
+    a los demás activos, que siguen en el suyo propio (ver ciclos_estado):
 
-    Solo el primer ciclo (ciclo 0) imprime el diagnóstico completo (banner, descargas,
-    _info_previa_combo, _resumen_combo) — de ahí en más cada fase (descarga hora/minuto,
-    X3, distancias, optimizador, convergencia) se refleja únicamente en la línea en vivo
-    del monitor vía estado_compartido, sin generar líneas nuevas en pantalla.
+      - Cada T_UPDATE_CICLO_X0 minutos (ciclo `i`): descarga datos, actualiza X3, y prepara
+        el combo (_preparar_valor_N — recalcula distancias) para cada N de n_list.
+      - Cada T_UPDATE_O0 minutos dentro de esa hora (bloque `j`): corre el optimizador sobre
+        la preparación vigente con presupuesto de tiempo (_bloque_valor_N), y guarda el
+        conjunto_N resultante en resources/conjuntos_N/ para que X1 lo lea.
+
+    Las llamadas a MT5 se serializan con mt5_lock (la API no es thread-safe para llamadas
+    concurrentes); el cómputo pesado del optimizador sigue corriendo en paralelo real vía
+    el ProcessPoolExecutor compartido entre los 6 hilos de activo.
+
+    Solo la primera hora (i == 1) imprime el diagnóstico completo (banner, descargas,
+    _info_previa_combo, _resumen_combo) — de ahí en más cada fase se refleja únicamente en
+    la línea en vivo del monitor vía estado_compartido, sin generar líneas nuevas en pantalla.
     """
-    ciclo = 0
+    i = 0
     while not stop_event.is_set():
-        ciclos_estado[valor] = ciclo
-        es_primer_ciclo = (ciclo == 0)
-        if es_primer_ciclo:
+        i += 1  # 1-based, igual que j (que también arranca en 1 dentro de cada hora)
+        ciclos_estado[valor] = (i, 0)
+        es_primera_hora = (i == 1)
+        if es_primera_hora:
             with _stdout_lock:
-                console.print(f'\n── {valor}: ciclo {ciclo} ──')
+                console.print(f'\n── {valor}: ciclo {i} ──')
         try:
             if opcion in (0, 2):
                 for n in n_list:
                     estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando data (hora)')
                 with mt5_lock:
                     try:
-                        descargar_datos([valor], carpeta_data, verbose=es_primer_ciclo)
+                        descargar_datos([valor], carpeta_data, verbose=es_primera_hora)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'Descarga H1 falló para {valor}, continuando', e)
                     if valor in ('BTCUSD', 'ETHUSD'):
@@ -1493,7 +1596,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     for n in n_list:
                         estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando data (minuto)')
                     try:
-                        descargar_datos_minuto([valor], carpeta_data_minuto, verbose=es_primer_ciclo)
+                        descargar_datos_minuto([valor], carpeta_data_minuto, verbose=es_primera_hora)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'Descarga M1 falló para {valor}, continuando', e)
 
@@ -1507,7 +1610,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                         json_path = carpeta_n_prod / f'{valor}_{n_prod}.json'
                         conjunto_n_v = (set(json.load(open(json_path)))
                                         if json_path.exists() else set())
-                        _x3_actualizar_features(valor, df_v, conjunto_n_v, verbose=es_primer_ciclo,
+                        _x3_actualizar_features(valor, df_v, conjunto_n_v, verbose=es_primera_hora,
                                                 console=console)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'X3 falló para {valor}, continuando', e)
@@ -1515,45 +1618,68 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
             if opcion in (1, 2):
                 with mt5_lock:
                     ordenes_activas = obtener_ordenes_activas_mt5([valor]).get(valor, [])
+
+                prep_por_n = {}
                 for n in n_list:
                     llave = f'{valor}_{n}'
-                    if es_primer_ciclo:
+                    if es_primera_hora:
                         _info_previa_combo(valor, n, carpeta_data, carpeta_n_prod)
                     estado_compartido[llave] = (0, 0, None, 'enviando al pool')
-                    future = executor.submit(_procesar_valor_N, valor, n, carpeta_data, carpeta_n_prod,
-                                              None, ordenes_activas, None, estado_compartido, False)
-                    # El worker puede arrancar antes de que submit retorne; no pisar su estado.
-                    if estado_compartido.get(llave, (None, None, None, ''))[3] == 'enviando al pool':
-                        estado_compartido[llave] = (0, 0, None, 'en cola (0s)')
-                    t_cola = time.monotonic()
-                    aviso_cola = False
+                    future = executor.submit(_preparar_valor_N, valor, n, carpeta_data, carpeta_n_prod,
+                                              None, None, estado_compartido, False)
                     try:
-                        while True:
-                            try:
-                                res = future.result(timeout=10)
-                                break
-                            except concurrent.futures.TimeoutError:
-                                anterior = estado_compartido.get(llave, (0, 0, None, ''))
-                                if anterior[3].startswith('en cola'):
-                                    espera = int(time.monotonic() - t_cola)
-                                    estado_compartido[llave] = (0, 0, None, f'en cola ({espera}s)')
-                                    if espera >= 60 and not aviso_cola:
-                                        aviso_cola = True
-                                        with _stdout_lock:
-                                            console.print(f'  {llave}: {espera}s en cola; el worker aún no entró '
-                                                          'a _procesar_valor_N. Revisar arranque del pool, '
-                                                          'memoria y N_MAX_MODELS.')
-                        if res is not None and es_primer_ciclo:
-                            _resumen_combo(valor, n, res)
+                        prep_por_n[n] = _esperar_resultado_pool(future, llave, estado_compartido)
                     except Exception as exc:
                         prev = estado_compartido.get(llave, (0, 0, None, 'ERROR'))
                         estado_compartido[llave] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
-                        _log_error(CARPETA_LOGS, f'Error en combo ({valor}, N={n})', exc)
-        except Exception as e:
-            _log_error(CARPETA_LOGS, f'Error en ciclo {ciclo} de {valor}. Reintentando en el próximo ciclo', e)
+                        _log_error(CARPETA_LOGS, f'Error preparando combo ({valor}, N={n})', exc)
+                        prep_por_n[n] = None
 
-        ciclo += 1
-        if max_ciclos > 0 and ciclo >= max_ciclos:
+                j = 0
+                t_inicio_hora = time.monotonic()
+                while not stop_event.is_set():
+                    j += 1
+                    ciclos_estado[valor] = (i, j)
+                    deadline_bloque = time.monotonic() + T_UPDATE_O0 * 60
+                    fases = ('coarse', 'fine') if j == 1 else ('fine',)
+
+                    for n in n_list:
+                        if prep_por_n[n] is None:
+                            continue
+                        llave = f'{valor}_{n}'
+                        tiempo_restante = max(0.0, deadline_bloque - time.monotonic())
+                        estado_compartido[llave] = (0, 0, None, 'enviando al pool')
+                        future = executor.submit(_bloque_valor_N, valor, n, prep_por_n[n],
+                                                  ordenes_activas, carpeta_n_prod, fases,
+                                                  tiempo_restante, estado_compartido, False)
+                        try:
+                            res = _esperar_resultado_pool(future, llave, estado_compartido)
+                        except Exception as exc:
+                            prev = estado_compartido.get(llave, (0, 0, None, 'ERROR'))
+                            estado_compartido[llave] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
+                            _log_error(CARPETA_LOGS, f'Error en bloque ({valor}, N={n})', exc)
+                            continue
+                        prep_por_n[n]['conjunto_N'] = res['conjunto_N']  # warm start del próximo bloque
+                        if es_primera_hora and j == 1:
+                            p = prep_por_n[n]
+                            _resumen_combo(valor, n, {
+                                't0': p['t0'], 'tf': str(p['fecha_hora_clave']), 'n_velas': p['n_velas'],
+                                'warm_start_n': p['warm_start_n'], 'warm_start_t': p['warm_start_t'],
+                                'convergio': res['convergio'], 'duracion': res['duracion'],
+                            })
+
+                    with mt5_lock:
+                        ordenes_activas = obtener_ordenes_activas_mt5([valor]).get(valor, [])
+
+                    if (time.monotonic() - t_inicio_hora) >= T_UPDATE_CICLO_X0 * 60:
+                        break
+                    restante = deadline_bloque - time.monotonic()
+                    if restante > 0:
+                        stop_event.wait(restante)
+        except Exception as e:
+            _log_error(CARPETA_LOGS, f'Error en hora {i} de {valor}. Reintentando en la próxima hora', e)
+
+        if max_ciclos > 0 and i >= max_ciclos:
             break
 
 
@@ -1619,7 +1745,7 @@ if __name__ == '__main__':
     try:
         with multiprocessing.Manager() as manager:
             estado_compartido = manager.dict({f'{v}_{n}': (0, 0, None, 'esperando') for v, n in combos})
-            ciclos_estado = manager.dict({v: 0 for v in VALORES})
+            ciclos_estado = manager.dict({v: (0, 0) for v in VALORES})
             stop_event = threading.Event()
             mt5_lock = threading.Lock()
 

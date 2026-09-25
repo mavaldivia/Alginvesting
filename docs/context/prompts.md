@@ -53,3 +53,23 @@ A partir de ese momento, no se debe generar ninguna linea de código, simplement
 [5] [OK] Revisar logs de x1 en usd de subida y de bajada considerando lotajes_m mayor a 1
 /new_todo X1:
 En los logs, de X1 con usd de subida y de bajada, para no tener problemas con el lotaje, mejor pon la diferencia en usd del precio del activo directamente
+
+
+new_todo X0
+
+Cambiar lógica de mejora y hacerlo por ciclos TEMPORALES
+
+Si mejora FO, entonces se hace el cambio de soportes / resistencias (sale una O0 y entra una O0 nueva)
+Cada 15 mins, se mapean los cambios a un JSON de soportes / resistencias para que X1 los lea y actualice (de O0 a OE)
+Cada 1 hora, se actualiza data, data min, x2 y x3, además de incorporar las nuevas velas horarias si existen, calcular distancias en cada activo y comenzar (con los soportes / resistencias actualizados, una nueva FO inicial)
+El delta inicial, factor delta, etc…ya no aplican
+
+Ahora ese 15 mins y una hora (60 mins) son nuevos parámetros en config.py
+
+T_UPDATE_O0 = 15
+T_UPDATE_CICLO_X0 = 60
+
+Manten el formato de los logs...cada activo a la izquierda debe decir [C {i} | A {j}] {valor}_{N}
+C significa ciclo y A actualización (deben ser explicitamente "C" y "A"
+i es el id del ciclo (sube 1 cada 60 mins en los parametros por default)
+j es el id de la actualizacion (sube 1 cada 15 mins segun los parametros por default)

@@ -144,7 +144,7 @@ def _guardar_checkpoint(estado: dict, cfg):
 
 def _worker_recalcular(args):
     (activo, N, carpeta_data, carpeta_n_prod, carpeta_n_bt, ts_actual, oa_bt,
-     params_soporte, cold_start, warm_start, ruta_plot) = args
+     params_soporte, warm_start, ruta_plot) = args
     return _procesar_valor_N(
         activo, N,
         carpeta_data,
@@ -156,7 +156,6 @@ def _worker_recalcular(args):
         False,       # verbose
         oa_bt,       # ordenes_abiertas_bt
         params_soporte,  # K/N_EXP/LAMBDA del ciclo (None → globales de config.py)
-        cold_start,      # x5: delta semilla, no hereda la presión adaptada del combo
         warm_start,      # usa la solución de (valor, N) en t* <= t como punto de partida
         ruta_plot,       # demo: PNG de precios + soportes de esta búsqueda
     )
@@ -242,7 +241,7 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
         oa_bt = list(estado['por_activo'][activo]['OA'].keys())
         ruta_plot = _ruta_plot_demo(activo, N, ts_actual) if demo else None
         tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT,
-                      ts_actual, oa_bt, params_soporte, x5_mode, warm_start, ruta_plot))
+                      ts_actual, oa_bt, params_soporte, warm_start, ruta_plot))
 
     n_workers = min(len(tasks), 4)
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
@@ -1017,18 +1016,13 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         reset = (_ckpt_x5 is None or _ckpt_x5.get('stop_out')
                  or _ts_ckpt is None or _ts_ckpt >= _ts_max)
 
-    # En x5 cada pasada nueva re-optimiza con sus propios params: se descarta
-    # el delta adaptado de la pasada anterior (parte del delta semilla). El
-    # cache de soportes se conserva si X5_WARM_START_SOPORTES: la solución de
-    # (valor, N) en t* sirve como punto de partida, aunque los params del
-    # tramo hayan cambiado.
-    if x5_mode and reset:
-        patrones = ['*_bt_delta.json']
-        if not getattr(cfg, 'X5_WARM_START_SOPORTES', True):
-            patrones.append('*_bt.json')
-        for _pat in patrones:
-            for _f in cfg.CARPETA_N_BT.glob(_pat):
-                _f.unlink()
+    # En x5 cada pasada nueva re-optimiza con sus propios params. El cache de soportes se
+    # conserva si X5_WARM_START_SOPORTES: la solución de (valor, N) en t* sirve como punto
+    # de partida, aunque los params del tramo hayan cambiado; si no, se limpia para que
+    # cada pasada arranque de soportes aleatorios.
+    if x5_mode and reset and not getattr(cfg, 'X5_WARM_START_SOPORTES', True):
+        for _f in cfg.CARPETA_N_BT.glob('*_bt.json'):
+            _f.unlink()
 
     # Estado inicial
     estado = None
