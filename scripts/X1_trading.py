@@ -791,6 +791,11 @@ if __name__ == '__main__':
                         controlar_perdida_max(actual_OA, valor, LOTAJES, PERDIDA_MAX[valor])
 
                     except Exception as e:
+                        if mt5.positions_get() is None:
+                            _print_throttled('MT5', 'conexion_perdida',
+                                              f'  [X1] Conexión con MT5 perdida: {mt5.last_error()} — reintentando inicialización')
+                            mt5.initialize()
+                            break
                         print(f'  [X1] Error en {valor}: {e} — saltando activo este ciclo')
                         _log_traceback(f'Error en {valor} (iteración {i})')
 

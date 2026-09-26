@@ -1636,3 +1636,9 @@ Claude: derivó ambos casos — `P0_OE = Pi + A/(mU)` y, para el SL, mostró que
 Mauricio: pidió documentar ambos casos con ejemplos numéricos para los 6 activos, en un PDF LaTeX en `docs/plans/formulas.pdf`.
 Claude: revisó convenciones de `docs/plans/algoritmos.tex` (mismo compilador `tectonic`, mismos colores/paquetes) y escribió `docs/plans/formulas.tex` — notación, derivación y tabla de los 6 activos para cada caso (AMZN con el precio real de la captura revisada en sesión, resto ilustrativos), síntesis final. Compiló con `tectonic`, corrigió la fecha en inglés del `\today`, y verificó el PDF renderizado de las 5 páginas. Archivos sin trackear en git (sin commit).
 (Cierre: 2026-09-25 18:02)
+
+## SECCIÓN 195
+Mauricio: vía `/new_todo`, pegó el log de X1 en producción (Windows) mostrando que los 6 activos fallaban en bucle con `positions_get(valor) retornó None: (-4, 'Terminal: Not found')` desde la iteración ~3561, sin recuperarse.
+Claude: investigó `obtener_conjuntos_actuales` (línea 196) y el chequeo de reconexión existente (commit `5b388ea`, ítem previo de done.md) — ese chequeo solo cubre `mt5.positions_get()` global antes del loop por activo; la llamada `positions_get(symbol=valor)` dentro del loop por activo no tenía reconexión, así que el `RuntimeError` caía al `except` genérico que solo loguea y sigue, dejando el bucle fallando indefinidamente para los 6 activos.
+Claude: corrigió `X1_trading.py` — el `except` del loop por activo ahora re-chequea `mt5.positions_get() is None`; si confirma la caída, reutiliza el mismo throttle e intento de reconexión (`mt5.initialize()`) del chequeo global y hace `break` en vez de seguir fallando activo por activo. Verificado con `py_compile`. Registrado en `docs/tracking/done.md` (sección X1 — X1_trading.py).
+(Cierre: 2026-09-25 22:59)
