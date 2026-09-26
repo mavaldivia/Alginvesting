@@ -441,14 +441,17 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
     max_pasos = 0  # máx. posición alcanzada en el inner loop antes de aceptar un cambio
     deadline = time.monotonic() + tiempo_limite_s if tiempo_limite_s is not None else None
 
-    # Inicializar conjunto_N respetando las ordenes activas
-    delta = N - len(set(ordenes_activas)) - len(conjunto_N)
-    delta2 = N - len(set(ordenes_activas))
+    # Inicializar conjunto_N respetando las ordenes activas. El ajuste de tamaño se hace
+    # sobre conjunto_N_sin_oa (excluyendo las OA que ya son miembros de conjunto_N) — comparar
+    # contra len(conjunto_N) a secas dispara un reset completo a puntos aleatorios apenas hay
+    # alguna orden activa, porque conjunto_N ya viene con tamaño N incluyendo esas OA.
+    set_oa = set(ordenes_activas)
+    delta2 = N - len(set_oa)
 
     if delta2 < 0:
         _log_diagnostico_conjunto_N(llave, 'ordenes_activas_mayor_a_N', {
-            'N': N, 'ordenes_activas': sorted(set(ordenes_activas)),
-            'len_ordenes_activas': len(set(ordenes_activas)),
+            'N': N, 'ordenes_activas': sorted(set_oa),
+            'len_ordenes_activas': len(set_oa),
         })
         raise RuntimeError('Cantidad de ordenes activas es mayor a N')
 
@@ -458,19 +461,21 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         print(f'Rango de precios: [{p_min:.2f}, {p_max:.2f}]')
 
     conjunto_N_pre_oa = set(conjunto_N)
-    reset_completo = delta < 0 and delta2 > 0
-    if delta >= 0:
-        conjunto_N = conjunto_N.union(set(np.random.uniform(p_min, p_max, delta).tolist()))
-    elif delta2 > 0:
-        conjunto_N = set(np.random.uniform(p_min, p_max, delta2).tolist())
+    conjunto_N_sin_oa = conjunto_N - set_oa
+    faltan = delta2 - len(conjunto_N_sin_oa)
+    if faltan > 0:
+        conjunto_N_sin_oa = conjunto_N_sin_oa.union(set(np.random.uniform(p_min, p_max, faltan).tolist()))
+    elif faltan < 0:
+        a_remover = set(random.sample(list(conjunto_N_sin_oa), -faltan))
+        conjunto_N_sin_oa = conjunto_N_sin_oa.difference(a_remover)
 
-    conjunto_N = conjunto_N.union(set(ordenes_activas))
+    conjunto_N = conjunto_N_sin_oa.union(set_oa)
 
     if len(conjunto_N) != N:
         _log_diagnostico_conjunto_N(llave, 'init_post_union_oa', {
-            'N': N, 'delta': delta, 'delta2': delta2, 'reset_completo_por_oa': reset_completo,
-            'ordenes_activas': sorted(set(ordenes_activas)),
-            'ya_presentes_en_conjunto_previo': sorted(set(ordenes_activas) & conjunto_N_pre_oa),
+            'N': N, 'faltan': faltan,
+            'ordenes_activas': sorted(set_oa),
+            'ya_presentes_en_conjunto_previo': sorted(set_oa & conjunto_N_pre_oa),
             'len_conjunto_previo': len(conjunto_N_pre_oa), 'len_final': len(conjunto_N),
         })
         raise RuntimeError(f'Error en tamaño conjunto_N tras inicialización: {len(conjunto_N)} != {N}')

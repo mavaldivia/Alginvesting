@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-25** — fix(x0): reset accidental de conjunto_N con OA activas
 - **2026-09-25** — fix(x1): reconecta MT5 también cuando falla positions_get por activo
 - **2026-09-25** — fix(x1): distancia_ok O0→OE invariante al lotaje configurado
 - **2026-09-25** — feat(x0): reemplaza delta adaptativo por ciclos temporales (T_UPDATE_O0/T_UPDATE_CICLO_X0)
