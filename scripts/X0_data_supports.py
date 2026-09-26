@@ -1563,6 +1563,12 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
         la preparación vigente con presupuesto de tiempo (_bloque_valor_N), y guarda el
         conjunto_N resultante en resources/conjuntos_N/ para que X1 lo lea.
 
+    El paso de bloque `j` a ciclo `i+1` se dispara por conteo (j alcanza y =
+    T_UPDATE_CICLO_X0 / T_UPDATE_O0), no por tiempo transcurrido — así ningún bloque se
+    corta a medio presupuesto por haber llegado a la hora; siempre se completan los y
+    bloques enteros antes de refrescar data/distancias. La divisibilidad exacta se valida
+    al arrancar X0 (ver __main__).
+
     Las llamadas a MT5 se serializan con mt5_lock (la API no es thread-safe para llamadas
     concurrentes); el cómputo pesado del optimizador sigue corriendo en paralelo real vía
     el ProcessPoolExecutor compartido entre los 6 hilos de activo.
@@ -1640,8 +1646,8 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                         _log_error(CARPETA_LOGS, f'Error preparando combo ({valor}, N={n})', exc)
                         prep_por_n[n] = None
 
+                y = T_UPDATE_CICLO_X0 // T_UPDATE_O0  # divisibilidad validada en el entry point
                 j = 0
-                t_inicio_hora = time.monotonic()
                 while not stop_event.is_set():
                     j += 1
                     ciclos_estado[valor] = (i, j)
@@ -1676,7 +1682,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     with mt5_lock:
                         ordenes_activas = obtener_ordenes_activas_mt5([valor]).get(valor, [])
 
-                    if (time.monotonic() - t_inicio_hora) >= T_UPDATE_CICLO_X0 * 60:
+                    if j >= y:
                         break
                     restante = deadline_bloque - time.monotonic()
                     if restante > 0:
@@ -1719,6 +1725,10 @@ if __name__ == '__main__':
                              '(copy_rates_range, sin tope de 1000 velas), lo mergea '
                              'con el CSV existente y termina. No entra al loop.')
     args = parser.parse_args()
+
+    if T_UPDATE_CICLO_X0 % T_UPDATE_O0 != 0:
+        sys.exit(f'T_UPDATE_CICLO_X0 ({T_UPDATE_CICLO_X0}) debe ser múltiplo exacto de '
+                  f'T_UPDATE_O0 ({T_UPDATE_O0}) — revisa config.py')
 
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
     CARPETA_DATA_MINUTO.mkdir(parents=True, exist_ok=True)

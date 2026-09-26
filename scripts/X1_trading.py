@@ -80,21 +80,24 @@ def json_act(file_path: str, variable=None, mode: str = 'open'):
     """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON.
 
     El guardado es atómico (escribe a un .tmp y hace os.replace) para que un lector
-    concurrente nunca vea el archivo truncado a mitad de escritura.
+    concurrente nunca vea el archivo truncado a mitad de escritura. No imprime en
+    errores de lectura: el retry vive en `leer_lista_N`, que ya loguea si agota
+    sus intentos (mismo patrón "silencioso hasta el último intento" que el
+    `json_act` de X0_data_supports.py).
     """
     path = f'{file_path}.json'
-    try:
-        if mode == 'save':
+    if mode == 'save':
+        try:
             tmp_path = f'{path}.tmp'
             with open(tmp_path, 'w') as f:
                 json.dump(sorted(variable), f)
             os.replace(tmp_path, path)
             return None
-        with open(path, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f'Error json_act ({mode}, {path}): {e}')
-        raise
+        except Exception as e:
+            print(f'Error json_act (save, {path}): {e}')
+            raise
+    with open(path, 'r') as f:
+        return json.load(f)
 
 
 def leer_lista_N(valor: str, N: int) -> list:
@@ -103,16 +106,22 @@ def leer_lista_N(valor: str, N: int) -> list:
     Reintenta hasta 12 veces con pausa de 5s, por si X0 está escribiendo simultáneamente
     (archivo aún no existe, o existe pero X0 lo está reescribiendo — OneDrive puede
     extender la ventana de lock/sync más allá de la propia escritura del proceso).
+    Cada intento fallido imprime un aviso de una línea (no un error: el propio
+    retry lo resuelve en la gran mayoría de los casos); solo si agota los 12
+    intentos se imprime como error real.
     """
     json_path = CARPETA_N_PROD / f'{valor}_{N}.json'
+    ultimo_error = None
     for _ in range(12):
         if json_path.exists():
             try:
                 lista_N = json_act(str(CARPETA_N_PROD / f'{valor}_{N}'))
                 return [round(n, 2) for n in lista_N]
-            except (json.JSONDecodeError, PermissionError, OSError):
-                pass
+            except (json.JSONDecodeError, PermissionError, OSError) as e:
+                ultimo_error = e
+                print(f'{valor}_{N}: lock transitorio al leer soportes ({e}), reintentando...')
         time.sleep(5)
+    print(f'Error leer_lista_N ({json_path}): agotados 12 intentos — último error: {ultimo_error}')
     raise FileNotFoundError(f'No se encontró (o no se pudo leer) {json_path} después de 12 intentos')
 
 

@@ -1651,3 +1651,10 @@ Claude: aclaró que fijar OA no degrada la FO por sí solo (solo quita un grado 
 Mauricio: aprobó aplicar el fix.
 Claude: corrigió `nuevo_optimizador_2` (ahora usa `conjunto_N_sin_oa`/`faltan` para rellenar o recortar solo lo necesario, preservando el warm start cuando `oa ⊆ conjunto_N`) y registró el fix en `docs/tracking/done.md` (sección X0 — X0_data_supports.py).
 (Cierre: 2026-09-25 23:06)
+
+## SECCIÓN 197
+Mauricio: reportó vía `/new_todo` un error de X1 en producción (Windows): `PermissionError: [Errno 13]` al abrir `BTCUSD_180.json`/`AMZN_180.json` en `resources/conjuntos_N/`, pidiendo revisarlo.
+Claude: diagnosticó que no era una falla real — `leer_lista_N` ya reintenta 12 veces (5s c/u) ante locks transitorios de OneDrive, y el trading seguía normal después. El problema era que `json_act` (X1) imprimía el error en cada intento fallido, a diferencia del patrón "silencioso hasta el último intento" que ya usan `json_act` (X0) y `_flush_json_list` (X4). Corrigió `X1_trading.py` (`json_act`/`leer_lista_N`) y registró el fix en `done.md` (X1 — X1_trading.py).
+Mauricio: pidió no ocultar el aviso del todo, sino mostrar un print de una línea (sin la etiqueta "error") cada vez que ocurre el lock transitorio.
+Claude: ajustó `leer_lista_N` para imprimir `"{valor}_{N}: lock transitorio al leer soportes (...), reintentando..."` en cada intento fallido, dejando el print de "Error" solo para cuando se agotan los 12 intentos. Actualizó el ítem en `done.md`.
+(Cierre: 2026-09-25 23:12)

@@ -115,6 +115,8 @@ Versión activa: `nuevo_optimizador_2`.
 
 El monitor en vivo muestra `[C {i} | A {j}] {valor}_{N}: ...` por combo — `C` (ciclo) y `A` (actualización). `j` se reinicia a 1 en cada ciclo nuevo.
 
+`T_UPDATE_CICLO_X0` debe ser múltiplo exacto de `T_UPDATE_O0` — X0 valida esto al arrancar y corta con `sys.exit` si no se cumple. El paso de bloque a ciclo se dispara por conteo (`j` alcanza `y = T_UPDATE_CICLO_X0 / T_UPDATE_O0`), no por tiempo transcurrido, para que ningún bloque se corte a medio presupuesto por haber llegado a la hora.
+
 ### Warm start — solución inicial por combo (valor, N, t*)
 
 Buscar los N soportes en `t` nunca parte de cero si el combo `(valor, N)` ya se resolvió en un `t* <= t`: esa solución es el punto de partida del optimizador. Aplica a X0 y X5:
