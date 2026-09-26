@@ -1658,3 +1658,10 @@ Claude: diagnosticó que no era una falla real — `leer_lista_N` ya reintenta 1
 Mauricio: pidió no ocultar el aviso del todo, sino mostrar un print de una línea (sin la etiqueta "error") cada vez que ocurre el lock transitorio.
 Claude: ajustó `leer_lista_N` para imprimir `"{valor}_{N}: lock transitorio al leer soportes (...), reintentando..."` en cada intento fallido, dejando el print de "Error" solo para cuando se agotan los 12 intentos. Actualizó el ítem en `done.md`.
 (Cierre: 2026-09-25 23:12)
+
+## SECCIÓN 198
+Mauricio: preguntó en qué effort estaba corriendo la sesión; luego, vía /new_todo, planteó dos dudas sobre X0: dónde arranca el reloj de T_UPDATE_O0 respecto a T_UPDATE_CICLO_X0, y por qué BTC/ETH van más atrasados que las acciones en el monitor en vivo.
+Claude: confirmó que corría en Sonnet 5 sin nivel de effort explícito visible (luego el usuario fijó /effort high como default). Revisó `_ciclo_activo` en X0_data_supports.py: el reloj de T_UPDATE_O0 arranca recién después de terminar la preparación (descarga + X3 + recálculo de distancias), no al mismo tiempo que T_UPDATE_CICLO_X0 — y esa preparación es más lenta para BTC/ETH porque operan 24/7 (más velas H1 que las acciones para la misma FECHA_INICIAL), confirmando la hipótesis de Mauricio.
+Mauricio: pidió un cambio concreto: T_UPDATE_CICLO_X0 debe ser múltiplo exacto de T_UPDATE_O0 (sys.exit si no), y el paso de bloque `j` a ciclo `i+1` debe dispararse por conteo (cada y = T_UPDATE_CICLO_X0/T_UPDATE_O0 bloques), nunca cortando un bloque a medio presupuesto por haber llegado a los 60 minutos.
+Claude: implementó la validación de divisibilidad al inicio de X0 (`sys.exit` con mensaje claro), cambió la condición de corte del loop de bloques de tiempo transcurrido a conteo (`j >= y`), eliminó `t_inicio_hora` (quedó sin uso), actualizó el docstring de `_ciclo_activo` y agregó la restricción a CLAUDE.md. Verificó con `py_compile` que el archivo compila; sin prueba en vivo (MT5 no está disponible en Mac).
+(Cierre: 2026-09-25 23:13)

@@ -82,7 +82,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Vectorización del loop de candidatos** (`calcular_FO_batch`): M evaluaciones de FO → 1 pasada numpy con broadcasting (M, n).
 - **Inicialización inteligente** (`_inicializar_conjunto_smart`): cold start por cuantiles de precio ordenados por `y×w`, en lugar de uniforme aleatorio.
 - **Priorización por historial** (`mejora_acumulada`): EMA de mejoras aceptadas por soporte — los más activos se evalúan primero.
-- **Ciclos temporales independientes por activo**: cada activo corre su propio hilo con dos relojes anidados — cada `T_UPDATE_CICLO_X0` min (60 por defecto) re-descarga datos y recalcula distancias (ciclo `i`); cada `T_UPDATE_O0` min (15 por defecto) corre el optimizador con presupuesto de tiempo y flushea el `conjunto_N` a `resources/conjuntos_N/` (bloque `j`), sin esperar a los demás activos. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo (`[C {i} | A {j}] {valor}_{N}: ...`) con su fase actual.
+- **Ciclos temporales independientes por activo**: cada activo corre su propio hilo con dos relojes anidados — cada `T_UPDATE_CICLO_X0` min (60 por defecto) re-descarga datos y recalcula distancias (ciclo `i`); cada `T_UPDATE_O0` min (15 por defecto) corre el optimizador con presupuesto de tiempo y flushea el `conjunto_N` a `resources/conjuntos_N/` (bloque `j`), sin esperar a los demás activos. `T_UPDATE_CICLO_X0` debe ser múltiplo exacto de `T_UPDATE_O0` (se valida al arrancar X0); el paso de bloque a ciclo se dispara por conteo de bloques, no por tiempo transcurrido, para no cortar un bloque a medio presupuesto. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo (`[C {i} | A {j}] {valor}_{N}: ...`) con su fase actual.
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
 El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta cualquier cambio que mejore la FO (sin umbral mínimo). En backtesting/X5 corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse sin necesidad de converger.
@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-25** — fix(x0): T_UPDATE_CICLO_X0 múltiplo exacto de T_UPDATE_O0
 - **2026-09-25** — fix(x1): print informativo en vez de error en lock transitorio de OneDrive
 - **2026-09-25** — fix(x0): reset accidental de conjunto_N con OA activas
 - **2026-09-25** — fix(x1): reconecta MT5 también cuando falla positions_get por activo
