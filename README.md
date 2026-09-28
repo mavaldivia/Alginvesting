@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-28** — fix(x1): gate de mercado prueba todas las entrantes, no solo la más cercana
 - **2026-09-28** — fix(x0): reintento en guardado de conjunto_N ante lock de OneDrive
 - **2026-09-28** — fix(x1): reemplazo pospuesto solo notifica en transición, no por retcode
 - **2026-09-28** — fix(x1): no eliminar OE si el mercado no acepta colocar nuevas

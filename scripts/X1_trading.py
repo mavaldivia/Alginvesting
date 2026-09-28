@@ -455,32 +455,50 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     return ejecutadas, intentos
 
 
-def _mercado_acepta_colocar(valor: str, precio: float, lotajes: dict) -> tuple:
+def _mercado_acepta_colocar(valor: str, precios: list, lotajes: dict) -> tuple:
     """Valida con mt5.order_check (dry-run del broker, no crea ni cancela nada) si
-    un buy limit en `precio` sería aceptado ahora mismo. `mercado_abierto` solo
-    confirma trade_mode FULL + tick reciente, no que la sesión acepte órdenes
+    ALGUNO de los buy limits en `precios` sería aceptado ahora mismo. `mercado_abierto`
+    solo confirma trade_mode FULL + tick reciente, no que la sesión acepte órdenes
     nuevas — en el pre-market de acciones (antes de 10:40 CL) puede darse esa
     combinación y aun así rechazar con 'Market closed'.
 
-    Retorna (aceptado, motivo). El motivo distingue el cierre real de sesión
-    ('Market closed') de cualquier otro rechazo del broker (precio inválido,
-    stops, etc.) — para activos 24/7 (cripto) un rechazo nunca es por cierre
-    de mercado, así que el caller no debe etiquetarlo como tal."""
-    request = generate_request_buy_limit(
-        valor,
-        order_type=mt5.ORDER_TYPE_BUY_LIMIT,
-        volumen=lotajes[valor],
-        precio=precio,
-    )
-    result = mt5.order_check(request)
-    if result is None:
-        return False, f'order_check sin respuesta: {mt5.last_error()}'
-    comentario = getattr(result, 'comment', '')
-    if comentario == 'Market closed':
-        return False, 'Market closed'
-    if result.retcode not in (0, mt5.TRADE_RETCODE_DONE):
-        return False, f'retcode={result.retcode} comment={comentario}'
-    return True, ''
+    Prueba los precios en el orden recibido y se detiene en el primero que el
+    broker acepte: basta con que UNA entrante sea colocable para confirmar que el
+    mercado admite órdenes nuevas. Probar solo la entrante más cercana al precio
+    actual (la más alta) da falsos negativos — esa es justo la más propensa a
+    rechazarse por distancia mínima al precio/stops level (retcode 10015 Invalid
+    price) aunque el mercado esté abierto y el resto de las entrantes sí sean
+    colocables. El caller pasa `precios` de menor a mayor (de la más lejana al
+    precio actual a la más cercana) para que el caso normal resuelva en el primer
+    intento.
+
+    Retorna (aceptado, motivo, precio_probado) — motivo/precio_probado corresponden
+    al último intento evaluado cuando ninguno es aceptado. El motivo distingue el
+    cierre real de sesión ('Market closed', que corta la búsqueda de inmediato por
+    ser inequívoco e independiente del precio) de cualquier otro rechazo del broker
+    (precio inválido, stops, etc.) — para activos 24/7 (cripto) un rechazo nunca es
+    por cierre de mercado, así que el caller no debe etiquetarlo como tal."""
+    motivo, precio_probado = '', None
+    for precio in precios:
+        request = generate_request_buy_limit(
+            valor,
+            order_type=mt5.ORDER_TYPE_BUY_LIMIT,
+            volumen=lotajes[valor],
+            precio=precio,
+        )
+        result = mt5.order_check(request)
+        precio_probado = precio
+        if result is None:
+            motivo = f'order_check sin respuesta: {mt5.last_error()} precio={precio}'
+            continue
+        comentario = getattr(result, 'comment', '')
+        if comentario == 'Market closed':
+            return False, 'Market closed', precio
+        if result.retcode not in (0, mt5.TRADE_RETCODE_DONE):
+            motivo = f'retcode={result.retcode} comment={comentario} precio={precio}'
+            continue
+        return True, '', precio
+    return False, motivo, precio_probado
 
 
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
@@ -499,8 +517,11 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
 
     Todo el ciclo se ejecuta si y solo si el mercado permite colocar buy limits ahora
     mismo: antes de tocar cualquier OE, se valida con `_mercado_acepta_colocar` (dry-run,
-    sin efectos) contra la entrante de precio más alto. Si no la acepta, no se ejecuta
-    ningún paso — ni siquiera el (i) — y se reintenta en el próximo ciclo. Eliminar
+    sin efectos) contra las entrantes — alcanza con que UNA sea aceptada para confirmar
+    que el mercado admite órdenes nuevas (probar solo la de precio más alto daba falsos
+    negativos: esa es la más propensa a rechazarse por distancia mínima al precio,
+    aunque el mercado esté abierto). Si ninguna es aceptada, no se ejecuta ningún paso
+    — ni siquiera el (i) — y se reintenta en el próximo ciclo. Eliminar
     (`_cancelar_orden`) ya tolera mercado cerrado (retcode 10018) sin problema; es
     colocar lo que puede fallar silenciosamente pese a que `mercado_abierto` (chequeo
     del caller) dé trade_mode FULL + tick reciente.
@@ -513,11 +534,11 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     lista_OAE_actual = lista_OA + [round(o.price_open, 2) for o in actual_OE]
     entrantes = sorted(Pi for Pi in set(lista_N) if Pi not in lista_OAE_actual)
     if entrantes:
-        acepta, motivo = _mercado_acepta_colocar(valor, entrantes[-1], lotajes)
+        acepta, motivo, precio_probado = _mercado_acepta_colocar(valor, entrantes, lotajes)
         if not acepta:
             if not _reemplazo_pospuesto_prev.get(valor):
-                print(f'  {valor}: reemplazo pospuesto — el mercado no acepta colocar buy limits ahora '
-                      f'({motivo}); no se toca ninguna OE hasta que vuelva a aceptar')
+                print(f'  {valor}: reemplazo pospuesto — el mercado no acepta colocar ningún buy limit de las '
+                      f'{len(entrantes)} entrantes ({motivo}); no se toca ninguna OE hasta que vuelva a aceptar')
                 _reemplazo_pospuesto_prev[valor] = True
             return
         if _reemplazo_pospuesto_prev.get(valor):
