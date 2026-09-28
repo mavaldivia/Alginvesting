@@ -67,13 +67,14 @@ from X3_technical_features import actualizar_features as _x3_actualizar_features
 # ─── Utilidades ───────────────────────────────────────────────────────────────
 
 def json_act(file_path: str, variable=None, mode: str = 'open',
-            intentos: int = 3, espera: float = 0.1):
+            intentos: int = 10, espera: float = 0.2):
     """Guarda (mode='save') o carga (mode='open') una lista de soportes en disco como JSON.
 
     El guardado es atómico (escribe a un .tmp y hace os.replace) para que un lector
     concurrente (X1) nunca vea el archivo truncado a mitad de escritura.
 
-    La lectura reintenta ante OSError transitorios (sync de OneDrive u otro proceso
+    Tanto el guardado como la lectura reintentan ante OSError transitorios (sync de
+    OneDrive bloqueando el .tmp o el archivo final momentáneamente, u otro proceso
     escribiendo el mismo archivo), igual que `_leer_json_reintentos` para los cache bt.
     Los errores se relanzan (nunca sys.exit): un worker de ProcessPoolExecutor que hace
     sys.exit() termina en SystemExit, que al no ser Exception escapa del `except Exception`
@@ -81,15 +82,19 @@ def json_act(file_path: str, variable=None, mode: str = 'open',
     """
     path = f'{file_path}.json'
     if mode == 'save':
-        try:
-            tmp_path = f'{path}.tmp'
-            with open(tmp_path, 'w') as f:
-                json.dump(sorted(variable), f)
-            os.replace(tmp_path, path)
-            return None
-        except Exception as e:
-            console.print(f'Error json_act (save, {path}): {e}')
-            raise
+        tmp_path = f'{path}.tmp'
+        for intento in range(intentos):
+            try:
+                with open(tmp_path, 'w') as f:
+                    json.dump(sorted(variable), f)
+                os.replace(tmp_path, path)
+                return None
+            except OSError as e:
+                if intento == intentos - 1:
+                    console.print(f'Error json_act (save, {path}): {e}')
+                    raise
+                time.sleep(espera)
+        return None
 
     for intento in range(intentos):
         try:
