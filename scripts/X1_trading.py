@@ -49,6 +49,7 @@ class LimiteOrdenesError(Exception):
 
 
 _ultimo_print_error = {}  # {(symbol, clave): timestamp} — throttle de prints de error MT5
+_reemplazo_pospuesto_prev = {}  # {valor: bool} — evita renotificar en cada ciclo mientras el mercado siga sin aceptar colocar
 
 
 def _print_throttled(symbol: str, clave, mensaje: str, intervalo: float = X1_RETRY_BLOQUEADOS_S):
@@ -454,12 +455,17 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     return ejecutadas, intentos
 
 
-def _mercado_acepta_colocar(valor: str, precio: float, lotajes: dict) -> bool:
+def _mercado_acepta_colocar(valor: str, precio: float, lotajes: dict) -> tuple:
     """Valida con mt5.order_check (dry-run del broker, no crea ni cancela nada) si
     un buy limit en `precio` sería aceptado ahora mismo. `mercado_abierto` solo
     confirma trade_mode FULL + tick reciente, no que la sesión acepte órdenes
     nuevas — en el pre-market de acciones (antes de 10:40 CL) puede darse esa
-    combinación y aun así rechazar con 'Market closed'."""
+    combinación y aun así rechazar con 'Market closed'.
+
+    Retorna (aceptado, motivo). El motivo distingue el cierre real de sesión
+    ('Market closed') de cualquier otro rechazo del broker (precio inválido,
+    stops, etc.) — para activos 24/7 (cripto) un rechazo nunca es por cierre
+    de mercado, así que el caller no debe etiquetarlo como tal."""
     request = generate_request_buy_limit(
         valor,
         order_type=mt5.ORDER_TYPE_BUY_LIMIT,
@@ -468,12 +474,13 @@ def _mercado_acepta_colocar(valor: str, precio: float, lotajes: dict) -> bool:
     )
     result = mt5.order_check(request)
     if result is None:
-        return False
+        return False, f'order_check sin respuesta: {mt5.last_error()}'
+    comentario = getattr(result, 'comment', '')
+    if comentario == 'Market closed':
+        return False, 'Market closed'
     if result.retcode not in (0, mt5.TRADE_RETCODE_DONE):
-        return False
-    if getattr(result, 'comment', '') == 'Market closed':
-        return False
-    return True
+        return False, f'retcode={result.retcode} comment={comentario}'
+    return True, ''
 
 
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
@@ -505,10 +512,17 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
 
     lista_OAE_actual = lista_OA + [round(o.price_open, 2) for o in actual_OE]
     entrantes = sorted(Pi for Pi in set(lista_N) if Pi not in lista_OAE_actual)
-    if entrantes and not _mercado_acepta_colocar(valor, entrantes[-1], lotajes):
-        print(f'  {valor}: reemplazo pospuesto — el mercado no acepta colocar buy limits ahora '
-              f'(validado con order_check); no se toca ninguna OE hasta el próximo ciclo')
-        return
+    if entrantes:
+        acepta, motivo = _mercado_acepta_colocar(valor, entrantes[-1], lotajes)
+        if not acepta:
+            if not _reemplazo_pospuesto_prev.get(valor):
+                print(f'  {valor}: reemplazo pospuesto — el mercado no acepta colocar buy limits ahora '
+                      f'({motivo}); no se toca ninguna OE hasta que vuelva a aceptar')
+                _reemplazo_pospuesto_prev[valor] = True
+            return
+        if _reemplazo_pospuesto_prev.get(valor):
+            print(f'  {valor}: el mercado vuelve a aceptar buy limits — reanudando reemplazo de OE')
+            _reemplazo_pospuesto_prev[valor] = False
 
     corte = math.ceil(len(salientes) * fraccion_inicial)
     primera_tanda, segunda_tanda = salientes[:corte], salientes[corte:]
@@ -519,8 +533,9 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     ejecutadas, intentos = crear_ordenes_espera(lista_OA, lista_OE_vigente, lista_N, valor, a, lotajes, dic_bloqueados)
 
     if intentos > 0 and not ejecutadas:
-        print(f'  {valor}: reemplazo abortado — ninguna OE nueva pudo colocarse (mercado no operable pese a '
-              f'trade_mode/tick); se detiene sin eliminar las {len(segunda_tanda)} OE restantes')
+        _print_throttled(valor, 'reemplazo_abortado',
+                          f'  {valor}: reemplazo abortado — ninguna OE nueva pudo colocarse (mercado no operable pese a '
+                          f'trade_mode/tick); se detiene sin eliminar las {len(segunda_tanda)} OE restantes')
     else:
         eliminadas += [(round(o.price_open, 2), o.volume_initial) for o in segunda_tanda if _cancelar_orden(o, valor)]
 
