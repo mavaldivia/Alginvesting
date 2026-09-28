@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-28** — fix(x1): no eliminar OE si el mercado no acepta colocar nuevas
 - **2026-09-28** — fix(x1): propaga sl_activo_global dentro del mismo ciclo
 - **2026-09-25** — fix(x0): T_UPDATE_CICLO_X0 múltiplo exacto de T_UPDATE_O0
 - **2026-09-25** — fix(x1): print informativo en vez de error en lock transitorio de OneDrive
