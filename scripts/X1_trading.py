@@ -49,7 +49,6 @@ class LimiteOrdenesError(Exception):
 
 
 _ultimo_print_error = {}  # {(symbol, clave): timestamp} — throttle de prints de error MT5
-_reemplazo_pospuesto_prev = {}  # {valor: bool} — evita renotificar en cada ciclo mientras el mercado siga sin aceptar colocar
 
 
 def _print_throttled(symbol: str, clave, mensaje: str, intervalo: float = X1_RETRY_BLOQUEADOS_S):
@@ -278,34 +277,39 @@ def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: f
     return request
 
 
-def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) -> bool:
+def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) -> tuple:
+    """Retorna (ok, retcode, comment) — a diferencia de un bool simple, expone el
+    retcode real para que callers que necesitan diagnosticar un fallo inesperado
+    (ej. reemplazar_ordenes_espera tras confirmar que el mercado acepta órdenes)
+    puedan reportarlo sin volver a golpear MT5."""
     if 'sl' in request:
         request['sl'] = float(round(request['sl'], 0))
 
     if volumen == 0:
         print('  Orden no ejecutada: volumen = 0')
-        return False
+        return False, None, 'volumen = 0'
 
     result = mt5.order_send(request)
     try:
         if result.retcode != mt5.TRADE_RETCODE_DONE:
             result_dict = result._asdict()
-            if result_dict.get('comment') == 'Market closed':
-                return False
+            comment = result_dict.get('comment')
+            if comment == 'Market closed':
+                return False, result.retcode, comment
             if result.retcode == 10040:  # límite de posiciones/órdenes pendientes de la cuenta
                 raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
             if result.retcode in [10006, 10044, 10018, 10031]:
-                return False
+                return False, result.retcode, comment
             _print_throttled(symbol, result.retcode,
-                              f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={result_dict.get("comment")}')
-            return False
+                              f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={comment}')
+            return False, result.retcode, comment
         else:
-            return True
+            return True, result.retcode, ''
     except LimiteOrdenesError:
         raise
     except Exception as e:
         _print_throttled(symbol, 'excepcion', f'  {symbol}: Excepción en ejecutar_orden: {e}')
-        return False
+        return False, None, str(e)
 
 
 def liberar_orden_lejana(dic_bloqueados: dict):
@@ -367,7 +371,7 @@ def liberar_orden_lejana(dic_bloqueados: dict):
 
 
 def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio: float,
-                              dic_bloqueados: dict, silent: bool = False) -> bool:
+                              dic_bloqueados: dict, silent: bool = False) -> tuple:
     """Envuelve ejecutar_orden: si MT5 rechaza por límite de posiciones/órdenes de la
     cuenta (retcode 10040), libera la orden más lejana del precio (de cualquier activo,
     vía liberar_orden_lejana) y reintenta una vez. Si no hay nada que liberar o el
@@ -375,24 +379,37 @@ def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio:
     reintenta recién pasado X1_RETRY_BLOQUEADOS_S.
 
     silent=True omite el print individual del bloqueo (usado por crear_ordenes_espera,
-    que ya imprime un resumen agregado por activo al final del ciclo)."""
+    que ya imprime un resumen agregado por activo al final del ciclo).
+
+    Retorna (ok, retcode, comment) del último intento."""
+    retcode, comment = 10040, 'límite de órdenes en la cuenta'
     try:
-        return ejecutar_orden(request, symbol, volumen, precio)
+        ok, retcode, comment = ejecutar_orden(request, symbol, volumen, precio)
+        if ok:
+            return True, retcode, comment
     except LimiteOrdenesError:
         pass
 
     if liberar_orden_lejana(dic_bloqueados) is not None:
         try:
-            if ejecutar_orden(request, symbol, volumen, precio):
-                return True
+            ok, retcode, comment = ejecutar_orden(request, symbol, volumen, precio)
+            if ok:
+                return True, retcode, comment
         except LimiteOrdenesError:
-            pass
+            retcode, comment = 10040, 'límite de órdenes en la cuenta'
 
     bloqueados_valor = dic_bloqueados.setdefault(symbol, {})
     if not silent and precio not in bloqueados_valor:
         print(f'  {symbol}: buy limit @ {precio:.2f} bloqueado temporalmente (límite de órdenes en la cuenta)')
     bloqueados_valor[precio] = time.time()
-    return False
+    return False, retcode, comment
+
+
+def _distancia_ok(Pi: float, P0: float, valor: str, a: float) -> bool:
+    """Gate de distancia mínima (en USD, a lotaje MÍNIMO del activo) entre el precio
+    actual y un soporte para que valga la pena declarar el buy limit — compartido por
+    crear_ordenes_espera y reemplazar_ordenes_espera, ver docstring de la primera."""
+    return (P0 - Pi) * MIN_LOTAJES[valor] * UNITS[valor] >= a
 
 
 def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
@@ -431,7 +448,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
         ts_bloqueo = bloqueados_valor.get(Pi)
         if ts_bloqueo is not None and (time.time() - ts_bloqueo) < X1_RETRY_BLOQUEADOS_S:
             continue
-        if (P0 - Pi) * MIN_LOTAJES[valor] * UNITS[valor] < a:
+        if not _distancia_ok(Pi, P0, valor, a):
             continue
         request = generate_request_buy_limit(
             valor,
@@ -440,7 +457,8 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
             precio=Pi,
         )
         intentos += 1
-        if _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True):
+        ok, _retcode, _comment = _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True)
+        if ok:
             ejecutadas.append(Pi)
             bloqueados_valor.pop(Pi, None)
         elif Pi in bloqueados_valor:
@@ -455,50 +473,13 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     return ejecutadas, intentos
 
 
-def _mercado_acepta_colocar(valor: str, precios: list, lotajes: dict) -> tuple:
-    """Valida con mt5.order_check (dry-run del broker, no crea ni cancela nada) si
-    ALGUNO de los buy limits en `precios` sería aceptado ahora mismo. `mercado_abierto`
-    solo confirma trade_mode FULL + tick reciente, no que la sesión acepte órdenes
-    nuevas — en el pre-market de acciones (antes de 10:40 CL) puede darse esa
-    combinación y aun así rechazar con 'Market closed'.
-
-    Prueba los precios en el orden recibido y se detiene en el primero que el
-    broker acepte: basta con que UNA entrante sea colocable para confirmar que el
-    mercado admite órdenes nuevas. Probar solo la entrante más cercana al precio
-    actual (la más alta) da falsos negativos — esa es justo la más propensa a
-    rechazarse por distancia mínima al precio/stops level (retcode 10015 Invalid
-    price) aunque el mercado esté abierto y el resto de las entrantes sí sean
-    colocables. El caller pasa `precios` de menor a mayor (de la más lejana al
-    precio actual a la más cercana) para que el caso normal resuelva en el primer
-    intento.
-
-    Retorna (aceptado, motivo, precio_probado) — motivo/precio_probado corresponden
-    al último intento evaluado cuando ninguno es aceptado. El motivo distingue el
-    cierre real de sesión ('Market closed', que corta la búsqueda de inmediato por
-    ser inequívoco e independiente del precio) de cualquier otro rechazo del broker
-    (precio inválido, stops, etc.) — para activos 24/7 (cripto) un rechazo nunca es
-    por cierre de mercado, así que el caller no debe etiquetarlo como tal."""
-    motivo, precio_probado = '', None
-    for precio in precios:
-        request = generate_request_buy_limit(
-            valor,
-            order_type=mt5.ORDER_TYPE_BUY_LIMIT,
-            volumen=lotajes[valor],
-            precio=precio,
-        )
-        result = mt5.order_check(request)
-        precio_probado = precio
-        if result is None:
-            motivo = f'order_check sin respuesta: {mt5.last_error()} precio={precio}'
-            continue
-        comentario = getattr(result, 'comment', '')
-        if comentario == 'Market closed':
-            return False, 'Market closed', precio
-        if result.retcode not in (0, mt5.TRADE_RETCODE_DONE):
-            motivo = f'retcode={result.retcode} comment={comentario} precio={precio}'
-            continue
-        return True, '', precio
-    return False, motivo, precio_probado
+def _colocar_orden_real(Pi: float, valor: str, lotajes: dict, dic_bloqueados: dict) -> tuple:
+    """Intenta colocar un buy limit real en Pi (order_send vía _ejecutar_con_liberacion,
+    no un dry-run). Retorna (ok, retcode, comment)."""
+    request = generate_request_buy_limit(
+        valor, order_type=mt5.ORDER_TYPE_BUY_LIMIT, volumen=lotajes[valor], precio=Pi,
+    )
+    return _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True)
 
 
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
@@ -508,62 +489,98 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     ya no está en lista_N. El caller (loop principal) solo llama esto con el mercado
     abierto: eliminar OE sin poder reponerlas dejaría el activo desprotegido.
 
-    Para no dejar nunca la zona cercana al precio sin OE activas mientras se espera a
-    que las nuevas queden colocadas, el reemplazo va en 3 pasos, todos de mayor a
-    menor precio:
-      i)   elimina `fraccion_inicial` (ej. 20%) de las OE salientes, las de precio más alto
-      ii)  coloca todas las OE entrantes (nuevos soportes de lista_N)
-      iii) elimina el resto de las OE salientes
+    Versión anterior (3 intentos de fix: 06cad8e, 5efd7e7, 6c7bc97) validaba con
+    `mt5.order_check` (dry-run) antes de tocar cualquier OE, y solo si pasaba ese
+    gate eliminaba una primera tanda de salientes. El problema nunca fue la
+    precisión del dry-run: `order_check` puede aceptar y el `order_send` real
+    fallar igual para TODAS las entrantes (condición transitoria del broker entre
+    ambas llamadas) — momento en que la tanda ya eliminada quedaba perdida sin
+    reemplazo, exactamente el síntoma reportado. La única forma de no perder OE es
+    no eliminar nada hasta haber colocado una orden real con éxito.
 
-    Todo el ciclo se ejecuta si y solo si el mercado permite colocar buy limits ahora
-    mismo: antes de tocar cualquier OE, se valida con `_mercado_acepta_colocar` (dry-run,
-    sin efectos) contra las entrantes — alcanza con que UNA sea aceptada para confirmar
-    que el mercado admite órdenes nuevas (probar solo la de precio más alto daba falsos
-    negativos: esa es la más propensa a rechazarse por distancia mínima al precio,
-    aunque el mercado esté abierto). Si ninguna es aceptada, no se ejecuta ningún paso
-    — ni siquiera el (i) — y se reintenta en el próximo ciclo. Eliminar
-    (`_cancelar_orden`) ya tolera mercado cerrado (retcode 10018) sin problema; es
-    colocar lo que puede fallar silenciosamente pese a que `mercado_abierto` (chequeo
-    del caller) dé trade_mode FULL + tick reciente.
+    Flujo actual, sin ningún dry-run:
+      1. Probe real: intenta colocar UNA orden real entre las entrantes "colocables"
+         (las que pasan `_distancia_ok`), de menor a mayor precio — la más lejana
+         del precio actual primero, por ser la menos propensa a rechazo por
+         distancia mínima/stops level, igual que el razonamiento que tenía el
+         dry-run. Si ninguna se acepta, no se toca ninguna OE y se reintenta el
+         próximo ciclo.
+      2. Confirmado que el mercado acepta: coloca el `fraccion_inicial` (ej. 20%)
+         de mayor precio de las colocables (menos la ya colocada en el probe),
+         de mayor a menor — asegura cobertura cerca del precio ANTES de borrar
+         nada.
+      3. Elimina todas las OE salientes (soportes que ya no están en lista_N),
+         de mayor a menor.
+      4. Coloca el resto (80%) de las colocables, de mayor a menor.
+
+    Cualquier fallo de colocación en los pasos 2/4 se reporta explícito con
+    retcode: para entonces el mercado ya demostró aceptar órdenes (paso 1), así
+    que un fallo puntual ahí es una señal real de anomalía, no ruido esperable.
     """
     salientes = sorted(
         (o for o in actual_OE if round(o.price_open, 2) not in lista_N),
         key=lambda o: o.price_open, reverse=True,
     )
 
+    def _eliminar_salientes():
+        eliminadas = [(round(o.price_open, 2), o.volume_initial) for o in salientes if _cancelar_orden(o, valor)]
+        if eliminadas:
+            precios = [p for p, _ in eliminadas]
+            lotaje_total = sum(v for _, v in eliminadas)
+            print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
+
     lista_OAE_actual = lista_OA + [round(o.price_open, 2) for o in actual_OE]
     entrantes = sorted(Pi for Pi in set(lista_N) if Pi not in lista_OAE_actual)
-    if entrantes:
-        acepta, motivo, precio_probado = _mercado_acepta_colocar(valor, entrantes, lotajes)
-        if not acepta:
-            if not _reemplazo_pospuesto_prev.get(valor):
-                print(f'  {valor}: reemplazo pospuesto — el mercado no acepta colocar ningún buy limit de las '
-                      f'{len(entrantes)} entrantes ({motivo}); no se toca ninguna OE hasta que vuelva a aceptar')
-                _reemplazo_pospuesto_prev[valor] = True
-            return
-        if _reemplazo_pospuesto_prev.get(valor):
-            print(f'  {valor}: el mercado vuelve a aceptar buy limits — reanudando reemplazo de OE')
-            _reemplazo_pospuesto_prev[valor] = False
+    if not entrantes:
+        _eliminar_salientes()
+        return
 
-    corte = math.ceil(len(salientes) * fraccion_inicial)
-    primera_tanda, segunda_tanda = salientes[:corte], salientes[corte:]
+    P0 = obtener_precio_actual(valor, modo='B')
+    bloqueados_valor = dic_bloqueados.setdefault(valor, {})
+    colocables = sorted(
+        Pi for Pi in entrantes
+        if _distancia_ok(Pi, P0, valor, a)
+        and (bloqueados_valor.get(Pi) is None or (time.time() - bloqueados_valor[Pi]) >= X1_RETRY_BLOQUEADOS_S)
+    )
+    if not colocables:
+        return  # nada colocable este ciclo (todo bloqueado o fuera de distancia) — no tocar OE
 
-    eliminadas = [(round(o.price_open, 2), o.volume_initial) for o in primera_tanda if _cancelar_orden(o, valor)]
+    # Paso 1: probe real, de menor a mayor precio.
+    probada = None
+    for Pi in colocables:
+        ok, _retcode, _comment = _colocar_orden_real(Pi, valor, lotajes, dic_bloqueados)
+        if ok:
+            probada = Pi
+            break
 
-    lista_OE_vigente = [round(o.price_open, 2) for o in actual_OE if o not in primera_tanda]
-    ejecutadas, intentos = crear_ordenes_espera(lista_OA, lista_OE_vigente, lista_N, valor, a, lotajes, dic_bloqueados)
-
-    if intentos > 0 and not ejecutadas:
+    if probada is None:
         _print_throttled(valor, 'reemplazo_abortado',
-                          f'  {valor}: reemplazo abortado — ninguna OE nueva pudo colocarse (mercado no operable pese a '
-                          f'trade_mode/tick); se detiene sin eliminar las {len(segunda_tanda)} OE restantes')
-    else:
-        eliminadas += [(round(o.price_open, 2), o.volume_initial) for o in segunda_tanda if _cancelar_orden(o, valor)]
+                          f'  {valor}: reemplazo abortado — ninguna de las {len(colocables)} OE candidatas pudo '
+                          f'colocarse (mercado no operable pese a trade_mode/tick); no se toca ninguna OE')
+        return
 
-    if eliminadas:
-        precios = [p for p, _ in eliminadas]
-        lotaje_total = sum(v for _, v in eliminadas)
-        print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
+    orden_colocacion = [1]
+
+    def _colocar_y_notificar(Pi):
+        ok, retcode, comment = _colocar_orden_real(Pi, valor, lotajes, dic_bloqueados)
+        orden_colocacion[0] += 1
+        if not ok:
+            print(f'  {valor}: falla al colocar orden #{orden_colocacion[0]} en {Pi:.2f}  '
+                  f'lotaje={lotajes[valor]}  retcode={retcode}  comment={comment}  '
+                  f'(inesperado: el mercado ya aceptó una orden este ciclo)')
+        return ok
+
+    colocables_desc = sorted(colocables, reverse=True)
+    corte = math.ceil(len(colocables_desc) * fraccion_inicial)
+    tanda_20 = [Pi for Pi in colocables_desc[:corte] if Pi != probada]
+    tanda_80 = [Pi for Pi in colocables_desc[corte:] if Pi != probada]
+
+    ejecutadas = [probada] + [Pi for Pi in tanda_20 if _colocar_y_notificar(Pi)]
+    _eliminar_salientes()
+    ejecutadas += [Pi for Pi in tanda_80 if _colocar_y_notificar(Pi)]
+
+    if ejecutadas:
+        print(f'  {valor}: reemplazo — {len(ejecutadas)} OE colocadas desde {min(ejecutadas):.2f} hasta {max(ejecutadas):.2f}  lotaje={lotajes[valor]}')
 
 
 def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):
