@@ -1715,3 +1715,8 @@ Claude: revisó `_ciclo_activo`/`nuevo_optimizador_2` en `X0_data_supports.py` y
 Mauricio: pidió agregar una barra tipo tqdm (duración = miniciclo, avance minuto a minuto) a la derecha de `[corriendo]` en cada línea del monitor.
 Claude: implementó `_barra_bloque()` en `X0_data_supports.py` y propagó `deadline_bloque` a través de `ciclos_estado` (ahora tupla `(i, j, deadline_bloque)`) hasta `_texto_linea_combo`, que ahora imprime `[corriendo] |████░░░░| N/15min`. Verificado con `py_compile`; no se puede probar en vivo desde Mac (requiere MT5 en Windows).
 (Cierre: 2026-09-29 23:34)
+
+## SECCIÓN 207
+Mauricio: pidió editar la skill global `/guardar` para que no pregunte el mensaje de commit salvo que exista ambigüedad real, dejando que Claude elija el nombre del commit.
+Claude: el paso del mensaje de commit vive en `update-push` (invocada por `guardar`), no en `guardar` mismo — editó `~/.claude/skills/update-push/SKILL.md` para que redacte el mensaje solo (leyendo `git diff HEAD` + `git status`, estilo de commits recientes) y solo use `AskUserQuestion` ante ambigüedad real entre módulos no relacionados o diff vacío, proponiendo su mejor mensaje como opción recomendada. Ajustó también la nota de `~/.claude/skills/guardar/SKILL.md` para reflejar que el mensaje ya no se confirma con el usuario. Aclaración: estos archivos viven en `~/.claude/skills/` (global), no en el repo de Alginvesting.
+(Cierre: 2026-09-29 23:36)
