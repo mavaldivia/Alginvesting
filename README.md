@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-09-30** — fix(x1): reintento de order_send restringido solo a retcode 10006
 - **2026-09-29** — feat(x0): barra de progreso del bloque (T_UPDATE_O0) en el monitor en vivo
 - **2026-09-29** — fix(x1): reintentos ante retcodes transitorios de order_send
 - **2026-09-29** — fix(x1): reemplazo de OE espera confirmación real antes de eliminar

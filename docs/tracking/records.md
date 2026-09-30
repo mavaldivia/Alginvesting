@@ -1720,3 +1720,8 @@ Claude: implementó `_barra_bloque()` en `X0_data_supports.py` y propagó `deadl
 Mauricio: pidió editar la skill global `/guardar` para que no pregunte el mensaje de commit salvo que exista ambigüedad real, dejando que Claude elija el nombre del commit.
 Claude: el paso del mensaje de commit vive en `update-push` (invocada por `guardar`), no en `guardar` mismo — editó `~/.claude/skills/update-push/SKILL.md` para que redacte el mensaje solo (leyendo `git diff HEAD` + `git status`, estilo de commits recientes) y solo use `AskUserQuestion` ante ambigüedad real entre módulos no relacionados o diff vacío, proponiendo su mejor mensaje como opción recomendada. Ajustó también la nota de `~/.claude/skills/guardar/SKILL.md` para reflejar que el mensaje ya no se confirma con el usuario. Aclaración: estos archivos viven en `~/.claude/skills/` (global), no en el repo de Alginvesting.
 (Cierre: 2026-09-29 23:36)
+
+## SECCIÓN 208
+Mauricio: reportó vía `/new_todo` que el fix de la sesión 205 había agregado por error los retcodes 10044/10018/10031 a la lista de reintento en `ejecutar_orden` (X1_trading.py) — solo 10006 estaba confirmado como caso revisado.
+Claude: corrigió la línea 304 de `X1_trading.py`, dejando la lista de reintento en `[10006]` únicamente, y registró el fix en `docs/tracking/done.md` (sección X1 — X1_trading.py).
+(Cierre: 2026-09-30 10:18)

@@ -301,7 +301,7 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
                     return False, result.retcode, comment
                 if result.retcode == 10040:  # límite de posiciones/órdenes pendientes de la cuenta
                     raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
-                if result.retcode in [10006, 10044, 10018, 10031]:  # rechazo transitorio del bróker: reintenta
+                if result.retcode in [10006]:  # rechazo transitorio del bróker: reintenta
                     if intento < X1_RETRY_RETCODE_MAX:
                         print(f'  {symbol}: retcode={result.retcode} comment={comment} — '
                               f'reintento {intento}/{X1_RETRY_RETCODE_MAX} en {X1_RETRY_RETCODE_SLEEP_S}s')
