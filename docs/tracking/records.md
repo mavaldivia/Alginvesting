@@ -1725,3 +1725,8 @@ Claude: el paso del mensaje de commit vive en `update-push` (invocada por `guard
 Mauricio: reportó vía `/new_todo` que el fix de la sesión 205 había agregado por error los retcodes 10044/10018/10031 a la lista de reintento en `ejecutar_orden` (X1_trading.py) — solo 10006 estaba confirmado como caso revisado.
 Claude: corrigió la línea 304 de `X1_trading.py`, dejando la lista de reintento en `[10006]` únicamente, y registró el fix en `docs/tracking/done.md` (sección X1 — X1_trading.py).
 (Cierre: 2026-09-30 10:18)
+
+## SECCIÓN 209
+Mauricio: Pidió editar la skill `/guardar` para que el mensaje de commit sea siempre un título/resumen descriptivo de ~6-12 palabras (guía aproximada, no estricta), y que al final del push exitoso se muestre "push exitoso con nombre de commit {nombre_commit}".
+Claude: Detectó que la lógica de commit/push vive en `update-push` (invocada por `guardar`, que solo orquesta) y editó `~/.claude/skills/update-push/SKILL.md`: paso 1 ahora exige un título descriptivo (~6-12 palabras) guardado como `COMMIT_TITLE`, y paso 6 cierra con la línea exacta "Push exitoso con nombre de commit: {nombre_commit}". No modificó `guardar` porque no duplica esa lógica.
+(Cierre: 2026-09-30 10:22)
