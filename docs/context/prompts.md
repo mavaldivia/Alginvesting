@@ -73,3 +73,12 @@ Manten el formato de los logs...cada activo a la izquierda debe decir [C {i} | A
 C significa ciclo y A actualización (deben ser explicitamente "C" y "A"
 i es el id del ciclo (sube 1 cada 60 mins en los parametros por default)
 j es el id de la actualizacion (sube 1 cada 15 mins segun los parametros por default)
+
+
+/new_todo Transversal
+Tengo la impresiónhace poco de que, cuando mi pc se suspende, dejan de correr los códigos
+
+Pasaron 15 hrs entre la tarde noche y hoy en la mañana
+
+X0 estaba en C4 recién
+En X1 tenía una OA con > 15 usd de ganancia, sin stop loss...cuando desbloquié el PC, se puso el SL
