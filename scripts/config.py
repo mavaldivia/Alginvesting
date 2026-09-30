@@ -202,6 +202,11 @@ TS = 0.01  # segundos de espera entre ciclos cuando no hay posiciones activas en
 # (límite de posiciones/órdenes pendientes de la cuenta alcanzado)
 X1_RETRY_BLOQUEADOS_S = 300
 
+# Reintentos ante retcodes transitorios de mt5.order_send (rechazo del bróker no
+# atribuible a la orden en sí — ver lista en ejecutar_orden, X1_trading.py)
+X1_RETRY_RETCODE_MAX = 10       # intentos máximos antes de darse por vencido
+X1_RETRY_RETCODE_SLEEP_S = 6    # segundos de espera entre reintentos
+
 # Fracción de las OE salientes que se elimina ANTES de colocar las entrantes en un
 # reemplazo total (caso a); el resto se elimina después — así nunca se vacía la
 # cobertura cercana al precio mientras se espera a que las nuevas OE queden colocadas.

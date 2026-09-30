@@ -40,6 +40,8 @@ from config import (
     n_sizes_ejecucion as n_sizes,
     X1_RETRY_BLOQUEADOS_S,
     X1_REEMPLAZO_FRACCION_INICIAL,
+    X1_RETRY_RETCODE_MAX,
+    X1_RETRY_RETCODE_SLEEP_S,
 )
 
 
@@ -289,27 +291,33 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
         print('  Orden no ejecutada: volumen = 0')
         return False, None, 'volumen = 0'
 
-    result = mt5.order_send(request)
-    try:
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            result_dict = result._asdict()
-            comment = result_dict.get('comment')
-            if comment == 'Market closed':
+    for intento in range(1, X1_RETRY_RETCODE_MAX + 1):
+        result = mt5.order_send(request)
+        try:
+            if result.retcode != mt5.TRADE_RETCODE_DONE:
+                result_dict = result._asdict()
+                comment = result_dict.get('comment')
+                if comment == 'Market closed':
+                    return False, result.retcode, comment
+                if result.retcode == 10040:  # límite de posiciones/órdenes pendientes de la cuenta
+                    raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
+                if result.retcode in [10006, 10044, 10018, 10031]:  # rechazo transitorio del bróker: reintenta
+                    if intento < X1_RETRY_RETCODE_MAX:
+                        print(f'  {symbol}: retcode={result.retcode} comment={comment} — '
+                              f'reintento {intento}/{X1_RETRY_RETCODE_MAX} en {X1_RETRY_RETCODE_SLEEP_S}s')
+                        time.sleep(X1_RETRY_RETCODE_SLEEP_S)
+                        continue
+                    return False, result.retcode, comment
+                _print_throttled(symbol, result.retcode,
+                                  f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={comment}')
                 return False, result.retcode, comment
-            if result.retcode == 10040:  # límite de posiciones/órdenes pendientes de la cuenta
-                raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
-            if result.retcode in [10006, 10044, 10018, 10031]:
-                return False, result.retcode, comment
-            _print_throttled(symbol, result.retcode,
-                              f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={comment}')
-            return False, result.retcode, comment
-        else:
-            return True, result.retcode, ''
-    except LimiteOrdenesError:
-        raise
-    except Exception as e:
-        _print_throttled(symbol, 'excepcion', f'  {symbol}: Excepción en ejecutar_orden: {e}')
-        return False, None, str(e)
+            else:
+                return True, result.retcode, ''
+        except LimiteOrdenesError:
+            raise
+        except Exception as e:
+            _print_throttled(symbol, 'excepcion', f'  {symbol}: Excepción en ejecutar_orden: {e}')
+            return False, None, str(e)
 
 
 def liberar_orden_lejana(dic_bloqueados: dict):
