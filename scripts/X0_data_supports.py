@@ -1375,11 +1375,23 @@ _FASES = {
 }
 
 
-def _texto_linea_combo(v: str, n: int, i: int, j: int, cambios: int, iters: int, FO, estado_str: str) -> Text:
+def _barra_bloque(deadline_bloque: float) -> str:
+    """Barra tipo tqdm del miniciclo (T_UPDATE_O0 min), un tick por minuto transcurrido."""
+    total_min = T_UPDATE_O0
+    restante_s = deadline_bloque - time.monotonic()
+    transcurrido_min = int(min(total_min, max(0.0, total_min - restante_s / 60)))
+    llena = '█' * transcurrido_min
+    vacia = '░' * (total_min - transcurrido_min)
+    return f'|{llena}{vacia}| {transcurrido_min}/{total_min}min'
+
+
+def _texto_linea_combo(v: str, n: int, i: int, j: int, cambios: int, iters: int, FO, estado_str: str,
+                       deadline_bloque: float = None) -> Text:
     prefijo = f'[C {i} | A {j}] {v}_{n}: '
     if estado_str == 'corriendo':
         fo_str = f'{FO:.3e}' if FO is not None else '---'
-        return Text(f'{prefijo}cambios={cambios} pasos_max={iters} FO={fo_str} [corriendo]')
+        barra = f' {_barra_bloque(deadline_bloque)}' if deadline_bloque is not None else ''
+        return Text(f'{prefijo}cambios={cambios} pasos_max={iters} FO={fo_str} [corriendo]{barra}')
     if estado_str.startswith('ERROR'):
         return Text(prefijo + estado_str, style='bold red')
     return Text(prefijo + _FASES.get(estado_str, estado_str))
@@ -1406,8 +1418,8 @@ def _construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado: dict, com
     for v, n in combos:
         llave = f'{v}_{n}'
         cambios, iters, FO, estado_str = estado_compartido.get(llave, (0, 0, None, 'esperando'))
-        i, j = ciclos_estado.get(v, (0, 0))
-        lineas.append(_texto_linea_combo(v, n, i, j, cambios, iters, FO, estado_str))
+        i, j, deadline_bloque = ciclos_estado.get(v, (0, 0, None))
+        lineas.append(_texto_linea_combo(v, n, i, j, cambios, iters, FO, estado_str, deadline_bloque))
     lineas.append(_texto_linea_x2(x2_estado))
     return Group(*lineas)
 
@@ -1585,7 +1597,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
     i = 0
     while not stop_event.is_set():
         i += 1  # 1-based, igual que j (que también arranca en 1 dentro de cada hora)
-        ciclos_estado[valor] = (i, 0)
+        ciclos_estado[valor] = (i, 0, None)
         es_primera_hora = (i == 1)
         if es_primera_hora:
             with _stdout_lock:
@@ -1655,8 +1667,8 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                 j = 0
                 while not stop_event.is_set():
                     j += 1
-                    ciclos_estado[valor] = (i, j)
                     deadline_bloque = time.monotonic() + T_UPDATE_O0 * 60
+                    ciclos_estado[valor] = (i, j, deadline_bloque)
                     fases = ('coarse', 'fine') if j == 1 else ('fine',)
 
                     for n in n_list:
@@ -1765,7 +1777,7 @@ if __name__ == '__main__':
     try:
         with multiprocessing.Manager() as manager:
             estado_compartido = manager.dict({f'{v}_{n}': (0, 0, None, 'esperando') for v, n in combos})
-            ciclos_estado = manager.dict({v: (0, 0) for v in VALORES})
+            ciclos_estado = manager.dict({v: (0, 0, None) for v in VALORES})
             stop_event = threading.Event()
             mt5_lock = threading.Lock()
 

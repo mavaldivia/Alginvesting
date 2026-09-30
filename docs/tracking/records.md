@@ -1708,3 +1708,10 @@ Claude: explicó que 10006 es `TRADE_RETCODE_REJECT` (rechazo genérico del bró
 Mauricio: pidió agregar reintentos para ese caso y otros que se sumen a futuro a esa lista — máximo 10 intentos, sleep de 6 segundos entre cada uno, ambos números declarados en config.py.
 Claude: agregó `X1_RETRY_RETCODE_MAX = 10` y `X1_RETRY_RETCODE_SLEEP_S = 6` en config.py (junto a X1_RETRY_BLOQUEADOS_S), y modificó `ejecutar_orden` en X1_trading.py para reintentar con sleep cuando el retcode cae en la lista transitoria `[10006, 10044, 10018, 10031]`, dejando sin cambios el manejo de "Market closed" y 10040 (sin reintento). Compiló ambos archivos para verificar sintaxis.
 (Cierre: 2026-09-29 23:32)
+
+## SECCIÓN 206
+Mauricio: mostró una foto del monitor en vivo de X0 y preguntó cómo era posible que, con un miniciclo de 15 min, a los 23 min todos los combos siguieran en el bloque 1 (A 1).
+Claude: revisó `_ciclo_activo`/`nuevo_optimizador_2` en `X0_data_supports.py` y explicó que no es un bug: el deadline de 15 min (`deadline_bloque`) recién arranca al terminar descarga H1/M1 + X2/X3 + `_preparar_valor_N` (recálculo de distancias), tramo que no cuenta contra el presupuesto del bloque y que en la primera hora puede tomar varios minutos por sí solo. Confirmó que los combos no estaban trabados (contadores `cambios` seguían creciendo, estado `[corriendo]`).
+Mauricio: pidió agregar una barra tipo tqdm (duración = miniciclo, avance minuto a minuto) a la derecha de `[corriendo]` en cada línea del monitor.
+Claude: implementó `_barra_bloque()` en `X0_data_supports.py` y propagó `deadline_bloque` a través de `ciclos_estado` (ahora tupla `(i, j, deadline_bloque)`) hasta `_texto_linea_combo`, que ahora imprime `[corriendo] |████░░░░| N/15min`. Verificado con `py_compile`; no se puede probar en vivo desde Mac (requiere MT5 en Windows).
+(Cierre: 2026-09-29 23:34)
