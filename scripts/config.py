@@ -212,6 +212,13 @@ X1_RETRY_RETCODE_SLEEP_S = 6    # segundos de espera entre reintentos
 # cobertura cercana al precio mientras se espera a que las nuevas OE queden colocadas.
 X1_REEMPLAZO_FRACCION_INICIAL = 0.2
 
+# Ventana de inactividad (segundos) antes de imprimir el resumen de "órdenes
+# ejecutadas" acumuladas por activo en crear_ordenes_espera — mientras sigan
+# llegando ejecuciones nuevas para el mismo activo dentro de esta ventana, se
+# siguen acumulando en una sola línea en vez de imprimir una por cada ciclo
+# del loop (TS) en que se ejecuta de a una.
+X1_COMPACTAR_LOG_S = 2
+
 # USD — si la pérdida de una posición abierta supera este valor, se cierra
 PERDIDA_MAX = {
     'BTCUSD': 200,

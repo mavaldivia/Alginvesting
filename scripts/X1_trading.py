@@ -42,6 +42,7 @@ from config import (
     X1_REEMPLAZO_FRACCION_INICIAL,
     X1_RETRY_RETCODE_MAX,
     X1_RETRY_RETCODE_SLEEP_S,
+    X1_COMPACTAR_LOG_S,
 )
 
 
@@ -61,6 +62,67 @@ def _print_throttled(symbol: str, clave, mensaje: str, intervalo: float = X1_RET
     if ahora - _ultimo_print_error.get((symbol, clave), 0) >= intervalo:
         print(mensaje)
         _ultimo_print_error[(symbol, clave)] = ahora
+
+
+_mercado_cerrado_notificado = {}  # {symbol: bool} — estado de la notificación única por cierre de sesión
+
+
+def _es_cierre_mercado(retcode, comment) -> bool:
+    """True si (retcode, comment) indica que la sesión del símbolo está cerrada en el
+    bróker (ej. retcode=10018 'Market closed', retcode=10044 'session closed') —
+    distinto de trade_mode/tick (ver mercado_abierto), que puede seguir reportando el
+    símbolo como operable un rato después de que la sesión real ya cerró."""
+    return retcode == 10018 or bool(comment and 'closed' in comment.lower())
+
+
+def _marcar_mercado_cerrado(symbol: str, retcode, comment) -> None:
+    """Notifica el cierre de mercado de `symbol` una sola vez por bloque de cierre
+    (una noche, un fin de semana, un feriado) — mientras el estado se mantenga en
+    cerrado, los demás callers que detecten el mismo cierre (ejecutar_orden,
+    _cancelar_orden, reemplazar_ordenes_espera) no imprimen nada más. Se resetea
+    al reiniciar X1: si el mercado ya está cerrado al arrancar, avisa una vez."""
+    if not _mercado_cerrado_notificado.get(symbol):
+        print(f'  {symbol}: mercado cerrado (retcode={retcode}, comment={comment}) — '
+              f'sin más avisos hasta que reabra')
+        _mercado_cerrado_notificado[symbol] = True
+
+
+def _marcar_mercado_abierto(symbol: str) -> None:
+    """Contraparte de _marcar_mercado_cerrado: se llama ante una orden real
+    ejecutada con éxito, la única prueba fehaciente de que la sesión reabrió."""
+    if _mercado_cerrado_notificado.get(symbol):
+        print(f'  {symbol}: mercado reabrió')
+        _mercado_cerrado_notificado[symbol] = False
+
+
+_ejecuciones_pendientes = {}  # {valor: {'precios': [...], 'lotaje': float, 'ultima': timestamp}}
+
+
+def _acumular_ejecucion(valor: str, precios: list, lotaje: float) -> None:
+    """Acumula precios ejecutados de `valor` en vez de imprimirlos de inmediato.
+    crear_ordenes_espera se llama una vez por ciclo del loop (TS=0.01s de default)
+    y en el régimen normal (precio avanzando de forma continua) cruza un soporte
+    nuevo a la vez — sin esto, cada ciclo imprimiría su propia línea de '1 orden
+    ejecutada'. _flush_ejecuciones_pendientes vuelca el acumulado a una sola línea
+    cuando pasan X1_COMPACTAR_LOG_S segundos sin ejecuciones nuevas para `valor`."""
+    pendiente = _ejecuciones_pendientes.setdefault(valor, {'precios': [], 'lotaje': lotaje})
+    pendiente['precios'].extend(precios)
+    pendiente['lotaje'] = lotaje
+    pendiente['ultima'] = time.time()
+
+
+def _flush_ejecuciones_pendientes(forzar: bool = False) -> None:
+    """Imprime (y limpia) el resumen acumulado de cada activo cuyo último aporte
+    ya lleva más de X1_COMPACTAR_LOG_S segundos (o todos, si forzar=True — usado
+    al salir del loop principal para no perder el último tramo acumulado)."""
+    ahora = time.time()
+    for valor in list(_ejecuciones_pendientes):
+        pendiente = _ejecuciones_pendientes[valor]
+        if forzar or (ahora - pendiente['ultima']) >= X1_COMPACTAR_LOG_S:
+            precios = pendiente['precios']
+            print(f'  {valor}: {len(precios)} órdenes ejecutadas desde {min(precios)} hasta {max(precios)}  '
+                  f'lotaje={pendiente["lotaje"]}')
+            del _ejecuciones_pendientes[valor]
 
 
 def _log_traceback(contexto: str) -> None:
@@ -254,7 +316,10 @@ def _cancelar_orden(orden, valor: str) -> bool:
                           f'  {valor}: order_send failed: {mt5.last_error()}')
         return False
     if result.retcode != mt5.TRADE_RETCODE_DONE:
-        if result.retcode not in [10018]:  # 10018: mercado cerrado
+        comment = result._asdict().get('comment')
+        if _es_cierre_mercado(result.retcode, comment):
+            _marcar_mercado_cerrado(valor, result.retcode, comment)
+        else:
             _print_throttled(valor, result.retcode,
                               f'  {valor}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
         return False
@@ -297,7 +362,8 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
             if result.retcode != mt5.TRADE_RETCODE_DONE:
                 result_dict = result._asdict()
                 comment = result_dict.get('comment')
-                if comment == 'Market closed':
+                if _es_cierre_mercado(result.retcode, comment):
+                    _marcar_mercado_cerrado(symbol, result.retcode, comment)
                     return False, result.retcode, comment
                 if result.retcode == 10040:  # límite de posiciones/órdenes pendientes de la cuenta
                     raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
@@ -312,6 +378,7 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
                                   f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={comment}')
                 return False, result.retcode, comment
             else:
+                _marcar_mercado_abierto(symbol)
                 return True, result.retcode, ''
         except LimiteOrdenesError:
             raise
@@ -473,7 +540,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
             bloqueadas.append(Pi)
 
     if ejecutadas:
-        print(f'  {valor}: {len(ejecutadas)} órdenes ejecutadas desde {min(ejecutadas)} hasta {max(ejecutadas)}  lotaje={lotajes[valor]}')
+        _acumular_ejecucion(valor, ejecutadas, lotajes[valor])
     if bloqueadas:
         print(f'  {valor}: {len(bloqueadas)} buy limits bloqueados temporalmente entre '
               f'{min(bloqueadas):.2f} y {max(bloqueadas):.2f}  lotaje={lotajes[valor]}  (límite de órdenes en la cuenta)')
@@ -562,9 +629,10 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
             break
 
     if probada is None:
-        _print_throttled(valor, 'reemplazo_abortado',
-                          f'  {valor}: reemplazo abortado — ninguna de las {len(colocables)} OE candidatas pudo '
-                          f'colocarse (mercado no operable pese a trade_mode/tick); no se toca ninguna OE')
+        if not _mercado_cerrado_notificado.get(valor):
+            _print_throttled(valor, 'reemplazo_abortado',
+                              f'  {valor}: reemplazo abortado — ninguna de las {len(colocables)} OE candidatas pudo '
+                              f'colocarse (mercado no operable pese a trade_mode/tick); no se toca ninguna OE')
         return
 
     orden_colocacion = [1]
@@ -947,6 +1015,8 @@ if __name__ == '__main__':
                     if dic_seguimiento[c]:
                         time_sleep = False
 
+                _flush_ejecuciones_pendientes()
+
                 if i % int(5000 / TS) == 0:
                     print(f'\nIteración {i} | Tiempo: {round((time.time() - t0) / 60, 1)} min')
                     total_bloqueados = sum(len(p) for p in dic_bloqueados.values())
@@ -973,4 +1043,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pass
     finally:
+        _flush_ejecuciones_pendientes(forzar=True)
         print(f'\nTiempo total: {_fmt_duracion(time.time() - t0)}')
