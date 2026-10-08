@@ -255,6 +255,13 @@ UNITS = {
     'AMZN':   100,
 }
 
+# Distancia de precio entre el máximo de una OA desde que su trailing stop está
+# activo (P_MAX) y su stop loss actual (P_SL): P_MAX = P_SL + OFFSET_TRAILING[valor].
+# Se deriva de trailing_stop (X1_trading.py): el lotaje de la orden se cancela
+# algebraicamente en b_efectivo/L, dejando un valor constante por activo,
+# independiente del volumen de cada orden específica.
+OFFSET_TRAILING = {v: B[v] / (MIN_LOTAJES[v] * UNITS[v]) for v in VALORES}
+
 # Apalancamiento por activo según configuración del broker
 APALANCAMIENTO = {
     'BTCUSD': 400,

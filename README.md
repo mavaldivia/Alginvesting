@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-08** — feat(x1): pausa de reemplazo O0/OE según cercanía P_MAX/P_SL del trailing stop
 - **2026-09-30** — fix(x1): reintento de order_send restringido solo a retcode 10006
 - **2026-09-29** — feat(x0): barra de progreso del bloque (T_UPDATE_O0) en el monitor en vivo
 - **2026-09-29** — fix(x1): reintentos ante retcodes transitorios de order_send

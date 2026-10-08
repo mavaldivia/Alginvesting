@@ -36,7 +36,7 @@ from config import (
     CARPETA_LOGS_X1,
     CARPETA_N_PROD,
     VALORES, A, B, TS, PERDIDA_MAX,
-    LOTAJES, MIN_LOTAJES, UNITS,
+    LOTAJES, MIN_LOTAJES, UNITS, OFFSET_TRAILING,
     n_sizes_ejecucion as n_sizes,
     X1_RETRY_BLOQUEADOS_S,
     X1_REEMPLAZO_FRACCION_INICIAL,
@@ -653,15 +653,16 @@ def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
     debe poder convertirse en OA si ya existe una OA en ese precio. `crear_ordenes_espera`
     ya recrea la OE ahí solo (por su chequeo `Pi in lista_OAE`) apenas esta OA cierre.
 
-    Devuelve True si activó el primer SL (sl 0→≠0) de alguna posición en este llamado —
-    señal para que el loop principal active sl_activo_global de inmediato en este mismo
-    ciclo, sin esperar al próximo positions_get(), y así frenar el reemplazo de OE de los
-    activos que aún no se procesan en este ciclo.
+    Devuelve True si activó o movió el SL de alguna posición en este llamado — en
+    ambos casos el precio queda, en ese instante, a distancia completa (OFFSET_TRAILING)
+    de su nuevo SL, es decir más cerca de P_MAX que de P_SL. Señal para que el loop
+    principal fuerce de inmediato la pausa del reemplazo de O0/OE en este mismo
+    ciclo, sin esperar al próximo positions_get().
     """
     if not actual_OA or not mercado_abierto(valor):
         return False
 
-    nuevo_sl_activado = False
+    sl_modificado = False
     P0 = obtener_precio_actual(valor, modo='B')
 
     for orden in actual_OA:
@@ -678,8 +679,6 @@ def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
         if sl == 0:
             if ganancia >= a_efectivo:
                 cambios = cambiar_SL(orden, valor, sl_nuevo, silent=True)
-                if cambios:
-                    nuevo_sl_activado = True
         else:
             if sl_nuevo > sl:
                 if cambiar_SL(orden, valor, sl_nuevo, silent=True):
@@ -688,13 +687,14 @@ def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
                     dic_seguimiento[valor].remove(orden.ticket)
 
         if cambios:
+            sl_modificado = True
             if valor not in dic_seguimiento:
                 dic_seguimiento[valor] = []
             if orden.ticket not in dic_seguimiento[valor]:
                 dic_seguimiento[valor].append(orden.ticket)
             print(f'  Cambio de SL: {valor} orden {orden.ticket} → {sl_nuevo:.2f}')
 
-    return nuevo_sl_activado
+    return sl_modificado
 
 
 def cerrar_posicion(orden, valor: str, lotajes: dict):
@@ -856,7 +856,7 @@ if __name__ == '__main__':
     pos_info = {}
     valores_inicializados = set()  # evita falso [OE > OA] con OA ya abiertas antes de arrancar X1
     dic_bloqueados = {}  # {valor: {precio: timestamp}} — buy limits lejanos liberados por retcode 10040
-    sl_activo_global_prev = None
+    pausar_reemplazo_global_prev = None
     i = 0
 
     try:
@@ -868,10 +868,12 @@ if __name__ == '__main__':
             try:
                 time_sleep = True
 
-                # Si hay alguna posición con SL activo (sl≠0) en un activo con mercado
-                # abierto, este ciclo se saltan A) limpiar OE y B) crear buy limits en
-                # TODOS los activos para acelerar la revisión del trailing stop, hasta
-                # que esa posición cierre.
+                # Si hay alguna OA con SL activo cuyo precio actual está más cerca de
+                # P_MAX que de P_SL (es decir, aún podría mover el SL al alza pronto),
+                # este ciclo se saltan A) limpiar OE y B) crear buy limits en TODOS los
+                # activos para acelerar la revisión del trailing stop. Si el SL ya lleva
+                # rato sin moverse (precio más cerca de P_SL que de su máximo), se
+                # reanuda el reemplazo de O0/OE con normalidad.
                 posiciones_todas = mt5.positions_get()
                 if posiciones_todas is None:
                     _print_throttled('MT5', 'conexion_perdida',
@@ -880,13 +882,17 @@ if __name__ == '__main__':
                     i += 1
                     time.sleep(TS)
                     continue
-                sl_activo_global = any(p.sl != 0 and mercado_abierto(p.symbol) for p in posiciones_todas)
-                if sl_activo_global != sl_activo_global_prev:
-                    if sl_activo_global:
-                        print('  SL activo con mercado abierto → pausando gestión de buy limits (foco en trailing stop)')
+                pausar_reemplazo_global = any(
+                    p.sl != 0 and mercado_abierto(p.symbol)
+                    and (p.price_current - p.sl) > OFFSET_TRAILING[p.symbol] / 2
+                    for p in posiciones_todas
+                )
+                if pausar_reemplazo_global != pausar_reemplazo_global_prev:
+                    if pausar_reemplazo_global:
+                        print('  SL activo más cerca de P_MAX que de P_SL → pausando gestión de buy limits (foco en trailing stop)')
                     else:
-                        print('  Sin SL activo → reanudando gestión de buy limits')
-                    sl_activo_global_prev = sl_activo_global
+                        print('  Ningún SL cerca de su máximo → reanudando gestión de buy limits')
+                    pausar_reemplazo_global_prev = pausar_reemplazo_global
 
                 for valor in VALORES:
                     try:
@@ -897,9 +903,10 @@ if __name__ == '__main__':
 
                         # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
                         # no eliminar las OE existentes porque no se pueden reponer.
-                        # Si hay un SL activo en el sistema (sl_activo_global), se saltan
-                        # A/B para priorizar la revisión del trailing stop.
-                        if mercado_abierto(valor) and not sl_activo_global:
+                        # Si hay un SL activo cerca de su máximo en el sistema
+                        # (pausar_reemplazo_global), se saltan A/B para priorizar la
+                        # revisión del trailing stop.
+                        if mercado_abierto(valor) and not pausar_reemplazo_global:
                             hay_salientes = any(round(o.price_open, 2) not in lista_N for o in actual_OE)
                             if hay_salientes:
                                 # Caso (a): el conjunto de soportes cambió — reemplazo total
@@ -911,15 +918,17 @@ if __name__ == '__main__':
                                 podar_ordenes_saturacion(actual_OE, valor, N)
 
                         # C: Trailing stop en posiciones abiertas
-                        # Si activa el primer SL de una posición recién ahora, propaga
-                        # sl_activo_global de inmediato dentro de este mismo ciclo: sin esto,
-                        # los activos que vienen después en VALORES seguirían viendo el flag
-                        # en False (calculado con el positions_get() de antes de este cambio)
-                        # y reemplazarían OE de todas formas hasta el próximo ciclo.
-                        if trailing_stop(actual_OA, valor, A[valor], B[valor], dic_seguimiento) and not sl_activo_global:
-                            print('  SL activo con mercado abierto → pausando gestión de buy limits (foco en trailing stop)')
-                            sl_activo_global = True
-                            sl_activo_global_prev = True
+                        # Si activa o mueve el SL de una posición recién ahora, propaga
+                        # pausar_reemplazo_global de inmediato dentro de este mismo ciclo:
+                        # sin esto, los activos que vienen después en VALORES seguirían
+                        # viendo el flag en False (calculado con el positions_get() de
+                        # antes de este cambio) y reemplazarían OE de todas formas hasta
+                        # el próximo ciclo, aunque este SL recién haya quedado a distancia
+                        # completa de su máximo.
+                        if trailing_stop(actual_OA, valor, A[valor], B[valor], dic_seguimiento) and not pausar_reemplazo_global:
+                            print('  SL activo más cerca de P_MAX que de P_SL → pausando gestión de buy limits (foco en trailing stop)')
+                            pausar_reemplazo_global = True
+                            pausar_reemplazo_global_prev = True
 
                         # D: Cierre por pérdida máxima
                         controlar_perdida_max(actual_OA, valor, LOTAJES, PERDIDA_MAX[valor])
