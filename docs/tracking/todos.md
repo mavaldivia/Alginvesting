@@ -96,10 +96,6 @@
 
 **Q1 — X5_Q1.ipynb (tabla maestra + variables de estado del activo)**
 
-- [ ] **[Q1-1] X5_Q1 — arranque obligatorio**: crear `X5_Q1.ipynb`, declarar `valores = ['BTCUSD']` (lista, no string), reutilizar la carga de precio+X3+X2 ya resuelta en `X5_P1.ipynb` (`scripts/otros_strings/`) sin reimplementarla, dejar la tabla base cargada (por cada activo de `valores`) como punto de partida de todo el notebook. (I:10 C:1 H:10 → 10.00) [dep: —]
-- [ ] **[Q1-3] X5_Q1 — filtrar técnicos de X3 que realmente aportan**: descartar relaciones triviales (ej. SMA vs. Close crudo, construido con el propio precio) y aplicar transformaciones (`distancia_SMA = (Close-SMA)/ATR`, `pendiente_SMA/ATR`) en vez de niveles crudos de medias móviles. (I:7 C:2 H:7 → 3.50) [dep: Q1-1]
-- [ ] **[Q1-4] X5_Q1 — variables de drawdown del activo**: `drawdown_activo` desde máximo histórico y ventanas (7d/30d/90d/365d), profundidad, duración, velocidad de caída, recuperación desde mínimo, tiempo desde máximo. Nunca drawdown de cuenta. (I:10 C:3 H:10 → 3.33) [dep: Q1-1]
-- [ ] **[Q1-5] X5_Q1 — variables de volatilidad**: ATR absoluto y relativo, desviación estándar móvil de retornos, volatilidad corta/larga, cambio de volatilidad, volatilidad alcista vs. bajista, frecuencia de movimientos extremos. (I:9 C:3 H:9 → 3.00) [dep: Q1-1]
 - [ ] **[Q1-8] X5_Q1 — variables de liquidez**: spread si está disponible, Tick Volume normalizado, volumen relativo, slippage si existe. (I:5 C:2 H:5 → 2.50) [dep: Q1-1]
 - [ ] **[Q1-10] X5_Q1 — variables fundamentales de estado**: nivel del score, cambio, dirección del cambio, magnitud, edad desde la última actualización, frecuencia efectiva, estabilidad, contradicción entre componentes. (I:6 C:3 H:6 → 2.00) [dep: Q1-1]
 - [ ] **[Q1-6] X5_Q1 — variables de ruido**: cambios de signo de retornos, ratio movimiento total/movimiento neto, mechas largas, ATR alto con retorno acumulado bajo. (I:6 C:2 H:6 → 3.00) [dep: Q1-1, Q1-5 — usa el ATR calculado en volatilidad]

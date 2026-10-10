@@ -1798,3 +1798,17 @@ Claude: reordenó las líneas de Q1, Q2 y Q3 en orden topológico respetando los
 Mauricio: Pidió /todos; eligió la sección X5_alt_v2 (top score). Al indicar avanzar con el primer ítem (Q1-1), agregó una particularidad transversal a toda la sección: cada script de X5_alt_v2 debe declarar `valores` como **lista** (default `['BTCUSD']`), no un `valor` string único como en v1 — y pidió dejarlo aclarado en el contexto antes de ejecutar.
 Claude: Mostró los 3 próximos pendientes de X5_alt_v2 (Q1-1, Q1-3, Q1-4). Tras la indicación, actualizó `docs/tracking/todos.md` (nota de la sección y texto de Q1-1) y `docs/plans/X5_alternativo.md` (§10.2) para documentar la convención `valores` (lista). Luego implementó Q1-1: creó `scripts/X5_Q1.ipynb`, declaró `valores = ['BTCUSD']`, encapsuló en `_cargar_tabla_base(valor)` la misma lógica de carga precio+X3+X2 de `X5_P1.ipynb` (sin reimplementarla) y la corrió por cada activo de `valores`. Instaló `nbconvert` en el entorno `revenAI` (no estaba disponible) para poder ejecutar el notebook de punta a punta vía `jupyter nbconvert --execute` — corrió sin errores (40283 filas x 37 columnas para BTCUSD, igual que v1), corrigió campos JSON inválidos que quedaron en celdas markdown y lo volvió a ejecutar limpio. No hizo commit, quedó pendiente de confirmación.
 (Cierre: 2026-10-10 10:51)
+
+## SECCIÓN 219
+Mauricio: invocó `/todos X5_alt_v2` para ver los próximos pendientes de esa sección.
+Claude: detectó que `[Q1-1]` ya estaba implementado y commiteado (sesión 218, commit `2fe9977`) pero seguía figurando como pendiente en `todos.md` sin haberse movido a `done.md`. Preguntó si corregirlo antes de listar — Mauricio confirmó. Movió `[Q1-1]` a `done.md` y mostró los 3 próximos pendientes reales (`Q1-3`, `Q1-4`, `Q1-5`).
+
+Mauricio: preguntó por qué no se había movido a `done` si ya se había ejecutado `/guardar` en la sesión 218.
+Claude: explicó que mover ítems de `todos.md` a `done.md` es responsabilidad de la skill `/todos`, no de `/guardar`/`update-push` — la sesión 218 cerró con `/guardar` sin volver a invocar `/todos`, por eso el ítem quedó desfasado entre código y tracking.
+
+Mauricio: pidió que `/guardar` mueva automáticamente a `done.md` los ítems completados, siempre que la sesión haya empezado desde `/todos` (con un ítem confirmado) o desde `/new_todo`.
+Claude: agregó un paso 0 (condicional) a `~/.claude/skills/guardar/SKILL.md` que reconcilia esto antes de `record`, documentando el caso real de `[Q1-1]` como motivación.
+
+Mauricio: pidió implementar `Q1-3`, `Q1-4` y `Q1-5` de `X5_Q1.ipynb` de forma secuencial e independiente (uno, validar, seguir con el siguiente), y un resumen final en bullets.
+Claude: implementó y validó cada ítem con `jupyter nbconvert --execute` (kernel `revenAI`) antes de pasar al siguiente, sin errores en ningún paso — `Q1-3` (`_filtrar_y_transformar_tecnicos`: descarta niveles crudos `x3_sma_*`/`x3_ema_*` y agrega `distancia_`/`pendiente_` normalizados por `x3_atr_14`), `Q1-4` (`_variables_drawdown`: `drawdown_historico` vía `cummax`, `duracion_drawdown`/`recuperacion_desde_minimo` vía episodios definidos por nuevos máximos históricos, `velocidad_caida`, `drawdown_7d/30d/90d/365d` por ventana rodante) y `Q1-5` (`_variables_volatilidad`: reutiliza ATR/vol de X3 sin reimplementar, agrega `cambio_volatilidad`, `vol_alcista_30d`/`vol_bajista_30d` y `frecuencia_extremos_30d` con umbral `expanding()` para evitar mirar futuro). La tabla de BTCUSD pasó de 37 a 54 columnas. Movió los 3 ítems de `todos.md` a `done.md`.
+(Cierre: 2026-10-10 11:03)
