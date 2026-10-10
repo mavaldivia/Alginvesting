@@ -130,7 +130,7 @@ resources/               # Todo generado en Windows, fuera de git
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
-  x5_alt/                # {VALOR}_tabla_maestra.csv (X5_P1.ipynb, X5_alt v1) + {VALOR}_catalogo_variables.csv (X5_Q1.ipynb, X5_alt_v2 — catálogo de documentación por variable)
+  x5_alt/                # {VALOR}_tabla_maestra.csv (X5_P1.ipynb, X5_alt v1) + {VALOR}_tabla_estado_v2.csv (X5_Q1.ipynb, X5_alt_v2 — tabla extendida con variables de estado, consumida por X5_Q2.ipynb) + {VALOR}_catalogo_variables.csv (X5_Q1.ipynb, X5_alt_v2 — catálogo de documentación por variable)
 docs/
   context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md
   plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + documentacion.html (doc interactiva por sección, ver /documentar)
@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — feat(x5-alt-v2): Q1-2 — guardar tabla extendida en resources/x5_alt/{valor}_tabla_estado_v2.csv
 - **2026-10-10** — feat(x5-alt-v2): Q1-9 — catálogo de documentación por variable
 - **2026-10-10** — feat(x5-alt-v2): Q1-7 — variables de tendencia/régimen (ADX, bull/bear/sideways, ruptura de rango)
 - **2026-10-10** — feat(x5-alt-v2): Q1-6/10 — variables de ruido y fundamentales de estado

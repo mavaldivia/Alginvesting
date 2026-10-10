@@ -1839,3 +1839,9 @@ Claude: Confirmó que las dependencias de [Q1-9] (Q1-3 a Q1-8, Q1-10) ya estaban
 Claude: Implementó la Sección 9 del notebook — `METADATA_VARIABLES` con metadata estática por columna (fuente, significado, unidad, fórmula, forward-fill, limitaciones) registrada vía `_registrar()`, y `_catalogo_variables(valor, df)` que calcula cobertura/nulos/fechas/granularidad observada sobre los datos reales, valida que la metadata cubra exactamente las columnas de la tabla (sin faltantes ni sobrantes) y persiste el resultado en `resources/x5_alt/{valor}_catalogo_variables.csv`.
 Claude: Ejecutó el notebook completo de punta a punta sin errores (72 variables documentadas para BTCUSD). Movió [Q1-9] de `docs/tracking/todos.md` a `docs/tracking/done.md`.
 (Cierre: 2026-10-10 16:35)
+
+## SECCIÓN 224
+Mauricio: Invocó `/todos`; eligió trabajar la sección X5_alt_v2 y confirmó avanzar en el primer ítem mostrado, `[Q1-2]` (guardar tabla extendida en ruta propia).
+Claude: Verificó el gate de dependencias de `[Q1-2]` (`Q1-3` a `Q1-10`, todas ya en `done.md`) antes de avanzar. Revisó `X5_Q1.ipynb` y confirmó cómo `X5_P1.ipynb` (v1) guarda su tabla final, para replicar la misma convención sin reimplementarla.
+Claude: Agregó la Sección 10 al notebook — guarda cada tabla de `tablas` (precio+X3+X2+variables de estado de las Secciones 2-8) en `resources/x5_alt/{valor}_tabla_estado_v2.csv`, separada de `{valor}_tabla_maestra.csv` de v1 para no romper lo que ya la consume. Ejecutó el notebook de punta a punta con kernel `revenAI` sin errores y validó el CSV resultante por fuera del notebook (40283 filas x 72 columnas para BTCUSD, mismo rango de fechas que la tabla en memoria). Movió `[Q1-2]` de `todos.md` a `done.md`.
+(Cierre: 2026-10-10 16:44)
