@@ -136,6 +136,7 @@ Se eliminó `X5_P2.py`. Su lógica de carga (ruta vía `config.CARPETA_X5_ALT`, 
 - **Generación de hipótesis parámetro↔variable** como uno de los primeros objetivos de la sección (no solo un puente al cierre, como en v1) — con pre-registro directo desde `x5_contexto_conversacion.md` antes de correr ningún notebook.
 - **Convención de nombres**: `X5_Q1`, `X5_Q2`, `X5_Q3` (no `P1`/`P2`), para no confundirlos con v1.
 - **Parametrización por `valores` (lista)**: cada notebook `X5_Q*` declara `valores = ['BTCUSD']` al comienzo (default, solo BTC por ahora) en vez del `valor` (string único) de v1 — preparado para operar sobre varios activos a la vez sin reescribir la celda de arranque.
+- **Exportar outputs a zip (Windows → Mac)**: los tres notebooks corren en Windows con `Data/`/`resources/x2/`/`resources/x3/` actualizados, no disponibles así en Mac. Cada `X5_Q*.ipynb` cierra con una celda que llama a `exportar_zip(nombre_notebook, archivos)` (`scripts/x5_alt_export.py`, módulo compartido) sobre los archivos que ese notebook generó en `resources/x5_alt/`, para bajar el zip resultante desde Windows y pasárselo a Claude. Implementado en `X5_Q1.ipynb` (Sección 11) — al construir `X5_Q2.ipynb`/`X5_Q3.ipynb` agregar la misma celda final con la lista de archivos propia de cada uno.
 
 ### 10.3. Los tres notebooks
 
