@@ -199,6 +199,18 @@ def obtener_precio_actual(valor: str, modo: str = 'B') -> float:
     return tick.bid if modo == 'B' else tick.ask
 
 
+def obtener_spread(valor: str) -> float:
+    """Diferencia ask-bid vigente, en unidades de precio (no points). Los soportes de
+    X0 se calculan sobre OHLC basado en bid, pero un buy limit se activa cuando el
+    ASK llega a su precio — declararlo en el soporte puro lo activaría antes de que
+    el bid (el precio que realmente nos interesa) lo alcance. Por eso se declara en
+    soporte + spread: se activa justo cuando el bid llega al soporte real."""
+    tick = mt5.symbol_info_tick(valor)
+    if tick is None:
+        raise RuntimeError(f'symbol_info_tick({valor}) retornó None: {mt5.last_error()}')
+    return tick.ask - tick.bid
+
+
 def _servidor_ahora() -> int:
     """Aproxima la hora del servidor MT5 como el tick más reciente entre todos los
     símbolos. Los 24/7 (crypto) siempre están frescos, así que su timestamp sirve
@@ -273,8 +285,8 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
     if actual_OE is None:
         raise RuntimeError(f'orders_get({valor}) retornó None: {mt5.last_error()}')
 
-    lista_OA = [p.price_open for p in actual_OA]
-    lista_OE = [o.price_open for o in actual_OE]
+    lista_OA = [_soporte_de_orden(p) for p in actual_OA]
+    lista_OE = [_soporte_de_orden(o) for o in actual_OE]
 
     ya_inicializado = valor in valores_inicializados
     valores_inicializados.add(valor)
@@ -326,7 +338,12 @@ def _cancelar_orden(orden, valor: str) -> bool:
     return True
 
 
-def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: float, sl: float = 0) -> dict:
+def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: float,
+                                soporte: float, sl: float = 0) -> dict:
+    """`precio` es el nivel real enviado a MT5 (soporte + spread del instante). `soporte`
+    es el nivel puro de X0 (lista_N) y se guarda en el comment para que
+    `_soporte_de_orden` lo recupere más tarde sin depender de qué spread estaba
+    vigente al colocar la orden — el spread cambia con el tiempo."""
     request = {
         'action': mt5.TRADE_ACTION_PENDING,
         'symbol': valor,
@@ -335,13 +352,29 @@ def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: f
         'price': precio,
         'deviation': 10,
         'magic': 123456,
-        'comment': 'Orden BUY desde Python',
+        'comment': f'P0={soporte}',
         'type_time': mt5.ORDER_TIME_GTC,
         'type_filling': mt5.ORDER_FILLING_FOK,
     }
     if sl != 0:
         request['sl'] = float(sl)
     return request
+
+
+def _soporte_de_orden(orden) -> float:
+    """Soporte puro (sin spread) de una OE/OA, leído del comment ('P0={valor}', ver
+    generate_request_buy_limit) — así la identidad contra lista_N no depende de que
+    el spread no haya cambiado desde que se colocó la orden. Si el comment no tiene
+    ese formato (orden previa a este cambio, o el bróker no lo propagó de la OE a la
+    posición resultante), cae a price_open — igual que el comportamiento antes de
+    ajustar por spread."""
+    comment = getattr(orden, 'comment', '') or ''
+    if comment.startswith('P0='):
+        try:
+            return round(float(comment[3:]), 2)
+        except ValueError:
+            pass
+    return round(orden.price_open, 2)
 
 
 def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) -> tuple:
@@ -438,7 +471,7 @@ def liberar_orden_lejana(dic_bloqueados: dict):
         return None
 
     symbol = mas_lejana.symbol
-    precio = round(mas_lejana.price_open, 2)
+    precio = _soporte_de_orden(mas_lejana)
     dic_bloqueados.setdefault(symbol, {})[precio] = time.time()
     print(f'  Límite de órdenes alcanzado: liberando {symbol} @ {precio:.2f}  lotaje={mas_lejana.volume_initial} '
           f'(distancia {mayor_distancia:.2f} USD) para priorizar soportes cercanos')
@@ -511,6 +544,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     inicio de la función y no ve las órdenes que este mismo loop ya creó).
     """
     P0 = obtener_precio_actual(valor, modo='B')
+    spread = obtener_spread(valor)
     lista_OAE = lista_OA + lista_OE
     ejecutadas = []
     bloqueadas = []
@@ -529,7 +563,8 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
             valor,
             order_type=mt5.ORDER_TYPE_BUY_LIMIT,
             volumen=lotajes[valor],
-            precio=Pi,
+            precio=round(Pi + spread, 2),
+            soporte=Pi,
         )
         intentos += 1
         ok, _retcode, _comment = _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True)
@@ -548,11 +583,12 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     return ejecutadas, intentos
 
 
-def _colocar_orden_real(Pi: float, valor: str, lotajes: dict, dic_bloqueados: dict) -> tuple:
-    """Intenta colocar un buy limit real en Pi (order_send vía _ejecutar_con_liberacion,
+def _colocar_orden_real(Pi: float, spread: float, valor: str, lotajes: dict, dic_bloqueados: dict) -> tuple:
+    """Intenta colocar un buy limit real en Pi + spread (order_send vía _ejecutar_con_liberacion,
     no un dry-run). Retorna (ok, retcode, comment)."""
     request = generate_request_buy_limit(
-        valor, order_type=mt5.ORDER_TYPE_BUY_LIMIT, volumen=lotajes[valor], precio=Pi,
+        valor, order_type=mt5.ORDER_TYPE_BUY_LIMIT, volumen=lotajes[valor],
+        precio=round(Pi + spread, 2), soporte=Pi,
     )
     return _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True)
 
@@ -593,24 +629,25 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     que un fallo puntual ahí es una señal real de anomalía, no ruido esperable.
     """
     salientes = sorted(
-        (o for o in actual_OE if round(o.price_open, 2) not in lista_N),
-        key=lambda o: o.price_open, reverse=True,
+        (o for o in actual_OE if _soporte_de_orden(o) not in lista_N),
+        key=_soporte_de_orden, reverse=True,
     )
 
     def _eliminar_salientes():
-        eliminadas = [(round(o.price_open, 2), o.volume_initial) for o in salientes if _cancelar_orden(o, valor)]
+        eliminadas = [(_soporte_de_orden(o), o.volume_initial) for o in salientes if _cancelar_orden(o, valor)]
         if eliminadas:
             precios = [p for p, _ in eliminadas]
             lotaje_total = sum(v for _, v in eliminadas)
             print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
 
-    lista_OAE_actual = lista_OA + [round(o.price_open, 2) for o in actual_OE]
+    lista_OAE_actual = lista_OA + [_soporte_de_orden(o) for o in actual_OE]
     entrantes = sorted(Pi for Pi in set(lista_N) if Pi not in lista_OAE_actual)
     if not entrantes:
         _eliminar_salientes()
         return
 
     P0 = obtener_precio_actual(valor, modo='B')
+    spread = obtener_spread(valor)
     bloqueados_valor = dic_bloqueados.setdefault(valor, {})
     colocables = sorted(
         Pi for Pi in entrantes
@@ -623,7 +660,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     # Paso 1: probe real, de menor a mayor precio.
     probada = None
     for Pi in colocables:
-        ok, _retcode, _comment = _colocar_orden_real(Pi, valor, lotajes, dic_bloqueados)
+        ok, _retcode, _comment = _colocar_orden_real(Pi, spread, valor, lotajes, dic_bloqueados)
         if ok:
             probada = Pi
             break
@@ -638,7 +675,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     orden_colocacion = [1]
 
     def _colocar_y_notificar(Pi):
-        ok, retcode, comment = _colocar_orden_real(Pi, valor, lotajes, dic_bloqueados)
+        ok, retcode, comment = _colocar_orden_real(Pi, spread, valor, lotajes, dic_bloqueados)
         orden_colocacion[0] += 1
         if not ok:
             print(f'  {valor}: falla al colocar orden #{orden_colocacion[0]} en {Pi:.2f}  '
@@ -839,12 +876,12 @@ def informacion(valores: list, n_sizes: dict, a: dict):
         if actual_OE is None:
             raise RuntimeError(f'orders_get({valor}) retornó None: {mt5.last_error()}')
 
-        precios_declarados = {round(o.price_open, 2) for o in actual_OE} | \
-                              {round(p.price_open, 2) for p in actual_OA}
+        precios_declarados = {_soporte_de_orden(o) for o in actual_OE} | \
+                              {_soporte_de_orden(p) for p in actual_OA}
 
         df_a = None
         if actual_OE:
-            df_a = pd.DataFrame(sorted({round(o.price_open, 2) for o in actual_OE}, reverse=True),
+            df_a = pd.DataFrame(sorted({_soporte_de_orden(o) for o in actual_OE}, reverse=True),
                                  columns=['Precio_OE'])
             df_a['Falta_baja_USD'] = (P0 - df_a['Precio_OE']).round(2)
             df_a = df_a.sort_values('Falta_baja_USD').head(3).reset_index(drop=True)
@@ -975,7 +1012,7 @@ if __name__ == '__main__':
                         # (pausar_reemplazo_global), se saltan A/B para priorizar la
                         # revisión del trailing stop.
                         if mercado_abierto(valor) and not pausar_reemplazo_global:
-                            hay_salientes = any(round(o.price_open, 2) not in lista_N for o in actual_OE)
+                            hay_salientes = any(_soporte_de_orden(o) not in lista_N for o in actual_OE)
                             if hay_salientes:
                                 # Caso (a): el conjunto de soportes cambió — reemplazo total
                                 reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, A[valor], LOTAJES, dic_bloqueados)
