@@ -1772,3 +1772,8 @@ Mauricio: pidió que los TO DOs incluyan pasos explícitos de "ejecutar el scrip
 
 Claude: reescribió la sección `X5_alt_v2` agregando IDs por ítem (`[Q1-1]`, `[Q2-5]`, etc.) y un tag `[dep: ...]` con las dependencias reales de cada uno, más 3 ítems nuevos de ejecución explícita (`[Q1-EXEC]`, `[Q2-EXEC]`, `[Q3-EXEC]`) que actúan como gate obligatorio hacia el siguiente notebook. Guardó la regla de comportamiento en memoria (`feedback_todo_workflow.md`, regla 3): ante un ítem con dependencias pendientes, advertir explícitamente cuál falta y no avanzar, ofreciendo otro ítem sin bloqueos.
 (Cierre: 2026-10-10 09:31)
+
+## SECCIÓN 215
+Mauricio: Pidió `/todos X5_alt_v2` para ver los próximos pendientes de esa sección, y luego eligió avanzar en `[PRE-1]`.
+Claude: Mostró los 3 próximos ítems en orden de documento (PRE-1, Q1-1, Q1-2), confirmando con Mauricio ese orden en vez de filtrar primero por dependencias. Al confirmar PRE-1, leyó `x5_contexto_conversacion.md` y `pars_configurables.md`, y agregó la sección 10.5 en `docs/plans/X5_alternativo.md` con una tabla de hipótesis parámetro↔variable (hipótesis funcional, dirección esperada, variables candidatas, fuente/estado) para los 8 parámetros (`N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA`, `LOTAJES_M`, `PERDIDA_MAX`), sin agregar reglas prescriptivas nuevas. Movió `[PRE-1]` de `docs/tracking/todos.md` a `docs/tracking/done.md` (sección X5_alt_v2).
+(Cierre: 2026-10-10 10:33)

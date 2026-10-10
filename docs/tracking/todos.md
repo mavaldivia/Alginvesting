@@ -94,10 +94,6 @@
 > El orden de abajo es por score, no de implementación: Q1 → Q2 → Q3 por dependencia de datos (cada notebook consume el output del anterior). Dentro de Q2, respetar el orden narrativo ya validado en v1 (sección 15 de `solicitud_claude_code_X5_P2_notebook_v3.md`): core variable-precio primero, profundización después, regímenes/estabilidad al final de la capa descriptiva.
 > **Convención de dependencias (solo esta sección)**: cada ítem lleva un ID entre corchetes al inicio del título y un tag `[dep: ...]` al final (`[dep: —]` si no depende de nada). Antes de empezar a trabajar un ítem, verificar que todas sus dependencias ya estén marcadas `[x]` (movidas a `done.md`); si falta alguna, **advertir explícitamente cuál falta y no avanzar con ese ítem** — ofrecer en cambio otro ítem sin dependencias pendientes. El score sigue definiendo prioridad de lectura, no de ejecución: un ítem puede listarse arriba por score y aun así depender de otro listado más abajo.
 
-**Pre-registro de hipótesis**
-
-- [ ] **[PRE-1] X5_alt_v2 — pre-registro de hipótesis parámetro↔variable desde el documento rector**: sintetizar en una tabla (en `X5_alternativo.md` o como celda inicial de `X5_Q3.ipynb`) las hipótesis ya documentadas en `x5_contexto_conversacion.md` para cada parámetro de `pars_configurables.md` — `N=f(drawdown_activo)`, `A=f(volatilidad)`, `factor_B=f(volatilidad,tendencia)`, candidatas para `K`/`N_EXP`/`LAMBDA`. No depende de Q1/Q2 (viene directo del documento rector); sirve de hipótesis a confirmar/refinar con la evidencia que produzca Q2. Deliberadamente uno de los primeros ítems de la sección, no un puente de cierre como en v1. (I:9 C:1 H:9 → 9.00) [dep: —]
-
 **Q1 — X5_Q1.ipynb (tabla maestra + variables de estado del activo)**
 
 - [ ] **[Q1-1] X5_Q1 — arranque obligatorio**: crear `X5_Q1.ipynb`, declarar `valor='BTCUSD'`, reutilizar la carga de precio+X3+X2 ya resuelta en `X5_P1.ipynb` (`scripts/otros_strings/`) sin reimplementarla, dejar la tabla base cargada como punto de partida de todo el notebook. (I:10 C:1 H:10 → 10.00) [dep: —]

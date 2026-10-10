@@ -234,5 +234,6 @@
 ### X5_alt_v2
 
 - [x] **Proteger X5_P1.ipynb/X5_P2.ipynb (v1) moviéndolos a `scripts/otros_strings/`**: `git mv` de ambos notebooks desde `scripts/` a `scripts/otros_strings/` para dejarlos congelados como referencia histórica, sin riesgo de que la evolución paralela (X5_Q1/Q2/Q3.ipynb) los toque por error. Actualizadas las referencias vivas en `README.md` (árbol de scripts) y `CLAUDE.md` (sección X5_alt + nueva nota X5_alt_v2).
+- [x] **[PRE-1] Pre-registro de hipótesis parámetro↔variable desde el documento rector**: tabla en `docs/plans/X5_alternativo.md` (sección 10.5) con hipótesis funcional, dirección esperada, variables candidatas y fuente/estado para los 8 parámetros de `pars_configurables.md` (`N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA`, `LOTAJES_M`, `PERDIDA_MAX`), sintetizando `x5_contexto_conversacion.md` sin agregar reglas prescriptivas nuevas. Insumo para `[Q3-6]`/`[Q3-7]`.
 
 ---

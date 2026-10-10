@@ -224,6 +224,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — docs(x5-alt-v2): pre-registra hipótesis parámetro↔variable (PRE-1)
 - **2026-10-10** — docs(x5-alt-v2): sección X5_alt_v2 en todos.md (Q1/Q2/Q3 con dependencias e ítems de ejecución) + X5_P1/X5_P2 congelados en `scripts/otros_strings/`
 - **2026-10-10** — fix(x1): buy limits ajustados por spread ask/bid, identidad OE/OA por soporte puro (comment `P0=`)
 - **2026-10-08** — feat(x1): notificación única de mercado cerrado/reabierto + log de ejecuciones compactado
