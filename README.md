@@ -226,6 +226,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — docs(x5-alt-v2): cierra gate [Q1-EXEC] — X5_Q1 verificado y movido a done.md
 - **2026-10-10** — feat(x5-alt-v2): exportar outputs de X5_Q1 a zip (Windows → Mac)
 - **2026-10-10** — feat(x5-alt-v2): Q1-2 — guardar tabla extendida en resources/x5_alt/{valor}_tabla_estado_v2.csv
 - **2026-10-10** — feat(x5-alt-v2): Q1-9 — catálogo de documentación por variable
