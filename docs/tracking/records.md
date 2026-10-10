@@ -1826,3 +1826,9 @@ Claude: verificó el gate de dependencias de `[Q1-10]` (`Q1-1` ya en `done.md`) 
 Mauricio: pidió seguir con `[Q1-6]`.
 Claude: verificó dependencias (`Q1-1`, `Q1-5` ya en `done.md`) y agregó `_variables_ruido(df)` (sección 7): `ruido_cambios_signo_30d`, `ruido_ratio_movimiento_30d` (inverso del Efficiency Ratio de Kaufman), `ruido_mecha_30d` (mismo concepto que la fuerza del rechazo de X0, agregado en ventana) y `ruido_atr_sin_direccion_30d`, todas en ventana de 30d reutilizando `x3_atr_pct` de X3. Ejecutó de punta a punta sin errores (64→68 columnas; valores en rangos sanos). Movió ambos ítems de `todos.md` a `done.md` apenas se completó cada uno.
 (Cierre: 2026-10-10 15:57)
+
+## SECCIÓN 222
+Mauricio: invocó `/todos` sin especificar sección; al listarse 6 secciones con pendientes, eligió `X5_alt_v2` y luego confirmó avanzar en el primer ítem mostrado, `[Q1-7]`.
+Claude: verificó el gate de dependencias (`Q1-1`, `Q1-5` ya en `done.md`) y agregó `_variables_tendencia_regimen(df)` a `X5_Q1.ipynb` (sección 8): `adx_14` (ADX de Wilder sobre ventana 14, reutilizando `_wilder_ema` de `X3_technical_features.py` para +DM/-DM/TR en vez de un suavizado nuevo), `regimen_tendencia` (categórica `bull`/`bear`/`sideways`: `sideways` si `adx_14 < 20`, si no por signo de `x3_trend_slope_50` ya calculado por X3; `NaN` en warm-up) y `ruptura_rango`/`duracion_en_rango` (ruptura estilo Donchian contra las 20 velas previas — misma ventana corta que `X3_VENTANAS['drawdown'][0]` — y períodos desde la última ruptura, mismo patrón `groupby().cumcount()` que `duracion_drawdown`).
+Claude: ejecutó el notebook de punta a punta con kernel `revenAI` sin errores (68→72 columnas para BTCUSD); validó manualmente fuera del notebook que `adx_14` queda en `[6.5, 100]` sin infinitos y que las 3 categorías de `regimen_tendencia` están representadas (bear 14078, bull 13475, sideways 12681). Movió `[Q1-7]` de `todos.md` a `done.md`.
+(Cierre: 2026-10-10 16:18)
