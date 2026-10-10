@@ -96,7 +96,6 @@
 
 **Q1 — X5_Q1.ipynb (tabla maestra + variables de estado del activo)**
 
-- [ ] **[Q1-9] X5_Q1 — catálogo de documentación por variable**: tabla con fuente, significado, unidad, fórmula, granularidad esperada/observada, primera/última observación, cobertura, % nulos, si aplica forward-fill, edad de la información propagada, limitaciones de interpretación — para cada campo de la tabla, no solo los nuevos. (I:7 C:3 H:7 → 2.33) [dep: Q1-3, Q1-4, Q1-5, Q1-6, Q1-7, Q1-8, Q1-10 — documenta columnas que deben existir primero]
 - [ ] **[Q1-2] X5_Q1 — guardar tabla extendida en ruta propia**: persistir el resultado en `resources/x5_alt/{valor}_tabla_estado_v2.csv` (o nombre equivalente), separado de `{valor}_tabla_maestra.csv` de v1, para no romper nada que ya consuma el archivo original. (I:6 C:1 H:6 → 6.00) [dep: Q1-3, Q1-4, Q1-5, Q1-6, Q1-7, Q1-8, Q1-9, Q1-10 — necesita todas las columnas de estado construidas antes de persistir la tabla final]
 - [ ] **[Q1-EXEC] X5_Q1 — ejecutar `X5_Q1.ipynb` de punta a punta**: correr el notebook completo desde cero con el kernel de `revenAI`, confirmar que no hay errores y que la tabla guardada en Q1-2 quedó bien formada (dimensiones, tipos, sin huecos inesperados). Gate obligatorio: ningún ítem de Q2 puede empezar sin esto. (I:9 C:2 H:9 → 4.50) [dep: Q1-1, Q1-2, Q1-3, Q1-4, Q1-5, Q1-6, Q1-7, Q1-8, Q1-9, Q1-10 — todos los de Q1]
 
