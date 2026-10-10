@@ -96,8 +96,6 @@
 
 **Q1 — X5_Q1.ipynb (tabla maestra + variables de estado del activo)**
 
-- [ ] **[Q1-10] X5_Q1 — variables fundamentales de estado**: nivel del score, cambio, dirección del cambio, magnitud, edad desde la última actualización, frecuencia efectiva, estabilidad, contradicción entre componentes. (I:6 C:3 H:6 → 2.00) [dep: Q1-1]
-- [ ] **[Q1-6] X5_Q1 — variables de ruido**: cambios de signo de retornos, ratio movimiento total/movimiento neto, mechas largas, ATR alto con retorno acumulado bajo. (I:6 C:2 H:6 → 3.00) [dep: Q1-1, Q1-5 — usa el ATR calculado en volatilidad]
 - [ ] **[Q1-7] X5_Q1 — variables de tendencia/régimen**: pendiente de medias (en unidades de ATR), distancia normalizada a medias, ADX/fuerza tendencial, clasificación bull/bear/sideways, ruptura vs. permanencia en rango. (I:8 C:3 H:8 → 2.67) [dep: Q1-1, Q1-5 — usa el ATR calculado en volatilidad]
 - [ ] **[Q1-9] X5_Q1 — catálogo de documentación por variable**: tabla con fuente, significado, unidad, fórmula, granularidad esperada/observada, primera/última observación, cobertura, % nulos, si aplica forward-fill, edad de la información propagada, limitaciones de interpretación — para cada campo de la tabla, no solo los nuevos. (I:7 C:3 H:7 → 2.33) [dep: Q1-3, Q1-4, Q1-5, Q1-6, Q1-7, Q1-8, Q1-10 — documenta columnas que deben existir primero]
 - [ ] **[Q1-2] X5_Q1 — guardar tabla extendida en ruta propia**: persistir el resultado en `resources/x5_alt/{valor}_tabla_estado_v2.csv` (o nombre equivalente), separado de `{valor}_tabla_maestra.csv` de v1, para no romper nada que ya consuma el archivo original. (I:6 C:1 H:6 → 6.00) [dep: Q1-3, Q1-4, Q1-5, Q1-6, Q1-7, Q1-8, Q1-9, Q1-10 — necesita todas las columnas de estado construidas antes de persistir la tabla final]

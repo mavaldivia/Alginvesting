@@ -225,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — feat(x5-alt-v2): Q1-6/10 — variables de ruido y fundamentales de estado
 - **2026-10-10** — feat(x5-alt-v2): Q1-8 — variables de liquidez (spread relativo, volumen normalizado)
 - **2026-10-10** — feat(x5-alt-v2): Q1-3/4/5 — técnicos por ATR, drawdown y volatilidad del activo
 - **2026-10-10** — feat(x5-alt-v2): X5_Q1.ipynb — tabla base por activo, parametrizado por `valores` (lista)
