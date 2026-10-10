@@ -115,6 +115,7 @@ scripts/
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
+  X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores=['BTCUSD'] (lista)
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
@@ -224,6 +225,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — feat(x5-alt-v2): X5_Q1.ipynb — tabla base por activo, parametrizado por `valores` (lista)
 - **2026-10-10** — docs(tracking): reordena TO DOs de X5_alt_v2 por dependencia (el orden del documento pasa a ser el orden de ejecución)
 - **2026-10-10** — docs(x5-alt-v2): pre-registra hipótesis parámetro↔variable (PRE-1)
 - **2026-10-10** — docs(x5-alt-v2): sección X5_alt_v2 en todos.md (Q1/Q2/Q3 con dependencias e ítems de ejecución) + X5_P1/X5_P2 congelados en `scripts/otros_strings/`

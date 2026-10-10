@@ -135,6 +135,7 @@ Se eliminó `X5_P2.py`. Su lógica de carga (ruta vía `config.CARPETA_X5_ALT`, 
 - **Export estructurado de métricas/KPIs** por variable (pensado para alimentarlo después a una IA y obtener conclusiones del tipo "el drawdown se relaciona con N").
 - **Generación de hipótesis parámetro↔variable** como uno de los primeros objetivos de la sección (no solo un puente al cierre, como en v1) — con pre-registro directo desde `x5_contexto_conversacion.md` antes de correr ningún notebook.
 - **Convención de nombres**: `X5_Q1`, `X5_Q2`, `X5_Q3` (no `P1`/`P2`), para no confundirlos con v1.
+- **Parametrización por `valores` (lista)**: cada notebook `X5_Q*` declara `valores = ['BTCUSD']` al comienzo (default, solo BTC por ahora) en vez del `valor` (string único) de v1 — preparado para operar sobre varios activos a la vez sin reescribir la celda de arranque.
 
 ### 10.3. Los tres notebooks
 
