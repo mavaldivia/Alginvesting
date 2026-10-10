@@ -117,3 +117,33 @@ El primer ítem de implementación era crear `X5_P2.ipynb` y su celda de arranqu
 ### 9.11. Qué hacer con `X5_P2.py` — decidido (2026-09-13)
 
 Se eliminó `X5_P2.py`. Su lógica de carga (ruta vía `config.CARPETA_X5_ALT`, `pd.read_csv` con `parse_dates=['DateTime']`, validación de existencia con mensaje claro) se reutilizó tal cual en la primera sección de `X5_P2.ipynb`.
+
+## 10. X5_alt_v2 — evolución paralela de X5_alt (2026-10-10)
+
+### 10.1. Qué es y por qué existe
+
+`X5_P1.ipynb`/`X5_P2.ipynb` (v1, ahora congelados en `scripts/otros_strings/`) construyeron una tabla maestra y dejaron casi todo el análisis descriptivo de P2 pendiente. En paralelo, varias sesiones de conversación redefinieron conceptualmente el enfoque — documentadas íntegramente en [`docs/plans/x5_contexto_conversacion.md`](x5_contexto_conversacion.md), que **es el documento rector**: prevalece sobre cualquier definición de este archivo o de la sección 9 en caso de contradicción.
+
+**X5_alt_v2 es una evolución paralela de X5_alt, no un reemplazo** — mismo criterio de "corre al lado, sin interferir" que X5_alt tiene frente a `X5_macro_brain.py`. v1 (`X5_P1.ipynb`/`X5_P2.ipynb`) queda congelada en `scripts/otros_strings/` como referencia histórica; no se vuelve a tocar.
+
+### 10.2. Qué cambia respecto a v1
+
+- **Análisis siempre por activo**, nunca con drawdown/equity/exposición de cuenta agregada (`x5_contexto_conversacion.md` sección 1).
+- **Lista de parámetros Y a explicar** redefinida y documentada con precisión en [`docs/context/pars_configurables.md`](../context/pars_configurables.md): `N`, `A`, `factor_B` (con `B = factor_B * A`, ya no independiente), `K`, `N_EXP`, `LAMBDA`, `LOTAJES_M` (fijo, no prioritario). `PERDIDA_MAX` pausada.
+- **Variables de estado del activo** (drawdown propio, volatilidad, ruido, tendencia/régimen, liquidez, fundamentales) como vector `X` candidato, no solo indicadores técnicos crudos — y transformaciones (distancia a SMA en unidades de ATR, etc.) en vez de niveles crudos de medias móviles.
+- **Métrica nueva**: coseno entre el vector de precios `Pv` y el vector de una variable `Xv` en el tiempo, `cos(Pv, Xv)`, como medida de alineación direccional complementaria a Pearson/Spearman — más gráficos de series temporales a doble eje (precio a la izquierda, variable a la derecha, centrados).
+- **Export estructurado de métricas/KPIs** por variable (pensado para alimentarlo después a una IA y obtener conclusiones del tipo "el drawdown se relaciona con N").
+- **Generación de hipótesis parámetro↔variable** como uno de los primeros objetivos de la sección (no solo un puente al cierre, como en v1) — con pre-registro directo desde `x5_contexto_conversacion.md` antes de correr ningún notebook.
+- **Convención de nombres**: `X5_Q1`, `X5_Q2`, `X5_Q3` (no `P1`/`P2`), para no confundirlos con v1.
+
+### 10.3. Los tres notebooks
+
+- **`X5_Q1.ipynb`** — tabla maestra + variables de estado del activo (drawdown, volatilidad, ruido, tendencia/régimen, liquidez, fundamentales), con catálogo de documentación por variable (fuente, significado, unidad, fórmula, granularidad, cobertura, limitaciones).
+- **`X5_Q2.ipynb`** — core descriptivo: todo lo ya especificado para P2 en la sección 9 (Pearson, Spearman, cuantiles, no linealidades, regímenes, estabilidad, ceteris paribus, redundancia) **más** coseno `cos(Pv,Xv)`, gráficos a doble eje, y export estructurado de métricas por variable.
+- **`X5_Q3.ipynb`** — hipótesis explícitas parámetro↔variable (`N=f(drawdown_activo)`, `A=f(volatilidad)`, `factor_B=f(volatilidad,tendencia)`, y candidatas para `K`/`N_EXP`/`LAMBDA`), tabla final de tuplas (parámetro, variable explicativa) y vista unificada de variables explicativas + precio en el tiempo. No implementa reglas de trading — eso es responsabilidad de una etapa posterior (puente a backtesting/X4).
+
+### 10.4. Estado de avance
+
+- **2026-10-10**: `X5_P1.ipynb`/`X5_P2.ipynb` movidos a `scripts/otros_strings/` (congelados). TODOs de `X5_Q1`/`X5_Q2`/`X5_Q3` registrados en [`docs/tracking/todos.md`](../tracking/todos.md), sección **X5_alt_v2**. Ningún notebook `X5_Q*` creado todavía — próximo paso es el arranque de `X5_Q1.ipynb`.
+
+El detalle de tareas pendientes vive en `docs/tracking/todos.md`, sección X5_alt_v2 (única fuente de verdad del pendiente — no duplicar acá).

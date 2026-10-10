@@ -231,4 +231,8 @@
 
 - [x] **Fix X5_P1: `KeyError: 'date'` al cargar `x2_history.json`**: la celda de fundamentales (X2) armaba `df_x2` leyendo `e['date']`, pero el schema de `x2_history.json` migró a `periodo_inicio`/`periodo_fin` (ver ítem "Historial por periodos en `x2_history.json`" en X2), que ya no incluye `date` en las entradas nuevas. Fix: `e.get('periodo_inicio') or e['date']`, compatible con ambos formatos — se usa `periodo_inicio` (no `periodo_fin`) porque es el momento en que el score empieza a regir; usar `periodo_fin` retrasaría el forward-fill sin motivo.
 
+### X5_alt_v2
+
+- [x] **Proteger X5_P1.ipynb/X5_P2.ipynb (v1) moviéndolos a `scripts/otros_strings/`**: `git mv` de ambos notebooks desde `scripts/` a `scripts/otros_strings/` para dejarlos congelados como referencia histórica, sin riesgo de que la evolución paralela (X5_Q1/Q2/Q3.ipynb) los toque por error. Actualizadas las referencias vivas en `README.md` (árbol de scripts) y `CLAUDE.md` (sección X5_alt + nueva nota X5_alt_v2).
+
 ---

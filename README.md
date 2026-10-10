@@ -113,10 +113,9 @@ scripts/
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
-  X5_P1.ipynb            # Notebook X5_alt: tabla maestra H1 por activo (precio + X3 + X2, forward-fill)
-  X5_P2.ipynb            # Notebook X5_alt: investigación exploratoria vs. precio sobre la tabla maestra de X5_P1 (ver docs/plans/solicitud_claude_code_X5_P2_notebook_v2.md)
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
+  otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
@@ -225,6 +224,8 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — docs(x5-alt-v2): sección X5_alt_v2 en todos.md (Q1/Q2/Q3 con dependencias e ítems de ejecución) + X5_P1/X5_P2 congelados en `scripts/otros_strings/`
+- **2026-10-10** — fix(x1): buy limits ajustados por spread ask/bid, identidad OE/OA por soporte puro (comment `P0=`)
 - **2026-10-08** — feat(x1): notificación única de mercado cerrado/reabierto + log de ejecuciones compactado
 - **2026-10-08** — feat(x1): pausa de reemplazo O0/OE según cercanía P_MAX/P_SL del trailing stop
 - **2026-09-30** — fix(x1): reintento de order_send restringido solo a retcode 10006
