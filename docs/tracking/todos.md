@@ -96,7 +96,6 @@
 
 **Q1 — X5_Q1.ipynb (tabla maestra + variables de estado del activo)**
 
-- [ ] **[Q1-8] X5_Q1 — variables de liquidez**: spread si está disponible, Tick Volume normalizado, volumen relativo, slippage si existe. (I:5 C:2 H:5 → 2.50) [dep: Q1-1]
 - [ ] **[Q1-10] X5_Q1 — variables fundamentales de estado**: nivel del score, cambio, dirección del cambio, magnitud, edad desde la última actualización, frecuencia efectiva, estabilidad, contradicción entre componentes. (I:6 C:3 H:6 → 2.00) [dep: Q1-1]
 - [ ] **[Q1-6] X5_Q1 — variables de ruido**: cambios de signo de retornos, ratio movimiento total/movimiento neto, mechas largas, ATR alto con retorno acumulado bajo. (I:6 C:2 H:6 → 3.00) [dep: Q1-1, Q1-5 — usa el ATR calculado en volatilidad]
 - [ ] **[Q1-7] X5_Q1 — variables de tendencia/régimen**: pendiente de medias (en unidades de ATR), distancia normalizada a medias, ADX/fuerza tendencial, clasificación bull/bear/sideways, ruptura vs. permanencia en rango. (I:8 C:3 H:8 → 2.67) [dep: Q1-1, Q1-5 — usa el ATR calculado en volatilidad]
