@@ -245,3 +245,4 @@ Hay demasiadas notificaciones de que el mercado está cerrado (necesito solo una
 Con bloque me refiero a: una noche, un fin de semana, un festivo, etc....Avisame que el mercado se cerró y no me vuelvas a avisar nada hasta que vuelva a abrir
 
 Aclarame que entiendes bien los dos puntos antes de implementar
+
