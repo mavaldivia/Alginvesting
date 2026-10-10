@@ -227,6 +227,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — feat(x5-alt-v2): Q2-2 — gráficos a doble eje precio+variable
 - **2026-10-10** — feat(x5-alt-v2): Q2-1 — arranque de X5_Q2.ipynb, carga la tabla de X5_Q1
 - **2026-10-10** — docs(x5-alt-v2): cierra gate [Q1-EXEC] — X5_Q1 verificado y movido a done.md
 - **2026-10-10** — feat(x5-alt-v2): exportar outputs de X5_Q1 a zip (Windows → Mac)

@@ -99,7 +99,6 @@
 
 **Q2 — X5_Q2.ipynb (core descriptivo: correlación clásica + coseno + regímenes + estabilidad + export)**
 
-- [ ] **[Q2-2] X5_Q2 — gráficos a doble eje precio+variable**: serie temporal de precio (eje izquierdo) y de cada variable relevante (eje derecho), centrados visualmente, más series normalizadas superpuestas cuando las escalas sean incompatibles. (I:9 C:2 H:9 → 4.50) [dep: Q2-1]
 - [ ] **[Q2-3] X5_Q2 — núcleo clásico variable↔precio**: scatter, Pearson, Spearman, cuantiles/bins, dirección y fuerza de la asociación — el core heredado de v1, ahora sobre las variables de estado de Q1. (I:10 C:3 H:10 → 3.33) [dep: Q2-1]
 - [ ] **[Q2-4] X5_Q2 — coseno vector-precio vs. vector-variable**: implementar `cos(Pv,Xv)` entre el vector de precios y el de cada variable en el tiempo, documentar la diferencia conceptual con Pearson (el coseno no centra en la media) e incorporarlo al ranking de asociación junto a Pearson/Spearman. (I:9 C:3 H:9 → 3.00) [dep: Q2-1]
 - [ ] **[Q2-7] X5_Q2 — no linealidades y umbrales**: cuantiles, bins, suavizados, extremos, posibles umbrales, saturaciones, formas U/U invertida, asimetrías. (I:8 C:3 H:7 → 2.49) [dep: Q2-3]
