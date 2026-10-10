@@ -116,6 +116,7 @@ scripts/
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores=['BTCUSD'] (lista)
+  X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, en construcción
   x5_alt_export.py       # exportar_zip() — empaqueta los outputs de cada notebook X5_Q*.ipynb en resources/x5_alt/ para pasarlos de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
@@ -226,6 +227,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — feat(x5-alt-v2): Q2-1 — arranque de X5_Q2.ipynb, carga la tabla de X5_Q1
 - **2026-10-10** — docs(x5-alt-v2): cierra gate [Q1-EXEC] — X5_Q1 verificado y movido a done.md
 - **2026-10-10** — feat(x5-alt-v2): exportar outputs de X5_Q1 a zip (Windows → Mac)
 - **2026-10-10** — feat(x5-alt-v2): Q1-2 — guardar tabla extendida en resources/x5_alt/{valor}_tabla_estado_v2.csv

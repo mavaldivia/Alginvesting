@@ -1858,3 +1858,9 @@ Claude: mostró tabla de secciones con pendientes (script Python del skill) y, e
 Mauricio: confirmó que ya ejecutó `X5_Q1.ipynb` en Windows (ítem [Q1-EXEC]) y dejó el resultado en `resources/x5_alt/X5_Q1_20261010_185447.zip`.
 Claude: extrajo y verificó `BTCUSD_tabla_estado_v2.csv` (41846 filas × 72 columnas, `DateTime` monotónico sin duplicados, 4 huecos puntuales de 2h normales, nulos concentrados en warm-up de rolling windows y en `x2_score`/`fundamental_*` — estas últimas solo desde 2026-06-25, consistente con el guard diario de X2, no es bug). Gate [Q1-EXEC] cumplido → movió el ítem de `docs/tracking/todos.md` a nueva subsección `### X5_Q1 — X5_Q1.ipynb` en `docs/done.md` (archivo creado). Q2 queda habilitado; propuso avanzar con [Q2-1] pero la sesión cerró antes de confirmación.
 (Cierre: 2026-10-10 19:59)
+
+## SECCIÓN 227
+Mauricio: invocó `/todos`; de las 6 secciones con pendientes mostradas en tabla, eligió `X5_alt_v2` y confirmó avanzar en el primer ítem mostrado, `[Q2-1]` (arranque de `X5_Q2.ipynb`).
+Claude: revisó el plan (`X5_alternativo.md` §10, `x5_contexto_conversacion.md`) y el notebook `X5_Q1.ipynb` para replicar su estilo (markdown por sección, `valores` como lista, patrón `SCRIPTS_DIR`/`config`). Confirmó que el output de `X5_Q1` (`resources/x5_alt/BTCUSD_tabla_estado_v2.csv`, 72 columnas) ya está disponible en Mac vía el zip exportado desde Windows.
+Claude: creó `scripts/X5_Q2.ipynb` con la celda de arranque — `valores = ['BTCUSD']`, preparación (imports + `config`), y `_cargar_tabla_estado(valor)` que lee `{valor}_tabla_estado_v2.csv` con `parse_dates=['DateTime']` y `raise FileNotFoundError` explícito si falta. Ejecutó el notebook de punta a punta con `jupyter nbconvert --execute` (kernel `revenAI`) sin errores (40283 filas x 72 columnas para BTCUSD, mismo rango que la tabla de Q1). Movió `[Q2-1]` de `docs/tracking/todos.md` a `docs/tracking/done.md` (subsección X5_alt_v2).
+(Cierre: 2026-10-10 20:07)
