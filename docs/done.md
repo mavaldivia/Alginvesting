@@ -9,3 +9,4 @@
 ### X5_Q2 — X5_Q2.ipynb
 
 - [x] **[Q2-4] X5_Q2 — coseno vector-precio vs. vector-variable**: implementar `cos(Pv,Xv)` entre el vector de precios y el de cada variable en el tiempo, documentar la diferencia conceptual con Pearson (el coseno no centra en la media) e incorporarlo al ranking de asociación junto a Pearson/Spearman.
+- [x] **[Q2-7] X5_Q2 — no linealidades y umbrales**: cuantiles, bins, suavizados, extremos, posibles umbrales, saturaciones, formas U/U invertida, asimetrías.

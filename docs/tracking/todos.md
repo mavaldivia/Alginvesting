@@ -99,7 +99,6 @@
 
 **Q2 — X5_Q2.ipynb (core descriptivo: correlación clásica + coseno + regímenes + estabilidad + export)**
 
-- [ ] **[Q2-7] X5_Q2 — no linealidades y umbrales**: cuantiles, bins, suavizados, extremos, posibles umbrales, saturaciones, formas U/U invertida, asimetrías. (I:8 C:3 H:7 → 2.49) [dep: Q2-3]
 - [ ] **[Q2-8] X5_Q2 — variable vs. comportamiento histórico reciente del precio**: retornos hacia atrás (`t-h → t`) por horizonte, para caracterizar qué venía ocurriendo con el precio cuando la variable toma determinados valores. (I:8 C:3 H:7 → 2.49) [dep: Q2-1]
 - [ ] **[Q2-6] X5_Q2 — ceteris paribus histórico**: regresión multivariable controlando por otras variables, revisando signo, magnitud, multicolinealidad, sensibilidad a especificaciones y estabilidad. Reutilizar el enfoque manual con numpy/scipy de `X5_analisis_exploratorio.ipynb` si aplica, sin copiarlo literalmente. (I:9 C:3 H:8 → 2.83) [dep: Q2-1]
 - [ ] **[Q2-9] X5_Q2 — estabilidad histórica de las relaciones**: Pearson/Spearman/coseno por período (año, rolling), detectar relaciones persistentes, inestables o cambios estructurales. (I:8 C:3 H:7 → 2.49) [dep: Q2-3, Q2-4]
