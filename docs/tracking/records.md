@@ -1917,3 +1917,17 @@ Claude: ejecutó el notebook completo de punta a punta con `jupyter nbconvert --
 Claude: encontró que `docs/done.md` había reaparecido como duplicado de `docs/tracking/done.md` (ya reconciliado y eliminado una vez antes, según su propia bitácora) y que tenía un ítem (`[Q1-EXEC]`) ausente del archivo correcto. Recuperó ese registro en `docs/tracking/done.md` y volvió a eliminar `docs/done.md` (`git rm`).
 Claude: actualizó `docs/tracking/todos.md` (removidos los 3 ítems), `docs/tracking/done.md` (agregados con hallazgos reales de la ejecución) y `docs/plans/X5_alternativo.md` §10.4. No commiteó — dejó todo en el working tree para revisión del usuario.
 (Cierre: 2026-10-10 22:35)
+
+## SECCIÓN 234
+Mauricio: Invocó `/todos`; pidió trabajar la sección X5_alt_v2 (top score 9.00, 14 pendientes).
+Claude: Mostró los 3 próximos ítems de esa sección (Q2-13, Q2-11, Q2-5).
+
+Mauricio: Pidió avanzar con "todos" los 14 pendientes de la sección, secuencial, con un solo resumen al final.
+Claude: Verificó el orden de dependencias `[dep: ...]` contra `done.md` (ya respetado por el orden del documento) y lanzó un fork para implementar los 14 ítems en `X5_Q2.ipynb`/`X5_Q3.ipynb` con las convenciones del proyecto (ejecución end-to-end por ítem, export a CSV/zip, reuso de funciones existentes, sin commitear).
+
+Mauricio: Frenó de inmediato ("para! eran los primeros 3... vamos de a 3") — corrigió que el alcance debía ser de a 3 ítems, no los 14.
+Claude: Detuvo el fork con `TaskStop` antes de que tocara ningún archivo (confirmado con `git status` limpio) y confirmó los primeros 3 ítems a trabajar (Q2-13, Q2-11, Q2-5).
+
+Mauricio: Confirmó esos mismos 3.
+Claude: Relanzó el fork acotado solo a Q2-13/Q2-11/Q2-5. El fork implementó los 3 en `X5_Q2.ipynb`: Q2-13 (régimen de tendencia/volatilidad/drawdown, BTCUSD 65% del historial en drawdown "deteriorado"), Q2-11 (síntesis consolidada — 19/54 variables con evidencia "alta" contra `retorno_log_1h`, casi todas indicadores de distancia a medias móviles) y Q2-5 (export JSON por variable + `exportar_zip` wireado al notebook). Actualizó `todos.md`/`done.md`; nada commiteado. Claude verificó el resultado (`git status`/`diff --stat`) y lo resumió al usuario, dejando solo `[Q2-EXEC]` pendiente en la sección Q2.
+(Cierre: 2026-10-10 23:08)
