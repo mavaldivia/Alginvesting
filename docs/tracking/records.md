@@ -1880,3 +1880,12 @@ Mauricio: corrigió — si se guardan gráficos deben ir como `.png` + zip (nunc
 Claude: agregó a la Sección 3 el guardado de `ranking_q2_3` y `deciles_q2_3` (medias por decil, formato largo) en CSV dentro de `resources/x5_alt/` (`{valor}_q2_3_metricas.csv`/`_deciles.csv`), para que la futura celda de export a zip (`Q2-5`/`Q2-EXEC`) los recoja. Re-ejecutó el notebook sin errores, documentó la convención en `X5_alternativo.md` §10.2 ("Gráficos vs. datos — qué entra al zip"), actualizó la entrada de `[Q2-3]` en `done.md` y guardó la preferencia como memoria (`feedback_graficos_vs_datos_export.md`) para que aplique sola en los próximos ítems de Q2/Q3.
 Mauricio: mensaje aislado y confuso ("me está funcionando 3, how Claude is working") sin relación con la sesión — Claude pidió aclarar, Mauricio respondió "nada!" y cerró con `/guardar`.
 (Cierre: 2026-10-10 20:37)
+
+## SECCIÓN 230
+Mauricio: invocó `/todos X5_alt_v2`, pidió trabajar el ítem 1 mostrado ([Q2-4]) y confirmó avanzar.
+Claude: mostró los 3 próximos pendientes de X5_alt_v2, confirmó [Q2-4] y validó su dependencia `[dep: Q2-1]` (satisfecha según historial de commits, aunque Q2-1 no quedó registrado en `done.md`).
+Claude: implementó [Q2-4] en `scripts/X5_Q2.ipynb` — nueva Sección 4 con `coseno(x,y)`, cálculo sobre los mismos pares variable/target de Q2-3 (Panel A `Close` referencial, Panel B `retorno_log_1h` principal), `ranking_q2_4` (extensión de `ranking_q2_3` con columna `coseno`) y export propio a `{valor}_q2_4_ranking_coseno.csv`.
+Claude: ejecutó el notebook completo de punta a punta en Mac (entorno conda `revenAI`, datos ya exportados en `resources/x5_alt/`) para validar la celda nueva — corrió sin errores. Al revisar los números reales detectó que su primera redacción del markdown ("el coseno sobre el nivel tiende a 1") era incorrecta — corrigió la documentación con ejemplos concretos de BTCUSD (`drawdown_historico`: Pearson +0.87 vs. coseno -0.51, invierte signo; `x3_rsi_14`: Pearson 0.338 vs. coseno 0.080, atenuado por baseline no centrado; `x3_macd_hist`: Pearson≈coseno al estar ya centrado en 0) y volvió a correr el notebook para confirmar que seguía sin errores.
+Mauricio: invocó `/guardar`.
+Claude: reconcilió el TO DO — movió [Q2-4] de `docs/tracking/todos.md` a `docs/done.md` (nueva subsección `X5_Q2 — X5_Q2.ipynb`), siguiendo el gate de la skill `guardar` paso 0.
+(Cierre: 2026-10-10 21:06)
