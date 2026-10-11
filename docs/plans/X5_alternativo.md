@@ -147,7 +147,7 @@ Se eliminó `X5_P2.py`. Su lógica de carga (ruta vía `config.CARPETA_X5_ALT`, 
 
 ### 10.4. Estado de avance
 
-- **2026-10-10**: `X5_P1.ipynb`/`X5_P2.ipynb` movidos a `scripts/otros_strings/` (congelados). TODOs de `X5_Q1`/`X5_Q2`/`X5_Q3` registrados en [`docs/tracking/todos.md`](../tracking/todos.md), sección **X5_alt_v2**. Ningún notebook `X5_Q*` creado todavía — próximo paso es el arranque de `X5_Q1.ipynb`.
+- **2026-10-10**: `X5_P1.ipynb`/`X5_P2.ipynb` movidos a `scripts/otros_strings/` (congelados). TODOs de `X5_Q1`/`X5_Q2`/`X5_Q3` registrados en [`docs/tracking/todos.md`](../tracking/todos.md), sección **X5_alt_v2**. `X5_Q1.ipynb` completo (tabla maestra + catálogo + export a zip). `X5_Q2.ipynb` en curso: Q2-1 a Q2-4, Q2-6 a Q2-9 implementados y ejecutados de punta a punta sobre datos reales de BTCUSD — pendiente Q2-10/Q2-12/Q2-13/Q2-14 (profundización) y Q2-11/Q2-5/Q2-EXEC (síntesis/export/cierre) antes de empezar `X5_Q3.ipynb`.
 
 El detalle de tareas pendientes vive en `docs/tracking/todos.md`, sección X5_alt_v2 (única fuente de verdad del pendiente — no duplicar acá).
 

@@ -99,9 +99,6 @@
 
 **Q2 — X5_Q2.ipynb (core descriptivo: correlación clásica + coseno + regímenes + estabilidad + export)**
 
-- [ ] **[Q2-8] X5_Q2 — variable vs. comportamiento histórico reciente del precio**: retornos hacia atrás (`t-h → t`) por horizonte, para caracterizar qué venía ocurriendo con el precio cuando la variable toma determinados valores. (I:8 C:3 H:7 → 2.49) [dep: Q2-1]
-- [ ] **[Q2-6] X5_Q2 — ceteris paribus histórico**: regresión multivariable controlando por otras variables, revisando signo, magnitud, multicolinealidad, sensibilidad a especificaciones y estabilidad. Reutilizar el enfoque manual con numpy/scipy de `X5_analisis_exploratorio.ipynb` si aplica, sin copiarlo literalmente. (I:9 C:3 H:8 → 2.83) [dep: Q2-1]
-- [ ] **[Q2-9] X5_Q2 — estabilidad histórica de las relaciones**: Pearson/Spearman/coseno por período (año, rolling), detectar relaciones persistentes, inestables o cambios estructurales. (I:8 C:3 H:7 → 2.49) [dep: Q2-3, Q2-4]
 - [ ] **[Q2-10] X5_Q2 — coseno rolling por ventanas**: estabilidad temporal del coseno (análogo a rolling correlation), para detectar si la alineación direccional se mantiene o cambia por período. (I:7 C:3 H:7 → 2.33) [dep: Q2-4]
 - [ ] **[Q2-12] X5_Q2 — relaciones entre variables y redundancia**: técnico vs. técnico, fundamental vs. fundamental, técnico vs. fundamental; identificar pares con información muy similar; clustering/PCA solo si aporta interpretabilidad. (I:7 C:3 H:6 → 2.16) [dep: Q2-1]
 - [ ] **[Q2-14] X5_Q2 — KPIs adicionales de Data Science**: evaluar caso a caso (ej. mutual information, distance correlation) si aportan valor real sobre Pearson/Spearman/coseno, sin sobrecargar el notebook con técnicas que no respondan una pregunta concreta. (I:5 C:3 H:4 → 1.49) [dep: Q2-3, Q2-4]
@@ -125,7 +122,6 @@
 **Transversales / implementación**
 
 - [ ] **[TRANS-1] X5_alt_v2 — documentación Markdown obligatoria**: cada sección/subsección relevante de los tres notebooks debe abrir con una celda Markdown que explique objetivo, pregunta, metodología, interpretación y limitaciones antes del código — misma regla que v1. (I:8 C:2 H:8 → 4.00) [dep: — ; aplica transversalmente a cada ítem de Q1/Q2/Q3 a medida que se implementa]
-- [ ] **[TRANS-2] X5_alt_v2 — revisar `X5_analisis_exploratorio.ipynb`**: decidir qué lógica de ceteris paribus conviene reutilizar, adaptar o descartar en Q2-6 para evitar duplicación innecesaria. (I:6 C:2 H:7 → 3.24) [dep: — ; idealmente antes de Q2-6]
 
 ### Backlog
 
