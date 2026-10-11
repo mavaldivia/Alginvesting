@@ -227,6 +227,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-10** — feat(x5-alt-v2): Q2-10/Q2-12/Q2-14 — coseno rolling, redundancia y KPIs de DS
 - **2026-10-10** — feat(x5-alt-v2): Q2-8/Q2-6/Q2-9 — retorno pasado, ceteris paribus y estabilidad histórica
 - **2026-10-10** — feat(x5-alt-v2): Q2-7 — no linealidades y umbrales + export CSV
 - **2026-10-10** — feat(x5-alt-v2): Q2-4 — coseno vector-precio vs. vector-variable + ranking extendido

@@ -99,9 +99,6 @@
 
 **Q2 — X5_Q2.ipynb (core descriptivo: correlación clásica + coseno + regímenes + estabilidad + export)**
 
-- [ ] **[Q2-10] X5_Q2 — coseno rolling por ventanas**: estabilidad temporal del coseno (análogo a rolling correlation), para detectar si la alineación direccional se mantiene o cambia por período. (I:7 C:3 H:7 → 2.33) [dep: Q2-4]
-- [ ] **[Q2-12] X5_Q2 — relaciones entre variables y redundancia**: técnico vs. técnico, fundamental vs. fundamental, técnico vs. fundamental; identificar pares con información muy similar; clustering/PCA solo si aporta interpretabilidad. (I:7 C:3 H:6 → 2.16) [dep: Q2-1]
-- [ ] **[Q2-14] X5_Q2 — KPIs adicionales de Data Science**: evaluar caso a caso (ej. mutual information, distance correlation) si aportan valor real sobre Pearson/Spearman/coseno, sin sobrecargar el notebook con técnicas que no respondan una pregunta concreta. (I:5 C:3 H:4 → 1.49) [dep: Q2-3, Q2-4]
 - [ ] **[Q2-13] X5_Q2 — análisis por regímenes**: comparar relaciones variable-precio bajo bull/bear/sideways, volatilidad alta/baja, drawdown sano/deteriorado del activo, definiendo cada régimen explícitamente. (I:8 C:4 H:7 → 1.87) [dep: Q2-1]
 - [ ] **[Q2-11] X5_Q2 — síntesis descriptiva y ranking consolidado**: por variable, frecuencia efectiva, Pearson, Spearman, coseno, no linealidad, estabilidad, régimen, redundancia y nivel de evidencia descriptiva. No convertir automáticamente en ranking predictivo. (I:8 C:3 H:6 → 2.31) [dep: Q2-3, Q2-4, Q2-7, Q2-8, Q2-9, Q2-10, Q2-12]
 - [ ] **[Q2-5] X5_Q2 — export estructurado de métricas por variable**: generar un archivo (JSON/CSV) con Pearson, Spearman, coseno, no linealidad, estabilidad, régimen y redundancia por variable, pensado para alimentar después un análisis por IA que concluya cosas como "el drawdown se relaciona con N". (I:9 C:3 H:9 → 3.00) [dep: Q2-3, Q2-4, Q2-6, Q2-7, Q2-8, Q2-9, Q2-10, Q2-11, Q2-12, Q2-13 — recopila las métricas que esos ítems calculan]
