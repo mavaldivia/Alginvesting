@@ -1931,3 +1931,11 @@ Claude: Detuvo el fork con `TaskStop` antes de que tocara ningún archivo (confi
 Mauricio: Confirmó esos mismos 3.
 Claude: Relanzó el fork acotado solo a Q2-13/Q2-11/Q2-5. El fork implementó los 3 en `X5_Q2.ipynb`: Q2-13 (régimen de tendencia/volatilidad/drawdown, BTCUSD 65% del historial en drawdown "deteriorado"), Q2-11 (síntesis consolidada — 19/54 variables con evidencia "alta" contra `retorno_log_1h`, casi todas indicadores de distancia a medias móviles) y Q2-5 (export JSON por variable + `exportar_zip` wireado al notebook). Actualizó `todos.md`/`done.md`; nada commiteado. Claude verificó el resultado (`git status`/`diff --stat`) y lo resumió al usuario, dejando solo `[Q2-EXEC]` pendiente en la sección Q2.
 (Cierre: 2026-10-10 23:08)
+
+## SECCIÓN 235
+Mauricio: Invocó `/todos`; eligió trabajar en la sección X5_alt_v2 (11 pendientes, top score 9.00).
+Claude: Mostró los próximos 3 pendientes de X5_alt_v2 (Q2-EXEC, Q3-1, Q3-3) y esperó confirmación.
+Mauricio: Avisó que agregó dos zips nuevos en `resources/x5_alt/` (`X5_Q1_20261012_161336.zip`/`X5_Q2_20261012_180526.zip`) con la ejecución en Windows de Q1 y Q2 sobre los 6 activos operados — primera corrida multi-activo, no solo BTCUSD — y pidió revisar los resultados.
+Claude: Descomprimió ambos zips en el scratchpad y verificó el export de Q2: 21 archivos por activo, 126 variables consistentes en los 6, sin `NaN` en pearson, distribución de `nivel_evidencia_descriptiva` razonable y top variables casi idénticas entre BTCUSD/ETHUSD (señal de generalización sana). Marcó `[Q2-EXEC]` como completado, lo movió de `docs/tracking/todos.md` a `docs/tracking/done.md` (sección X5_Q2) y mostró los siguientes 3 pendientes (Q3-1, Q3-3, Q3-8), quedando a la espera de confirmación para empezar Q3-1.
+Mauricio: Invocó `/guardar` antes de confirmar si avanzar con Q3-1.
+(Cierre: 2026-10-12 19:39)

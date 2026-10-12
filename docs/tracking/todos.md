@@ -99,8 +99,6 @@
 
 **Q2 — X5_Q2.ipynb (core descriptivo: correlación clásica + coseno + regímenes + estabilidad + export)**
 
-- [ ] **[Q2-EXEC] X5_Q2 — ejecutar `X5_Q2.ipynb` de punta a punta**: correr el notebook completo desde cero, confirmar reproducibilidad, ausencia de errores y que el export de Q2-5 quedó generado correctamente. Gate obligatorio: ningún ítem de Q3 puede empezar sin esto. (I:9 C:2 H:9 → 4.50) [dep: Q2-1, Q2-2, Q2-3, Q2-4, Q2-5, Q2-6, Q2-7, Q2-8, Q2-9, Q2-10, Q2-11, Q2-12, Q2-13, Q2-14 — todos los de Q2]
-
 **Q3 — X5_Q3.ipynb (hipótesis parámetro↔variable + tabla final)**
 
 - [ ] **[Q3-1] X5_Q3 — arranque obligatorio**: crear `X5_Q3.ipynb`, cargar la tabla de estado de Q1 y el export de métricas de Q2, dejarlos listos para el resto del notebook. (I:9 C:1 H:9 → 9.00) [dep: Q1-EXEC, Q2-EXEC]
