@@ -1939,3 +1939,11 @@ Mauricio: Avisó que agregó dos zips nuevos en `resources/x5_alt/` (`X5_Q1_2026
 Claude: Descomprimió ambos zips en el scratchpad y verificó el export de Q2: 21 archivos por activo, 126 variables consistentes en los 6, sin `NaN` en pearson, distribución de `nivel_evidencia_descriptiva` razonable y top variables casi idénticas entre BTCUSD/ETHUSD (señal de generalización sana). Marcó `[Q2-EXEC]` como completado, lo movió de `docs/tracking/todos.md` a `docs/tracking/done.md` (sección X5_Q2) y mostró los siguientes 3 pendientes (Q3-1, Q3-3, Q3-8), quedando a la espera de confirmación para empezar Q3-1.
 Mauricio: Invocó `/guardar` antes de confirmar si avanzar con Q3-1.
 (Cierre: 2026-10-12 19:39)
+
+## SECCIÓN 236
+Mauricio: Invocó `/todos`, eligió la sección X5_alt_v2 (10 pendientes, top score 9.00) y confirmó avanzar con `[Q3-1]`.
+Claude: Verificó que las dependencias `Q1-EXEC`/`Q2-EXEC` ya estaban en `done.md`. Creó `scripts/X5_Q3.ipynb` (`valores=['BTCUSD']`, mismo patrón `SCRIPTS_DIR`/`config` que Q1/Q2): `_cargar_tabla_estado` reutiliza el loader de Q2 sobre `{valor}_tabla_estado_v2.csv`, `_cargar_export_metricas` lee `{valor}_q2_5_export_metricas.json` (output de Q2-5) — ambos con `FileNotFoundError` explícito. Extrajo los zips multi-activo de Q1/Q2 en `resources/x5_alt/` para poder ejecutar de punta a punta con el kernel `revenAI`; validó primero con `BTCUSD` (41.892 filas x 72 columnas, 63 variables) y luego puntualmente con los 6 activos, antes de restaurar el default. Movió `[Q3-1]` de `todos.md` a `done.md` (nueva sección `### X5_Q3 — X5_Q3.ipynb`).
+Mauricio: Preguntó en qué se enfocará Q3 en general.
+Claude: Explicó que Q3 traduce la evidencia de Q1/Q2 en hipótesis explícitas parámetro↔variable (sin reglas de trading todavía), repasando el orden de implementación pendiente: Q3-3 (cierre de alcance), Q3-8 (vista unificada), Q3-2 (`N=f(drawdown)`), Q3-5 (`A`/`factor_B`), Q3-6 (`K`/`N_EXP`/`LAMBDA`), Q3-7 (generalización por parámetro), Q3-4 (tabla final) y Q3-EXEC.
+Mauricio: Invocó `/guardar` para cerrar la sesión.
+(Cierre: 2026-10-12 20:05)

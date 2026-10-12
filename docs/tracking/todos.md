@@ -101,7 +101,6 @@
 
 **Q3 — X5_Q3.ipynb (hipótesis parámetro↔variable + tabla final)**
 
-- [ ] **[Q3-1] X5_Q3 — arranque obligatorio**: crear `X5_Q3.ipynb`, cargar la tabla de estado de Q1 y el export de métricas de Q2, dejarlos listos para el resto del notebook. (I:9 C:1 H:9 → 9.00) [dep: Q1-EXEC, Q2-EXEC]
 - [ ] **[Q3-3] X5_Q3 — cierre explícito de alcance**: dejar escrito que Q3 no implementa reglas de trading, solo formula hipótesis — la validación/backtesting es responsabilidad de una etapa posterior (puente a X4/P3). (I:5 C:1 H:5 → 5.00) [dep: Q3-1]
 - [ ] **[Q3-8] X5_Q3 — vista unificada de variables explicativas + precio en el tiempo**: tabla/export con todas las variables explicativas relevantes junto al precio del activo, para inspección conjunta. (I:6 C:2 H:6 → 3.00) [dep: Q3-1]
 - [ ] **[Q3-2] X5_Q3 — documentar hipótesis prioritaria `N=f(drawdown_activo)`**: signo esperado (drawdown más profundo → `N` más defensivo/bajo), rango permitido, riesgo económico asociado, cómo validar (backtesting). (I:9 C:1 H:9 → 9.00) [dep: Q3-1, PRE-1]
