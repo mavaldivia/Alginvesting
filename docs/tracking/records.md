@@ -1960,3 +1960,17 @@ Claude: Mostró las 6 secciones con pendientes (script Python de la skill `todos
 
 Mauricio: Invocó `/guardar` para cerrar la sesión.
 (Cierre: 2026-10-12 20:40)
+
+## SECCIÓN 238
+Mauricio: Invocó `/todos` de nuevo; eligió la sección X5_alt_v2 entre las 6 mostradas. Confirmó avanzar en orden secuencial con `Q3-5 > Q3-6 > Q3-7` y pidió un resumen final en bullets.
+Claude: Verificó que las dependencias de los tres ítems (`Q3-1`, `Q2-5`, `PRE-1`) ya estaban en `done.md`. Leyó `pars_configurables.md` y las secciones 7, 8, 12-14, 17-18 del documento rector (`x5_contexto_conversacion.md`) para fundamentar cada hipótesis, y extrajo evidencia real de los exports de `X5_Q2.ipynb` sobre BTCUSD (`q2_11_sintesis`, `q2_12_redundantes`, `q2_13_por_regimen`, `q2_14_kpis`, catálogo de variables) usando el entorno conda `revenAI` para cargar los CSV/JSON.
+
+**Q3-5 — hipótesis de `A`/`factor_B`**: agregó Sección 5 (celda markdown, sin código) con `A=f(volatilidad)` y `factor_B=f(volatilidad,tendencia)`, dejando explícita la dualidad de roles de `A` (filtro de OE vs. activación del trailing, drawdown sin dirección neta única). Variables candidatas no redundantes entre sí (`x3_atr_pct`/`x3_bb_width`, Pearson 0.74; `adx_14`/`regimen_tendencia` para tendencia), descartando `x3_vol_24h` por redundante con `x3_atr_pct` (Pearson 0.91). Aclaró que el Pearson casi nulo de estas variables contra `retorno_log_1h` en Q2-11 es esperado (A/B no predicen retorno, escalan mecánica de órdenes), citando el hallazgo de Q2-14 (`distance_corr` 0.17-0.34) como evidencia indirecta complementaria.
+
+**Q3-6 — hipótesis de `K`/`N_EXP`/`LAMBDA`**: agregó Sección 6, estructurando el análisis en los dos niveles que exige el documento rector (efecto sobre soportes en X0, efecto posterior en X1 — ninguno medible con Q2). Candidatas: `duracion_en_rango`/`ruptura_rango` para `K`; `cambio_volatilidad` (`x3_vol_24h/x3_vol_7d`, literalmente el "ratio de volatilidad corta/larga" del documento) para `N_EXP`; `x3_bb_width`/`duracion_en_rango` para `LAMBDA`, dejando registrada la inconsistencia aún sin resolver entre el `LAMBDA` productivo (0.2) y el rango de exploración X5 documentado (0.001-0.02).
+
+**Q3-7 — vector X→parámetro Y consolidado**: agregó Sección 7 con una tabla que condensa Q3-2/Q3-5/Q3-6 a 2-3 variables candidatas por parámetro (excluyendo `LOTAJES_M`/`PERDIDA_MAX`), explicitando el criterio de selección (mejor evidencia disponible sin redundancia con otra variable ya elegida para el mismo parámetro) como insumo directo de `Q3-4`.
+
+Validó el notebook completo con `nbformat.validate` (las tres celdas son solo markdown, igual que `Q3-2` — no requieren ejecución) y movió los tres ítems de `todos.md` a `done.md` (`### X5_Q3 — X5_Q3.ipynb`). Pendiente habilitado a continuación: `[Q3-4]` (tabla final), que ya tiene todas sus dependencias satisfechas.
+Mauricio: Invocó `/guardar` para cerrar la sesión.
+(Cierre: 2026-10-12 20:53)

@@ -228,6 +228,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-12** — feat(x5-alt-v2): Q3-5/Q3-6/Q3-7 — hipótesis A/factor_B, K/N_EXP/LAMBDA y vector X→Y consolidado
 - **2026-10-12** — feat(x5-alt-v2): Q3-3/Q3-8/Q3-2 — alcance, vista unificada e hipótesis N=f(drawdown_activo)
 - **2026-10-12** — feat(x5-alt-v2): Q3-1 — arranque de X5_Q3, carga tabla de Q1 + export de métricas de Q2
 - **2026-10-12** — docs(x5-alt-v2): valida Q2-EXEC con corrida multi-activo (6 activos) en Windows

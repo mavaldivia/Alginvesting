@@ -101,9 +101,6 @@
 
 **Q3 — X5_Q3.ipynb (hipótesis parámetro↔variable + tabla final)**
 
-- [ ] **[Q3-5] X5_Q3 — hipótesis de `A` y `factor_B`**: `A=f(volatilidad)` y `factor_B=f(volatilidad,tendencia)`, señalando explícitamente la dualidad de roles de `A` (filtro de OE vs. activación del trailing) y que el efecto del drawdown sobre `A` no tiene dirección única. (I:8 C:2 H:8 → 4.00) [dep: Q3-1, Q2-5, PRE-1]
-- [ ] **[Q3-6] X5_Q3 — hipótesis de `K`, `N_EXP`, `LAMBDA`**: candidatas en dos niveles (efecto sobre los soportes en X0, efecto posterior en X1) — Q3 solo formula, la validación con backtesting queda para una etapa posterior. (I:7 C:2 H:7 → 3.50) [dep: Q3-1, Q2-5, PRE-1]
-- [ ] **[Q3-7] X5_Q3 — generar hipótesis vector X → parámetro Y para cada parámetro de `pars_configurables.md`**: a partir del ranking/export de Q2, formular explícitamente qué pocas variables podrían explicar `N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA` (`LOTAJES_M`/`PERDIDA_MAX` señalados como no prioritarios/pausados), sin hacer depender todos los parámetros de todas las variables. (I:10 C:3 H:10 → 3.33) [dep: Q3-1, Q2-5, PRE-1]
 - [ ] **[Q3-4] X5_Q3 — tabla final de tuplas (parámetro, variable explicativa)**: consolidar parámetro X5, variable(s) explicativa(s) candidata(s), relación hipotética, evidencia de Q2 (incluyendo coseno) y prioridad de prueba. (I:9 C:2 H:9 → 4.50) [dep: Q3-2, Q3-5, Q3-6, Q3-7 — necesita todas las hipótesis por parámetro ya formuladas]
 - [ ] **[Q3-EXEC] X5_Q3 — ejecutar `X5_Q3.ipynb` de punta a punta**: correr el notebook completo desde cero, confirmar reproducibilidad y ausencia de errores en la tabla final y la vista unificada. Cierra la implementación de X5_alt_v2 (sujeto a lo que decida la etapa posterior de backtesting). (I:8 C:2 H:5 → 3.16) [dep: Q3-1, Q3-2, Q3-3, Q3-4, Q3-5, Q3-6, Q3-7, Q3-8 — todos los de Q3]
 
