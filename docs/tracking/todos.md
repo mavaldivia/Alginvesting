@@ -101,9 +101,6 @@
 
 **Q3 — X5_Q3.ipynb (hipótesis parámetro↔variable + tabla final)**
 
-- [ ] **[Q3-3] X5_Q3 — cierre explícito de alcance**: dejar escrito que Q3 no implementa reglas de trading, solo formula hipótesis — la validación/backtesting es responsabilidad de una etapa posterior (puente a X4/P3). (I:5 C:1 H:5 → 5.00) [dep: Q3-1]
-- [ ] **[Q3-8] X5_Q3 — vista unificada de variables explicativas + precio en el tiempo**: tabla/export con todas las variables explicativas relevantes junto al precio del activo, para inspección conjunta. (I:6 C:2 H:6 → 3.00) [dep: Q3-1]
-- [ ] **[Q3-2] X5_Q3 — documentar hipótesis prioritaria `N=f(drawdown_activo)`**: signo esperado (drawdown más profundo → `N` más defensivo/bajo), rango permitido, riesgo económico asociado, cómo validar (backtesting). (I:9 C:1 H:9 → 9.00) [dep: Q3-1, PRE-1]
 - [ ] **[Q3-5] X5_Q3 — hipótesis de `A` y `factor_B`**: `A=f(volatilidad)` y `factor_B=f(volatilidad,tendencia)`, señalando explícitamente la dualidad de roles de `A` (filtro de OE vs. activación del trailing) y que el efecto del drawdown sobre `A` no tiene dirección única. (I:8 C:2 H:8 → 4.00) [dep: Q3-1, Q2-5, PRE-1]
 - [ ] **[Q3-6] X5_Q3 — hipótesis de `K`, `N_EXP`, `LAMBDA`**: candidatas en dos niveles (efecto sobre los soportes en X0, efecto posterior en X1) — Q3 solo formula, la validación con backtesting queda para una etapa posterior. (I:7 C:2 H:7 → 3.50) [dep: Q3-1, Q2-5, PRE-1]
 - [ ] **[Q3-7] X5_Q3 — generar hipótesis vector X → parámetro Y para cada parámetro de `pars_configurables.md`**: a partir del ranking/export de Q2, formular explícitamente qué pocas variables podrían explicar `N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA` (`LOTAJES_M`/`PERDIDA_MAX` señalados como no prioritarios/pausados), sin hacer depender todos los parámetros de todas las variables. (I:10 C:3 H:10 → 3.33) [dep: Q3-1, Q2-5, PRE-1]

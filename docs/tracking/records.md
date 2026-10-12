@@ -1947,3 +1947,16 @@ Mauricio: Preguntó en qué se enfocará Q3 en general.
 Claude: Explicó que Q3 traduce la evidencia de Q1/Q2 en hipótesis explícitas parámetro↔variable (sin reglas de trading todavía), repasando el orden de implementación pendiente: Q3-3 (cierre de alcance), Q3-8 (vista unificada), Q3-2 (`N=f(drawdown)`), Q3-5 (`A`/`factor_B`), Q3-6 (`K`/`N_EXP`/`LAMBDA`), Q3-7 (generalización por parámetro), Q3-4 (tabla final) y Q3-EXEC.
 Mauricio: Invocó `/guardar` para cerrar la sesión.
 (Cierre: 2026-10-12 20:05)
+
+## SECCIÓN 237
+Mauricio: Invocó `/todos`; eligió trabajar en la sección X5_alt_v2 (Q1/Q2/Q3) entre las 6 secciones con pendientes mostradas. Confirmó avanzar primero en `Q3-3`, luego pidió seguir con `Q3-8` y `Q3-2` juntos.
+Claude: Mostró las 6 secciones con pendientes (script Python de la skill `todos`, más de 4 secciones) y los 3 próximos ítems de X5_alt_v2 en orden de dependencia (no por score): `Q3-3`, `Q3-8`, `Q3-2`.
+
+**Q3-3 — cierre explícito de alcance**: verificó que `Q3-1` (dependencia) ya estaba en `done.md`. Agregó Sección 2 en `X5_Q3.ipynb` (celda markdown, sin código) dejando escrito que el notebook no implementa reglas de trading ni código de producción en X0/X1 — solo formula hipótesis `parámetro X5 = f(variable(s))`, con la validación vía backtesting explícitamente diferida (puente a X4/Fase 3 de X5_alt). Movió el ítem de `todos.md` a `done.md`.
+
+**Q3-8 — vista unificada de variables explicativas + precio**: definió "relevante" como `nivel_evidencia_descriptiva` en `{alta, media}` contra `retorno_log_1h` (target principal; `Close` solo referencial, ya establecido en Q2-11), reutilizando el valor ya calculado en `export_metricas` (Q2-5) sin recalcular nada. Agregó Sección 3 (código) que exporta por activo `DateTime`+`Close`+variables relevantes a `{valor}_q3_8_vista_unificada.csv`. Ejecutó el notebook de punta a punta con `jupyter nbconvert --execute` (kernel `revenAI`) sobre datos reales: BTCUSD con 19 variables relevantes (todas `alta`) sobre 41.892 filas. Movió el ítem a `done.md`.
+
+**Q3-2 — documentar hipótesis `N=f(drawdown_activo)`**: agregó Sección 4 (celda markdown, sin código) con signo esperado (drawdown sano → N alto), rango permitido (`(50,200)` BTCUSD/ETHUSD, `(40,180)` resto, mismo `X5_PARAM_RANGES` de `config.py`), riesgo económico asociado y validación vía backtesting (`X4_backtester.py`), citando como evidencia de apoyo (no de validación) los resultados reales de Q2-11: `x3_drawdown_20`/`x3_drawdown_50`/`drawdown_7d` con evidencia alta y signo consistente, debilitándose en ventanas largas. Re-ejecutó el notebook completo sin errores. Movió el ítem a `done.md`.
+
+Mauricio: Invocó `/guardar` para cerrar la sesión.
+(Cierre: 2026-10-12 20:40)
