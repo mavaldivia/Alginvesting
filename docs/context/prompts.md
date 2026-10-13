@@ -246,3 +246,5 @@ Con bloque me refiero a: una noche, un fin de semana, un festivo, etc....Avisame
 
 Aclarame que entiendes bien los dos puntos antes de implementar
 
+
+Recuerdame en puntos claros y resumidos que hace la skill /documentar

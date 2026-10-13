@@ -1974,3 +1974,12 @@ Claude: Verificó que las dependencias de los tres ítems (`Q3-1`, `Q2-5`, `PRE-
 Validó el notebook completo con `nbformat.validate` (las tres celdas son solo markdown, igual que `Q3-2` — no requieren ejecución) y movió los tres ítems de `todos.md` a `done.md` (`### X5_Q3 — X5_Q3.ipynb`). Pendiente habilitado a continuación: `[Q3-4]` (tabla final), que ya tiene todas sus dependencias satisfechas.
 Mauricio: Invocó `/guardar` para cerrar la sesión.
 (Cierre: 2026-10-12 20:53)
+
+## SECCIÓN 239
+Mauricio: Invocó /todos; eligió trabajar la sección X5_alt_v2 y confirmó avanzar en los 3 pendientes que quedaban (Q3-4, Q3-EXEC, TRANS-1), en forma secuencial.
+Claude: Revisó `docs/tracking/todos.md`/`done.md` y `docs/plans/X5_alternativo.md` §10 para confirmar que las dependencias de Q3-4 (Q3-2/5/6/7) ya estaban cerradas, y que el entorno `revenAI` + los datos exportados de Windows ya estaban disponibles en Mac para ejecutar el notebook localmente.
+Claude: Implementó Q3-4 (Sección 8 de `X5_Q3.ipynb`) — tabla final que consolida por parámetro las variables candidatas de Q3-7 con evidencia Q2 (Pearson/coseno/nivel, leída programáticamente de `export_metricas`) y una prioridad de prueba explícita y justificada (N alta; A/factor_B/N_EXP media; K/LAMBDA baja, LAMBDA bloqueada por la inconsistencia de rango de exploración vs. valor productivo); exportada a `{valor}_q3_4_tabla_final.csv`.
+Claude: Ejecutó `X5_Q3.ipynb` de punta a punta (Q3-EXEC, `jupyter nbconvert --execute`, kernel `revenAI`) sin errores; detectó que al notebook le faltaba la celda de `exportar_zip` que exige la convención de §10.2 y la agregó (Sección 9), re-ejecutando después para confirmar.
+Claude: Revisó TRANS-1 (documentación Markdown obligatoria) en los 3 notebooks; encontró y corrigió el único gap real — la celda "## 0. Preparación" de `X5_Q2.ipynb`/`X5_Q3.ipynb` estaba vacía — y re-ejecutó `X5_Q3.ipynb` para confirmar que seguía sin errores.
+Claude: Movió los 3 ítems completados de `todos.md` a `done.md` (Q3-4/Q3-EXEC bajo X5_Q3, TRANS-1 bajo nueva sección Transversal) y actualizó `docs/plans/X5_alternativo.md` §10.4 señalando que la sección X5_alt_v2 del TO DO queda sin pendientes — implementación de los 3 notebooks (Q1/Q2/Q3) cerrada, lo que sigue es el puente hacia backtesting.
+(Cierre: 2026-10-12 21:12)

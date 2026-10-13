@@ -116,8 +116,8 @@ scripts/
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores=['BTCUSD'] (lista)
-  X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, en construcción
-  X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, en construcción
+  X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
+  X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la implementación de X5_alt_v2
   x5_alt_export.py       # exportar_zip() — empaqueta los outputs de cada notebook X5_Q*.ipynb en resources/x5_alt/ para pasarlos de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
@@ -228,6 +228,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-12** — feat(x5-alt-v2): Q3-4/Q3-EXEC/TRANS-1 — tabla final y cierre de X5_alt_v2
 - **2026-10-12** — feat(x5-alt-v2): Q3-5/Q3-6/Q3-7 — hipótesis A/factor_B, K/N_EXP/LAMBDA y vector X→Y consolidado
 - **2026-10-12** — feat(x5-alt-v2): Q3-3/Q3-8/Q3-2 — alcance, vista unificada e hipótesis N=f(drawdown_activo)
 - **2026-10-12** — feat(x5-alt-v2): Q3-1 — arranque de X5_Q3, carga tabla de Q1 + export de métricas de Q2

@@ -101,12 +101,7 @@
 
 **Q3 — X5_Q3.ipynb (hipótesis parámetro↔variable + tabla final)**
 
-- [ ] **[Q3-4] X5_Q3 — tabla final de tuplas (parámetro, variable explicativa)**: consolidar parámetro X5, variable(s) explicativa(s) candidata(s), relación hipotética, evidencia de Q2 (incluyendo coseno) y prioridad de prueba. (I:9 C:2 H:9 → 4.50) [dep: Q3-2, Q3-5, Q3-6, Q3-7 — necesita todas las hipótesis por parámetro ya formuladas]
-- [ ] **[Q3-EXEC] X5_Q3 — ejecutar `X5_Q3.ipynb` de punta a punta**: correr el notebook completo desde cero, confirmar reproducibilidad y ausencia de errores en la tabla final y la vista unificada. Cierra la implementación de X5_alt_v2 (sujeto a lo que decida la etapa posterior de backtesting). (I:8 C:2 H:5 → 3.16) [dep: Q3-1, Q3-2, Q3-3, Q3-4, Q3-5, Q3-6, Q3-7, Q3-8 — todos los de Q3]
-
 **Transversales / implementación**
-
-- [ ] **[TRANS-1] X5_alt_v2 — documentación Markdown obligatoria**: cada sección/subsección relevante de los tres notebooks debe abrir con una celda Markdown que explique objetivo, pregunta, metodología, interpretación y limitaciones antes del código — misma regla que v1. (I:8 C:2 H:8 → 4.00) [dep: — ; aplica transversalmente a cada ítem de Q1/Q2/Q3 a medida que se implementa]
 
 ### Backlog
 
