@@ -248,3 +248,9 @@ Aclarame que entiendes bien los dos puntos antes de implementar
 
 
 Recuerdame en puntos claros y resumidos que hace la skill /documentar
+
+En los to dos declarados para x5_alt_v2, me extraña que no estuviera: Ejecutar Q3
+
+No se si en /documentar incluiste los próximos pasos que debería tener la
+sección X5_alt_v2
+Además, quiero una documentación en latex / pdf de esto mismo, con una extensión entre 25 y 25 páginas

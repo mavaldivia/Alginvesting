@@ -291,6 +291,14 @@ blockquote p{margin:5px 0}
     <a href="#interaccion">14 · Interacción X4↔X5</a>
     <a href="#params">15 · Perillas</a>
     <a href="#anexo">16 · Anexo: archivos</a>
+    <div class="grp">X5_alt_v2 — descriptiva paralela</div>
+    <a href="#x5altv2-que">17 · Qué es y por qué existe</a>
+    <a href="#q1-tabla">18 · Q1 — tabla de estado del activo</a>
+    <a href="#q2-clasico">19 · Q2 — Pearson, Spearman y coseno</a>
+    <a href="#q2-nolineal">20 · Q2 — no linealidad, retorno pasado, ceteris paribus</a>
+    <a href="#q2-estabilidad">21 · Q2 — estabilidad, régimen y redundancia</a>
+    <a href="#q2-sintesis">22 · Q2 — síntesis, KPIs extra y export</a>
+    <a href="#q3-hipotesis">23 · Q3 — hipótesis parámetro↔variable</a>
   </div>
 </nav>
 
@@ -692,8 +700,8 @@ combinaciones de parámetros distintas. Ese es el orden de magnitud necesario pa
     <span class="s">'por_activo'</span>: {
         <span class="s">'BTCUSD'</span>: {
             <span class="s">'soportes'</span>: [<span class="n">61234.5</span>, <span class="n">60890.1</span>, ...],   <span class="c"># los N niveles vigentes</span>
-            <span class="s">'OE'</span>: {<span class="n">60890.1</span>: {...}},   <span class="c"># clave = PRECIO del buy limit</span>
-            <span class="s">'OA'</span>: {<span class="n">59120.0</span>: {...}},   <span class="c"># clave = PRECIO DE APERTURA</span>
+            <span class="s">'OE'</span>: {<span class="n">60890.1</span>: {...},   <span class="c"># clave = PRECIO del buy limit</span>
+            <span class="s">'OA'</span>: {<span class="n">59120.0</span>: {...},   <span class="c"># clave = PRECIO DE APERTURA</span>
             <span class="s">'GC'</span>: <span class="n">0.0</span>,               <span class="c"># ganancia cerrada acumulada del activo</span>
         },
     },
@@ -2629,9 +2637,889 @@ por_tramo_cierre = oc.groupby(<span class="fn">list</span>(PARAM_STORE_COLS)).re
   </div>
 </div>
 
+<!-- ═══════════════ 17 · X5_ALT_V2 — QUÉ ES ═══════════════ -->
+<div class="doc-meta" data-section="17">
+  <div class="dm-row">
+    <span class="tag">§17</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
+<h2 id="x5altv2-que"><span class="num">17</span>X5_alt_v2 — qué es y por qué existe</h2>
+<p class="lead">Tres notebooks (<code>X5_Q1</code>, <code>X5_Q2</code>, <code>X5_Q3</code>, en <code>scripts/</code>) que
+construyen, por activo, una tabla continua en el tiempo del <b>estado del activo</b>, cuantifican cómo se relaciona
+cada variable con el precio/retorno, y traducen esa evidencia en <b>hipótesis explícitas</b>
+<code>parámetro X5 = f(variable)</code> — sin implementarlas como reglas ni validarlas con backtesting. Es una
+<b>evolución paralela de X5_alt</b> (que a su vez corre al lado de <code>X5_macro_brain.py</code>, documentado en
+§8–§16, sin reemplazarlo).</p>
+
+<figure>
+<svg viewBox="0 0 1000 220" role="img" aria-label="Pipeline de los tres notebooks: Q1, Q2 y Q3">
+  <defs>
+    <marker id="arqv2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--x5)"/></marker>
+  </defs>
+
+  <rect class="sv-b5" x="20" y="60" width="260" height="110" rx="12" fill-opacity=".35"/>
+  <text class="sv-tb" x="38" y="86" style="fill:var(--x5)">X5_Q1 — tabla de estado</text>
+  <text class="sv-tm" x="38" y="106">precio + X3 + X2 + 6 familias</text>
+  <text class="sv-tc" x="38" y="130">{valor}_tabla_estado_v2.csv</text>
+  <text class="sv-tc" x="38" y="148">{valor}_catalogo_variables.csv</text>
+
+  <path class="sv-a5" marker-end="url(#arqv2)" d="M280,115 H370"/>
+
+  <rect class="sv-b5" x="380" y="40" width="260" height="150" rx="12" fill-opacity=".35"/>
+  <text class="sv-tb" x="398" y="66" style="fill:var(--x5)">X5_Q2 — core descriptivo</text>
+  <text class="sv-tm" x="398" y="86">Pearson · Spearman · coseno</text>
+  <text class="sv-tm" x="398" y="102">no linealidad · estabilidad · régimen</text>
+  <text class="sv-tm" x="398" y="118">redundancia · síntesis</text>
+  <text class="sv-tc" x="398" y="142">q2_*.csv (13 ítems)</text>
+  <text class="sv-tc" x="398" y="160">{valor}_q2_5_export_metricas.json</text>
+
+  <path class="sv-a5" marker-end="url(#arqv2)" d="M640,115 H730"/>
+
+  <rect class="sv-b5" x="740" y="60" width="240" height="110" rx="12" fill-opacity=".35"/>
+  <text class="sv-tb" x="758" y="86" style="fill:var(--x5)">X5_Q3 — hipótesis</text>
+  <text class="sv-tm" x="758" y="106">parámetro = f(variable)</text>
+  <text class="sv-tc" x="758" y="130">{valor}_q3_8_vista_unificada.csv</text>
+  <text class="sv-tc" x="758" y="148">{valor}_q3_4_tabla_final.csv</text>
+
+  <text class="sv-tm" x="325" y="205" text-anchor="middle">consume tabla</text>
+  <text class="sv-tm" x="685" y="205" text-anchor="middle">consume export_metricas</text>
+</svg>
+<figcaption>Cada notebook consume exactamente los archivos que generó el anterior — ninguno recalcula nada que ya
+resolvió el previo. Ningún gráfico se commitea (ver nivel 2 de la primera tarjeta); solo el código y los CSV/JSON
+de datos quedan en el notebook y en <code>resources/x5_alt/</code>.</figcaption>
+</figure>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Qué es, qué NO es, y dónde vive</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <div class="grid2">
+      <div class="mini"><h4>Qué es</h4><p>Tres notebooks que van de menos a más: §18 (<code>Q1</code>) construye datos,
+      §19–§22 (<code>Q2</code>) los entiende con evidencia estadística, §23 (<code>Q3</code>) los traduce en
+      hipótesis de parámetro. Ninguno modela ni optimiza todavía.</p></div>
+      <div class="mini"><h4>Qué NO es</h4><p>No toca <code>X5_macro_brain.py</code>, <code>X1_trading.py</code> ni
+      <code>config.py</code> (<code>TIPO_EJECUCION</code>). No implementa reglas de trading. No valida nada con
+      backtesting — eso es una etapa posterior sobre <code>X4_backtester.py</code>, fuera de su alcance.</p></div>
+    </div>
+    <div class="note"><span class="t">Documento rector</span>
+      <code>docs/plans/x5_contexto_conversacion.md</code> prevalece sobre cualquier definición de este documento o de
+      <code>X5_alternativo.md</code> en caso de contradicción. El pre-registro de hipótesis vive en
+      <code>X5_alternativo.md</code> §10.5 (<code>[PRE-1]</code>), previo a correr cualquier notebook.</div>
+    <p><b>Dónde viven los archivos:</b> notebooks en <code>scripts/X5_Q1.ipynb</code> / <code>X5_Q2.ipynb</code> /
+    <code>X5_Q3.ipynb</code> (corren en <b>Windows</b>, con <code>Data/</code>/<code>resources/x2/</code>/
+    <code>resources/x3/</code> actualizados — no disponibles así en Mac); empaquetado compartido en
+    <code>scripts/x5_alt_export.py</code> (función <code>exportar_zip</code>); todas las salidas (CSV/JSON) en
+    <code>resources/x5_alt/</code>, fuera de git.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · qué cambió respecto a v1 (X5_P1/X5_P2, congelados)</span>
+    <div class="tw"><table>
+      <thead><tr><th>Dimensión</th><th>v1 (<code>X5_P1</code>/<code>X5_P2</code>, congelados en <code>otros_strings/</code>)</th><th>v2 (<code>X5_Q1/Q2/Q3</code>, este documento)</th></tr></thead>
+      <tbody>
+        <tr><td>Alcance del análisis</td><td>podía mezclar drawdown/equity de cuenta</td><td><b>siempre por activo</b> — nunca cuenta/posiciones</td></tr>
+        <tr><td>Parámetros Y a explicar</td><td>sin lista cerrada</td><td><code>N</code>, <code>A</code>, <code>factor_B</code> (<code>B=factor_B·A</code>), <code>K</code>, <code>N_EXP</code>, <code>LAMBDA</code>; <code>LOTAJES_M</code> fijo, <code>PERDIDA_MAX</code> pausado</td></tr>
+        <tr><td>Variables X</td><td>indicadores técnicos crudos de X3</td><td>vector de <b>estado del activo</b>: drawdown, volatilidad, ruido, tendencia/régimen, liquidez, fundamental — más transformaciones por ATR en vez de niveles crudos</td></tr>
+        <tr><td>Métrica de asociación</td><td>Pearson + Spearman</td><td>+ <b>coseno</b> <code>cos(Pv,Xv)</code> (§19) como alineación direccional complementaria</td></tr>
+        <tr><td>Convención de nombres</td><td><code>P1</code> / <code>P2</code></td><td><code>Q1</code> / <code>Q2</code> / <code>Q3</code></td></tr>
+        <tr><td>Input</td><td><code>valor</code> (string único)</td><td><code>valores</code> (lista — preparado para multi-activo, aunque hoy solo corre <code>['BTCUSD']</code>)</td></tr>
+        <tr><td>Entrega a Claude</td><td>archivos sueltos</td><td>1 <code>.zip</code> por notebook (<code>exportar_zip</code>); <b>nunca gráficos embebidos</b> — solo código + los datos detrás de cada gráfico, en CSV</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · estado de avance y lo que viene después</span>
+    <p><b>2026-10-12:</b> los tres notebooks están completos y ejecutados de punta a punta sobre BTCUSD —
+    <code>X5_Q1</code> (tabla + catálogo), <code>X5_Q2</code> (14 ítems descriptivos + síntesis + export),
+    <code>X5_Q3</code> (hipótesis + tabla final). El TODO de <code>X5_alt_v2</code> en
+    <code>docs/tracking/todos.md</code> queda sin pendientes. <b>Lo que sigue, fuera de alcance de estos tres
+    notebooks</b>: el puente hacia backtesting real sobre <code>X4_backtester.py</code> (TO DO "X5 — estudio
+    posterior de parámetros manipulables y variables explicativas") — ninguna hipótesis de §23 está confirmada hasta
+    que ese backtesting corra.</p>
+    <p class="ref">Fuentes: <code>docs/plans/X5_alternativo.md</code> §10 (estado de avance, diferencias vs. v1),
+    <code>docs/plans/x5_contexto_conversacion.md</code> (documento rector), <code>docs/context/pars_configurables.md</code>
+    (definición exacta de cada parámetro Y).</p>
+  </div>
+</div>
+
+<div class="card" data-lvl="1">
+  <div class="ch"><h3>Los cinco principios que gobiernan los tres notebooks</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <ul>
+      <li><b>Parsimonia.</b> Pocas variables explicativas por parámetro, elegidas por evidencia — nunca todas las
+        disponibles (ver §23, nivel 1, "vector consolidado").</li>
+      <li><b>Especialización por parámetro.</b> Cada parámetro depende solo de las variables que tengan sentido para
+        él, no de un estado global único.</li>
+      <li><b>Evidencia antes que arquitectura.</b> No saltar a modelos sofisticados (Markov, Aprendizaje por
+        Refuerzo) sin demostrar primero, con datos, que la relación existe.</li>
+      <li><b>Confiabilidad antes que sofisticación.</b> Entender qué información hay disponible y con qué calidad
+        (§18, catálogo de variables) antes de construir nada encima.</li>
+      <li><b>Baseline primero.</b> Cualquier sofisticación futura debe superar algo simple y estático — no se asume
+        que dinámico es mejor.</li>
+    </ul>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · filosofía estadística de Q2 (aplica a §19–§22 completos)</span>
+    <ul>
+      <li>No confundir <b>correlación con causalidad</b>.</li>
+      <li>No confundir <b>relación contemporánea con predicción</b>: <code>Corr(X_t, P_t)</code> no implica
+        anticipar <code>P_{t+h}</code> — por eso Q2 es descriptivo/contemporáneo (§19–§22), no un proyecto de
+        forecasting.</li>
+      <li>No confundir <b>repetición de datos con información nueva</b>: los fundamentales (<code>x2_*</code>)
+        llegan por <i>forward-fill</i> — la mayoría de las filas repiten el último valor conocido, no aportan señal
+        nueva (ver §18, nivel 3).</li>
+      <li><b>No asumir linealidad ni estabilidad</b> — de ahí que §20/§21 existan como bloques separados de §19, en
+        vez de confiar solo en Pearson.</li>
+      <li><b>No sobrecomplicar</b>: favorecer interpretabilidad sobre maximizar una métrica de ML (ver §22, por qué
+        solo se agregaron 2 KPIs adicionales, no más).</li>
+    </ul>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · convención de fuerza/dirección usada en todo §19–§23</span>
+    <div class="tw"><table>
+      <thead><tr><th><code>|Pearson|</code></th><th>Etiqueta</th></tr></thead>
+      <tbody>
+        <tr><td>&lt; 0.10</td><td>nula/despreciable</td></tr>
+        <tr><td>0.10 – 0.30</td><td>débil</td></tr>
+        <tr><td>0.30 – 0.50</td><td>moderada</td></tr>
+        <tr><td>0.50 – 0.70</td><td>fuerte</td></tr>
+        <tr><td>≥ 0.70</td><td>muy fuerte</td></tr>
+      </tbody></table></div>
+    <p>Heredada tal cual de v1 (<code>otros_strings/X5_P2.ipynb</code>), usando Pearson como referencia incluso al
+    reportar Spearman/coseno al lado — mantiene un único criterio de lectura en todo el documento.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 18 · Q1 ═══════════════ -->
+<div class="doc-meta" data-section="18">
+  <div class="dm-row">
+    <span class="tag">§18</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
+<h2 id="q1-tabla"><span class="num">18</span>Q1 — tabla de estado del activo (<code>X5_Q1.ipynb</code>)</h2>
+<p>Primer notebook: por cada activo de <code>valores</code>, construye una tabla H1 continua — precio + X3 + X2 +
+seis familias de variables de estado (drawdown, volatilidad, liquidez, fundamental, ruido, tendencia/régimen) + un
+catálogo de documentación por variable. Guarda <code>{valor}_tabla_estado_v2.csv</code> y
+<code>{valor}_catalogo_variables.csv</code> en <code>resources/x5_alt/</code> — consumidos por Q2/Q3, nunca
+recalculados ahí.</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Cómo correrlo e interpretarlo</h3><span class="hint">doble clic → tabla de fórmulas</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <ul>
+      <li><b>Único input editable:</b> la celda <code>valores = ['BTCUSD']</code> — lista, no string (a diferencia
+        del <code>valor</code> singular de v1); hoy solo corre BTCUSD.</li>
+      <li><b>Pipeline</b> (cada sección encadena sobre la tabla de la anterior, en este orden): tabla base
+        (precio+X3+X2) → filtrar/transformar técnicos → drawdown → volatilidad → liquidez → fundamental → ruido →
+        tendencia/régimen → catálogo de documentación → guardar CSV → exportar <code>.zip</code>.</li>
+      <li><b>Reutiliza en vez de reimplementar:</b> <code>_calcular_todos_indicadores</code> y
+        <code>_wilder_ema</code> de <code>X3_technical_features.py</code> — ningún indicador (RSI, ATR, ADX) se
+        recalcula desde cero donde X3 ya lo resuelve.</li>
+      <li><b>Para interpretarlo:</b> el catálogo (<code>{valor}_catalogo_variables.csv</code>, última sección del
+        notebook) es la referencia rápida — una fila por columna con fuente, significado, unidad, fórmula,
+        <code>forward_fill</code>, cobertura y limitaciones, para no tener que releer cada celda de este notebook.</li>
+    </ul>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · fórmula de cada variable agregada, por familia</span>
+    <div class="tw"><table>
+      <thead><tr><th>Familia (ítem)</th><th>Variable</th><th>Fórmula</th><th>Ventana</th></tr></thead>
+      <tbody>
+        <tr><td>Técnicos transf. (Q1-3)</td><td><code>distancia_sma_w</code> / <code>distancia_ema_w</code></td><td><code>(Close − media_w) / ATR_14</code></td><td>w=20/50/200 (sma), 12/26 (ema)</td></tr>
+        <tr><td>Técnicos transf. (Q1-3)</td><td><code>pendiente_sma_w</code> / <code>pendiente_ema_w</code></td><td><code>(media_w.diff(w)/w) / ATR_14</code></td><td>misma w</td></tr>
+        <tr><td>Drawdown (Q1-4)</td><td><code>drawdown_historico</code></td><td><code>(Close − cummax(Close)) / cummax(Close)</code></td><td>todo el histórico</td></tr>
+        <tr><td>Drawdown (Q1-4)</td><td><code>duracion_drawdown</code></td><td>velas desde el último máximo histórico</td><td>—</td></tr>
+        <tr><td>Drawdown (Q1-4)</td><td><code>recuperacion_desde_minimo</code></td><td><code>(Close − mín_episodio) / mín_episodio</code></td><td>episodio actual</td></tr>
+        <tr><td>Drawdown (Q1-4)</td><td><code>velocidad_caida</code></td><td><code>drawdown_historico / duracion_drawdown</code></td><td>—</td></tr>
+        <tr><td>Drawdown (Q1-4)</td><td><code>drawdown_7d/30d/90d/365d</code></td><td><code>(Close − máx_rodante) / máx_rodante</code></td><td>168/720/2160/8760 h</td></tr>
+        <tr><td>Volatilidad (Q1-5)</td><td><code>cambio_volatilidad</code></td><td><code>x3_vol_24h / x3_vol_7d</code></td><td>—</td></tr>
+        <tr><td>Volatilidad (Q1-5)</td><td><code>vol_alcista_30d</code> / <code>vol_bajista_30d</code></td><td><code>std(retorno_log&gt;0 ó &lt;0, 30d) · √8760</code></td><td>720h</td></tr>
+        <tr><td>Volatilidad (Q1-5)</td><td><code>frecuencia_extremos_30d</code></td><td><code>media(|retorno_log| &gt; 2·std_expandida)</code></td><td>720h, umbral <code>expanding()</code></td></tr>
+        <tr><td>Liquidez (Q1-8)</td><td><code>spread_relativo</code></td><td><code>Spread / media_móvil_30d(Spread)</code></td><td>720h</td></tr>
+        <tr><td>Liquidez (Q1-8)</td><td><code>tick_volume_z</code></td><td><code>(Tick_Volume − media_30d) / std_30d</code></td><td>720h</td></tr>
+        <tr><td>Liquidez (Q1-8)</td><td><code>volumen_relativo</code> (RVOL)</td><td><code>Tick_Volume / media_móvil_30d(Tick_Volume)</code></td><td>720h</td></tr>
+        <tr><td>Fundamental (Q1-10)</td><td><code>fundamental_cambio</code></td><td><code>x2_score.diff()</code></td><td>—</td></tr>
+        <tr><td>Fundamental (Q1-10)</td><td><code>fundamental_edad</code></td><td>velas desde la última actualización real</td><td>—</td></tr>
+        <tr><td>Fundamental (Q1-10)</td><td><code>fundamental_contradiccion</code></td><td><code>(x2_score_cross−0.5)·(x2_score_tendencia−0.5)</code></td><td>—</td></tr>
+        <tr><td>Ruido (Q1-6)</td><td><code>ruido_cambios_signo_30d</code></td><td><code>media(signo(retorno_log) ≠ signo.shift(1))</code></td><td>720h</td></tr>
+        <tr><td>Ruido (Q1-6)</td><td><code>ruido_ratio_movimiento_30d</code></td><td><code>Σ|retorno_log| / |retorno_log acumulado|</code></td><td>720h — inverso del Efficiency Ratio de Kaufman</td></tr>
+        <tr><td>Ruido (Q1-6)</td><td><code>ruido_mecha_30d</code></td><td><code>media((High−Low−|Close−Open|)/(High−Low))</code></td><td>720h</td></tr>
+        <tr><td>Ruido (Q1-6)</td><td><code>ruido_atr_sin_direccion_30d</code></td><td><code>media(x3_atr_pct) / |retorno_log acumulado|</code></td><td>720h</td></tr>
+        <tr><td>Tendencia/régimen (Q1-7)</td><td><code>adx_14</code></td><td><code>Wilder_EMA(DX,14)</code>, <code>DX=100·|+DI−−DI|/(+DI+−DI)</code></td><td>14</td></tr>
+        <tr><td>Tendencia/régimen (Q1-7)</td><td><code>regimen_tendencia</code></td><td><code>'sideways'</code> si <code>adx_14&lt;20</code>; si no, signo de <code>x3_trend_slope_50</code></td><td>—</td></tr>
+        <tr><td>Tendencia/régimen (Q1-7)</td><td><code>ruptura_rango</code></td><td><code>+1</code> si <code>Close&gt;máx_20_prev</code>; <code>−1</code> si <code>&lt;mín_20_prev</code>; <code>0</code> si no</td><td>20</td></tr>
+        <tr><td>Tendencia/régimen (Q1-7)</td><td><code>duracion_en_rango</code></td><td>velas desde la última ruptura</td><td>—</td></tr>
+      </tbody></table></div>
+    <pre><code><span class="c"># adx_14: reusa _wilder_ema (el mismo suavizado de _calcular_atr), no reimplementa un esquema distinto</span>
+tr_suavizado = _wilder_ema(tr, <span class="n">14</span>)
+plus_di  = <span class="n">100</span> * _wilder_ema(plus_dm, <span class="n">14</span>) / tr_suavizado
+minus_di = <span class="n">100</span> * _wilder_ema(minus_dm, <span class="n">14</span>) / tr_suavizado
+dx = <span class="n">100</span> * (plus_di - minus_di).abs() / (plus_di + minus_di)
+adx_14 = _wilder_ema(dx, <span class="n">14</span>)   <span class="c"># &lt;20 (convención Wilder) = mercado lateral en regimen_tendencia</span></code></pre>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · limitaciones reales en el snapshot de Mac</span>
+    <div class="warnbox"><span class="t">x2_score queda 100% NaN para BTCUSD con los datos actuales</span>
+      <code>Data/BTCUSD.csv</code> en Mac termina el 2026-06-02; los únicos registros de <code>x2_history.json</code>
+      para BTCUSD son posteriores (2026-06-12+) → el <code>merge_asof(direction='backward')</code> no tiene nada
+      hacia atrás que propagar. <b>No es un bug</b>: es la escasez de X2 ya señalada en <code>X5_alternativo.md</code>
+      §4, agravada por el desfase de fechas entre ambas fuentes en esta copia. Todas las columnas
+      <code>fundamental_*</code> (derivadas de <code>x2_score</code>) heredan ese <code>NaN</code> — se valida al
+      refrescar <code>Data/</code>/<code>x2_history.json</code> desde Windows con fechas que se solapen.</div>
+    <ul>
+      <li><b><code>Real_Volume</code> siempre 0</b> — el bróker no lo reporta; <code>Tick_Volume</code> es el proxy
+        de volumen usado en todo el proyecto.</li>
+      <li><b><code>Spread</code> en puntos MT5, no USD</b> — convertirlo exige <code>symbol_info(valor).point</code>,
+        no disponible en Mac ni persistido en los CSV; por eso <code>spread_relativo</code> normaliza contra su
+        propio promedio móvil en vez de contra <code>Close</code>.</li>
+      <li><b>NaN de warm-up</b> en todas las variables con ventana (ej. <code>x3_vol_7d</code> en las primeras 167
+        velas, <code>drawdown_{7,30,90,365}d</code> con <code>min_periods=1</code> desde la primera vela a
+        diferencia de <code>x3_drawdown_20/50</code> que exigen la ventana completa).</li>
+      <li><b>Niveles crudos de medias móviles descartados</b> (<code>x3_sma_{20,50,200}</code>,
+        <code>x3_ema_{12,26}</code>): correlación ~1 con <code>Close</code> por construcción, no aportan señal
+        nueva como variable de estado — se reemplazan por <code>distancia_*</code>/<code>pendiente_*</code>,
+        normalizadas por ATR.</li>
+    </ul>
+    <p class="ref">Catálogo completo con fuente/unidad/forward_fill/limitaciones por variable:
+    <code>resources/x5_alt/{valor}_catalogo_variables.csv</code> (generado por <code>_catalogo_variables</code>,
+    sección 9 del notebook).</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 19 · Q2 — CLÁSICO ═══════════════ -->
+<div class="doc-meta" data-section="19">
+  <div class="dm-row">
+    <span class="tag">§19</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
+<h2 id="q2-clasico"><span class="num">19</span>Q2 — núcleo clásico: Pearson, Spearman y coseno (<code>X5_Q2.ipynb</code>, Q2-2 a Q2-4)</h2>
+<p>Segundo notebook — consume <code>{valor}_tabla_estado_v2.csv</code> de Q1, nunca la recalcula. Esta sección cubre
+los primeros tres ítems: inspección visual a doble eje (Q2-2), el núcleo clásico de correlación (Q2-3) y la métrica
+nueva de coseno que introduce X5_alt_v2 respecto a v1 (Q2-4).</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Dos paneles, no uno — por qué</h3><span class="hint">doble clic → fórmulas + ejemplo real</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>Decisión de diseño que atraviesa todo §19–§22:</b> cada variable se evalúa contra <b>dos targets</b>, nunca
+    solo contra <code>Close</code>.</p>
+    <div class="grid2">
+      <div class="mini"><h4>Panel A — nivel (<code>Close</code>), referencial</h4><p>Fiel al texto original del plan
+      ("variable↔precio"), se muestra pero se marca expresamente como no concluyente: <code>Close</code> no es
+      estacionario (BTCUSD recorrió ~20.000→~100.000 USD entre 2021 y 2026), así que casi cualquier variable con
+      tendencia propia "correlaciona" con el nivel por coincidencia temporal.</p></div>
+      <div class="mini"><h4>Panel B — retorno contemporáneo, principal</h4><p><code>retorno_log_1h =
+      log(Close_t / Close_{t-1})</code>. Estacionario — es el que alimenta el ranking de esta sección y
+      todos los ítems posteriores (§22, export y síntesis).</p></div>
+    </div>
+    <p><b>Metodología de Q2-3</b> (por variable, por panel): Pearson (relación lineal), Spearman (relación
+    monótona), scatter + regresión lineal simple (descriptiva, no predictiva), y objetivo medio por decil
+    (10 cuantiles) de la variable — convención de fuerza/dirección en §17, nivel 3. Mínimo 30 observaciones no nulas
+    y ambas series con dispersión; si no, se omite con aviso (mismo filtro en toda §19–§22).
+    <code>regimen_tendencia</code> (bull/bear/sideways, sin orden natural) se trata aparte: comparación directa de
+    medias por categoría en vez de forzar un <code>factorize</code> arbitrario en Pearson/Spearman.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · coseno — fórmula y por qué no es "Pearson sin centrar"</span>
+    <pre><code><span class="k">def</span> <span class="fn">coseno</span>(x, y):
+    <span class="c"># A DIFERENCIA de Pearson, no centra en la media: ángulo entre los vectores crudos</span>
+    <span class="k">return</span> np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y))
+
+<span class="c"># Pearson ES el coseno de las series YA centradas en su media:</span>
+<span class="c">#   corr(x, y) = cos(x - x̄, y - ȳ)</span></code></pre>
+    <p>Esa diferencia produce comportamientos distintos según el panel, verificados con BTCUSD real:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Variable</th><th>Panel</th><th>Pearson</th><th>Coseno</th><th>Lectura</th></tr></thead>
+      <tbody>
+        <tr><td><code>drawdown_historico</code></td><td>A (<code>Close</code>)</td><td>+0.87</td><td>−0.51</td><td>el coseno sin centrar <b>invierte el signo</b> frente a Pearson</td></tr>
+        <tr><td><code>ruido_cambios_signo_30d</code></td><td>A (<code>Close</code>)</td><td>−0.54</td><td>+0.87</td><td>mismo fenómeno, en sentido opuesto</td></tr>
+        <tr><td><code>x3_rsi_14</code> (centrado ~50, no en 0)</td><td>B (retorno)</td><td>0.338</td><td>0.080</td><td>coseno fuertemente atenuado por el baseline alto</td></tr>
+        <tr><td><code>x3_macd_hist</code> (ya centrado ~0)</td><td>B (retorno)</td><td>0.167</td><td>0.167</td><td>sin baseline que distorsione, coinciden casi exacto</td></tr>
+      </tbody></table></div>
+    <p>El coseno <b>no es "Pearson más permisivo"</b> sobre el nivel — es una cantidad distinta que mezcla baseline
+    y covariación de un modo no comparable (Panel A); sobre el retorno (Panel B, ~media cero) coincide en signo con
+    Pearson y solo se atenúa cuando la variable tiene un baseline grande frente a su propia dispersión.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · función real y límites de lectura</span>
+    <pre><code><span class="k">def</span> <span class="fn">analizar_variable_vs_target</span>(df, col, target_col, n_bins=<span class="n">10</span>):
+    sub = df[[col, target_col]].dropna()
+    <span class="k">if</span> <span class="fn">len</span>(sub) &lt; <span class="n">30</span>: <span class="k">return</span> <span class="k">None</span>          <span class="c"># filtro mínimo, igual en toda §19-§22</span>
+    pear_r, pear_p   = scipy_stats.pearsonr(x, y)
+    spear_r, spear_p = scipy_stats.spearmanr(x, y)
+    bins = pd.qcut(sub[col], n_bins, duplicates=<span class="s">'drop'</span>)
+    por_decil = sub.groupby(bins, observed=<span class="k">True</span>)[target_col].mean()
+    <span class="c"># + scatter con polyfit grado 1, + barras del target medio por decil</span></code></pre>
+    <p><b>Limitaciones</b>: ~40.000 observaciones horarias fuertemente autocorrelacionadas (no independientes) → los
+    p-values salen extremadamente pequeños incluso para relaciones triviales — se muestran solo de referencia, no
+    deben leerse literalmente. Este bloque es <b>contemporáneo</b> (<code>X_t</code> vs. <code>retorno_t</code>), no
+    implica capacidad predictiva sobre el futuro (eso es la Parte II del plan original, fuera de alcance de Q2); no
+    cubre todavía no linealidades (§20), ceteris paribus (§20) ni estabilidad temporal (§21) — bloques separados y
+    posteriores.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 20 · Q2 — NO LINEAL ═══════════════ -->
+<div class="doc-meta" data-section="20">
+  <div class="dm-row">
+    <span class="tag">§20</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
+<h2 id="q2-nolineal"><span class="num">20</span>Q2 — más allá de lo lineal: no linealidad, retorno pasado y ceteris paribus (Q2-6 a Q2-8)</h2>
+<p>Mismas variables/targets de §19 (<code>TARGETS_Q2_3</code>, el conjunto de variables de <code>_variables_analisis_q2_3</code>),
+reutilizados sin introducir un criterio de selección nuevo — esta sección amplía la <b>forma</b> de la relación
+(curvatura, colas, saturación, asimetría), mira el <b>pasado reciente</b> del precio en vez del contemporáneo, y
+<b>controla por las demás variables</b> a la vez.</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-7 — no linealidades, umbrales y saturación</h3><span class="hint">doble clic → umbrales exactos</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>Pregunta:</b> ¿la relación entre variable y target es lineal en todo su rango, o cambia de forma en algún
+    tramo — plana en valores normales pero distinta sobre el percentil 90, o con un efecto que se satura en los
+    extremos en vez de seguir creciendo?</p>
+    <p><b>Metodología:</b> curva por cuantil fino (20 bins, más fino que los 10 de Q2-3) con el valor medio real de
+    la variable en cada bin — la "curva suavizada" que revela la forma sin asumir linealidad; curvatura vía
+    <code>polyfit</code> grado 1 vs. grado 2; comportamiento en colas (percentiles 10/90) para detectar umbral;
+    saturación comparando pendiente local de la cola contra la pendiente global; asimetría vía <code>skew</code> +
+    Pearson por mitad (bajo/sobre la mediana).</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · fórmulas y umbrales exactos</span>
+    <div class="tw"><table>
+      <thead><tr><th>Métrica</th><th>Fórmula / regla</th><th>Umbral</th></tr></thead>
+      <tbody>
+        <tr><td>Curvatura</td><td><code>delta_r2 = R²_cuad − R²_lin</code> (polyfit grado 1 vs. 2)</td><td>curvatura relevante si <code>delta_r2 ≥ 0.01</code>; forma U/U invertida según signo del coef. cuadrático</td></tr>
+        <tr><td>Umbral de cola</td><td><code>|media_cola − media_cuerpo| &gt; k·std_cuerpo</code></td><td><code>k=0.5</code>, colas definidas por <code>p10</code>/<code>p90</code>, mín. 10 obs. por cola</td></tr>
+        <tr><td>Saturación</td><td>pendiente local de la cola mantiene signo global pero <code>|pendiente_cola/pendiente_global| &lt; r</code></td><td><code>r=0.3</code></td></tr>
+        <tr><td>Asimetría</td><td><code>skew(variable)</code> + Pearson(mitad baja) vs. Pearson(mitad alta) de la mediana</td><td>cambio de signo entre mitades → relación no simétrica</td></tr>
+      </tbody></table></div>
+    <p><b>Interpretación:</b> una variable con <code>delta_r2</code> alto, cola marcada como umbral, o asimetría
+    fuerte entre mitades es candidata a jugar un rol de "régimen"/condición (activa o modula un parámetro solo bajo
+    cierto percentil) en vez de una relación lineal continua — alimenta las hipótesis de <code>K</code>/<code>N_EXP</code>
+    en §23.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · límites del ajuste</span>
+    <p>El ajuste cuadrático es descriptivo, no un test formal de forma funcional; con colas muy angostas las medias
+    pueden salir de muy pocas observaciones (de ahí el mínimo de 10); mismas limitaciones de autocorrelación y
+    p-values no literales que §19.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-8 — variable vs. comportamiento histórico reciente del precio</h3><span class="hint">doble clic → horizontes</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>Diferencia con §19 (Q2-3):</b> ahí el target era contemporáneo (<code>X_t</code> vs. <code>retorno_t</code>,
+    misma vela); acá el target es lo que el precio <b>ya venía acumulando antes de <code>t</code></b>:
+    <code>retorno_pasado_h = log(Close_t / Close_{t-h})</code>, con <code>h</code> en
+    <b>6h, 24h, 3d (72h), 7d (168h)</b>. Reutiliza exactamente <code>analizar_variable_vs_target</code> de §19 — solo
+    cambia el target, no se duplica lógica.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · interpretación y advertencia de circularidad</span>
+    <p>Sigue siendo descriptivo/histórico — no dice nada sobre el retorno <b>futuro</b> (eso queda fuera de alcance,
+    es la Parte II del plan original). Una variable fuertemente asociada al retorno pasado de 7 días puede estar
+    simplemente <b>midiendo</b> ese mismo retorno — caso de variables construidas desde el propio precio
+    (<code>x3_roc_20</code>, los <code>drawdown_*</code>). §21 (Q2-12, redundancia) es la que distingue eso de una
+    relación informativa nueva.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · límite de independencia por horizonte</span>
+    <p>A mayor <code>h</code>, las ventanas se superponen más entre sí → menos observaciones realmente
+    independientes que velas en el período total. No se genera un ranking único mezclando los 4 horizontes — uno
+    por horizonte, para no mezclar escalas temporales bajo un solo <code>abs(pearson)</code>.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-6 — ceteris paribus (regresión multivariable) y VIF</h3><span class="hint">doble clic → álgebra de la regresión</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>Pregunta:</b> si comparo dos instantes con el <b>mismo</b> valor en todas las demás variables y que solo
+    difieran en una, ¿cambia el precio/retorno? Varias variables de Q1 comparten información (distintas distancias
+    a SMA, drawdown a distinta ventana) — un Pearson individual alto puede ser la misma señal contada dos veces.</p>
+    <p><b>Metodología:</b> regresión lineal múltiple con todas las variables en z-score — mínimos cuadrados +
+    errores estándar de OLS calculados a mano con <code>numpy</code>/<code>scipy</code> (mismo enfoque manual de
+    <code>Otros/scripts/X5_analisis_exploratorio.ipynb</code>, adaptado a los targets de Q2, no importado literal
+    para no acoplar X5_alt_v2 a la implementación de X5 original). El coeficiente es el cambio esperado en el
+    target (en desvíos estándar) cuando esa variable sube 1 desvío estándar, con las demás fijas.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · álgebra exacta (OLS estandarizado + VIF)</span>
+    <pre><code>Xz = (X - μ_X) / σ_X ;  yz = (y - ȳ) / σ_y          <span class="c"># todas las variables en z-score</span>
+β = lstsq([1, Xz], yz)                              <span class="c"># mínimos cuadrados, con intercepto</span>
+resid = yz - [1, Xz]·β
+σ² = (resid·resid) / (n - k)                        <span class="c"># k = columnas, intercepto incluido</span>
+SE(β) = sqrt(diag(σ² · (X'X)⁻¹))
+t = β / SE  ;  p = 2 · P(T &gt; |t|, dof=n-k)
+
+VIF_j = diag(pinv(corr(X_z)))_j                     <span class="c"># equivalente a 1/(1-R²) de regresar X_j contra las demás</span></code></pre>
+    <p><b>VIF &gt; 10</b> → colinealidad alta, el coeficiente individual de esa variable es poco confiable (sin que
+    eso implique eliminarla). <b>Sensibilidad:</b> se repite la regresión excluyendo variables con VIF&gt;10
+    (especificación reducida); si el coeficiente de una variable que sobrevive cambia de <b>signo</b> entre la
+    especificación completa y la reducida, el resultado depende de qué colineales se incluyen — no es robusto.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · qué NO captura este bloque</span>
+    <p>Un modelo lineal aditivo no captura interacciones ni no linealidades (eso es §20, Q2-7, bloque anterior);
+    variables 100% nulas en este snapshot (<code>x2_*</code>, <code>fundamental_*</code>) se excluyen antes de
+    <code>dropna()</code> para que no arrastren a cero las filas disponibles de todas las demás variables; mismas
+    limitaciones de autocorrelación/no-causalidad que §19.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 21 · Q2 — ESTABILIDAD/RÉGIMEN/REDUNDANCIA ═══════════════ -->
+<div class="doc-meta" data-section="21">
+  <div class="dm-row">
+    <span class="tag">§21</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
+<h2 id="q2-estabilidad"><span class="num">21</span>Q2 — estabilidad, régimen y redundancia (Q2-9, Q2-10, Q2-12, Q2-13)</h2>
+<p>Un Pearson global fuerte puede estar promediando sub-períodos con signos opuestos, o depender de en qué régimen
+de mercado está el activo, o ser la misma señal que otra variable ya capturada. Esta sección responde las tres
+preguntas antes de consolidar nada en la síntesis (§22).</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-9 / Q2-10 — estabilidad temporal (por año, rolling, y coseno por ventanas)</h3><span class="hint">doble clic → clasificación</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>Q2-9 — por año y rolling de 90 días:</b> Pearson/Spearman/coseno calculados por separado dentro de cada
+    año calendario (partición simple, alineada con régimen de mercado: ej. 2022 bajista, 2023-2024 alcista); además
+    un Pearson <b>rolling</b> de 90 días (2.160h), resumido en su desviación estándar en el tiempo.</p>
+    <p><b>Q2-10 — coseno rolling por ventanas (30/90/180 días):</b> no existe <code>.rolling().corr()</code> para
+    coseno, así que se calcula vectorizado: <code>cos_t = Σ(x·y)_ventana / (√Σx²_ventana · √Σy²_ventana)</code>.
+    Incluye la misma ventana de 90d que Q2-9 (comparable directo) más una más corta (30d) y una más larga (180d).</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · clasificación (mismo criterio en Q2-9 y Q2-10)</span>
+    <div class="tw"><table>
+      <thead><tr><th>Clasificación</th><th>Condición</th></tr></thead>
+      <tbody>
+        <tr><td><code>cambio estructural</code></td><td>el signo de Pearson/coseno cambia entre años/ventanas (o el rolling cruza cero)</td></tr>
+        <tr><td><code>inestable</code></td><td>mismo signo en todos los años/ventanas, pero dispersión (std) &gt; <code>0.15</code></td></tr>
+        <tr><td><code>estable</code></td><td>mismo signo y dispersión ≤ <code>0.15</code></td></tr>
+      </tbody></table></div>
+    <p>Q2-10 agrega una pregunta propia: <code>consistente_entre_ventanas</code> — ¿la clasificación es la misma en
+    las 3 ventanas (30/90/180d)? Si no, la lectura de estabilidad de esa variable depende de una elección arbitraria
+    de ventana y debe mirarse con cautela antes de usarla en §23.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · por qué la partición es imperfecta</span>
+    <p>La partición por año es arbitraria (no coincide necesariamente con los puntos reales de cambio de régimen);
+    con pocos años de historia (BTCUSD parte en 2021) el primer/último año suelen estar incompletos — se excluyen
+    de la clasificación los años con menos de 30 observaciones no nulas, mismo mínimo del resto del notebook.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-12 — redundancia entre variables explicativas</h3><span class="hint">doble clic → mapeo de familias</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>A diferencia de todo lo anterior</b> (variable↔target), esta mide relaciones <b>entre las propias
+    variables explicativas</b>: matriz de Pearson entre todas las de <code>_variables_analisis_q2_3</code>; un par
+    se marca <b>redundante</b> si <code>|Pearson| &gt; 0.85</code> — más estricto que el <code>VIF&gt;10</code>
+    de §20 (Q2-6), porque acá se mide similitud bivariada directa entre dos variables, no el efecto conjunto de
+    todas las demás sobre una.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · familia técnico/fundamental (derivada del catálogo de Q1)</span>
+    <p>No existe una columna de familia explícita en el catálogo — se deriva de su columna <code>fuente</code>,
+    mapeo documentado para ser auditable: <code>técnico</code> = todo lo construido desde el precio
+    (<code>X3 (técnico)</code>, los 6 bloques <code>Q1 — *</code> de técnicos/drawdown/volatilidad/liquidez/ruido/
+    tendencia); <code>fundamental</code> = <code>X2 (fundamental)</code> y <code>Q1 — Fundamental (estado)</code>.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · interpretación y uso en §23</span>
+    <p>Un par <code>redundante</code> <b>no implica eliminar</b> una de las dos variables — solo que, si se usan
+    ambas como explicativas de un mismo parámetro, aportan señal muy parecida. Usado directamente en §23 para no
+    elegir dos candidatas redundantes para el mismo parámetro: ej. <code>x3_vol_24h</code> se descarta frente a
+    <code>x3_atr_pct</code> (Pearson 0.91 entre ambas). Limitación: Pearson entre variables no captura relaciones no
+    lineales entre ellas; con ~63 variables el total de pares (~1.950) hace que el foco deba estar en la cola de
+    correlación muy alta, no en una lectura exhaustiva de todos los pares.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-13 — análisis por regímenes</h3><span class="hint">doble clic → las 3 dimensiones</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>Pregunta:</b> la fuerza/dirección de la relación de cada variable con el retorno (y <code>Close</code>,
+    referencial) ¿es estable entre regímenes del activo, o depende fuertemente de en qué régimen está?</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · las 3 dimensiones, con categorías explícitas</span>
+    <div class="tw"><table>
+      <thead><tr><th>Dimensión</th><th>Categorías</th><th>Definición</th></tr></thead>
+      <tbody>
+        <tr><td>Tendencia</td><td>bull / bear / sideways</td><td><code>regimen_tendencia</code>, ya calculada en Q1-7</td></tr>
+        <tr><td>Volatilidad</td><td>alta / baja</td><td>split por <b>mediana</b> de <code>x3_vol_24h</code> — mediana en vez de umbral fijo porque la escala es propia de cada activo</td></tr>
+        <tr><td>Drawdown</td><td>deteriorado / sano</td><td><code>drawdown_historico ≤ −0.20</code> → deteriorado (umbral fijo)</td></tr>
+      </tbody></table></div>
+    <p>Por cada dimensión/categoría: Pearson, Spearman y coseno. Clasificación (mismo criterio de §21, nivel 2):
+    <code>cambio de signo</code> si cambia entre categorías; <code>dependiente de régimen</code> si no cambia de
+    signo pero la dispersión entre categorías es alta (&gt;0.15); <code>consistente</code> si no.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · interpretación y limitación</span>
+    <p>Una relación <code>consistente</code> entre regímenes es más confiable para §23 que una con Pearson global
+    más alto pero que cambia de signo — el global puede estar promediando dos relaciones opuestas en distintos
+    regímenes. Limitación: con 1 solo activo (BTCUSD) y ~4.4 años de historia, categorías como <code>sideways</code>
+    o <code>deteriorado</code> tienen menos observaciones — se exige el mismo mínimo de 30 filas por celda.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 22 · Q2 — SÍNTESIS/KPIs/EXPORT ═══════════════ -->
+<div class="doc-meta" data-section="22">
+  <div class="dm-row">
+    <span class="tag">§22</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
+<h2 id="q2-sintesis"><span class="num">22</span>Q2 — síntesis consolidada, KPIs adicionales y export (Q2-5, Q2-11, Q2-14)</h2>
+<p>Cierre de <code>X5_Q2.ipynb</code>: consolida todo §19–§21 en un nivel de evidencia explícito por variable,
+evalúa (sin adoptar por default) dos métricas de asociación adicionales, y empaqueta todo en el JSON que
+<code>X5_Q3.ipynb</code> (§23) consume directamente.</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-11 — síntesis descriptiva y nivel de evidencia</h3><span class="hint">doble clic → la regla exacta</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>Consolida, por variable/target, lo ya calculado en §19–§21: Pearson/Spearman/coseno/no linealidad (§19-20),
+    estabilidad temporal (§21, Q2-9), dependencia de régimen (§21, Q2-13), si tiene algún par redundante (§21,
+    Q2-12) y cobertura de datos (catálogo de Q1). <b>Es el insumo directo de §22's export (Q2-5) y de Q3 (§23) —
+    no es un ranking predictivo</b>: evidencia descriptiva sólida no garantiza poder predictivo fuera de muestra.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · regla explícita de nivel_evidencia_descriptiva (no un score de ML)</span>
+    <div class="tw"><table>
+      <thead><tr><th>Nivel</th><th>Condición</th></tr></thead>
+      <tbody>
+        <tr><td><code>alta</code></td><td><code>|pearson| ≥ 0.10</code> (fuerza al menos "débil") <b>Y</b> estable en el tiempo <b>Y</b> consistente entre los 3 regímenes</td></tr>
+        <tr><td><code>media</code></td><td>tiene fuerza, pero falla en estabilidad temporal <b>o</b> en régimen (no en ambas)</td></tr>
+        <tr><td><code>baja</code></td><td>sin fuerza, o con fuerza pero inestable en el tiempo <b>y</b> dependiente de régimen a la vez</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · qué queda fuera de la síntesis</span>
+    <p>Las columnas <code>x2_*</code>/<code>fundamental_*</code> (100% nulas en el snapshot de Mac) ya quedaron
+    fuera desde §19 (Q2-3, sin datos suficientes para Pearson) — tampoco aparecen en la síntesis ni en el export.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-14 — KPIs adicionales: información mutua y correlación de distancia</h3><span class="hint">doble clic → fórmula dcor</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p><b>Objetivo explícito, caso a caso — no adoptar por default</b> (principio de parsimonia, §17): ¿hay
+    variables donde información mutua o correlación de distancia revelan una asociación relevante que Pearson/
+    Spearman no capturan por no ser lineal ni monótona? Solo 2 candidatas, ninguna más.</p>
+    <ul>
+      <li><b>Información mutua</b> (<code>sklearn.mutual_info_regression</code>, <code>n_neighbors=3</code>): capta
+        cualquier dependencia; se reporta en nats (no acotada en [0,1]) → comparación por <b>ranking</b>, no valor
+        absoluto: <code>entra_top_mi_sin_estar_en_pearson</code> si entra al top-10 de información mutua sin estar
+        en el top-10 de <code>|Pearson|</code>.</li>
+      <li><b>Correlación de distancia</b> (Székely–Rizzo), acotada en [0,1] → comparable directo con
+        <code>|Pearson|</code>: <code>aporta_valor_dcor</code> si <code>dcor − |Pearson| &gt; 0.10</code>.
+        <code>O(n²)</code> en tiempo/memoria → calculada sobre una <b>submuestra fija</b> de 3.000 filas (semilla
+        42), nunca sobre la tabla completa.</li>
+    </ul>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · fórmula de la correlación de distancia (doble centrado)</span>
+    <pre><code>a = |x_i - x_j|  ;  b = |y_i - y_j|                      <span class="c"># matrices de distancia</span>
+A = a - media_fila(a) - media_col(a) + media(a)          <span class="c"># doble centrado</span>
+B = b - media_fila(b) - media_col(b) + media(b)
+dCov² = media(A*B)  ;  dVarX² = media(A*A)  ;  dVarY² = media(B*B)
+dcor  = sqrt(dCov² / sqrt(dVarX² * dVarY²))</code></pre>
+    <p><b>Resultado real en BTCUSD:</b> varias variables de volatilidad/liquidez (<code>x3_vol_24h</code>,
+    <code>x3_atr_pct</code>, <code>x3_bb_width</code>, <code>tick_volume_z</code>, <code>spread_relativo</code>,
+    <code>volumen_relativo</code>) muestran <code>dcor</code> 0.17–0.34 contra <code>retorno_log_1h</code>, muy por
+    sobre su Pearson casi nulo — dependencia no lineal real, aunque sin definir signo ni servir de validación.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · por qué este CSV queda fuera de §23</span>
+    <p>Q2-14 es deliberadamente independiente de la síntesis (Q2-11) y del export principal (Q2-5) — se guarda para
+    no perder el cálculo, pero queda como <b>anexo exploratorio</b>, no como insumo obligatorio de los ítems de
+    cierre que consume <code>X5_Q3.ipynb</code>.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Q2-5 — export estructurado de métricas (el puente directo a Q3)</h3><span class="hint">doble clic → estructura del JSON</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>No recalcula nada: recopila en un único JSON anidado <code>{variable: {...}}</code> todo lo ya calculado
+    y guardado en CSV por §19–§21 (Q2-3/4/6/7/8/9/11/12/13). Un archivo por activo:
+    <code>{valor}_q2_5_export_metricas.json</code>. Es el <b>único archivo</b> que <code>X5_Q3.ipynb</code> lee de
+    Q2 — pensado para alimentar después un análisis por IA que concluya cosas como "el drawdown se relaciona con
+    N" (texto literal del notebook).</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · estructura por variable</span>
+    <pre><code>{
+  <span class="s">"drawdown_7d"</span>: {
+    <span class="s">"targets"</span>: {<span class="s">"Close"</span>: {...}, <span class="s">"retorno_log_1h"</span>: {
+        <span class="s">"pearson"</span>: ..., <span class="s">"spearman"</span>: ..., <span class="s">"coseno"</span>: ..., <span class="s">"direccion_fuerza"</span>: ...,
+        <span class="s">"no_linealidad"</span>: {<span class="s">"r2_lin"</span>: ..., <span class="s">"r2_cuad"</span>: ..., <span class="s">"delta_r2"</span>: ..., <span class="s">"forma"</span>: ...},
+        <span class="s">"estabilidad"</span>: {<span class="s">"clasificacion"</span>: ..., <span class="s">"pearson_std_entre_anios"</span>: ...},
+        <span class="s">"nivel_evidencia_descriptiva"</span>: ..., <span class="s">"cobertura_pct"</span>: ...
+    }},
+    <span class="s">"ceteris_paribus"</span>: {<span class="s">"retorno_log_1h"</span>: {<span class="s">"coef_ceteris_paribus"</span>: ..., <span class="s">"vif"</span>: ..., <span class="s">"coincide_signo_con_pearson"</span>: ...}},
+    <span class="s">"retorno_pasado"</span>: {<span class="s">"6h"</span>: {...}, <span class="s">"24h"</span>: {...}, <span class="s">"3d"</span>: {...}, <span class="s">"7d"</span>: {...}},
+    <span class="s">"regimen"</span>: {<span class="s">"tendencia"</span>: {...}, <span class="s">"volatilidad"</span>: {...}, <span class="s">"drawdown"</span>: {...}},
+    <span class="s">"redundancia"</span>: {<span class="s">"tiene_par_redundante"</span>: ..., <span class="s">"pares_redundantes"</span>: [...]}
+  }
+}</code></pre>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · universo de variables</span>
+    <p>Mismo universo que Q2-11 (<code>ranking_q2_7['variable'].unique()</code>) — las excluidas allí por falta de
+    datos (<code>x2_*</code>/<code>fundamental_*</code> en este snapshot) tampoco aparecen en el export. Estructura
+    pensada para lectura programática (Q3), no para inspección visual en el notebook — para eso están los CSV de
+    §19–§21.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 23 · Q3 ═══════════════ -->
+<div class="doc-meta" data-section="23">
+  <div class="dm-row">
+    <span class="tag">§23</span>
+    <label>Nivel de entendimiento
+      <select class="dm-nivel">
+        <option value="">—</option>
+        <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+    </label>
+    <button class="btn dm-toggle">Dejar comentario</button>
+  </div>
+  <textarea class="dm-comment" style="display:none" placeholder="Comentario para la próxima edición de esta sección…"></textarea>
+</div>
+<h2 id="q3-hipotesis"><span class="num">23</span>Q3 — hipótesis parámetro↔variable y tabla final (<code>X5_Q3.ipynb</code>)</h2>
+<p>Tercer y último notebook. Consume <code>{valor}_tabla_estado_v2.csv</code> (Q1) y
+<code>{valor}_q2_5_export_metricas.json</code> (Q2, §22) — gate de arranque: requiere Q1 y Q2 ya completados. Traduce
+la evidencia acumulada en hipótesis explícitas <code>parámetro↔variable</code>, sin implementarlas como reglas.</p>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Alcance: lo que Q3 SÍ y NO hace</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <div class="grid2">
+      <div class="mini"><h4>SÍ hace</h4><p>Produce hipótesis <code>parámetro = f(variable(s))</code> apoyadas en §19–§22
+      y en el pre-registro de <code>X5_alternativo.md</code> §10.5; una vista unificada de variables relevantes +
+      precio (Q3-8); una tabla final de tuplas con evidencia y prioridad de prueba (Q3-4).</p></div>
+      <div class="mini"><h4>NO hace</h4><p>No implementa nada en <code>X0_data_supports.py</code>/
+      <code>X1_trading.py</code> de producción. No valida con backtesting — etapa posterior sobre
+      <code>X4_backtester.py</code>.</p></div>
+    </div>
+    <div class="key"><span class="t">Cita literal del notebook</span>
+      "Una hipótesis con evidencia fuerte en Q2 sigue siendo una hipótesis hasta que el backtesting la confirme."</div>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · por qué K/N_EXP/LAMBDA necesitan DOS niveles que Q2 no mide</span>
+    <p>Q2 corre sobre precio/variables de estado, nunca sobre soportes ni órdenes — aporta solo evidencia indirecta
+    sobre por qué convendría variar cada parámetro de X0:</p>
+    <ol>
+      <li><b>Nivel 1 — efecto sobre los soportes (X0):</b> cantidad, calidad individual, recencia, cobertura del
+        rango, concentración, distancia entre niveles, simetría de aislamiento, estabilidad.</li>
+      <li><b>Nivel 2 — efecto posterior en X1:</b> órdenes creadas/activadas, cierres, dinero cerrado, MAE/MFE,
+        duración, estabilidad por período.</li>
+    </ol>
+    <div class="warnbox"><span class="t">Advertencia del documento rector</span>
+      "No debe concluirse que un valor es bueno solo porque genera soportes visualmente bien distribuidos" — debe
+      demostrar utilidad operativa en X1, no solo verse bien en X0.</div>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · Q3-8 — vista unificada (para inspección, no para modelar)</span>
+    <p>Tabla con <code>DateTime</code>, <code>Close</code> y las variables cuyo <code>nivel_evidencia_descriptiva</code>
+    (§22, Q2-11) es <code>alta</code> o <code>media</code> contra <code>retorno_log_1h</code> (el target principal
+    — <code>Close</code> es solo referencial en toda la síntesis de Q2-11). Guardada en
+    <code>{valor}_q3_8_vista_unificada.csv</code>, pensada para graficar/revisar a ojo, no para modelar.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>La tabla final de hipótesis, parámetro por parámetro</h3><span class="hint">doble clic → fórmulas de X0/X1</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <div class="tw"><table>
+      <thead><tr><th>Parámetro</th><th>Variables candidatas</th><th>Relación hipotética</th><th>Prioridad</th></tr></thead>
+      <tbody>
+        <tr><td><code>N</code></td><td><code>x3_drawdown_20</code>, <code>x3_drawdown_50</code>, <code>drawdown_7d</code></td><td>drawdown sano (menos profundo) → N alto; drawdown profundo → N bajo</td><td><b>alta</b></td></tr>
+        <tr><td><code>A</code></td><td><code>x3_atr_pct</code>, <code>x3_bb_width</code></td><td>volatilidad alta → A alto; volatilidad baja → A bajo (dirección neta sobre drawdown ambigua)</td><td>media</td></tr>
+        <tr><td><code>factor_B</code></td><td><code>x3_atr_pct</code>, <code>adx_14</code>, <code>regimen_tendencia</code></td><td>volatilidad alta o tendencia fuerte → factor_B alto; volatilidad baja → factor_B bajo</td><td>media</td></tr>
+        <tr><td><code>K</code></td><td><code>duracion_en_rango</code>, <code>ruptura_rango</code></td><td>niveles persistentes/mercado estable → K alto</td><td>baja</td></tr>
+        <tr><td><code>N_EXP</code></td><td><code>cambio_volatilidad</code>, <code>frecuencia_extremos_30d</code></td><td>cambio de régimen o volatilidad creciente → N_EXP alto</td><td>media</td></tr>
+        <tr><td><code>LAMBDA</code></td><td><code>x3_bb_width</code>, <code>duracion_en_rango</code> (junto con N)</td><td>rango amplio/lateral con soportes concentrados → LAMBDA alto</td><td>baja (bloqueada)</td></tr>
+        <tr><td><code>LOTAJES_M</code></td><td>—</td><td>sin hipótesis dinámica — fijo (rango degenerado <code>(1,1)</code>)</td><td>—</td></tr>
+        <tr><td><code>PERDIDA_MAX</code></td><td>—</td><td>pausado — en evaluación para una capa externa de gestión de riesgo</td><td>—</td></tr>
+      </tbody></table></div>
+    <p><b>Criterio de selección de variables:</b> por parámetro, la de mejor evidencia descriptiva (§22, Q2-11/
+    Q2-14) que no fuera redundante con otra ya elegida para el mismo parámetro (§21, Q2-12) — ej.
+    <code>x3_vol_24h</code> se descarta en <code>A</code> por ser redundante con <code>x3_atr_pct</code> (Pearson
+    0.91). Ninguna tupla está validada — son el insumo de entrada, no una conclusión.</p>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · la mecánica exacta de cada parámetro (<code>pars_configurables.md</code>)</span>
+    <div class="tw"><table>
+      <thead><tr><th>Parámetro</th><th>Dónde actúa</th><th>Fórmula / mecánica</th></tr></thead>
+      <tbody>
+        <tr><td><code>N</code></td><td><code>X1</code></td><td>cantidad de soportes activos mantenidos por X1 (<code>n_sizes_ejecucion</code>)</td></tr>
+        <tr><td><code>A</code></td><td><code>X1</code></td><td>doble rol: filtro de OE <code>(P0-Pi)·L ≥ A</code> (con <code>L</code> al lotaje <b>mínimo</b>) y umbral de ganancia para el primer SL del trailing <code>(P0-Pi)·L ≥ A</code> (con <code>L</code> al lotaje <b>real</b> de la posición)</td></tr>
+        <tr><td><code>factor_B</code></td><td><code>X1</code></td><td><code>B = factor_B · A</code> — distancia del trailing una vez activo, <code>sl_nuevo = P0 - B/L</code></td></tr>
+        <tr><td><code>K</code></td><td><code>X0</code></td><td><code>y = Low_left + High_left + K·(Low_right + High_right)</code> — peso del aislamiento futuro vs. pasado</td></tr>
+        <tr><td><code>N_EXP</code></td><td><code>X0</code></td><td><code>w = t^N_EXP</code>, <code>t∈[0,1]</code> — exponente de recencia</td></tr>
+        <tr><td><code>LAMBDA</code></td><td><code>X0</code></td><td><code>FO = mean(z) − LAMBDA·cv(H_n)</code> — penalización por dispersión desigual entre soportes</td></tr>
+      </tbody></table></div>
+    <p><b>Dualidad de roles de <code>A</code> (por qué su prioridad es "media", no "alta"):</b> el filtro de OE y la
+    activación del trailing tiran en direcciones distintas frente a un mismo contexto — con drawdown profundo, un
+    <code>A</code> alto reduce entradas nuevas pero también retrasa la protección de una posición ganadora. El
+    efecto neto del drawdown sobre <code>A</code> no tiene dirección única; podría requerir separar
+    <code>A_OE</code>/<code>A_TRAILING</code> más adelante (decisión pendiente, documento rector).</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · prioridad de prueba — juicio explícito, no un score automático</span>
+    <p>Como ya se estableció arriba, <code>A</code>/<code>factor_B</code>/<code>K</code>/<code>N_EXP</code>/
+    <code>LAMBDA</code> no son hipótesis de predicción de retorno — su evidencia Q2 baja contra
+    <code>retorno_log_1h</code> (<code>|Pearson|&lt;0.02</code> para <code>x3_atr_pct</code>/<code>x3_bb_width</code>/
+    <code>adx_14</code>) es <b>esperada</b>, no indica menor madurez. La prioridad se basa en: madurez de la fórmula
+    hipotética (¿fórmula sugerida o solo "candidata, sin función explícita todavía"?), bloqueadores documentados, y
+    el rol de cada parámetro en la mecánica de X0/X1.</p>
+    <div class="warnbox"><span class="t">Bloqueador de LAMBDA, sin resolver</span>
+      El rango de exploración de X5 documentado para <code>LAMBDA</code> (<code>0.001</code>–<code>0.02</code>,
+      <code>config.py:319</code>) <b>no cubre</b> el valor productivo real (<code>0.2</code>,
+      <code>config.py:95</code>) — no deben sacarse conclusiones de una exploración que no contiene el valor de
+      referencia. Queda pendiente decidir si el rango está desactualizado, fuera del alcance de Q3.</div>
+    <p class="ref">Mecánica completa de cada parámetro (ubicación exacta en <code>config.py</code>/<code>X0_data_supports.py</code>/
+    <code>X1_trading.py</code>, valores actuales y rangos de exploración): <code>docs/context/pars_configurables.md</code>.</p>
+  </div>
+</div>
+
+<div class="card x5" data-lvl="1">
+  <div class="ch"><h3>Próximos pasos — qué sigue después de Q3</h3><span class="hint">doble clic → más detalle</span>
+    <div class="dots"><button data-set="1">1</button><button data-set="2">2</button><button data-set="3">3</button></div></div>
+  <div class="l l1">
+    <p>Con <code>Q3-EXEC</code> satisfecho (§17, nivel 3) la implementación de los tres notebooks queda cerrada —
+    lo que sigue vive <b>fuera</b> de <code>X5_alt_v2</code>:</p>
+    <ol>
+      <li><b>Puente a backtesting real sobre <code>X4_backtester.py</code>.</b> Ninguna hipótesis de esta sección
+        está confirmada — son candidatas a probar, no reglas.</li>
+      <li><b>Orden de validación sugerido:</b> empezar por <code>N</code> (prioridad <code>alta</code>, hipótesis
+        madura, sin bloqueadores) antes que <code>A</code>/<code>factor_B</code>/<code>N_EXP</code> (prioridad
+        <code>media</code>) y <code>K</code>/<code>LAMBDA</code> (prioridad <code>baja</code>/bloqueada) — mismo
+        orden de la tabla de arriba.</li>
+      <li><b>Decisiones de diseño pendientes antes de testear</b> (no son trabajo de Q3): separar
+        <code>A_OE</code>/<code>A_TRAILING</code> (resolver la dualidad de roles de <code>A</code>, §23 nivel 2) y
+        decidir si el rango de exploración de <code>LAMBDA</code> en <code>config.py</code> está desactualizado
+        (no cubre el valor productivo, §23 nivel 3).</li>
+      <li><b>No expandir a otros activos</b> (<code>ETHUSD</code>, <code>TSLA</code>, <code>GOOGL</code>,
+        <code>NVDA</code>, <code>AMZN</code>) hasta validar el enfoque con backtesting sobre BTCUSD — mismo
+        criterio que ya regía para <code>X5_alt</code> v1.</li>
+    </ol>
+  </div>
+  <div class="l l2">
+    <span class="lvltag">nivel 2 · dónde queda registrado este puente</span>
+    <p>El TO DO más cercano a esta etapa es "X5 — estudio posterior de parámetros manipulables y variables
+    explicativas" (<code>docs/tracking/todos.md</code>, sección X5_alt — hoy escrito en términos de
+    <code>X5_P2</code>/v1, antes de que existiera <code>X5_Q3</code>). Pide exactamente la misma tabla
+    (<code>Parámetro | Qué controla | Variable(s) candidata(s) | Hipótesis | Evidencia | Cómo validar</code>) que
+    <code>Q3-4</code> ya produjo para <code>N</code>, <code>A</code>, <code>factor_B</code>, <code>K</code>,
+    <code>N_EXP</code>, <code>LAMBDA</code> — debería actualizarse para apuntar a
+    <code>{valor}_q3_4_tabla_final.csv</code> en vez de pedir reconstruirla desde cero, y dejar como pendiente
+    explícito solo lo que de verdad falta: el backtesting.</p>
+  </div>
+  <div class="l l3">
+    <span class="lvltag">nivel 3 · por qué esto no se decide ni se agenda desde esta página</span>
+    <p>Actualizar ese TO DO, decidir el orden real de backtesting, o resolver <code>A_OE</code>/<code>A_TRAILING</code>
+    y el rango de <code>LAMBDA</code> son decisiones de proyecto, no de documentación — esta página solo las deja
+    registradas como lo que sigue, para que no se pierdan entre sesiones. Ver <code>docs/tracking/todos.md</code> y
+    <code>docs/plans/x5_contexto_conversacion.md</code> sección 21 (decisiones pendientes) para el detalle vivo.</p>
+  </div>
+</div>
+
+
 <hr>
 <p class="sub">Generado a partir de <code>docs/plans/algoritmos.tex</code>, <code>scripts/X4_backtester.py</code>,
-<code>scripts/X5_macro_brain.py</code> y <code>scripts/config_x5_default.py</code>.
+<code>scripts/X5_macro_brain.py</code> y <code>scripts/config_x5_default.py</code> (§0–§16); y de
+<code>scripts/X5_Q1.ipynb</code>, <code>scripts/X5_Q2.ipynb</code>, <code>scripts/X5_Q3.ipynb</code>,
+<code>docs/plans/X5_alternativo.md</code>, <code>docs/plans/x5_contexto_conversacion.md</code> y
+<code>docs/context/pars_configurables.md</code> (§17–§23).
 Si el código cambia, esta página no se actualiza sola.</p>
 
 </main>

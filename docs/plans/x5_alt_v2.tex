@@ -1,0 +1,1566 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Compilar con: tectonic x5_alt_v2.tex  (motor XeTeX, UTF-8 nativo) ──
+\usepackage{fontspec}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{underscore}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+
+% ── Colores (mismos que docs/plans/algoritmos.tex y formulas.tex) ──
+\definecolor{cazul}{HTML}{2C5F8A}
+\definecolor{cverde}{HTML}{2E8B57}
+\definecolor{cnaranja}{HTML}{C1660A}
+\definecolor{cmorado}{HTML}{6B4FA0}
+\definecolor{cgris}{HTML}{5B6770}
+\definecolor{cfondo}{HTML}{EDF2F7}
+\definecolor{ccodefondo}{HTML}{F6F8FA}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+\titleformat{\paragraph}[hang]{\normalfont\normalsize\bfseries\color{cazul}}{}{0pt}{}
+\titlespacing*{\paragraph}{0pt}{2.0ex plus 1ex minus .2ex}{0.8ex plus .2ex}
+
+\renewcommand{\contentsname}{Índice}
+\renewcommand{\tablename}{Tabla}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{ccodefondo},
+  frame=single,
+  rulecolor=\color{cgris!40},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=6pt,
+  framexleftmargin=4pt,
+}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% ── Caja de nota (naranja) ──
+\newenvironment{nota}{%
+  \par\medskip\noindent
+  \begin{tabular}{@{}p{0.4em}@{\hspace{8pt}}p{\dimexpr\linewidth-2em\relax}@{}}
+  \textcolor{cnaranja}{\rule{3pt}{1.1em}} &
+}{\end{tabular}\par\medskip}
+
+% ── Caja de clave (morada) — equivalente a .key del HTML ──
+\newenvironment{clave}{%
+  \par\medskip\noindent
+  \begin{tabular}{@{}p{0.4em}@{\hspace{8pt}}p{\dimexpr\linewidth-2em\relax}@{}}
+  \textcolor{cmorado}{\rule{3pt}{1.1em}} &
+}{\end{tabular}\par\medskip}
+
+% ── Caja de advertencia (roja/naranja fuerte) ──
+\definecolor{crojo}{HTML}{B3261E}
+\newenvironment{advertencia}{%
+  \par\medskip\noindent
+  \begin{tabular}{@{}p{0.4em}@{\hspace{8pt}}p{\dimexpr\linewidth-2em\relax}@{}}
+  \textcolor{crojo}{\rule{3pt}{1.1em}} &
+}{\end{tabular}\par\medskip}
+
+\newcommand{\bigsep}{\par\vspace{3pt}}
+\newcommand{\dq}[1]{\emph{``#1''}}
+
+\title{\vspace{-1.4cm}\textbf{X5\_alt\_v2 — descriptiva paralela}\\[6pt]
+  \large Cómo usar e interpretar \code{X5\_Q1} / \code{X5\_Q2} / \code{X5\_Q3}\\[4pt]
+  \normalsize\color{cgris} Análisis estadístico, fórmulas y puente hacia hipótesis de parámetro}
+\author{Proyecto Alginvesting}
+\date{\today}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{center}
+\begin{minipage}{0.88\linewidth}
+\small\color{cgris}
+Este documento describe los tres notebooks de \textbf{X5\_alt\_v2} —evolución paralela de
+\code{X5\_alt}, que a su vez corre al lado de \code{X5_macro_brain.py} sin reemplazarlo— y
+cómo interpretar cada uno de sus resultados. \code{X5\_Q1.ipynb} construye, por activo, una
+tabla continua en el tiempo del \emph{estado del activo}; \code{X5\_Q2.ipynb} cuantifica con
+evidencia estadística cómo se relaciona cada variable con el precio y el retorno;
+\code{X5\_Q3.ipynb} traduce esa evidencia en hipótesis explícitas
+\code{parámetro X5 = f(variable)}, sin implementarlas como reglas ni validarlas con
+backtesting. Documento rector: \code{docs/plans/x5\_contexto\_conversacion.md}. Estado de
+avance citado: 2026-10-12, los tres notebooks completos y ejecutados de punta a punta sobre
+BTCUSD.
+\end{minipage}
+\end{center}
+
+\vspace{8pt}
+\tableofcontents
+\newpage
+
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Introducción}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Qué es X5\_alt\_v2 y por qué existe}
+
+\code{X5\_macro\_brain.py} (el X5 en producción) funciona, pero acopla demasiados
+componentes para iterar con confianza: LightGBM, FT-Transformer, Optuna, ascenso por
+gradiente, airbag y un modo demo narrado, todo junto. \textbf{X5\_alt} nació como una
+reconstrucción \emph{paralela} —no un reemplazo— para entender primero los datos con
+evidencia, antes de decidir qué relaciones vale la pena modelar.
+
+\bigsep
+\textbf{X5\_alt\_v2} es, a su vez, una evolución paralela de X5\_alt: no toca
+\code{X5\_macro\_brain.py}, \code{X1\_trading.py}, ni \code{config.py}
+(\code{TIPO\_EJECUCION}). Tres notebooks en \code{scripts/}, parametrizados por una
+\textbf{lista} de activos (\code{valores = ['BTCUSD']}, a diferencia del \code{valor}
+singular de la versión anterior):
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \code{X5\_Q1.ipynb} — tabla de estado del activo (Sección~\ref{sec:q1}).
+\item \code{X5\_Q2.ipynb} — core descriptivo: correlación clásica, coseno, no linealidad,
+  ceteris paribus, estabilidad, régimen, redundancia, síntesis (Sección~\ref{sec:q2}).
+\item \code{X5\_Q3.ipynb} — hipótesis parámetro$\leftrightarrow$variable y tabla final
+  (Sección~\ref{sec:q3}).
+\end{itemize}
+
+\begin{nota}
+\textbf{Documento rector}: \code{docs/plans/x5\_contexto\_conversacion.md} prevalece sobre
+cualquier definición de este documento en caso de contradicción. El pre-registro de
+hipótesis (anterior a correr cualquier notebook) vive en
+\code{docs/plans/X5\_alternativo.md}, sección 10.5 (\code{[PRE-1]}).
+\end{nota}
+
+\subsection{Qué cambió respecto a la versión anterior}
+
+La versión anterior (\code{X5\_P1.ipynb}/\code{X5\_P2.ipynb}, hoy congelada como referencia
+histórica en \code{scripts/otros\_strings/}) ya construía una tabla continua en el tiempo y
+medía correlación clásica. La Tabla~\ref{tab:v1-v2} resume lo que cambió.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X X@{}}
+\toprule
+\textbf{Dimensión} & \textbf{Versión anterior} & \textbf{X5\_alt\_v2} \\
+\midrule
+Alcance del análisis & podía mezclar drawdown/equity de cuenta & \textbf{siempre por
+  activo} — nunca cuenta/posiciones \\
+Parámetros \(Y\) a explicar & sin lista cerrada & \code{N}, \code{A}, \code{factor\_B}
+  (\(B=\text{factor\_B}\cdot A\)), \code{K}, \code{N\_EXP}, \code{LAMBDA};
+  \code{LOTAJES\_M} fijo, \code{PERDIDA\_MAX} pausado \\
+Variables \(X\) & indicadores técnicos crudos de X3 & vector de \emph{estado del activo}:
+  drawdown, volatilidad, ruido, tendencia/régimen, liquidez, fundamental — más
+  transformaciones por ATR en vez de niveles crudos \\
+Métrica de asociación & Pearson + Spearman & + \textbf{coseno} \(\cos(P_v,X_v)\)
+  (Sección~\ref{ssec:coseno}) \\
+Convención de nombres & \code{P1} / \code{P2} & \code{Q1} / \code{Q2} / \code{Q3} \\
+Input & \code{valor} (string único) & \code{valores} (lista) \\
+Entrega de resultados & archivos sueltos & 1 \code{.zip} por notebook; nunca gráficos
+  embebidos — solo código y los datos detrás de cada gráfico, en CSV \\
+\bottomrule
+\end{tabularx}
+\caption{Diferencias entre la versión anterior (congelada) y X5\_alt\_v2.}
+\label{tab:v1-v2}
+\end{table}
+
+\subsection{Cinco principios que gobiernan los tres notebooks}
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Parsimonia.} Pocas variables explicativas por parámetro, elegidas por
+  evidencia — nunca todas las disponibles.
+\item \textbf{Especialización por parámetro.} Cada parámetro depende solo de las variables
+  que tengan sentido para él, no de un estado global único.
+\item \textbf{Evidencia antes que arquitectura.} No saltar a modelos sofisticados (Markov,
+  Aprendizaje por Refuerzo) sin demostrar primero, con datos, que la relación existe.
+\item \textbf{Confiabilidad antes que sofisticación.} Entender qué información hay
+  disponible y con qué calidad antes de construir nada encima.
+\item \textbf{Baseline primero.} Cualquier sofisticación futura debe superar algo simple y
+  estático.
+\end{enumerate}
+
+\bigsep
+A estos se agrega la \textbf{filosofía estadística} que gobierna todo \code{X5\_Q2.ipynb}:
+no confundir correlación con causalidad; no confundir relación contemporánea con
+predicción (\(\mathrm{Corr}(X_t,P_t)\) no implica anticipar \(P_{t+h}\)); no confundir
+repetición de datos con información nueva (los fundamentales llegan por
+\emph{forward-fill}); no asumir linealidad ni estabilidad; no sobrecomplicar —favorecer
+interpretabilidad sobre maximizar una métrica de \emph{Machine Learning} (ML).
+
+\subsection{Convención de fuerza y dirección}
+\label{ssec:convencion-fuerza}
+
+Usada en todo el documento al reportar Pearson (y, por referencia, Spearman/coseno al
+lado), heredada tal cual de la versión anterior.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\(|\text{Pearson}|\) & Etiqueta \\
+\midrule
+\(< 0.10\) & nula / despreciable \\
+\(0.10 - 0.30\) & débil \\
+\(0.30 - 0.50\) & moderada \\
+\(0.50 - 0.70\) & fuerte \\
+\(\geq 0.70\) & muy fuerte \\
+\bottomrule
+\end{tabular}
+\caption{Convención de fuerza/dirección, usada como referencia incluso al reportar Spearman
+y coseno.}
+\end{table}
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Notación y glosario de siglas}
+\label{sec:notacion}
+% ═══════════════════════════════════════════════════════════════════════════
+
+Símbolos usados a lo largo del documento, y las siglas técnicas que aparecen primero en su
+forma completa en cada sección pero se abrevian después de la primera mención.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\textbf{Símbolo} & \textbf{Significado} \\
+\midrule
+\(P_v\), \(X_v\) & Vector de precios y vector de una variable explicativa, en el tiempo
+  (Sección~\ref{ssec:coseno}). \\
+\(r_t\) & Retorno logarítmico horario, \(r_t = \ln(\text{Close}_t/\text{Close}_{t-1})\). \\
+\(h\) & Horizonte en horas (velas H1) de una ventana retrospectiva o un horizonte de
+  retorno pasado. \\
+\(\bar{x}\), \(\sigma_x\) & Media y desviación estándar de una variable \(x\). \\
+\(X_z\) & Variable estandarizada: \(X_z = (X-\mu_X)/\sigma_X\) (z-score). \\
+\(n\), \(k\) & Número de observaciones y número de columnas (regresores + intercepto) de
+  una regresión. \\
+\(P_0\), \(P_i\) & Precio actual y precio de referencia (soporte o apertura de una
+  posición), notación heredada de \code{docs/plans/formulas.tex}. \\
+\(A\), \(B\), \(L\) & Umbral de activación en USD, distancia del trailing en USD, y
+  exposición en USD por unidad de precio (\(L = \text{lote}\cdot\text{unidades}\)). \\
+\bottomrule
+\end{tabularx}
+\caption{Notación matemática usada en este documento.}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\textbf{Sigla} & \textbf{Concepto completo} \\
+\midrule
+ATR & Average True Range (rango verdadero promedio) — medida de volatilidad de Wilder. \\
+RSI & Relative Strength Index (índice de fuerza relativa) — oscilador de Wilder, acotado
+  0--100. \\
+ADX & Average Directional Index (índice direccional promedio) — fuerza de tendencia de
+  Wilder, sin dirección. \\
+DI\textsuperscript{+}/DI\textsuperscript{-} & Directional Indicator positivo/negativo —
+  componentes direccionales que alimentan el ADX. \\
+RVOL & Relative Volume (volumen relativo) — \code{Tick\_Volume} contra su propio promedio
+  móvil. \\
+VIF & Variance Inflation Factor (Factor de Inflación de Varianza) — mide colinealidad
+  conjunta de una variable con todas las demás. \\
+OLS & Ordinary Least Squares (mínimos cuadrados ordinarios) — método clásico de
+  regresión lineal. \\
+dcor & Distance Correlation (correlación de distancia), de Székely--Rizzo — captura
+  cualquier forma de dependencia, no solo lineal. \\
+MI & Mutual Information (información mutua) — dependencia estadística general entre dos
+  variables, medida en nats. \\
+MAE/MFE & Maximum Adverse/Favorable Excursion (excursión adversa/favorable máxima) — cuánto
+  se movió el precio en contra o a favor de una posición mientras estuvo abierta. \\
+OE/OA/OC & Orden en Espera / Orden Abierta / Orden Cerrada — progresión de una orden en
+  \code{X1\_trading.py} (ver \code{CLAUDE.md}). \\
+\bottomrule
+\end{tabularx}
+\caption{Glosario de siglas técnicas usadas en este documento.}
+\end{table}
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{X5\_Q1 — tabla de estado del activo}
+\label{sec:q1}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\subsection{Arquitectura y pipeline}
+
+Por cada activo de \code{valores}, el notebook construye una tabla H1 continua (una fila
+por vela horaria): precio + X3 (técnicos) + X2 (fundamental) + seis familias de variables de
+\emph{estado del activo}, en este orden —cada sección encadena sobre la tabla de la
+anterior—:
+
+\begin{center}
+\small
+\begin{tabular}{@{}cccccccc@{}}
+base & \(\to\) & técnicos & \(\to\) & drawdown & \(\to\) & volatilidad & \(\to\) \\
+liquidez & \(\to\) & fundamental & \(\to\) & ruido & \(\to\) & tendencia/régimen & \(\to\) \\
+\multicolumn{8}{c}{catálogo de documentación \(\to\) guardar CSV \(\to\) exportar \code{.zip}} \\
+\end{tabular}
+\end{center}
+
+Guarda \code{\{valor\}\_tabla\_estado\_v2.csv} y \code{\{valor\}\_catalogo\_variables.csv}
+en \code{resources/x5\_alt/} — consumidos por Q2/Q3, nunca recalculados ahí.
+\textbf{Reutiliza en vez de reimplementar}: \code{\_calcular\_todos\_indicadores} y
+\code{\_wilder\_ema} de \code{X3\_technical\_features.py} — ningún indicador (RSI, ATR,
+ADX) se recalcula desde cero donde X3 ya lo resuelve.
+
+\subsection{Cómo correr el notebook}
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+\item Abrir \code{scripts/X5\_Q1.ipynb} en Windows (necesita \code{Data/},
+  \code{resources/x2/} y \code{resources/x3/} actualizados — no disponibles así en Mac).
+\item Editar, si corresponde, la primera celda de código: \code{valores = ['BTCUSD']} —
+  es una \textbf{lista}, se puede extender a varios activos sin tocar el resto del
+  notebook.
+\item Ejecutar todas las celdas de arriba hacia abajo (\code{Run All} o
+  \code{jupyter nbconvert --execute}, kernel \code{revenAI}). Cada sección depende de la
+  anterior — no hay celdas que se puedan saltar.
+\item Verificar al final que se generaron, por activo,
+  \code{\{valor\}\_tabla\_estado\_v2.csv} y \code{\{valor\}\_catalogo\_variables.csv} en
+  \code{resources/x5\_alt/}, y que la última celda empaquetó el \code{.zip} con
+  \code{exportar\_zip}.
+\item Bajar el \code{.zip} de Windows y pasarlo a Claude en Mac — es la vía normal de
+  entrega, ya que \code{Data/}/X2/X3 no están disponibles así en Mac.
+\end{enumerate}
+
+\subsection{Técnicos filtrados y transformados}
+
+Los niveles crudos de medias móviles (\code{x3\_sma\_\{20,50,200\}},
+\code{x3\_ema\_\{12,26\}}) se descartan: su correlación con \code{Close} es \(\approx 1\)
+por construcción, no aportan señal nueva como variable de estado. Se reemplazan por dos
+transformaciones normalizadas por ATR —independientes de la escala de precio y del régimen
+de volatilidad—:
+
+\begin{align}
+\text{distancia\_sma}_w &= \frac{\text{Close} - \text{SMA}_w}{\text{ATR}_{14}} \\
+\text{pendiente\_sma}_w &= \frac{\text{SMA}_w.\text{diff}(w) / w}{\text{ATR}_{14}}
+\end{align}
+
+con \(w \in \{20,50,200\}\) para SMA y \(w \in \{12,26\}\) para EMA (misma fórmula,
+sustituyendo \(\text{SMA}_w\) por \(\text{EMA}_w\)).
+
+\subsection{Variables de drawdown del activo}
+
+Drawdown \textbf{del activo} —nunca de cuenta o posiciones, eso es responsabilidad de
+X1/X4—, en dos vistas complementarias:
+
+\begin{align}
+\text{drawdown\_historico} &= \frac{\text{Close} - \mathrm{cummax}(\text{Close})}
+  {\mathrm{cummax}(\text{Close})} \\
+\text{duracion\_drawdown} &= \text{velas desde el último máximo histórico} \\
+\text{recuperacion\_desde\_minimo} &= \frac{\text{Close} - \min(\text{episodio})}
+  {\min(\text{episodio})} \\
+\text{velocidad\_caida} &= \frac{\text{drawdown\_historico}}{\text{duracion\_drawdown}} \\
+\text{drawdown}_{d} &= \frac{\text{Close} - \max_{h}(\text{Close})}{\max_{h}(\text{Close})},
+  \quad d \in \{7,30,90,365\}\text{ días}
+\end{align}
+
+donde \(h\) es la ventana rodante en horas (\(168, 720, 2160, 8760\)). A diferencia del
+histórico, las ventanas de \(d\) días \dq{resetean} la referencia si el precio alcanzó un
+máximo reciente, aunque no sea el máximo histórico absoluto.
+
+\subsubsection*{Ejemplo numérico (ilustrativo, no datos reales)}
+
+Diez velas de juguete, para ver cómo se mueven \code{drawdown\_historico},
+\code{duracion\_drawdown}, \code{velocidad\_caida} y \code{recuperacion\_desde\_minimo}
+juntas.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}r r r r r r r@{}}
+\toprule
+\(t\) & Close & cummax & drawdown\_hist. & duracion & velocidad\_caida & recuperación \\
+\midrule
+1  & 100 & 100 & 0{,}000  & 0 & — & 0{,}000 \\
+2  & 102 & 102 & 0{,}000  & 0 & — & 0{,}000 \\
+3  & 101 & 102 & \(-0{,}010\) & 1 & \(-0{,}0098\) & 0{,}000 \\
+4  & 105 & 105 & 0{,}000  & 0 & — & 0{,}000 \\
+5  & 103 & 105 & \(-0{,}019\) & 1 & \(-0{,}0190\) & 0{,}000 \\
+6  & 98  & 105 & \(-0{,}067\) & 2 & \(-0{,}0333\) & 0{,}000 \\
+7  & 99  & 105 & \(-0{,}057\) & 3 & \(-0{,}0190\) & 0{,}010 \\
+8  & 104 & 105 & \(-0{,}010\) & 4 & \(-0{,}0024\) & 0{,}061 \\
+9  & 106 & 106 & 0{,}000  & 0 & — & 0{,}000 \\
+10 & 103 & 106 & \(-0{,}028\) & 1 & \(-0{,}0283\) & 0{,}000 \\
+\bottomrule
+\end{tabular}
+\caption{Serie de juguete. \dq{velocidad\_caida} queda sin definir (\code{NaN}) cuando
+\code{duracion\_drawdown}\(=0\) —justo en la vela donde se marca un nuevo máximo— por la
+división por cero evitada con \code{replace(0, NaN)}.}
+\end{table}
+
+Lectura: en \(t{=}6\) el precio cae a 98, lejos del máximo de 105 marcado en \(t{=}4\)
+—drawdown de \(-6{,}7\%\) en solo 2 velas, la caída más rápida de la serie
+(\(\text{velocidad\_caida}=-0{,}0333\))—. Entre \(t{=}7\) y \(t{=}8\) el precio se recupera
+desde el mínimo del episodio (98) sin alcanzar aún un nuevo máximo histórico, por eso
+\code{recuperacion\_desde\_minimo} crece (\(0{,}010 \to 0{,}061\)) mientras
+\code{drawdown\_historico} sigue negativo. Recién en \(t{=}9\) el precio supera 105 y
+\code{duracion\_drawdown} vuelve a 0 — comienza un episodio nuevo.
+
+\subsection{Variables de volatilidad}
+
+El ATR absoluto/relativo y la volatilidad realizada corta/larga ya los calcula X3
+(\code{x3\_atr\_14}, \code{x3\_atr\_pct}, \code{x3\_vol\_24h}, \code{x3\_vol\_7d}) — se
+reutilizan tal cual. Se agregan tres variables nuevas, sobre retornos logarítmicos
+horarios \(r_t = \ln(\text{Close}_t / \text{Close}_{t-1})\):
+
+\begin{align}
+\text{cambio\_volatilidad} &= \frac{x3\_vol\_24h}{x3\_vol\_7d} \\
+\text{vol\_alcista}_{30d} &= \mathrm{std}_{30d}(r_t \mid r_t > 0) \cdot \sqrt{8760} \\
+\text{vol\_bajista}_{30d} &= \mathrm{std}_{30d}(r_t \mid r_t < 0) \cdot \sqrt{8760} \\
+\text{frecuencia\_extremos}_{30d} &= \mathrm{media}_{30d}\big(|r_t| > 2\cdot
+  \mathrm{std}_{\mathrm{expandida}}(r_t)\big)
+\end{align}
+
+\begin{nota}
+El umbral de \code{frecuencia\_extremos\_30d} usa \code{expanding()} (no \code{rolling()})
+para no mirar información futura al definirlo — el umbral en \(t\) solo usa información
+\(\leq t\).
+\end{nota}
+
+\subsection{Variables de liquidez}
+
+\code{Spread} y \code{Tick\_Volume} vienen directo del CSV de MT5 (\code{Real\_Volume}
+siempre en 0 — el bróker no lo reporta).
+
+\begin{align}
+\text{spread\_relativo} &= \frac{\text{Spread}}{\mathrm{media}_{30d}(\text{Spread})} \\
+\text{tick\_volume\_z} &= \frac{\text{Tick\_Volume} - \mathrm{media}_{30d}}
+  {\mathrm{std}_{30d}} \\
+\text{volumen\_relativo} &= \frac{\text{Tick\_Volume}}{\mathrm{media}_{30d}
+  (\text{Tick\_Volume})}
+\end{align}
+
+\begin{nota}
+\code{Spread} viene en puntos del bróker MT5, no en USD — convertirlo exige
+\code{symbol\_info(valor).point}, no disponible en Mac ni persistido en los CSV. Por eso
+\code{spread\_relativo} normaliza contra su propio promedio móvil en vez de contra
+\code{Close}.
+\end{nota}
+
+\subsection{Variables fundamentales de estado}
+
+Las columnas \code{x2\_score}/\code{x2\_score\_cross}/\code{x2\_score\_tendencia} llegan
+por \code{merge\_asof(direction='backward')} —forward-fill del último valor conocido—.
+Las variables de esta sección existen para distinguir una actualización real de la mera
+repetición del forward-fill:
+
+\begin{align}
+\text{fundamental\_cambio} &= x2\_score.\mathrm{diff}() \\
+\text{fundamental\_edad} &= \text{velas desde la última actualización real} \\
+\text{fundamental\_contradiccion} &= (x2\_score\_cross - 0.5)\cdot
+  (x2\_score\_tendencia - 0.5)
+\end{align}
+
+En \code{fundamental\_contradiccion}: negativo = contradicción (un componente sobre
+neutro y el otro bajo), positivo = consistencia, \(0\) = al menos uno es neutro.
+
+\begin{advertencia}
+\textbf{\(x2\_score\) queda 100\% \texttt{NaN} para BTCUSD con los datos actuales de Mac.}
+\code{Data/BTCUSD.csv} termina el 2026-06-02; los únicos registros de
+\code{x2\_history.json} para BTCUSD son posteriores (2026-06-12+) → el \emph{merge asof
+backward} no tiene nada hacia atrás que propagar. \textbf{No es un bug}: es la escasez de
+X2 ya señalada en \code{X5\_alternativo.md}, agravada por el desfase de fechas en esta
+copia. Se valida al refrescar \code{Data/}/\code{x2\_history.json} desde Windows con fechas
+que se solapen.
+\end{advertencia}
+
+\subsection{Variables de ruido}
+
+Sobre retornos logarítmicos horarios y ventana de 30 días (720h), reutilizando
+\code{x3\_atr\_pct} en vez de recalcular ATR:
+
+\begin{align}
+\text{ruido\_cambios\_signo}_{30d} &= \mathrm{media}_{30d}\big(\mathrm{sign}(r_t) \neq
+  \mathrm{sign}(r_{t-1})\big) \\
+\text{ruido\_ratio\_movimiento}_{30d} &= \frac{\sum_{30d} |r_t|}
+  {\left|\sum_{30d} r_t\right|} \\
+\text{ruido\_mecha}_{30d} &= \mathrm{media}_{30d}\left(
+  \frac{\text{High}-\text{Low}-|\text{Close}-\text{Open}|}{\text{High}-\text{Low}}\right) \\
+\text{ruido\_atr\_sin\_direccion}_{30d} &= \frac{\mathrm{media}_{30d}(x3\_atr\_pct)}
+  {\left|\sum_{30d} r_t\right|}
+\end{align}
+
+\begin{nota}
+\code{ruido\_ratio\_movimiento\_30d} es el \textbf{inverso del Efficiency Ratio de
+Kaufman}: cercano a 1 = recorrido \(\approx\) desplazamiento neto (movimiento eficiente);
+alto = mucho recorrido para poco desplazamiento neto (ruido/\emph{whipsaw}).
+\code{ruido\_mecha\_30d} agrega en ventana el mismo concepto de \dq{fuerza del rechazo} que
+usa el algoritmo de soportes de X0 (\(f = 1-|\text{Close}-\text{Open}|/(\text{High}-
+\text{Low})\)) por vela.
+\end{nota}
+
+\subsection{Variables de tendencia y régimen}
+
+\begin{align}
+\mathrm{ADX}_{14} &= \mathrm{WilderEMA}(\mathrm{DX}, 14), \qquad
+  \mathrm{DX} = 100 \cdot \frac{|{+}\mathrm{DI} - {-}\mathrm{DI}|}{{+}\mathrm{DI}+{-}
+  \mathrm{DI}}
+\end{align}
+
+reutilizando \code{\_wilder\_ema} —el mismo suavizado que \code{\_calcular\_atr}— en vez de
+un esquema de suavizado distinto.
+
+\begin{lstlisting}
+regimen_tendencia:
+    'sideways'  si adx_14 < 20                 # mercado sin tendencia clara (Wilder)
+    'bull'      si adx_14 >= 20 y pendiente > 0  # pendiente = x3_trend_slope_50
+    'bear'      si adx_14 >= 20 y pendiente < 0
+
+ruptura_rango:
+    +1  si Close > max(20 velas previas)       # estilo canal de Donchian
+    -1  si Close < min(20 velas previas)
+     0  en otro caso
+
+duracion_en_rango = velas desde la última ruptura de rango
+\end{lstlisting}
+
+\subsubsection*{Ejemplo numérico simplificado (ilustrativo, no datos reales)}
+
+Cuatro velas de juguete, para ver de dónde salen \(+\mathrm{DM}\), \(-\mathrm{DM}\),
+\(\mathrm{TR}\), \(\pm\mathrm{DI}\) y \(\mathrm{DX}\) \textbf{antes} del suavizado de
+Wilder (que en producción corre sobre 14 períodos, no 3 — acá se usa un promedio simple
+solo para ilustrar la mecánica, no el ADX real).
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}r r r r r r r@{}}
+\toprule
+\(t\) & High & Low & Close\(_{prev}\) & \(+\mathrm{DM}\) & \(-\mathrm{DM}\) & TR \\
+\midrule
+2 & 104 & 101 & 100 & 3 & 0 & 4 \\
+3 & 103 & 99  & 103 & 0 & 2 & 4 \\
+4 & 107 & 102 & 100 & 4 & 0 & 7 \\
+\bottomrule
+\end{tabular}
+\caption{\(+\mathrm{DM}\)/\(-\mathrm{DM}\)/TR de la serie de juguete (High inicial 101,
+Low inicial 99 en \(t{=}1\), sin fila propia por no tener vela previa).}
+\end{table}
+
+Promediando simple las 3 filas (en vez del suavizado de Wilder de 14 períodos):
+
+\begin{align}
+\overline{\mathrm{TR}} = \frac{4+4+7}{3} = 5, \qquad
+\overline{{+}\mathrm{DM}} = \frac{3+0+4}{3} = 2{,}33, \qquad
+\overline{{-}\mathrm{DM}} = \frac{0+2+0}{3} = 0{,}67
+\end{align}
+
+\begin{align}
+{+}\mathrm{DI} = 100 \cdot \frac{2{,}33}{5} = 46{,}7, \qquad
+{-}\mathrm{DI} = 100 \cdot \frac{0{,}67}{5} = 13{,}3
+\end{align}
+
+\begin{align}
+\mathrm{DX} = 100 \cdot \frac{|46{,}7 - 13{,}3|}{46{,}7 + 13{,}3} = 100 \cdot
+  \frac{33{,}3}{60{,}0} \approx 55{,}6
+\end{align}
+
+Si este nivel se sostuviera tras el suavizado de 14 períodos, \(\mathrm{ADX}_{14}
+\approx 55{,}6 > 20\) \(\Rightarrow\) \textbf{no} es \code{'sideways'}; como
+\(+\mathrm{DM}\) domina sobre \(-\mathrm{DM}\) (la pendiente de \code{x3\_trend\_slope\_50}
+sería positiva en un contexto así), \code{regimen\_tendencia} resultaría \code{'bull'}.
+
+\subsection{Catálogo de variables y limitaciones}
+
+La última sección del notebook genera, por columna de la tabla final (incluidas las
+heredadas de precio/X3/X2), una fila con fuente, significado, unidad, fórmula,
+\code{forward\_fill}, granularidad esperada/observada, cobertura y limitaciones —
+referencia rápida para \code{X5\_Q2}/\code{X5\_Q3} sin releer cada celda de este notebook.
+Se guarda en \code{resources/x5\_alt/\{valor\}\_catalogo\_variables.csv}.
+
+\bigsep
+\textbf{Limitaciones adicionales}, más allá del \(x2\_score\) ya señalado: NaN de
+warm-up en toda variable con ventana (ej. \code{x3\_vol\_7d} en las primeras 167 velas;
+\code{drawdown\_\{7,30,90,365\}d} usan \code{min\_periods=1} desde la primera vela, a
+diferencia de \code{x3\_drawdown\_20/50} que exigen la ventana completa).
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{X5\_Q2 — core descriptivo}
+\label{sec:q2}
+% ═══════════════════════════════════════════════════════════════════════════
+
+Segundo notebook — consume \code{\{valor\}\_tabla\_estado\_v2.csv} de Q1, nunca la
+recalcula. Cubre diez ítems analíticos (\code{Q2-2} a \code{Q2-14}), todos sobre el mismo
+conjunto de variables explicativas y con el mismo filtro mínimo: 30 observaciones no nulas
+y ambas series con dispersión no nula; si no se cumple, se omite con aviso.
+
+\subsection{Cómo correr el notebook}
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+\item Requiere que \code{X5\_Q1.ipynb} ya haya generado
+  \code{\{valor\}\_tabla\_estado\_v2.csv} para cada activo de \code{valores} — si falta,
+  la primera celda de carga levanta \code{FileNotFoundError} con un mensaje explícito.
+\item Ejecutar de arriba hacia abajo. Las catorce subsecciones (\code{Q2-2} a
+  \code{Q2-14}) son mayormente independientes entre sí, pero todas dependen de la carga
+  inicial (\code{Q2-1}) y comparten las mismas variables/targets definidos ahí
+  (\code{\_variables\_analisis\_q2\_3}, \code{TARGETS\_Q2\_3}) — no se recalculan por
+  separado en cada sección.
+\item Es el notebook más largo de los tres (89 celdas) — correrlo completo en Windows
+  toma varios minutos, principalmente por la correlación de distancia (\code{Q2-14},
+  cuadrática en el tamaño de la submuestra) y los 14 ítems con sus gráficos.
+\item Verificar al final que se generó
+  \code{\{valor\}\_q2\_5\_export\_metricas.json} —es el único archivo que
+  \code{X5\_Q3.ipynb} necesita de este notebook— y que el \code{.zip} final incluye los
+  \textasciitilde19 CSV intermedios (uno por ítem, por activo).
+\end{enumerate}
+
+\subsection{Decisión de diseño: dos paneles, no uno}
+\label{ssec:dos-paneles}
+
+Cada variable se evalúa contra \textbf{dos targets}, nunca solo contra \code{Close}:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Panel A — nivel (\code{Close}), referencial.} Fiel al planteamiento
+  original (\dq{variable$\leftrightarrow$precio}), se muestra pero se marca expresamente como
+  \textbf{no concluyente}: \code{Close} no es estacionario (BTCUSD recorrió
+  \(\sim\)20.000\(\to\)100.000 USD entre 2021 y 2026), así que casi cualquier variable con
+  tendencia propia \dq{correlaciona} con el nivel por coincidencia temporal.
+\item \textbf{Panel B — retorno contemporáneo, principal.}
+  \(\text{retorno\_log\_1h} = \ln(\text{Close}_t / \text{Close}_{t-1})\). Estacionario —
+  alimenta el ranking de esta sección y todos los ítems posteriores.
+\end{itemize}
+
+\code{regimen\_tendencia} (bull/bear/sideways, sin orden natural) se trata aparte:
+comparación directa de medias por categoría en vez de forzar un \code{factorize}
+arbitrario en Pearson/Spearman.
+
+\subsection{Pearson, Spearman y decil (Q2-3)}
+
+Por variable y panel: Pearson (relación lineal), Spearman (relación monótona), scatter +
+regresión lineal simple (descriptiva, no predictiva), y el target medio por decil (10
+cuantiles) de la variable.
+
+\begin{align}
+r_{\mathrm{Pearson}} &= \frac{\sum_i (x_i - \bar{x})(y_i - \bar{y})}
+  {\sqrt{\sum_i (x_i-\bar{x})^2} \cdot \sqrt{\sum_i (y_i-\bar{y})^2}} \\
+\rho_{\mathrm{Spearman}} &= r_{\mathrm{Pearson}}\big(\mathrm{rango}(x),\, \mathrm{rango}(y)
+  \big) \;=\; 1 - \frac{6\sum_i d_i^2}{n(n^2-1)} \quad \text{(sin empates)}
+\end{align}
+
+donde \(d_i = \mathrm{rango}(x_i) - \mathrm{rango}(y_i)\). Spearman es, literalmente,
+Pearson aplicado a los rangos en vez de a los valores crudos — por eso detecta relaciones
+monótonas no lineales que Pearson puede subestimar.
+
+\subsubsection*{Ejemplo numérico (ilustrativo)}
+
+Con \(x=(1,2,3,4,5)\) y \(y=(2,1,4,3,5)\) —monótona pero no perfectamente—:
+\(\bar{x}=\bar{y}=3\); \(\sum(x_i-\bar{x})(y_i-\bar{y}) = 8\);
+\(\sum(x_i-\bar{x})^2 = \sum(y_i-\bar{y})^2 = 10\) \(\Rightarrow\)
+
+\begin{align}
+r_{\mathrm{Pearson}} = \frac{8}{\sqrt{10\cdot 10}} = 0{,}80
+\end{align}
+
+Como \(x\) ya son sus propios rangos y \(y\) es una permutación de \(1..5\), los rangos de
+\(y\) son \(y\) mismo: \(d = (1{-}2,\,2{-}1,\,3{-}4,\,4{-}3,\,5{-}5) = (-1,1,-1,1,0)\),
+\(\sum d_i^2 = 4\):
+
+\begin{align}
+\rho_{\mathrm{Spearman}} = 1 - \frac{6\cdot 4}{5\cdot 24} = 1 - 0{,}20 = 0{,}80
+\end{align}
+
+En este caso particular ambas coinciden (\(0{,}80\), \dq{fuerte} según la convención de la
+Sección~\ref{ssec:convencion-fuerza}) porque los datos de juguete ya eran casi rangos puros
+— con datos reales ruidosos, Pearson y Spearman típicamente divergen más, y esa divergencia
+es justamente lo que revela si la relación es lineal o solo monótona.
+
+\begin{lstlisting}
+def analizar_variable_vs_target(df, col, target_col, n_bins=10):
+    sub = df[[col, target_col]].dropna()
+    if len(sub) < 30: return None
+    pear_r, pear_p   = pearsonr(x, y)
+    spear_r, spear_p = spearmanr(x, y)
+    bins = pd.qcut(sub[col], n_bins, duplicates='drop')
+    por_decil = sub.groupby(bins)[target_col].mean()
+\end{lstlisting}
+
+\subsubsection*{Cómo leer la tabla de deciles}
+
+\code{pd.qcut} divide los valores de la variable en 10 grupos de igual tamaño
+—\emph{cuantiles}, no rangos fijos—: el decil 1 son el 10\% de las observaciones con el
+valor \textbf{más bajo} de la variable, el decil 10 el 10\% con el valor \textbf{más
+alto}, y cada decil tiene el mismo número de observaciones por construcción (a diferencia
+de dividir el rango de la variable en 10 tramos iguales, que dejaría deciles con
+cantidades de datos muy distintas si la variable no es uniforme). La columna que importa
+es el \textbf{target medio dentro de cada decil}: si esos 10 promedios crecen de forma
+pareja del decil 1 al 10, la relación es aproximadamente lineal y monótona; si crecen
+solo en los extremos y quedan planos en el medio, es la señal de un posible umbral (ver
+\dq{no linealidades}, más adelante en esta sección); si no siguen ningún patrón claro, la
+variable probablemente no tiene relación real con el target más allá de lo que ya
+capturó Pearson.
+
+\textbf{Limitación central}: \(\sim\)40.000 observaciones horarias fuertemente
+autocorrelacionadas (no independientes) \(\Rightarrow\) los \(p\)-values salen
+extremadamente pequeños incluso para relaciones triviales — se muestran solo de
+referencia, no deben leerse literalmente.
+
+\subsection{Coseno vector-precio vs. vector-variable (Q2-4)}
+\label{ssec:coseno}
+
+Complementa Pearson/Spearman con una medida de \textbf{alineación direccional} entre el
+vector de precios \(P_v\) y el de cada variable \(X_v\) en el tiempo:
+
+\begin{align}
+\cos(P_v, X_v) &= \frac{P_v \cdot X_v}{\|P_v\|\,\|X_v\|}
+\end{align}
+
+A diferencia de Pearson, \textbf{no centra nada} — mide el ángulo entre los vectores
+crudos. Pearson \emph{es} el coseno de las series ya centradas:
+
+\begin{align}
+\mathrm{corr}(x,y) = \cos(x - \bar{x},\; y - \bar{y})
+\end{align}
+
+Esa diferencia produce comportamientos distintos según el panel, verificados con BTCUSD
+real (Tabla~\ref{tab:coseno-ejemplo}).
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}X c c c X@{}}
+\toprule
+\textbf{Variable} & \textbf{Panel} & \textbf{Pearson} & \textbf{Coseno} & \textbf{Lectura} \\
+\midrule
+\code{drawdown\_historico} & A (\code{Close}) & \(+0.87\) & \(-0.51\) & el coseno sin
+  centrar \textbf{invierte el signo} frente a Pearson \\
+\code{ruido\_cambios\_signo\_30d} & A (\code{Close}) & \(-0.54\) & \(+0.87\) & mismo
+  fenómeno, en sentido opuesto \\
+\code{x3\_rsi\_14} (centrado \(\sim\)50) & B (retorno) & \(0.338\) & \(0.080\) & coseno
+  fuertemente atenuado por el baseline alto \\
+\code{x3\_macd\_hist} (centrado \(\sim\)0) & B (retorno) & \(0.167\) & \(0.167\) & sin
+  baseline que distorsione, coinciden casi exacto \\
+\bottomrule
+\end{tabularx}
+\caption{Coseno vs. Pearson, ejemplos reales de BTCUSD. El coseno no es \dq{Pearson más
+permisivo} sobre el nivel — es una cantidad distinta.}
+\label{tab:coseno-ejemplo}
+\end{table}
+
+\subsection{No linealidades, umbrales y saturación (Q2-7)}
+
+\textbf{Pregunta}: ¿la relación variable$\leftrightarrow$target es lineal en todo su rango, o cambia de
+forma en algún tramo —plana en valores normales pero distinta sobre el percentil 90, o con
+un efecto que se satura en los extremos—?
+
+\begin{align}
+\Delta R^2 &= R^2_{\mathrm{cuad}} - R^2_{\mathrm{lin}}
+  \qquad (\texttt{polyfit} \text{ grado 1 vs. 2})
+\end{align}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X l@{}}
+\toprule
+\textbf{Métrica} & \textbf{Regla} & \textbf{Umbral} \\
+\midrule
+Curvatura & \(\Delta R^2 \geq 0.01\) \(\Rightarrow\) curvatura relevante; forma U/U
+  invertida según signo del coef. cuadrático & \(0.01\) \\
+Umbral de cola & \(|\text{media}_{\text{cola}} - \text{media}_{\text{cuerpo}}| > k \cdot
+  \text{std}_{\text{cuerpo}}\), colas en \(p_{10}\)/\(p_{90}\), mín. 10 obs. & \(k=0.5\) \\
+Saturación & pendiente local de la cola mantiene signo global pero
+  \(|\text{pendiente}_{\text{cola}}/\text{pendiente}_{\text{global}}| < r\) & \(r=0.3\) \\
+Asimetría & \(\mathrm{skew}(\text{variable})\) + Pearson(mitad baja) vs.
+  Pearson(mitad alta) de la mediana & cambio de signo \(\Rightarrow\) no simétrica \\
+\bottomrule
+\end{tabularx}
+\caption{Umbrales exactos de Q2-7.}
+\end{table}
+
+\begin{clave}
+Una variable con \(\Delta R^2\) alto, cola marcada como umbral, o asimetría fuerte entre
+mitades es candidata a jugar un rol de \dq{régimen}/condición —activa o modula un
+parámetro solo bajo cierto percentil— en vez de una relación lineal continua. Alimenta las
+hipótesis de \code{K}/\code{N\_EXP} (Sección~\ref{sec:q3}).
+\end{clave}
+
+\subsection{Variable vs. comportamiento histórico reciente del precio (Q2-8)}
+
+A diferencia de Q2-3 (contemporáneo), aquí el target es lo que el precio ya venía
+acumulando \textbf{antes} de \(t\):
+
+\begin{align}
+\text{retorno\_pasado}_h = \ln\!\left(\frac{\text{Close}_t}{\text{Close}_{t-h}}\right),
+  \qquad h \in \{6h,\, 24h,\, 72h,\, 168h\}
+\end{align}
+
+Reutiliza exactamente \code{analizar\_variable\_vs\_target} de Q2-3 —solo cambia el
+target—. Sigue siendo descriptivo/histórico: una variable fuertemente asociada al retorno
+pasado de 7 días puede estar simplemente \emph{midiendo} ese mismo retorno (variables
+construidas desde el propio precio, ej. \code{x3\_roc\_20}) — la redundancia (Q2-12,
+Sección~\ref{ssec:redundancia}) distingue eso de una relación informativa nueva.
+
+\subsection{Ceteris paribus: regresión multivariable y VIF (Q2-6)}
+
+\textbf{Pregunta}: si comparo dos instantes con el \textbf{mismo} valor en todas las demás
+variables y que solo difieran en una, ¿cambia el precio/retorno? Varias variables de Q1
+comparten información —un Pearson individual alto puede ser la misma señal contada dos
+veces—.
+
+\begin{align}
+X_z &= \frac{X - \mu_X}{\sigma_X}, \qquad y_z = \frac{y - \bar{y}}{\sigma_y} \\
+\hat{\beta} &= (X_z'X_z)^{-1}X_z'y_z \qquad \text{(mínimos cuadrados, con intercepto)} \\
+\hat{\sigma}^2 &= \frac{\hat{e}'\hat{e}}{n-k}, \qquad \hat{e} = y_z - X_z\hat{\beta} \\
+\mathrm{SE}(\hat\beta) &= \sqrt{\mathrm{diag}\!\left(\hat\sigma^2 (X_z'X_z)^{-1}\right)} \\
+t &= \frac{\hat\beta}{\mathrm{SE}(\hat\beta)}, \qquad p = 2\cdot P(T > |t|,\; \mathrm{dof}=n-k)
+\end{align}
+
+El coeficiente \(\hat\beta_j\) es el cambio esperado en el target (en desvíos estándar)
+cuando la variable \(j\) sube 1 desvío estándar, con las demás fijas. Calculado a mano con
+\code{numpy}/\code{scipy} (mínimos cuadrados clásicos de OLS), mismo enfoque de
+\code{Otros/scripts/X5\_analisis\_exploratorio.ipynb}, adaptado —no importado literal, para
+no acoplar X5\_alt\_v2 a la implementación de X5 original.
+
+\bigsep
+\textbf{Multicolinealidad} — Factor de Inflación de Varianza (VIF):
+
+\begin{align}
+\mathrm{VIF}_j = \mathrm{diag}\!\left(\mathrm{pinv}\big(\mathrm{corr}(X_z)\big)\right)_j
+\end{align}
+
+equivalente a \(1/(1-R^2)\) de regresar la variable \(j\) contra todas las demás, sin
+correr \(N\) regresiones. \(\mathrm{VIF}>10\) señala colinealidad alta —el coeficiente
+individual es poco confiable, sin que eso implique eliminar la variable—.
+
+\begin{nota}
+\textbf{Sensibilidad a especificaciones}: se repite la regresión excluyendo las variables
+con \(\mathrm{VIF}>10\) (especificación reducida); si el coeficiente de una variable que
+sobrevive cambia de \textbf{signo} entre la especificación completa y la reducida, el
+resultado depende de qué colineales se incluyen — no es robusto.
+\end{nota}
+
+\subsubsection*{Ejemplo numérico de VIF (ilustrativo)}
+
+Tres variables de juguete con esta matriz de correlación —las dos primeras pensadas como
+dos medidas de volatilidad muy parecidas (ej. \code{x3\_vol\_24h} y \code{x3\_atr\_pct},
+Pearson real \(0{,}91\) en BTCUSD), la tercera independiente—:
+
+\begin{align}
+\mathrm{corr}(X_z) = \begin{pmatrix} 1 & 0{,}95 & 0{,}30 \\ 0{,}95 & 1 & 0{,}20 \\
+  0{,}30 & 0{,}20 & 1 \end{pmatrix}
+\end{align}
+
+Invirtiendo esta matriz \(3\times 3\) y tomando su diagonal (\(\mathrm{VIF}_j =
+\mathrm{diag}(\mathrm{pinv}(\mathrm{corr}))_j\)):
+
+\begin{center}
+\small
+\begin{tabular}{@{}l r@{}}
+\toprule
+Variable & VIF \\
+\midrule
+1 (ej. \code{x3\_vol\_24h}) & \textbf{11{,}78} \\
+2 (ej. \code{x3\_atr\_pct}) & \textbf{11{,}17} \\
+3 (independiente) & 1{,}20 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Las variables 1 y 2 cruzan el umbral \(\mathrm{VIF}>10\): su alta correlación mutua
+(\(0{,}95\)) hace que sus coeficientes individuales en la regresión completa sean poco
+confiables —no se sabe si el efecto es de la variable 1, de la 2, o de ambas a la vez—,
+mientras que la variable 3, casi sin colinealidad, mantiene un VIF cercano a 1. Es
+exactamente el criterio que usa \code{Q3-7} (Sección~\ref{sec:q3}) para descartar
+\code{x3\_vol\_24h} como candidata de \code{A} en favor de \code{x3\_atr\_pct}: agregar
+ambas no suma información nueva, solo infla la incertidumbre de los coeficientes.
+
+\subsection{Estabilidad temporal: por año, rolling y coseno por ventanas (Q2-9 / Q2-10)}
+
+Un Pearson global fuerte puede estar promediando sub-períodos con signos opuestos.
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Q2-9 — por año y rolling de 90 días}: Pearson/Spearman/coseno por año
+  calendario; además un Pearson \emph{rolling} de 90 días (2.160h), resumido en su
+  desviación estándar en el tiempo.
+\item \textbf{Q2-10 — coseno rolling por ventanas (30/90/180 días)}: no existe
+  \code{.rolling().corr()} para coseno, así que se calcula vectorizado:
+\end{itemize}
+
+\begin{align}
+\cos_t = \frac{\sum_{\text{ventana}} x\cdot y}{\sqrt{\sum_{\text{ventana}} x^2} \cdot
+  \sqrt{\sum_{\text{ventana}} y^2}}
+\end{align}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Clasificación} & \textbf{Condición} \\
+\midrule
+cambio estructural & el signo cambia entre años/ventanas (o el rolling cruza cero) \\
+inestable & mismo signo, dispersión (std) \(> 0.15\) \\
+estable & mismo signo y dispersión \(\leq 0.15\) \\
+\bottomrule
+\end{tabular}
+\caption{Clasificación de estabilidad, misma regla en Q2-9 y Q2-10.}
+\end{table}
+
+Q2-10 agrega una pregunta propia: \code{consistente\_entre\_ventanas} — ¿la clasificación
+es la misma en las 3 ventanas? Si no, la lectura de estabilidad depende de una elección
+arbitraria de ventana.
+
+\subsection{Redundancia entre variables explicativas (Q2-12)}
+\label{ssec:redundancia}
+
+A diferencia de todo lo anterior (variable$\leftrightarrow$target), mide relaciones \textbf{entre las
+propias variables explicativas}: matriz de Pearson entre todas las variables; un par se
+marca \textbf{redundante} si \(|\text{Pearson}| > 0.85\) —más estricto que el
+\(\mathrm{VIF}>10\) de Q2-6, porque acá se mide similitud bivariada directa entre dos
+variables, no el efecto conjunto de todas las demás sobre una—.
+
+\bigsep
+La familia técnico/fundamental se deriva de la columna \code{fuente} del catálogo de Q1
+(mapeo documentado, auditable). Un par \code{redundante} \textbf{no implica eliminar} una
+de las dos variables —solo que, si se usan ambas como explicativas de un mismo parámetro,
+aportan señal muy parecida—. Usado en la Sección~\ref{sec:q3} para no elegir dos
+candidatas redundantes para el mismo parámetro: ej. \code{x3\_vol\_24h} se descarta frente
+a \code{x3\_atr\_pct} (Pearson \(0.91\) entre ambas).
+
+\subsection{Análisis por regímenes (Q2-13)}
+
+Tres dimensiones, cada una con categorías explícitas:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Dimensión} & \textbf{Categorías} & \textbf{Definición} \\
+\midrule
+Tendencia & bull / bear / sideways & \code{regimen\_tendencia}, ya calculada en Q1 \\
+Volatilidad & alta / baja & split por \textbf{mediana} de \code{x3\_vol\_24h} —mediana en
+  vez de umbral fijo porque la escala es propia de cada activo \\
+Drawdown & deteriorado / sano & \(\text{drawdown\_historico} \leq -0.20\) \(\Rightarrow\)
+  deteriorado \\
+\bottomrule
+\end{tabularx}
+\caption{Las 3 dimensiones de régimen de Q2-13.}
+\end{table}
+
+Clasificación (misma regla que Q2-9/Q2-10): \emph{cambio de signo} si cambia entre
+categorías; \emph{dependiente de régimen} si no cambia de signo pero la dispersión entre
+categorías es alta; \emph{consistente} en otro caso. Una relación \emph{consistente} entre
+regímenes es más confiable que una con Pearson global más alto pero que cambia de signo
+—el global puede promediar dos relaciones opuestas en distintos regímenes—.
+
+\subsection{Síntesis descriptiva y nivel de evidencia (Q2-11)}
+
+Consolida, por variable/target, todo lo anterior en un \textbf{nivel de evidencia
+descriptiva} explícito —regla, no un score de ML—:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\textbf{Nivel} & \textbf{Condición} \\
+\midrule
+\code{alta} & \(|\text{pearson}| \geq 0.10\) (fuerza al menos \dq{débil}) \textbf{y}
+  estable en el tiempo \textbf{y} consistente entre los 3 regímenes \\
+\code{media} & tiene fuerza, pero falla en estabilidad temporal \textbf{o} en régimen (no
+  en ambas) \\
+\code{baja} & sin fuerza, o con fuerza pero inestable en el tiempo \textbf{y} dependiente
+  de régimen a la vez \\
+\bottomrule
+\end{tabularx}
+\caption{Regla explícita de \code{nivel\_evidencia\_descriptiva} (Q2-11).}
+\end{table}
+
+\begin{advertencia}
+Esta tabla \textbf{no es un ranking predictivo}: evidencia descriptiva sólida no garantiza
+poder predictivo fuera de muestra — eso se valida con backtesting en una etapa posterior
+(Sección~\ref{ssec:proximos-pasos}).
+\end{advertencia}
+
+\subsubsection*{Lectura de un resultado real: BTCUSD vs. ETHUSD}
+
+La corrida \code{Q2-EXEC} (validación de punta a punta, 2026-10-12) extendió
+\code{valores} a los 6 activos operados por primera vez —hasta entonces cada ítem se había
+validado solo contra BTCUSD—, sobre datos frescos de Windows (a diferencia del snapshot
+desactualizado de Mac usado para ilustrar las limitaciones de \(x2\_score\) en la
+Sección~\ref{sec:q1}).
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}l r r r@{}}
+\toprule
+Activo & \code{alta} & \code{media} & \code{baja} \\
+\midrule
+BTCUSD & 26 & 5 & 95 \\
+ETHUSD & 25 & 9 & 92 \\
+\bottomrule
+\end{tabular}
+\caption{Distribución de \code{nivel\_evidencia\_descriptiva} contra
+\code{retorno\_log\_1h}, de las 126 variables analizadas en cada activo.}
+\end{table}
+
+Dos lecturas de ese resultado: primero, la distribución es \textbf{razonable y similar}
+entre dos activos de la misma familia (ambos \(\approx\)20\% \code{alta}, resto
+mayormente \code{baja}) — señal de que el pipeline generaliza entre activos en vez de
+producir ruido activo-específico. Segundo, el top-8 de variables \code{alta} contra
+\code{retorno\_log\_1h} coincide \emph{casi en el mismo orden} entre ambos activos:
+\code{x2\_score\_cross}, \code{fundamental\_estabilidad\_90d}, \code{x2\_score},
+\code{x3\_ema\_dist\_12}, \code{distancia\_ema\_12}, \code{ruptura\_rango},
+\code{x3\_bb\_pos}, \code{x3\_sma\_dist\_20}.
+
+\begin{nota}
+Que \(x2\_score\) y sus derivadas aparezcan acá con evidencia \code{alta} —a diferencia de
+la limitación de \(x2\_score\) 100\% \code{NaN} documentada en la
+Sección~\ref{sec:q1}— no es una contradicción: esa limitación es específica del snapshot
+local de \code{Data/}/\code{x2\_history.json} en Mac (desfasado en fechas); la corrida
+\code{Q2-EXEC} se hizo en Windows con datos frescos y solapados, donde \(x2\_score\) sí
+varía.
+\end{nota}
+
+\subsection{KPIs adicionales: información mutua y correlación de distancia (Q2-14)}
+
+Objetivo explícito: evaluar \textbf{caso a caso} —no adoptar por default— si una métrica
+adicional aporta algo que Pearson/Spearman/coseno no muestren. Solo dos candidatas, ninguna
+más (principio de parsimonia).
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Información mutua} (\code{sklearn.mutual\_info\_regression},
+  \code{n\_neighbors=3}): capta cualquier dependencia, lineal o no; se reporta en nats
+  (no acotada en \([0,1]\)) \(\Rightarrow\) comparación por \textbf{ranking}, no valor
+  absoluto —\code{entra\_top\_mi\_sin\_estar\_en\_pearson} si entra al top-10 de
+  información mutua sin estar en el top-10 de \(|\text{Pearson}|\)—.
+\item \textbf{Correlación de distancia} (Székely–Rizzo), acotada en \([0,1]\)
+  \(\Rightarrow\) comparable directo con \(|\text{Pearson}|\):
+\end{itemize}
+
+\begin{align}
+A_{ij} &= a_{ij} - \bar{a}_{i\cdot} - \bar{a}_{\cdot j} + \bar{a}
+  \qquad (\text{doble centrado}),\quad a_{ij} = |x_i - x_j| \\
+\mathrm{dCov}^2 &= \overline{A \cdot B}, \qquad \mathrm{dVar}_X^2 = \overline{A\cdot A},
+  \qquad \mathrm{dVar}_Y^2 = \overline{B \cdot B} \\
+\mathrm{dcor} &= \sqrt{\frac{\mathrm{dCov}^2}{\sqrt{\mathrm{dVar}_X^2 \cdot
+  \mathrm{dVar}_Y^2}}}
+\end{align}
+
+\(O(n^2)\) en tiempo/memoria \(\Rightarrow\) calculada sobre una \textbf{submuestra fija}
+de 3.000 filas (semilla 42), nunca sobre la tabla completa. Se marca
+\code{aporta\_valor\_dcor} si \(\mathrm{dcor} - |\mathrm{Pearson}| > 0.10\).
+
+\bigsep
+\textbf{Resultado real en BTCUSD}: varias variables de volatilidad/liquidez
+(\code{x3\_vol\_24h}, \code{x3\_atr\_pct}, \code{x3\_bb\_width}, \code{tick\_volume\_z},
+\code{spread\_relativo}, \code{volumen\_relativo}) muestran \(\mathrm{dcor}\)
+\(0.17\)–\(0.34\) contra \code{retorno\_log\_1h}, muy por sobre su Pearson casi nulo —
+dependencia no lineal real, aunque sin definir signo ni servir de validación. Este CSV
+queda deliberadamente fuera de la síntesis (Q2-11) y del export principal (Q2-5) — anexo
+exploratorio, no insumo obligatorio.
+
+\subsection{Export estructurado de métricas (Q2-5)}
+
+No recalcula nada: recopila en un único JSON anidado \code{\{variable: \{...\}\}} todo lo
+ya calculado y guardado en CSV por las subsecciones anteriores. Un archivo por activo:
+\code{\{valor\}\_q2\_5\_export\_metricas.json} — el \textbf{único archivo} que
+\code{X5\_Q3.ipynb} lee de Q2, pensado para alimentar después un análisis por IA que
+concluya cosas como \dq{el drawdown se relaciona con \code{N}} (texto literal del
+notebook).
+
+\begin{lstlisting}
+{
+  "drawdown_7d": {
+    "targets": {"Close": {...}, "retorno_log_1h": {
+        "pearson": ..., "spearman": ..., "coseno": ..., "direccion_fuerza": ...,
+        "no_linealidad": {"r2_lin": ..., "r2_cuad": ..., "delta_r2": ..., "forma": ...},
+        "estabilidad": {"clasificacion": ..., "pearson_std_entre_anios": ...},
+        "nivel_evidencia_descriptiva": ..., "cobertura_pct": ...
+    }},
+    "ceteris_paribus": {...}, "retorno_pasado": {...},
+    "regimen": {...}, "redundancia": {...}
+  }
+}
+\end{lstlisting}
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{X5\_Q3 — hipótesis parámetro$\leftrightarrow$variable y tabla final}
+\label{sec:q3}
+% ═══════════════════════════════════════════════════════════════════════════
+
+Tercer y último notebook. Consume \code{\{valor\}\_tabla\_estado\_v2.csv} (Q1) y
+\code{\{valor\}\_q2\_5\_export\_metricas.json} (Q2) — gate de arranque: requiere Q1 y Q2 ya
+completados.
+
+\subsection{Cómo correr el notebook}
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+\item Verificar primero que existan \code{\{valor\}\_tabla\_estado\_v2.csv} (Q1) y
+  \code{\{valor\}\_q2\_5\_export\_metricas.json} (Q2) para cada activo de \code{valores}
+  —ambos levantan \code{FileNotFoundError} explícito si faltan—.
+\item Es el notebook más corto de los tres (17 celdas): la mayoría son celdas markdown
+  con la hipótesis de cada parámetro (sin código, documentación pura) — solo la tabla
+  final (\code{Q3-4}) y la vista unificada (\code{Q3-8}) ejecutan código.
+\item Ejecutar de arriba hacia abajo. La tabla final (\code{Q3-4}) consulta
+  programáticamente \code{export\_metricas} para cada variable candidata ya fijada en las
+  celdas markdown anteriores — no recalcula ninguna métrica de Q2.
+\item Verificar al final \code{\{valor\}\_q3\_4\_tabla\_final.csv} y
+  \code{\{valor\}\_q3\_8\_vista\_unificada.csv}, y que el \code{.zip} los incluye a ambos.
+\end{enumerate}
+
+\subsection{Alcance: lo que Q3 sí y no hace}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}X X@{}}
+\toprule
+\textbf{Sí hace} & \textbf{No hace} \\
+\midrule
+Produce hipótesis \code{parámetro = f(variable(s))} apoyadas en el pre-registro y la
+evidencia de Q2; una vista unificada de variables relevantes + precio; una tabla final de
+tuplas con evidencia y prioridad de prueba. &
+No implementa nada en \code{X0\_data\_supports.py}/\code{X1\_trading.py} de producción. No
+valida con backtesting — etapa posterior sobre \code{X4\_backtester.py}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{clave}
+\dq{Una hipótesis con evidencia fuerte en Q2 sigue siendo una hipótesis hasta que el
+backtesting la confirme.} —cita literal del notebook.
+\end{clave}
+
+\subsection{Por qué K, N\_EXP y LAMBDA requieren dos niveles de análisis}
+
+Q2 corre sobre precio/variables de estado, nunca sobre soportes ni órdenes — aporta solo
+evidencia indirecta sobre por qué convendría variar cada parámetro de X0:
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Nivel 1 — efecto sobre los soportes (X0)}: cantidad, calidad individual,
+  recencia, cobertura del rango, concentración, distancia entre niveles, simetría de
+  aislamiento, estabilidad.
+\item \textbf{Nivel 2 — efecto posterior en X1}: órdenes creadas/activadas, cierres,
+  dinero cerrado, MAE/MFE (\emph{Maximum Adverse/Favorable Excursion}), duración,
+  estabilidad por período.
+\end{enumerate}
+
+\begin{advertencia}
+\dq{No debe concluirse que un valor es bueno solo porque genera soportes visualmente bien
+distribuidos} —debe demostrar utilidad operativa en X1, no solo verse bien en X0.
+\end{advertencia}
+
+\subsection{Mecánica exacta de cada parámetro}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Parámetro} & \textbf{Dónde actúa} & \textbf{Fórmula / mecánica} \\
+\midrule
+\code{N} & X1 & cantidad de soportes activos mantenidos por X1
+  (\code{n\_sizes\_ejecucion}) \\
+\code{A} & X1 & doble rol: filtro de OE \((P_0-P_i)\cdot L \geq A\) (lotaje
+  \textbf{mínimo}) y umbral de ganancia para el primer SL del trailing
+  \((P_0-P_i)\cdot L \geq A\) (lotaje \textbf{real} de la posición) \\
+\code{factor\_B} & X1 & \(B = \text{factor\_B} \cdot A\) — distancia del trailing una
+  vez activo, \(\mathrm{sl}_{\mathrm{nuevo}} = P_0 - B/L\) \\
+\code{K} & X0 & \(y = \text{Low}_{\mathrm{left}} + \text{High}_{\mathrm{left}} +
+  K\cdot(\text{Low}_{\mathrm{right}} + \text{High}_{\mathrm{right}})\) — peso del
+  aislamiento futuro vs. pasado \\
+\code{N\_EXP} & X0 & \(w = t^{N\_EXP}\), \(t\in[0,1]\) — exponente de recencia \\
+\code{LAMBDA} & X0 & \(\mathrm{FO} = \overline{z} - \mathrm{LAMBDA}\cdot
+  \mathrm{cv}(H_n)\) — penalización por dispersión desigual entre soportes \\
+\bottomrule
+\end{tabularx}
+\caption{Mecánica de cada parámetro Y, según \code{docs/context/pars\_configurables.md}.}
+\end{table}
+
+\begin{nota}
+\textbf{Dualidad de roles de \code{A}} (por qué su prioridad de prueba es \dq{media}, no
+\dq{alta}): el filtro de OE y la activación del trailing tiran en direcciones distintas
+frente a un mismo contexto —con drawdown profundo, un \code{A} alto reduce entradas nuevas
+pero también retrasa la protección de una posición ganadora—. El efecto neto del drawdown
+sobre \code{A} no tiene dirección única; podría requerir separar
+\code{A\_OE}/\code{A\_TRAILING} más adelante (decisión pendiente).
+\end{nota}
+
+\subsubsection*{Derivación: el umbral de \code{A} es la misma fórmula en los dos roles}
+
+Vale la pena derivar esto con álgebra —ya resuelto en
+\code{docs/plans/formulas.tex}, resumido acá porque explica por qué \code{A} es un único
+parámetro con dos efectos, no dos parámetros independientes—. Sea \(m\) el lote mínimo del
+bróker, \(U\) las unidades por lote, \(M\) el multiplicador de lote configurado
+(\code{LOTAJES\_M}).
+
+\textbf{Caso 1 — O0 se convierte en OE} (\code{crear\_ordenes\_espera}): se crea el buy
+limit cuando \((P_0-P_i)\,m\,U \geq A\) —con el lotaje \textbf{mínimo} del activo, no el
+configurado—:
+
+\begin{align}
+P_0 \;\geq\; P_i + \frac{A}{mU}
+\end{align}
+
+\textbf{Caso 2 — primera activación del Stop Loss} (\code{trailing\_stop}): opera sobre el
+lotaje \textbf{real} de la posición (\code{orden.volume} \(=Mm\)); el umbral efectivo
+\(a_{\mathrm{efectivo}} = A\cdot M\) y la ganancia \((P_0-P_i)\,Mm\,U\) comparten el mismo
+factor \(M\), que se cancela al dividir:
+
+\begin{align}
+(P_0-P_i)\,MmU \;\geq\; AM \quad\Longrightarrow\quad P_0 \;\geq\; P_i + \frac{A}{mU}
+\end{align}
+
+\begin{clave}
+\textbf{Mismo umbral de precio en los dos roles} —\(P_i + A/(mU)\)—, aunque \(P_i\)
+signifique algo distinto en cada caso (el soporte en el Caso 1, el precio de apertura de
+la OA en el Caso 2). \(M\) (\code{LOTAJES\_M}) \textbf{no aparece} en ninguno de los dos:
+se cancela en el Caso 2, y se excluyó deliberadamente del Caso 1 el 2026-09-25 (antes
+usaba el lotaje configurado, no el mínimo — subir \(M\) relajaba el gap de activación sin
+motivo). Esta es la raíz algebraica de por qué separar \code{A\_OE}/\code{A\_TRAILING}
+—la decisión pendiente señalada arriba— cambiaría una fórmula hoy unificada en dos.
+\end{clave}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l r r r X@{}}
+\toprule
+\textbf{Activo} & \(m\) & \(U\) & \(A/(mU)\) & \textbf{Gap de activación resultante} \\
+\midrule
+BTCUSD & 0{,}01 & 1   & 300{,}00 & soporte en 65.000 \(\to\) OE recién a 65.300 \\
+ETHUSD & 0{,}10 & 1   & 30{,}00  & soporte en 3.000 \(\to\) OE recién a 3.030 \\
+TSLA   & 0{,}01 & 100 & 3{,}00   & soporte en 250 \(\to\) OE recién a 253 \\
+GOOGL/NVDA/AMZN & 0{,}01 & 100 & 3{,}00 & mismo gap que TSLA (idéntico \(mU\)) \\
+\bottomrule
+\end{tabularx}
+\caption{Gap de activación \(A/(mU)\) con \(A=3\) (valor vigente, igual para los 6
+activos). Valores de \(P_i\) ilustrativos, tomados de \code{docs/plans/formulas.tex}.}
+\end{table}
+
+\textbf{Lectura}: el mismo \(A=3\) produce un gap de \$300 en BTCUSD pero de solo \$3 en
+las acciones —porque \(U=100\) en acciones multiplica por 100 cada dólar de movimiento de
+precio, mientras que en cripto \(U=1\)—. Cualquier hipótesis \(A=f(\text{volatilidad})\)
+de la Sección~\ref{sec:q3} debe leerse sobre esta escala ya normalizada por \(mU\), no
+sobre el valor crudo de \(A\) en USD.
+
+\subsection{Tabla final de hipótesis}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X X l@{}}
+\toprule
+\textbf{Parámetro} & \textbf{Variables candidatas} & \textbf{Relación hipotética} &
+  \textbf{Prioridad} \\
+\midrule
+\code{N} & \code{x3\_drawdown\_20}, \code{x3\_drawdown\_50}, \code{drawdown\_7d} &
+  drawdown sano (menos profundo) \(\to\) \code{N} alto; drawdown profundo \(\to\)
+  \code{N} bajo & \textbf{alta} \\
+\code{A} & \code{x3\_atr\_pct}, \code{x3\_bb\_width} &
+  volatilidad alta \(\to\) \code{A} alto; volatilidad baja \(\to\) \code{A} bajo
+  (dirección neta sobre drawdown ambigua) & media \\
+\code{factor\_B} & \code{x3\_atr\_pct}, \code{adx\_14}, \code{regimen\_tendencia} &
+  volatilidad alta o tendencia fuerte \(\to\) \code{factor\_B} alto; volatilidad baja
+  \(\to\) \code{factor\_B} bajo & media \\
+\code{K} & \code{duracion\_en\_rango}, \code{ruptura\_rango} &
+  niveles persistentes/mercado estable \(\to\) \code{K} alto & baja \\
+\code{N\_EXP} & \code{cambio\_volatilidad}, \code{frecuencia\_extremos\_30d} &
+  cambio de régimen o volatilidad creciente \(\to\) \code{N\_EXP} alto & media \\
+\code{LAMBDA} & \code{x3\_bb\_width}, \code{duracion\_en\_rango} (junto con \code{N}) &
+  rango amplio/lateral con soportes concentrados \(\to\) \code{LAMBDA} alto &
+  baja (bloqueada) \\
+\code{LOTAJES\_M} & — & sin hipótesis dinámica — fijo (rango degenerado \((1,1)\)) & — \\
+\code{PERDIDA\_MAX} & — & pausado — en evaluación para una capa externa de gestión de
+  riesgo & — \\
+\bottomrule
+\end{tabularx}
+\caption{Tabla final de tuplas (parámetro, variable candidata, relación hipotética,
+prioridad de prueba) — \code{Q3-4}.}
+\end{table}
+
+\textbf{Criterio de selección de variables}: por parámetro, la de mejor evidencia
+descriptiva disponible (Q2-11/Q2-14) que no fuera redundante con otra ya elegida para el
+mismo parámetro (Q2-12) — ej. \code{x3\_vol\_24h} se descarta en \code{A} por ser
+redundante con \code{x3\_atr\_pct} (Pearson \(0.91\)). Ninguna tupla está validada — son el
+insumo de entrada, no una conclusión.
+
+\begin{advertencia}
+\textbf{Bloqueador de \code{LAMBDA}, sin resolver}: el rango de exploración de X5
+documentado (\(0.001\)–\(0.02\)) \textbf{no cubre} el valor productivo real (\(0.2\)) —
+no deben sacarse conclusiones de una exploración que no contiene el valor de referencia.
+\end{advertencia}
+
+\textbf{Prioridad de prueba} es juicio explícito, no un score automático de la evidencia
+Q2: \code{A}/\code{factor\_B}/\code{K}/\code{N\_EXP}/\code{LAMBDA} no son hipótesis de
+predicción de retorno —su evidencia Q2 baja contra \code{retorno\_log\_1h}
+(\(|\text{Pearson}|<0.02\) para \code{x3\_atr\_pct}/\code{x3\_bb\_width}/\code{adx\_14})
+es \textbf{esperada}, no indica menor madurez—. Se basa en: madurez de la fórmula
+hipotética, bloqueadores documentados y el rol de cada parámetro en la mecánica de X0/X1.
+
+\subsection{Vista unificada (Q3-8)}
+
+Tabla con \code{DateTime}, \code{Close} y las variables cuyo
+\code{nivel\_evidencia\_descriptiva} es \code{alta} o \code{media} contra
+\code{retorno\_log\_1h} (el target principal — \code{Close} es solo referencial).
+Guardada en \code{\{valor\}\_q3\_8\_vista\_unificada.csv}, pensada para graficar/revisar a
+ojo, \textbf{no} para modelar.
+
+\subsection{Próximos pasos}
+\label{ssec:proximos-pasos}
+
+Con \code{Q3-EXEC} satisfecho la implementación de los tres notebooks queda cerrada — lo
+que sigue vive \textbf{fuera} de X5\_alt\_v2:
+
+\begin{enumerate}[leftmargin=1.4em,itemsep=3pt]
+\item \textbf{Puente a backtesting real sobre \code{X4\_backtester.py}.} Ninguna hipótesis
+  de la Tabla anterior está confirmada — son candidatas a probar, no reglas.
+\item \textbf{Orden de validación sugerido}: empezar por \code{N} (prioridad
+  \code{alta}, hipótesis madura, sin bloqueadores) antes que \code{A}/\code{factor\_B}/
+  \code{N\_EXP} (prioridad \code{media}) y \code{K}/\code{LAMBDA} (prioridad
+  \code{baja}/bloqueada).
+\item \textbf{Decisiones de diseño pendientes antes de testear} (no son trabajo de Q3):
+  separar \code{A\_OE}/\code{A\_TRAILING}, y decidir si el rango de exploración de
+  \code{LAMBDA} en \code{config.py} está desactualizado.
+\item \textbf{No expandir a otros activos} (\code{ETHUSD}, \code{TSLA}, \code{GOOGL},
+  \code{NVDA}, \code{AMZN}) hasta validar el enfoque con backtesting sobre BTCUSD.
+\end{enumerate}
+
+\begin{nota}
+El TO DO más cercano a esta etapa es \dq{X5 — estudio posterior de parámetros manipulables
+y variables explicativas} (\code{docs/tracking/todos.md}, sección X5\_alt) — hoy escrito en
+términos de la versión anterior, antes de que existiera \code{X5\_Q3}. Pide exactamente la
+misma tabla que \code{Q3-4} ya produjo — debería actualizarse para apuntar a
+\code{\{valor\}\_q3\_4\_tabla\_final.csv} en vez de pedir reconstruirla desde cero.
+\end{nota}
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Preguntas frecuentes}
+\label{sec:faq}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\paragraph{¿Por qué no basta con mirar Pearson contra \code{Close}?}
+Porque \code{Close} no es estacionario —BTCUSD recorrió \(\sim\)20.000 a \(\sim\)100.000
+USD entre 2021 y 2026—, así que casi cualquier variable con tendencia propia va a
+\dq{correlacionar} con el nivel de precio solo por coincidir en el tiempo, no por aportar
+información real. Por eso todo el núcleo descriptivo (Sección~\ref{sec:q2}) usa el retorno
+contemporáneo (\(\text{retorno\_log\_1h}\)) como target principal, y el nivel como
+referencia secundaria (Sección~\ref{ssec:dos-paneles}).
+
+\paragraph{¿El coseno no es redundante con Pearson, si los dos miden \dq{asociación}?}
+No: Pearson centra ambas series en su propia media antes de medir covariación
+(\(\mathrm{corr}(x,y)=\cos(x-\bar{x},y-\bar{y})\)); el coseno de la
+Sección~\ref{ssec:coseno} no centra nada. Contra el nivel de precio (Panel A) esa
+diferencia puede incluso invertir el signo (Tabla~\ref{tab:coseno-ejemplo}); contra el
+retorno (Panel B) coincide en signo pero se atenúa cuando la variable tiene un baseline
+lejos de cero (ej. \code{x3\_rsi\_14}, centrado en \(\sim\)50). Son dos preguntas
+distintas, no la misma pregunta dos veces.
+
+\paragraph{¿Por qué \code{K}, \code{N\_EXP} y \code{LAMBDA} necesitan backtesting en dos
+niveles y no solo la evidencia de Q2?}
+Porque actúan \textbf{dentro del algoritmo de soportes de X0} —generan qué soportes
+existen, no gestionan órdenes directamente—, y su efecto sobre el retorno es indirecto y
+desfasado en el tiempo: un soporte calculado hoy puede producir una orden que cierra
+varios días después. Q2 nunca corre sobre soportes, solo sobre precio/variables de
+estado —aporta evidencia indirecta de por qué convendría variar el parámetro, no de si
+realmente mejora el resultado en X0 o en X1 (Sección~\ref{sec:q3}, nivel 1 vs. nivel 2).
+
+\paragraph{¿Una variable con \code{nivel\_evidencia\_descriptiva = alta} ya está lista
+para usarse en producción?}
+No. \dq{Alta} significa evidencia descriptiva sólida —fuerza, estabilidad temporal y
+consistencia entre regímenes (Sección~\ref{sec:q2})—, no poder predictivo fuera de
+muestra ni validación con backtesting. La frase que cierra \code{X5\_Q3.ipynb} lo dice sin
+ambigüedad: \dq{una hipótesis con evidencia fuerte en Q2 sigue siendo una hipótesis hasta
+que el backtesting la confirme.}
+
+\paragraph{¿Por qué \code{A} y \code{factor\_B} tienen evidencia Q2 casi nula contra el
+retorno, si son justamente los parámetros que se quiere hacer dinámicos?}
+Porque no son hipótesis de \emph{predicción de retorno} sino de \emph{escala de la
+mecánica de órdenes} frente al estado del activo —\(A\) regula a qué distancia se activa
+una orden o un trailing, no si el precio va a subir o bajar—. Un Pearson casi nulo contra
+\code{retorno\_log\_1h} es exactamente lo esperado para este tipo de parámetro
+(Sección~\ref{sec:q3}), y no implica que la hipótesis esté peor fundamentada que la de
+\code{N}.
+
+\paragraph{¿Por qué no se expande a los otros 5 activos todavía?}
+Porque el enfoque —tabla de estado, núcleo descriptivo, hipótesis— se valida primero sobre
+BTCUSD antes de generalizar, mismo criterio que ya regía para la versión anterior. La
+corrida \code{Q2-EXEC} sí probó los 6 activos puntualmente (Sección~\ref{sec:q2}) para
+verificar que el pipeline generaliza, pero eso es distinto de adoptar los 6 como alcance
+corriente de los tres notebooks.
+
+\paragraph{¿Qué significa que una variable se \dq{omita con aviso}?}
+Que para ese par variable/target no se alcanzó el mínimo de 30 observaciones no nulas, o
+que una de las dos series no tiene dispersión (es constante) — el mismo filtro en las
+catorce subsecciones de \code{X5\_Q2.ipynb} (Sección~\ref{sec:q2}). En el snapshot de Mac
+usado para desarrollar estos notebooks, esto ocurre sobre todo con \(x2\_score\) y sus
+derivadas —100\% \code{NaN} para BTCUSD, por el desfase de fechas ya documentado en la
+Sección~\ref{sec:q1}—. No es un error del código: es el notebook reportando honestamente
+que, con los datos disponibles en ese momento, no hay evidencia suficiente para esa
+variable — se corrige solo con datos más frescos, no con un cambio de lógica.
+
+\newpage
+% ═══════════════════════════════════════════════════════════════════════════
+\section{Síntesis}
+% ═══════════════════════════════════════════════════════════════════════════
+
+\begin{itemize}[leftmargin=1.4em,itemsep=4pt]
+\item \code{X5\_Q1.ipynb} construye una tabla H1 continua del \emph{estado del activo} —
+  drawdown, volatilidad, ruido, tendencia/régimen, liquidez, fundamental— reutilizando los
+  indicadores de X3 en vez de recalcularlos, y documentando cada variable en un catálogo
+  auditable.
+\item \code{X5\_Q2.ipynb} cuantifica, con evidencia estadística explícita (Pearson,
+  Spearman, coseno, no linealidad, ceteris paribus, estabilidad, régimen, redundancia), qué
+  tan confiable es cada relación variable$\leftrightarrow$precio/retorno — y resume todo en un nivel de
+  evidencia descriptiva por variable.
+\item \code{X5\_Q3.ipynb} traduce esa evidencia en hipótesis explícitas
+  \(\text{parámetro} = f(\text{variable}(s))\) para \code{N}, \code{A}, \code{factor\_B},
+  \code{K}, \code{N\_EXP} y \code{LAMBDA}, con prioridad de prueba justificada —
+  \textbf{sin implementar ninguna como regla}.
+\item El puente hacia backtesting real sobre \code{X4\_backtester.py} es la etapa
+  siguiente, explícitamente fuera del alcance de los tres notebooks documentados aquí.
+\end{itemize}
+
+\subsection*{La cadena de dependencias, de punta a punta}
+
+Los tres notebooks forman una cadena estricta —cada uno solo puede correr después de que
+el anterior haya terminado de punta a punta, nunca en paralelo—:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l X X l@{}}
+\toprule
+\textbf{Notebook} & \textbf{Consume} & \textbf{Produce} & \textbf{Gate} \\
+\midrule
+\code{X5\_Q1} & \code{Data/}, \code{resources/x2/}, \code{resources/x3/} (vía X3) &
+  \code{\{valor\}\_tabla\_estado\_v2.csv}, \code{\{valor\}\_catalogo\_variables.csv} &
+  \code{Q1-EXEC} \\
+\code{X5\_Q2} & \code{\{valor\}\_tabla\_estado\_v2.csv} &
+  \textasciitilde19 CSV por ítem, \code{\{valor\}\_q2\_5\_export\_metricas.json} &
+  \code{Q2-EXEC} \\
+\code{X5\_Q3} & \code{\{valor\}\_tabla\_estado\_v2.csv},
+  \code{\{valor\}\_q2\_5\_export\_metricas.json} &
+  \code{\{valor\}\_q3\_8\_vista\_unificada.csv}, \code{\{valor\}\_q3\_4\_tabla\_final.csv} &
+  \code{Q3-EXEC} \\
+\bottomrule
+\end{tabularx}
+\caption{Insumos, productos y gate de ejecución de cada notebook — la referencia rápida
+para saber qué correr antes de qué.}
+\end{table}
+
+Con los tres gates satisfechos (estado a 2026-10-12, Sección~\ref{ssec:proximos-pasos}),
+la implementación de \code{X5\_alt\_v2} queda cerrada: lo único pendiente es la
+validación con backtesting, fuera del alcance de estos tres notebooks.
+
+\appendix
+\section*{Anexo: catálogo completo de fórmulas (X5\_Q1)}
+\addcontentsline{toc}{section}{Anexo: catálogo completo de fórmulas (X5\_Q1)}
+
+Referencia consolidada de todas las variables que \code{X5\_Q1.ipynb} agrega sobre la
+tabla base de precio+X3+X2 (Sección~\ref{sec:q1}) — complementa, no reemplaza, el catálogo
+en vivo que el propio notebook genera por activo
+(\code{\{valor\}\_catalogo\_variables.csv}, con cobertura/nulos/fechas reales).
+
+\begin{longtable}{@{}p{2.3cm} p{3.4cm} p{7.0cm} p{2.0cm}@{}}
+\caption{Catálogo completo de fórmulas agregadas por \code{X5\_Q1.ipynb}, por familia.}
+\\
+\toprule
+\textbf{Familia} & \textbf{Variable} & \textbf{Fórmula} & \textbf{Ventana} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Familia} & \textbf{Variable} & \textbf{Fórmula} & \textbf{Ventana} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Técnicos transf. & \code{distancia\_sma}\(_w\) / \code{distancia\_ema}\(_w\) &
+  \((\text{Close}-\text{media}_w)/\text{ATR}_{14}\) & \(w{=}\)20/50/200 (sma),
+  12/26 (ema) \\
+Técnicos transf. & \code{pendiente\_sma}\(_w\) / \code{pendiente\_ema}\(_w\) &
+  \((\text{media}_w.\mathrm{diff}(w)/w)/\text{ATR}_{14}\) & misma \(w\) \\
+Drawdown & \code{drawdown\_historico} &
+  \((\text{Close}-\mathrm{cummax})/\mathrm{cummax}\) & histórico \\
+Drawdown & \code{duracion\_drawdown} & velas desde el último máximo histórico & — \\
+Drawdown & \code{recuperacion\_desde\_minimo} &
+  \((\text{Close}-\min_{\mathrm{ep}})/\min_{\mathrm{ep}}\) & episodio actual \\
+Drawdown & \code{velocidad\_caida} &
+  \(\text{drawdown\_historico}/\text{duracion\_drawdown}\) & — \\
+Drawdown & \code{drawdown}\(_d\), \(d{\in}\{7,30,90,365\}\)d &
+  \((\text{Close}-\max_h)/\max_h\) & 168/720/2160/8760h \\
+Volatilidad & \code{cambio\_volatilidad} & \(x3\_vol\_24h / x3\_vol\_7d\) & — \\
+Volatilidad & \code{vol\_alcista}\(_{30d}\) / \code{vol\_bajista}\(_{30d}\) &
+  \(\mathrm{std}_{30d}(r_t{>}0\text{ o }{<}0)\cdot\sqrt{8760}\) & 720h \\
+Volatilidad & \code{frecuencia\_extremos}\(_{30d}\) &
+  \(\mathrm{media}_{30d}(|r_t|{>}2\sigma_{\mathrm{exp}})\) & 720h,
+  \(\sigma\) \texttt{expanding} \\
+Liquidez & \code{spread\_relativo} &
+  \(\text{Spread}/\mathrm{media}_{30d}(\text{Spread})\) & 720h \\
+Liquidez & \code{tick\_volume\_z} &
+  \((\text{Tick\_Volume}-\mathrm{media}_{30d})/\mathrm{std}_{30d}\) & 720h \\
+Liquidez & \code{volumen\_relativo} (RVOL) &
+  \(\text{Tick\_Volume}/\mathrm{media}_{30d}(\text{Tick\_Volume})\) & 720h \\
+Fundamental & \code{fundamental\_cambio} & \(x2\_score.\mathrm{diff}()\) & — \\
+Fundamental & \code{fundamental\_direccion\_cambio} &
+  \(\mathrm{sign}(\text{fundamental\_cambio})\) & — \\
+Fundamental & \code{fundamental\_magnitud\_cambio} &
+  \(|\text{fundamental\_cambio}|\) & — \\
+Fundamental & \code{fundamental\_edad} & velas desde la última actualización real & — \\
+Fundamental & \code{fundamental\_frecuencia\_efectiva}\(_{90d}\) &
+  \(\mathrm{media}_{90d}(\text{actualización real})\) & 2160h \\
+Fundamental & \code{fundamental\_estabilidad}\(_{90d}\) & \(\mathrm{std}_{90d}(x2\_score)\)
+  & 2160h \\
+Fundamental & \code{fundamental\_contradiccion} &
+  \((x2\_score\_cross{-}0{,}5)(x2\_score\_tendencia{-}0{,}5)\) & — \\
+Ruido & \code{ruido\_cambios\_signo}\(_{30d}\) &
+  \(\mathrm{media}_{30d}(\mathrm{sign}(r_t)\neq\mathrm{sign}(r_{t-1}))\) & 720h \\
+Ruido & \code{ruido\_ratio\_movimiento}\(_{30d}\) &
+  \(\sum|r_t| / |\sum r_t|\) (inverso Kaufman) & 720h \\
+Ruido & \code{ruido\_mecha}\(_{30d}\) &
+  \(\mathrm{media}((\text{H-L-}|\text{C-O}|)/\text{H-L})\) & 720h \\
+Ruido & \code{ruido\_atr\_sin\_direccion}\(_{30d}\) &
+  \(\mathrm{media}(x3\_atr\_pct)/|\sum r_t|\) & 720h \\
+Tendencia/\\régimen & \code{adx\_14} & \(\mathrm{WilderEMA}(\mathrm{DX},14)\) & 14 \\
+Tendencia/\\régimen & \code{regimen\_tendencia} &
+  \code{sideways} si \(\mathrm{ADX}{<}20\); si no, signo de
+  \(x3\_trend\_slope\_50\) & — \\
+Tendencia/\\régimen & \code{ruptura\_rango} &
+  \(+1/-1/0\) vs. máx./mín. de 20 velas previas & 20 \\
+Tendencia/\\régimen & \code{duracion\_en\_rango} & velas desde la última ruptura & — \\
+\end{longtable}
+
+\section*{Anexo: mapa de archivos}
+\addcontentsline{toc}{section}{Anexo: mapa de archivos}
+
+\begin{lstlisting}
+scripts/
+  X5_Q1.ipynb          # tabla de estado + catalogo
+  X5_Q2.ipynb          # core descriptivo (14 items)
+  X5_Q3.ipynb          # hipotesis + tabla final
+  x5_alt_export.py     # exportar_zip(nombre_notebook, archivos)
+  otros_strings/
+    X5_P1.ipynb        # v1, congelado
+    X5_P2.ipynb        # v1, congelado
+
+resources/x5_alt/      # TODO fuera de git -- generado en Windows
+  {valor}_tabla_estado_v2.csv
+  {valor}_catalogo_variables.csv
+  {valor}_q2_*.csv              # 1 archivo por item Q2-3..Q2-14
+  {valor}_q2_5_export_metricas.json
+  {valor}_q3_8_vista_unificada.csv
+  {valor}_q3_4_tabla_final.csv
+
+docs/plans/
+  X5_alternativo.md              # contexto y estado de avance, seccion 10
+  x5_contexto_conversacion.md    # documento rector
+docs/context/
+  pars_configurables.md          # definicion exacta de cada parametro Y
+docs/tracking/
+  todos.md   done.md             # seccion X5_alt_v2
+\end{lstlisting}
+
+\end{document}
