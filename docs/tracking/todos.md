@@ -94,6 +94,7 @@
 > **En esta sección el orden de abajo ES el orden de implementación** (a diferencia del resto del TO DO, aquí no se prioriza por score): cada ítem quedó ubicado después de todos sus `[dep: ...]`, así que trabajarlos de arriba hacia abajo, en orden, nunca topa con una dependencia pendiente. Dentro de cada notebook se respeta además el orden narrativo ya validado (core variable-precio primero, profundización después, regímenes/estabilidad al final de la capa descriptiva en Q2; hipótesis individuales antes de la tabla final en Q3).
 > **Convención de dependencias (solo esta sección)**: cada ítem lleva un ID entre corchetes al inicio del título y un tag `[dep: ...]` al final (`[dep: —]` si no depende de nada). El score `(I:x C:y H:z → score)` se conserva solo como referencia de impacto — no determina el orden de lectura ni de ejecución aquí. Si se reordena o agrega un ítem más adelante, verificar que siga después de todos sus `[dep: ...]`; si al empezar un ítem falta alguna dependencia sin marcar `[x]` (movida a `done.md`), **advertir explícitamente cuál falta y no avanzar con ese ítem**.
 > **Export a zip (Windows → Mac)**: cada notebook `X5_Q*.ipynb` debe cerrar con una celda que llame a `exportar_zip(nombre_notebook, archivos)` (`scripts/x5_alt_export.py`) sobre los archivos que generó en `resources/x5_alt/` — ya implementado en `X5_Q1.ipynb` (Sección 11); replicar al construir `X5_Q2.ipynb` (ítem `[Q2-5]` o `[Q2-EXEC]`) y `X5_Q3.ipynb` (ítem `[Q3-4]` o `[Q3-EXEC]`). Detalle en `docs/plans/X5_alternativo.md` sección 10.2.
+> **Fase 2 — funciones dinámicas (`Q4`/`Q5`)**: con `Q1`/`Q2`/`Q3` cerrados (2026-10-12), el plan completo de esta fase (forma funcional, mecanismo de calibración, combinaciones parámetro↔variable, alcance de cada notebook) vive en [`docs/plans/plan_x5_alt_v2.md`](../plans/plan_x5_alt_v2.md) — no duplicar acá, solo los ítems. Módulo compartido `scripts/x5_alt_funciones.py` ya implementado y probado (matemática pura, no requiere `Data`/MT5).
 
 **Q1 — X5_Q1.ipynb (tabla maestra + variables de estado del activo)**
 
@@ -101,7 +102,47 @@
 
 **Q3 — X5_Q3.ipynb (hipótesis parámetro↔variable + tabla final)**
 
+**Q4 — X5_Q4.ipynb (calibración de diseño: sigmoide acotada por parámetro, `plan_x5_alt_v2.md`)**
+
+> **Lista estrictamente secuencial** (a pedido explícito de Mauricio, 2026-10-15): cada parámetro se trabaja en 3 pasos consecutivos — *implementar* (código) → *ejecutar* (correr `X5_Q4.ipynb` de punta a punta en Windows con datos reales) → *revisar visuales y validar* (gate humano: Mauricio mira los gráficos/diagnóstico de esa sección y confirma si la hipótesis se sostiene, antes de pasar al siguiente parámetro). No saltar pasos ni adelantar el parámetro siguiente sin cerrar los 3 del anterior.
+
+- [ ] **[Q4-1] X5_Q4 — arranque obligatorio**: `scripts/X5_Q4.ipynb` ya scaffoldeado (Sección 0-1: `valores` lista, loaders de `{valor}_tabla_estado_v2.csv`/`{valor}_q2_5_export_metricas.json`/`{valor}_q3_4_tabla_final.csv`, import de `x5_alt_funciones`) — validado en Mac con BTCUSD extraído puntualmente de los zips de `Q1`/`Q2`/`Q3`. Falta correrlo con los 6 activos en Windows (datos reales) como gate formal. [dep: Q3-EXEC]
+- [ ] **[Q4-2] X5_Q4 — utilidades compartidas + alcance explícito**: `scripts/x5_alt_funciones.py` ya implementado y probado con datos sintéticos (sigmoide acotada, índice compuesto, percentil causal, `calibrar_parametro`); Sección 2 (alcance) ya redactada en el scaffold. [dep: Q4-1]
+- [ ] **[Q4-3] X5_Q4 — target sintético por percentil causal**: ya implementado en `scripts/x5_alt_funciones.py` (`percentil_causal`, probado con series sintéticas) — falta solo graficar/inspeccionar el target resultante por combo dentro del notebook (no reimplementar la función). [dep: Q4-2]
+- [ ] **[Q4-4] Implementar Sección N: `N = f(x3_drawdown_20, x3_atr_pct)`**: índice compuesto + `calibrar_parametro` (ya implementado) + gráficos (variables normalizadas a doble eje con `Close`, curva ajustada sobre el scatter, serie `N̂_t` vs. estático 180) + diagnóstico (R², elasticidad, signo vs. hipótesis Q3) + export `{valor}_q4_n.csv`. Rango `(50,200)` BTCUSD/ETHUSD, `(40,180)` resto. [dep: Q4-3]
+- [ ] **[Q4-5] Ejecutar X5_Q4.ipynb** (con la Sección N ya agregada): correr de punta a punta en Windows, 6 activos, datos reales — confirmar sin errores. [dep: Q4-4]
+- [ ] **[Q4-6] Revisar visuales de la Sección N y validar**: Mauricio revisa la curva ajustada, la serie `N̂_t` vs. estático y el diagnóstico — confirma o ajusta la hipótesis antes de seguir a `A`. [dep: Q4-5]
+- [ ] **[Q4-7] Implementar Sección A: `A = f(x3_atr_pct)`**: mismo esqueleto que `N` con `k=1`. Nota explícita en el notebook: se calibra `A` único, sin separar `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21). Rango `(2.0, 20.0)` USD. [dep: Q4-6]
+- [ ] **[Q4-8] Ejecutar X5_Q4.ipynb** (con la Sección A ya agregada). [dep: Q4-7]
+- [ ] **[Q4-9] Revisar visuales de la Sección A y validar**. [dep: Q4-8]
+- [ ] **[Q4-10] Implementar Sección factor_B: `factor_B = f(x3_atr_pct, adx_14)`**: mismo esqueleto con `k=2`. Rango tentativo `(0.2, 0.7)` — no está en `X5_PARAM_RANGES` todavía (`plan_x5_alt_v2.md` sección 6). [dep: Q4-9]
+- [ ] **[Q4-11] Ejecutar X5_Q4.ipynb** (con la Sección factor_B ya agregada). [dep: Q4-10]
+- [ ] **[Q4-12] Revisar visuales de la Sección factor_B y validar**. [dep: Q4-11]
+- [ ] **[Q4-13] Implementar Sección K: `K = f(ruptura_rango)`**: mismo esqueleto con `k=1`. Rango `(0.5, 2.0)`. Nota: `K` es global en producción, se calibra por activo solo para este análisis (`plan_x5_alt_v2.md` sección 6). [dep: Q4-12]
+- [ ] **[Q4-14] Ejecutar X5_Q4.ipynb** (con la Sección K ya agregada). [dep: Q4-13]
+- [ ] **[Q4-15] Revisar visuales de la Sección K y validar**. [dep: Q4-14]
+- [ ] **[Q4-16] Implementar Sección N_EXP: `N_EXP = f(cambio_volatilidad)`**: mismo esqueleto con `k=1`. Rango `(0.5, 3.0)`. Misma nota que `K` sobre parámetros globales. [dep: Q4-15]
+- [ ] **[Q4-17] Ejecutar X5_Q4.ipynb** (con la Sección N_EXP ya agregada). [dep: Q4-16]
+- [ ] **[Q4-18] Revisar visuales de la Sección N_EXP y validar**. [dep: Q4-17]
+- [ ] **[Q4-19] Implementar resumen consolidado** (los 5 parámetros de esta fase: `N`,`A`,`factor_B`,`K`,`N_EXP`): tabla única por activo con R², elasticidad y coincidencia de signo vs. hipótesis Q3. Export `{valor}_q4_resumen.csv`. [dep: Q4-18]
+- [ ] **[Q4-20] Ejecutar X5_Q4.ipynb y revisar el resumen consolidado**: correr de punta a punta, Mauricio revisa la tabla completa (los 5 parámetros juntos) antes del cierre formal. [dep: Q4-19]
+- [ ] **[Q4-EXEC] Cierre de la Fase 2 principal**: agregar la celda de `exportar_zip` (Sección 12, ya con encabezado markdown en el scaffold) sobre los CSV de las secciones 4-19, correr `X5_Q4.ipynb` una última vez de punta a punta (6 activos) y confirmar el zip generado. [dep: Q4-20]
+
+**Q4 — extensión opcional: `LAMBDA`** (fuera del alcance comprometido de esta fase — decisión explícita de Mauricio de dejarlo afuera; retomar solo si decide resolver el bloqueador)
+
+- [ ] **[Q4-L1] Resolver el rango real de `LAMBDA`**: decidir con Mauricio si se usa `(0.001,0.02)` (rango de exploración documentado) o `0.2` (valor productivo, `config.py:95`) como referencia de `piso`/`techo` — bloqueador heredado de `Q3-6`. Sin esto resuelto, no avanzar a `Q4-L2`. [dep: Q4-EXEC]
+- [ ] **[Q4-L2] Implementar Sección LAMBDA: `LAMBDA = f(x3_bb_width, duracion_en_rango)`**: mismo esqueleto con `k=2`, usando el rango decidido en `Q4-L1`. [dep: Q4-L1]
+- [ ] **[Q4-L3] Ejecutar X5_Q4.ipynb** (con la Sección LAMBDA ya agregada). [dep: Q4-L2]
+- [ ] **[Q4-L4] Revisar visuales de la Sección LAMBDA y validar**. [dep: Q4-L3]
+
+**Q5 — X5_Q5.ipynb (validación económica: puente a X4_backtester.py, `plan_x5_alt_v2.md` sección 9)**
+
+- [ ] **[Q5-1] X5_Q5 — diseñar el backtesting condicional por régimen**: decisión pendiente explícita de `x5_contexto_conversacion.md` §21 ("Definir cómo se realizará el backtesting condicional por régimen") — paso previo obligatorio, no una sección más del notebook. Sin esto resuelto no se desglosan más ítems de `Q5`. [dep: Q4-EXEC]
+- [ ] **[Q5-2] X5_Q5 — comparar resultado económico de cada parámetro dinámico (Q4) vs. estático actual**: walk-forward / fuera de muestra por activo (Principio 10, `x5_contexto_conversacion.md`), usando `X4_backtester.py` sin reimplementar su lógica (Principio "X4/X5 dependen de X0/X1" de `CLAUDE.md`). [dep: Q5-1]
+
 **Transversales / implementación**
+
+- [ ] **[TRANS-2] Generar `docs/plans/plan_x5_alt_v2.pdf`** en LaTeX (~10-12 páginas), mismo patrón que `x5_alt_v2.tex`/`.pdf` existente para `Q1`/`Q2`/`Q3` — documentando la Fase 2 (funciones dinámicas) una vez `Q4` esté calibrado, para que refleje resultados reales y no solo el diseño. Ojo con el nombre: ya existe `docs/plans/x5_alt_v2.pdf` (documenta `Q1`/`Q2`/`Q3`, sin prefijo `plan_`) — evaluar si conviene renombrar uno de los dos para no confundirlos. [dep: Q4-EXEC]
 
 ### Backlog
 

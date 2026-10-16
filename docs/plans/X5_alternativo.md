@@ -167,4 +167,8 @@ Síntesis de las hipótesis ya documentadas en [`x5_contexto_conversacion.md`](x
 | `LOTAJES_M` | Sin hipótesis dinámica | — | — | No prioritario: fijo mientras X5 opere siempre a lotaje mínimo (rango degenerado `(1,1)`). |
 | `PERDIDA_MAX` | Sin hipótesis dinámica por ahora | — | — | Pausado — en evaluación para moverse a una capa externa de gestión de riesgo (`RIESGO_MAX_PCT * CAPITAL_BASE_ACTIVO`), no como función del estado del activo. |
 
+### 10.6. Fase 2 — funciones dinámicas (2026-10-15)
+
+Con `Q1`/`Q2`/`Q3` cerrados, el siguiente paso (convertir cada hipótesis de la tabla de §10.5 en una función `P_t = f(x_t)` calibrada, no solo una dirección esperada) tiene su propio plan completo: [`docs/plans/plan_x5_alt_v2.md`](plan_x5_alt_v2.md). Resumen: sigmoide acotada por parámetro, calibrada contra un target sintético de diseño (percentil causal, sin backtesting todavía) — la validación económica real queda para `X5_Q5.ipynb`. TODOs en `docs/tracking/todos.md`, secciones `Q4`/`Q5` dentro de `X5_alt_v2`.
+
 Ninguna de estas hipótesis se implementa como regla todavía — quedan a la espera de la evidencia descriptiva de `X5_Q2.ipynb` (principio 9, sección 20: "P2 debe producir evidencia e hipótesis, no reglas prescriptivas definitivas").

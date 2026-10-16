@@ -267,3 +267,33 @@ sea una función de lo estimado en estos scripts
 
 De tal forma que varíen en el tiempo de una manera inteligente
 Que me proteja cuando las cosas andan mal
+Que sea eficiente cuando aumenta la volatilidad
+Que sea más agresivo cuando mi draw-down es bueno, etc
+
+No te limites a la "data histórica" y variables explicativas que hemos calculado
+en X2, X3 y otros..sugiere si es necesario
+
+Tengo que llegar a que cada parámetro P, sea una función lógica, inteligente, con parámetros tipo curve-fitting estimados con ML, para que se cumpla el objetivo
+
+Ayudame a ordenar la idea y creemos un plan al respecto
+Genera un plan_x5_alt_v2.md, en docs/plans
+Agrega los puntos necesarios a los todos.md
+crea además plan_x5_alt_v2.pdf en latex con la documentación (aprox 10-12) páginas (esto puedes agregarlo en los todos, por ahora solo quiero el md y los puntos en los to dos)
+Crea nuevos scripts: Q4, Q5, etc...para validar hipótesis y que yo pueda tener inspección visual
+
+Supongamos que por ejemplo N = f(drawdown, fundamentales en X2) [solo eso]
+entonces quiero tener un jupyter visual, donde cada sección sea un parámetro, con herramientas visuales y análisis estadístico para validar yo tambien la hiótesis
+Propón la forma que deberían tener las funciones f
+Las combinaciones parámetro(P)-x(p,i), donde P es un parámetro y x(p,i) es una variable explicativa de la función para P, deberían ser mas bien limitadas (que no sean tantas)
+
+
+Tomate tu tiempo para planificar
+/consultar
+
+
+
+quiero que en los todos incluyas cosas como
+Ejecutar QX.ipynb
+Revisar visuales de QX.ipynb y validar
+Ordena los todos de manera secuancial, porque iré paso a paso en el orden que
+propongas

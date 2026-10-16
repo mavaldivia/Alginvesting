@@ -117,7 +117,9 @@ scripts/
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores (lista), default los 6 activos
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
-  X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la implementación de X5_alt_v2
+  X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
+  X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra cada parámetro como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — scaffold, en desarrollo sección por sección
+  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, calibrar_parametro) — no depende de Data/MT5
   x5_alt_export.py       # exportar_zip() — empaqueta los outputs de cada notebook X5_Q*.ipynb en resources/x5_alt/ para pasarlos de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
@@ -136,7 +138,7 @@ resources/               # Todo generado en Windows, fuera de git
   x5_alt/                # {VALOR}_tabla_maestra.csv (X5_P1.ipynb, X5_alt v1) + {VALOR}_tabla_estado_v2.csv (X5_Q1.ipynb, X5_alt_v2 — tabla extendida con variables de estado, consumida por X5_Q2.ipynb) + {VALOR}_catalogo_variables.csv (X5_Q1.ipynb, X5_alt_v2 — catálogo de documentación por variable) + {notebook}_{timestamp}.zip (exportado por x5_alt_export.py para pasar outputs de Windows a Mac)
 docs/
   context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md
-  plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + documentacion.html (doc interactiva por sección, ver /documentar)
+  plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + plan_x5_alt_v2.md (Fase 2: parámetros como funciones dinámicas) + documentacion.html (doc interactiva por sección, ver /documentar)
   tracking/              # todos.md, done.md, records.md
 Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Alginvesting_base/, prompts (ver docs/context/propuesta_restructuracion.md)
   scripts/               # X5_macro_brain.py, x5_demo.py, config_x5_default.py, X5_analisis_exploratorio.ipynb
@@ -228,6 +230,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-15** — feat(x5-alt-v2): plan y scaffold de Fase 2 — parámetros como funciones dinámicas
 - **2026-10-15** — feat(x5-alt-v2): default de los 6 activos en notebooks Q1/Q2/Q3
 - **2026-10-15** — fix(x1): reemplazo de O0/OE ya no pierde OE netas por el gate de delta
 - **2026-10-12** — docs(x5-alt-v2): agrega doc interactiva y PDF LaTeX de Q1/Q2/Q3
