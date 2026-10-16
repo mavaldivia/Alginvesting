@@ -230,6 +230,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — fix(x5-q2): activo en título de gráficos + progreso/ETA entre gráficos
 - **2026-10-15** — feat(x5-alt-v2): plan y scaffold de Fase 2 — parámetros como funciones dinámicas
 - **2026-10-15** — feat(x5-alt-v2): default de los 6 activos en notebooks Q1/Q2/Q3
 - **2026-10-15** — fix(x1): reemplazo de O0/OE ya no pierde OE netas por el gate de delta
