@@ -228,6 +228,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-15** — fix(x1): reemplazo de O0/OE ya no pierde OE netas por el gate de delta
 - **2026-10-12** — docs(x5-alt-v2): agrega doc interactiva y PDF LaTeX de Q1/Q2/Q3
 - **2026-10-12** — feat(x5-alt-v2): Q3-4/Q3-EXEC/TRANS-1 — tabla final y cierre de X5_alt_v2
 - **2026-10-12** — feat(x5-alt-v2): Q3-5/Q3-6/Q3-7 — hipótesis A/factor_B, K/N_EXP/LAMBDA y vector X→Y consolidado

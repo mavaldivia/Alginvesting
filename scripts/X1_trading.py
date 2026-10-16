@@ -594,7 +594,7 @@ def _colocar_orden_real(Pi: float, spread: float, valor: str, lotajes: dict, dic
 
 
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
-                               a: float, lotajes: dict, dic_bloqueados: dict,
+                               lotajes: dict, dic_bloqueados: dict,
                                fraccion_inicial: float = X1_REEMPLAZO_FRACCION_INICIAL):
     """Caso (a): reemplazo total — el conjunto de soportes cambió y hay OE cuyo precio
     ya no está en lista_N. El caller (loop principal) solo llama esto con el mercado
@@ -609,13 +609,19 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     reemplazo, exactamente el síntoma reportado. La única forma de no perder OE es
     no eliminar nada hasta haber colocado una orden real con éxito.
 
+    Entrantes "colocables": solo se exige estar bajo el umbral = promedio entre el
+    precio actual y la saliente de mayor precio (la salida más cercana al precio).
+    No se exige distancia mínima (`_distancia_ok`/delta) como en `crear_ordenes_espera`
+    — ese gate, en este caso de reemplazo, dejaba sistemáticamente sin reponer la
+    entrante más cercana al precio (la que calza con la saliente que gatilló el
+    reemplazo), generando una pérdida neta de OE ciclo a ciclo.
+
     Flujo actual, sin ningún dry-run:
-      1. Probe real: intenta colocar UNA orden real entre las entrantes "colocables"
-         (las que pasan `_distancia_ok`), de menor a mayor precio — la más lejana
-         del precio actual primero, por ser la menos propensa a rechazo por
-         distancia mínima/stops level, igual que el razonamiento que tenía el
-         dry-run. Si ninguna se acepta, no se toca ninguna OE y se reintenta el
-         próximo ciclo.
+      1. Probe real: intenta colocar UNA orden real entre las entrantes "colocables",
+         de menor a mayor precio — la más lejana del precio actual primero, por ser
+         la menos propensa a rechazo por distancia mínima/stops level, igual que el
+         razonamiento que tenía el dry-run. Si ninguna se acepta, no se toca ninguna
+         OE y se reintenta el próximo ciclo.
       2. Confirmado que el mercado acepta: coloca el `fraccion_inicial` (ej. 20%)
          de mayor precio de las colocables (menos la ya colocada en el probe),
          de mayor a menor — asegura cobertura cerca del precio ANTES de borrar
@@ -649,13 +655,14 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     P0 = obtener_precio_actual(valor, modo='B')
     spread = obtener_spread(valor)
     bloqueados_valor = dic_bloqueados.setdefault(valor, {})
+    umbral = (P0 + _soporte_de_orden(salientes[0])) / 2
     colocables = sorted(
         Pi for Pi in entrantes
-        if _distancia_ok(Pi, P0, valor, a)
+        if Pi < umbral
         and (bloqueados_valor.get(Pi) is None or (time.time() - bloqueados_valor[Pi]) >= X1_RETRY_BLOQUEADOS_S)
     )
     if not colocables:
-        return  # nada colocable este ciclo (todo bloqueado o fuera de distancia) — no tocar OE
+        return  # nada colocable este ciclo (todo bloqueado o sobre el umbral) — no tocar OE
 
     # Paso 1: probe real, de menor a mayor precio.
     probada = None
@@ -1015,7 +1022,7 @@ if __name__ == '__main__':
                             hay_salientes = any(_soporte_de_orden(o) not in lista_N for o in actual_OE)
                             if hay_salientes:
                                 # Caso (a): el conjunto de soportes cambió — reemplazo total
-                                reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, A[valor], LOTAJES, dic_bloqueados)
+                                reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, LOTAJES, dic_bloqueados)
                             else:
                                 # Caso (b): promoción normal de O0 a OE por margen
                                 crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, A[valor], LOTAJES, dic_bloqueados)
