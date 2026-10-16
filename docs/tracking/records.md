@@ -2103,3 +2103,8 @@ Claude: movió `_ICONOS_VALOR` de `X1_trading.py` a `ICONOS_VALOR` en `config.py
 Mauricio: invocó `/guardar` de nuevo, sin pedir trabajo adicional.
 Claude: detectó en disco un ajuste ya hecho fuera de esta sesión (ícono de MSFT en `config.py`, de `🔹` a `\U0001F5A5 (MSFT)`, más consistente con el formato del resto de `ICONOS_VALOR`), pendiente de commitear — lo dejó pasar a `update-push` tal cual, sin modificarlo.
 (Cierre: 2026-10-16 14:02)
+
+## SECCIÓN 254
+Mauricio: via /new_todo, reportó que X1 seguía fallando con un traceback periódico ("Error en informacion") aunque ya existía un fix previo (a177069) para el JSON de soportes faltante de MSFT — "No se arregló".
+Claude: identificó que el fix previo solo cubría el loop principal por activo, pero `informacion()` (reporte periódico cada ~5000 iteraciones) seguía llamando `leer_lista_N` sin ese mismo guard y propagaba el `FileNotFoundError`. Agregó try/except por activo dentro de `informacion()` y ajustó los dos loops de impresión para saltar activos ausentes de `datos`. Registrado en `done.md` → X1 — X1_trading.py.
+(Cierre: 2026-10-16 14:19)

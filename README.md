@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — fix(x1): informacion() ya no crashea con JSON de soportes faltante
 - **2026-10-16** — fix(config): ícono de MSFT más acorde al resto de ICONOS_VALOR
 - **2026-10-16** — refactor(activos): centraliza ICONOS_VALOR en config.py y acorta warning de X1
 - **2026-10-16** — fix(x1): JSON de soportes faltante no bloquea el loop completo

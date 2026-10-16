@@ -895,9 +895,15 @@ def informacion(valores: list, n_sizes: dict, a: dict):
     """
     datos = {}
     for valor in valores:
+        try:
+            N = n_sizes[valor]
+            lista_N = leer_lista_N(valor, N)
+        except FileNotFoundError:
+            # Mismo criterio que el loop principal: activo sin JSON de soportes
+            # todavía (recién agregado o config.py desincronizado) — se omite de
+            # este reporte hasta que X0 lo genere, en vez de abortar la función.
+            continue
         P0 = obtener_precio_actual(valor, modo='B')
-        N = n_sizes[valor]
-        lista_N = leer_lista_N(valor, N)
         L = MIN_LOTAJES[valor] * UNITS[valor]
         a_valor = a[valor]
 
@@ -934,6 +940,8 @@ def informacion(valores: list, n_sizes: dict, a: dict):
 
     print('\n─── A) OE → OA: cuánto debe BAJAR P0 para ejecutar la OE más cercana ─────────')
     for valor in valores:
+        if valor not in datos:
+            continue
         d = datos[valor]
         print(f'\n{valor} | P0={d["P0"]:.2f}')
         if d['df_a'] is not None:
@@ -943,6 +951,8 @@ def informacion(valores: list, n_sizes: dict, a: dict):
 
     print('\n─── B) Soporte/Resistencia → OE: cuánto debe SUBIR P0 para declarar el más cercano ─')
     for valor in valores:
+        if valor not in datos:
+            continue
         d = datos[valor]
         print(f'\n{valor} | P0={d["P0"]:.2f}')
         if d['df_b'] is not None:
