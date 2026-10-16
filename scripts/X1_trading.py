@@ -46,6 +46,25 @@ from config import (
 )
 
 
+_ICONOS_VALOR = {
+    'BTCUSD': '₿ (BTC)',
+    'ETHUSD': 'Ξ (ETH)',
+    'TSLA': '⚡ (TSLA)',
+    'AMZN': '\U0001F4E6 (AMZN)',
+    'NVDA': '\U0001F3AE (NVDA)',
+    'GOOGL': '\U0001F50D (GOOGL)',
+}
+
+
+def _imprimir_tabla_reemplazo(valor: str, filas: list):
+    """Imprime en una tabla alineada las filas (etiqueta, cantidad, desde, hasta, lotaje_total)
+    del reemplazo O0→OE — reemplaza los 3 prints sueltos de antes por una sola vista por activo."""
+    print(f'  {_ICONOS_VALOR.get(valor, valor)} {valor}')
+    print(f'  {"":<12}| {"#":^5}| {"Desde":^14}| {"Hasta":^14}| {"Lotaje total":^14}')
+    for etiqueta, cantidad, desde, hasta, lotaje_total in filas:
+        print(f'  {etiqueta:<12}| {cantidad:^5}| {desde:^14.2f}| {hasta:^14.2f}| {lotaje_total:^14.2f}')
+
+
 class LimiteOrdenesError(Exception):
     """MT5 rechazó la orden por límite de posiciones/órdenes pendientes en la cuenta
     (retcode 10040) — hay demasiadas OA+OE abiertas simultáneamente."""
@@ -638,24 +657,28 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
         (o for o in actual_OE if _soporte_de_orden(o) not in lista_N),
         key=_soporte_de_orden, reverse=True,
     )
+    filas = []
 
-    def _eliminar_salientes():
+    def _fila_eliminar_salientes():
         eliminadas = [(_soporte_de_orden(o), o.volume_initial) for o in salientes if _cancelar_orden(o, valor)]
         if eliminadas:
             precios = [p for p, _ in eliminadas]
             lotaje_total = sum(v for _, v in eliminadas)
-            print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
+            filas.append(('eliminadas', len(eliminadas), min(precios), max(precios), lotaje_total))
 
-    def _print_total_oe_actual():
+    def _fila_total_oe_actual():
         precios_oe = sorted(_soporte_de_orden(o) for o in actual_OE)
         if precios_oe:
-            print(f'  {valor}: total de OE actuales: {len(precios_oe)} desde {precios_oe[0]} hasta {precios_oe[-1]}')
+            lotaje_total = sum(o.volume_initial for o in actual_OE)
+            filas.append(('actuales', len(precios_oe), precios_oe[0], precios_oe[-1], lotaje_total))
 
     lista_OAE_actual = lista_OA + [_soporte_de_orden(o) for o in actual_OE]
     entrantes = sorted(Pi for Pi in set(lista_N) if Pi not in lista_OAE_actual)
     if not entrantes:
-        _print_total_oe_actual()
-        _eliminar_salientes()
+        _fila_total_oe_actual()
+        _fila_eliminar_salientes()
+        if filas:
+            _imprimir_tabla_reemplazo(valor, filas)
         return
 
     P0 = obtener_precio_actual(valor, modo='B')
@@ -685,7 +708,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
                               f'colocarse (mercado no operable pese a trade_mode/tick); no se toca ninguna OE')
         return
 
-    _print_total_oe_actual()
+    _fila_total_oe_actual()
     orden_colocacion = [1]
 
     def _colocar_y_notificar(Pi):
@@ -703,11 +726,13 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     tanda_80 = [Pi for Pi in colocables_desc[corte:] if Pi != probada]
 
     ejecutadas = [probada] + [Pi for Pi in tanda_20 if _colocar_y_notificar(Pi)]
-    _eliminar_salientes()
+    _fila_eliminar_salientes()
     ejecutadas += [Pi for Pi in tanda_80 if _colocar_y_notificar(Pi)]
 
     if ejecutadas:
-        print(f'  {valor}: reemplazo — {len(ejecutadas)} OE colocadas desde {min(ejecutadas):.2f} hasta {max(ejecutadas):.2f}  lotaje={lotajes[valor]}')
+        filas.append(('colocadas', len(ejecutadas), min(ejecutadas), max(ejecutadas), len(ejecutadas) * lotajes[valor]))
+    if filas:
+        _imprimir_tabla_reemplazo(valor, filas)
 
 
 def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):
