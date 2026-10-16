@@ -297,3 +297,5 @@ Ejecutar QX.ipynb
 Revisar visuales de QX.ipynb y validar
 Ordena los todos de manera secuancial, porque iré paso a paso en el orden que
 propongas
+
+/todos X5_alt_v2

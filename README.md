@@ -230,6 +230,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — feat(x0): backfill automático de historia inicial para cualquier activo
 - **2026-10-16** — feat(x1): tabla alineada por activo con ícono para el reemplazo O0/OE
 - **2026-10-16** — feat(x1): total de OE vigentes antes de cada reemplazo en los logs
 - **2026-10-16** — fix(x5-q2): activo en título de gráficos + progreso/ETA entre gráficos

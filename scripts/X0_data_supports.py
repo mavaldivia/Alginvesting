@@ -888,6 +888,25 @@ def detectar_gap_bt_eth(carpeta_data: Path, fecha_desde: datetime.datetime,
     return gap_mas_antiguo
 
 
+def detectar_falta_historico_inicial(carpeta_data: Path, valor: str,
+                                      fecha_inicial: datetime.datetime,
+                                      margen_dias: int = 5) -> bool:
+    """True si `{valor}.csv` no existe, o si su primera vela es posterior a
+    `fecha_inicial + margen_dias` — señal de que el activo es nuevo (nunca se corrió
+    backfill) y le falta historia desde el comienzo. A diferencia de `detectar_gap_bt_eth`
+    (huecos intra-serie, solo BTC/ETH por ser 24/7), esto aplica a cualquier activo: no
+    hay ambigüedad de huecos de fin de semana al mirar solo el borde inicial de la serie.
+    El margen absorbe que FECHA_INICIAL pueda caer en un día sin vela (feriado/fin de semana)."""
+    csv_path = carpeta_data / f'{valor}.csv'
+    if not csv_path.exists():
+        return True
+    df = _leer_csv_reintentos(csv_path)
+    if len(df) == 0:
+        return True
+    primera_vela = pd.to_datetime(df['DateTime']).min()
+    return primera_vela > fecha_inicial + datetime.timedelta(days=margen_dias)
+
+
 def backfill_historico(valores: list, carpeta_data: Path, fecha_desde: datetime.datetime):
     """Trae el historial H1 completo disponible en el broker desde `fecha_desde` hasta hoy
     (vía copy_rates_range, sin el tope de 1000 velas de descargar_datos) y lo mergea con el
@@ -1611,9 +1630,16 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                         descargar_datos([valor], carpeta_data, verbose=es_primera_hora)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'Descarga H1 falló para {valor}, continuando', e)
+                    fecha_inicial_dt = datetime.datetime.strptime(FECHA_INICIAL, '%Y-%m-%d')
+                    try:
+                        if detectar_falta_historico_inicial(carpeta_data, valor, fecha_inicial_dt):
+                            console.print(f'\n⚠ {valor}: sin historia desde {FECHA_INICIAL} — '
+                                          f'backfill automático inicial')
+                            backfill_historico([valor], carpeta_data, fecha_inicial_dt)
+                    except Exception as e:
+                        _log_error(CARPETA_LOGS, f'Backfill inicial falló para {valor}, continuando', e)
                     if valor in ('BTCUSD', 'ETHUSD'):
                         try:
-                            fecha_inicial_dt = datetime.datetime.strptime(FECHA_INICIAL, '%Y-%m-%d')
                             gap = detectar_gap_bt_eth(carpeta_data, fecha_inicial_dt)
                             if gap is not None:
                                 console.print(f'\n⚠ Vacío detectado en BTC/ETH desde {gap} — '

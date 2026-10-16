@@ -6,6 +6,8 @@ datos históricos, calidad del algoritmo, velocidad, visualizaciones, trading)
 en vez de por script (X0/X1) — varios temas son usados por ambos.
 """
 
+# PRUEBA DE CAMBIO 261016
+
 import sys
 from pathlib import Path
 
