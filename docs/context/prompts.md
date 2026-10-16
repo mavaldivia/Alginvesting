@@ -254,3 +254,16 @@ En los to dos declarados para x5_alt_v2, me extraña que no estuviera: Ejecutar 
 No se si en /documentar incluiste los próximos pasos que debería tener la
 sección X5_alt_v2
 Además, quiero una documentación en latex / pdf de esto mismo, con una extensión entre 25 y 25 páginas
+
+-----
+new_todo X5_alt_v2
+
+Volvamos a la escencia de lo que quiero lograr, tomando como contexto
+Los 3 jupyter: Q1, Q2, Q3 en scripts
+Los 3 zips (outputs) de esos jupyters, en resources/X5_alt
+
+Lo que quiero lograr, es que cada parámetro en config, de los ya revisados,
+sea una función de lo estimado en estos scripts
+
+De tal forma que varíen en el tiempo de una manera inteligente
+Que me proteja cuando las cosas andan mal

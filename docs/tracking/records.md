@@ -2002,3 +2002,21 @@ Claude: revisó el código (`_distancia_ok`, `salientes`/`entrantes`) y lanzó d
 Mauricio: simplificó todo — "olvida N_entrada y N_salida", y reemplazó la regla por: colocar todas las entrantes bajo el promedio entre el precio actual y la saliente (buy limit) de mayor precio, sin tope ni priorización.
 Claude: implementó el fix en `reemplazar_ordenes_espera` — reemplazó el gate `_distancia_ok`/delta en `colocables` por `umbral = (P0 + precio_saliente_más_alta) / 2`, eliminó el parámetro `a` (ya sin uso) de la función y de su call site; `crear_ordenes_espera` (promoción normal O0→OE) queda sin cambios. Verificado con `py_compile`. Registrado directamente en `done.md` (sección X1) vía `/new_todo`, sin pasar por `todos.md`.
 (Cierre: 2026-10-15 22:29)
+
+## SECCIÓN 242
+Mauricio: pidió leer `/Users/macasaez/.claude/jobs/090a8127/tmp/contexto_X5_Q3_analisis.md` — contexto de una sesión anterior truncada (job en background bloqueado por TCC de macOS) que dejó pendiente, desde `/new_todo X5_alt_v2`, analizar `X5_Q3_20261015_220702.zip` y limpiar `resources/x5_alt/`.
+Claude: leyó el contexto sin problema (sesión interactiva normal) y resumió los 2 bugs reportados ahí (`velocidad_caida` ausente en BTCUSD/ETHUSD/TSLA; `fundamental_magnitud_cambio` y menos filas horarias solo en GOOGL) más la nota de posibles zips Q3 duplicados.
+
+Mauricio: confirmó avanzar con la revisión de `X5_Q3.ipynb` para encontrar la causa de los bugs.
+Claude: revisó a fondo `X5_Q1.ipynb`/`X5_Q2.ipynb`/`X5_Q3.ipynb` y `X3_technical_features.py`. Concluyó que 2 de los 3 "bugs" no son bugs: `velocidad_caida` y `fundamental_magnitud_cambio` se calculan igual para los 6 activos en `X5_Q1.ipynb` — su ausencia/presencia en `q3_8_vista_unificada` es el filtro de evidencia por diseño de `X5_Q3.ipynb` (`nivel_evidencia_descriptiva ∈ {alta, media}`), que varía legítimamente por activo. El tercer bug (GOOGL con ~3590 filas horarias menos que AMZN en el mismo rango de fechas) sí es real, pero rastreando el merge completo de `_cargar_tabla_base` confirmó que no se pierde ninguna fila en X5_Q1/Q2/Q3 (join X3↔precio 1:1, `merge_asof` con X2 nunca descarta filas del lado izquierdo) — el origen está en el dato crudo `Data/GOOGL.csv` (Windows, fuera de git), fuera de lo verificable desde Mac. Queda pendiente verificarlo en Windows.
+Claude: confirmó con `diff` que `X5_Q3_20261012_210842.zip` y `X5_Q3_20261012_210940.zip` son duplicados exactos (mismo contenido descomprimido).
+
+Mauricio: pidió confirmar que en cada etapa (Q1/Q2/Q3) hay un solo zip con los 6 activos.
+Claude: verificó listando el contenido de los 9 zips — confirmó que `X5_Q1_20261012_161336.zip`, `X5_Q2_20261012_180526.zip` y `X5_Q3_20261015_220702.zip` son los únicos con los 6 activos; los otros 6 son corridas de prueba con solo BTCUSD (default anterior del notebook).
+
+Mauricio: pidió eliminar los otros zips.
+Claude: confirmó que `resources/x5_alt/` está fuera de git y borró los 6 zips BTCUSD-only, dejando solo los 3 con los 6 activos. Preguntó si también borrar la carpeta descomprimida `X5_Q3_20261015_220702/` — Mauricio respondió que ya la había borrado él mismo.
+
+Mauricio: pidió que `X5_Q1.ipynb`/`X5_Q2.ipynb`/`X5_Q3.ipynb` tuvieran por defecto los 6 activos en vez de solo BTCUSD.
+Claude: editó la celda `valores = [...]` en los 3 notebooks (vía `NotebookEdit` en `X5_Q1.ipynb`, y reemplazo directo de texto en el JSON crudo para `X5_Q2.ipynb`/`X5_Q3.ipynb` por exceder el límite de tokens del `Read` tool) para que el default sea `['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']`, igual que `config.VALORES`. Validó que los 3 archivos siguen siendo JSON válido tras el cambio.
+(Cierre: 2026-10-15 22:49)

@@ -115,7 +115,7 @@ scripts/
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
-  X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores=['BTCUSD'] (lista)
+  X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores (lista), default los 6 activos
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
   X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la implementación de X5_alt_v2
   x5_alt_export.py       # exportar_zip() — empaqueta los outputs de cada notebook X5_Q*.ipynb en resources/x5_alt/ para pasarlos de Windows a Mac
@@ -228,6 +228,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-15** — feat(x5-alt-v2): default de los 6 activos en notebooks Q1/Q2/Q3
 - **2026-10-15** — fix(x1): reemplazo de O0/OE ya no pierde OE netas por el gate de delta
 - **2026-10-12** — docs(x5-alt-v2): agrega doc interactiva y PDF LaTeX de Q1/Q2/Q3
 - **2026-10-12** — feat(x5-alt-v2): Q3-4/Q3-EXEC/TRANS-1 — tabla final y cierre de X5_alt_v2
