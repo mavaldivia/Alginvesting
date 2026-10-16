@@ -47,10 +47,15 @@ from config import (
 )
 
 
+def _fmt_valor(valor: str) -> str:
+    """Formato uniforme '(ícono) (valor)' para mostrar un activo en cualquier print de X1."""
+    return f'({ICONOS_VALOR.get(valor, "?")}) ({valor})'
+
+
 def _imprimir_tabla_reemplazo(valor: str, filas: list):
     """Imprime en una tabla alineada las filas (etiqueta, cantidad, desde, hasta, lotaje_total)
     del reemplazo O0→OE — reemplaza los 3 prints sueltos de antes por una sola vista por activo."""
-    print(f'  {ICONOS_VALOR.get(valor, valor)} {valor}')
+    print(f'  {_fmt_valor(valor)}')
     print(f'  {"":<12}| {"#":^5}| {"Desde":^14}| {"Hasta":^14}| {"Lotaje total":^14}')
     for etiqueta, cantidad, desde, hasta, lotaje_total in filas:
         print(f'  {etiqueta:<12}| {cantidad:^5}| {desde:^14.2f}| {hasta:^14.2f}| {lotaje_total:^14.2f}')
@@ -92,7 +97,7 @@ def _marcar_mercado_cerrado(symbol: str, retcode, comment) -> None:
     _cancelar_orden, reemplazar_ordenes_espera) no imprimen nada más. Se resetea
     al reiniciar X1: si el mercado ya está cerrado al arrancar, avisa una vez."""
     if not _mercado_cerrado_notificado.get(symbol):
-        print(f'  {symbol}: mercado cerrado (retcode={retcode}, comment={comment}) — '
+        print(f'  {_fmt_valor(symbol)}: mercado cerrado (retcode={retcode}, comment={comment}) — '
               f'sin más avisos hasta que reabra')
         _mercado_cerrado_notificado[symbol] = True
 
@@ -101,7 +106,7 @@ def _marcar_mercado_abierto(symbol: str) -> None:
     """Contraparte de _marcar_mercado_cerrado: se llama ante una orden real
     ejecutada con éxito, la única prueba fehaciente de que la sesión reabrió."""
     if _mercado_cerrado_notificado.get(symbol):
-        print(f'  {symbol}: mercado reabrió')
+        print(f'  {_fmt_valor(symbol)}: mercado reabrió')
         _mercado_cerrado_notificado[symbol] = False
 
 
@@ -130,7 +135,7 @@ def _flush_ejecuciones_pendientes(forzar: bool = False) -> None:
         pendiente = _ejecuciones_pendientes[valor]
         if forzar or (ahora - pendiente['ultima']) >= X1_COMPACTAR_LOG_S:
             precios = pendiente['precios']
-            print(f'  {valor}: {len(precios)} órdenes ejecutadas desde {min(precios)} hasta {max(precios)}  '
+            print(f'  {_fmt_valor(valor)}: {len(precios)} órdenes ejecutadas desde {min(precios)} hasta {max(precios)}  '
                   f'lotaje={pendiente["lotaje"]}')
             del _ejecuciones_pendientes[valor]
 
@@ -195,7 +200,7 @@ def leer_lista_N(valor: str, N: int) -> list:
             return [round(n, 2) for n in lista_N]
         except (json.JSONDecodeError, PermissionError, OSError) as e:
             ultimo_error = e
-            print(f'{valor}_{N}: lock transitorio al leer soportes ({e}), reintentando...')
+            print(f'{_fmt_valor(valor)}_{N}: lock transitorio al leer soportes ({e}), reintentando...')
             time.sleep(5)
     print(f'Error leer_lista_N ({json_path}): agotados 12 intentos — último error: {ultimo_error}')
     raise FileNotFoundError(f'No se encontró (o no se pudo leer) {json_path} después de 12 intentos')
@@ -274,7 +279,7 @@ def _informar_cierre(valor: str, ticket: int, info: dict) -> None:
     precio_cierre, ganancia = _cierre_historico(ticket)
     pc_str = f'{precio_cierre:.2f}' if precio_cierre is not None else 'desconocido'
     g_str = f'${ganancia:.2f}' if ganancia is not None else 'desconocida'
-    print(f'  [OA > OC] {valor}  ticket={ticket}  lotaje={info["lote"]}  '
+    print(f'  [OA > OC] {_fmt_valor(valor)}  ticket={ticket}  lotaje={info["lote"]}  '
           f'precio_apertura={info["precio_apertura"]:.2f}  precio_cierre={pc_str}  ganancia={g_str}')
 
 
@@ -307,7 +312,7 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
     for p in actual_OA:
         if p.ticket not in pos_info:
             if ya_inicializado:
-                print(f'  [OE > OA] {valor}  ticket={p.ticket}  lotaje={p.volume}  ejecutada @ {p.price_open:.2f}')
+                print(f'  [OE > OA] {_fmt_valor(valor)}  ticket={p.ticket}  lotaje={p.volume}  ejecutada @ {p.price_open:.2f}')
             pos_info[p.ticket] = {'valor': valor, 'lote': p.volume, 'precio_apertura': p.price_open}
 
     tickets_previos = [t for t, info in pos_info.items() if info['valor'] == valor]
@@ -318,7 +323,7 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
     if valor in dic_seguimiento:
         for ticket in list(dic_seguimiento[valor]):
             if ticket not in actual_tickets:
-                print(f'Posición cerrada externamente, eliminando de seguimiento: valor={valor}, ticket={ticket}')
+                print(f'Posición cerrada externamente, eliminando de seguimiento: valor={_fmt_valor(valor)}, ticket={ticket}')
                 dic_seguimiento[valor].remove(ticket)
 
     return lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento
@@ -337,7 +342,7 @@ def _cancelar_orden(orden, valor: str) -> bool:
     result = mt5.order_send(request)
     if result is None:
         _print_throttled(valor, 'order_send_none',
-                          f'  {valor}: order_send failed: {mt5.last_error()}')
+                          f'  {_fmt_valor(valor)}: order_send failed: {mt5.last_error()}')
         return False
     if result.retcode != mt5.TRADE_RETCODE_DONE:
         comment = result._asdict().get('comment')
@@ -345,7 +350,7 @@ def _cancelar_orden(orden, valor: str) -> bool:
             _marcar_mercado_cerrado(valor, result.retcode, comment)
         else:
             _print_throttled(valor, result.retcode,
-                              f'  {valor}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
+                              f'  {_fmt_valor(valor)}: Error al eliminar orden {orden.ticket}: retcode={result.retcode}')
         return False
     return True
 
@@ -414,13 +419,13 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
                     raise LimiteOrdenesError(f'{symbol}: límite de órdenes en la cuenta (retcode 10040)')
                 if result.retcode in [10006]:  # rechazo transitorio del bróker: reintenta
                     if intento < X1_RETRY_RETCODE_MAX:
-                        print(f'  {symbol}: retcode={result.retcode} comment={comment} — '
+                        print(f'  {_fmt_valor(symbol)}: retcode={result.retcode} comment={comment} — '
                               f'reintento {intento}/{X1_RETRY_RETCODE_MAX} en {X1_RETRY_RETCODE_SLEEP_S}s')
                         time.sleep(X1_RETRY_RETCODE_SLEEP_S)
                         continue
                     return False, result.retcode, comment
                 _print_throttled(symbol, result.retcode,
-                                  f'  {symbol}: Error al ejecutar orden: retcode={result.retcode}, comment={comment}')
+                                  f'  {_fmt_valor(symbol)}: Error al ejecutar orden: retcode={result.retcode}, comment={comment}')
                 return False, result.retcode, comment
             else:
                 _marcar_mercado_abierto(symbol)
@@ -428,7 +433,7 @@ def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) ->
         except LimiteOrdenesError:
             raise
         except Exception as e:
-            _print_throttled(symbol, 'excepcion', f'  {symbol}: Excepción en ejecutar_orden: {e}')
+            _print_throttled(symbol, 'excepcion', f'  {_fmt_valor(symbol)}: Excepción en ejecutar_orden: {e}')
             return False, None, str(e)
 
 
@@ -485,7 +490,7 @@ def liberar_orden_lejana(dic_bloqueados: dict):
     symbol = mas_lejana.symbol
     precio = _soporte_de_orden(mas_lejana)
     dic_bloqueados.setdefault(symbol, {})[precio] = time.time()
-    print(f'  Límite de órdenes alcanzado: liberando {symbol} @ {precio:.2f}  lotaje={mas_lejana.volume_initial} '
+    print(f'  Límite de órdenes alcanzado: liberando {_fmt_valor(symbol)} @ {precio:.2f}  lotaje={mas_lejana.volume_initial} '
           f'(distancia {mayor_distancia:.2f} USD) para priorizar soportes cercanos')
     return symbol, precio
 
@@ -520,7 +525,7 @@ def _ejecutar_con_liberacion(request: dict, symbol: str, volumen: float, precio:
 
     bloqueados_valor = dic_bloqueados.setdefault(symbol, {})
     if not silent and precio not in bloqueados_valor:
-        print(f'  {symbol}: buy limit @ {precio:.2f} bloqueado temporalmente (límite de órdenes en la cuenta)')
+        print(f'  {_fmt_valor(symbol)}: buy limit @ {precio:.2f} bloqueado temporalmente (límite de órdenes en la cuenta)')
     bloqueados_valor[precio] = time.time()
     return False, retcode, comment
 
@@ -589,7 +594,7 @@ def crear_ordenes_espera(lista_OA: list, lista_OE: list, lista_N: list,
     if ejecutadas:
         _acumular_ejecucion(valor, ejecutadas, lotajes[valor])
     if bloqueadas:
-        print(f'  {valor}: {len(bloqueadas)} buy limits bloqueados temporalmente entre '
+        print(f'  {_fmt_valor(valor)}: {len(bloqueadas)} buy limits bloqueados temporalmente entre '
               f'{min(bloqueadas):.2f} y {max(bloqueadas):.2f}  lotaje={lotajes[valor]}  (límite de órdenes en la cuenta)')
 
     return ejecutadas, intentos
@@ -697,7 +702,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     if probada is None:
         if not _mercado_cerrado_notificado.get(valor):
             _print_throttled(valor, 'reemplazo_abortado',
-                              f'  {valor}: reemplazo abortado — ninguna de las {len(colocables)} OE candidatas pudo '
+                              f'  {_fmt_valor(valor)}: reemplazo abortado — ninguna de las {len(colocables)} OE candidatas pudo '
                               f'colocarse (mercado no operable pese a trade_mode/tick); no se toca ninguna OE')
         return
 
@@ -708,7 +713,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
         ok, retcode, comment = _colocar_orden_real(Pi, spread, valor, lotajes, dic_bloqueados)
         orden_colocacion[0] += 1
         if not ok:
-            print(f'  {valor}: falla al colocar orden #{orden_colocacion[0]} en {Pi:.2f}  '
+            print(f'  {_fmt_valor(valor)}: falla al colocar orden #{orden_colocacion[0]} en {Pi:.2f}  '
                   f'lotaje={lotajes[valor]}  retcode={retcode}  comment={comment}  '
                   f'(inesperado: el mercado ya aceptó una orden este ciclo)')
         return ok
@@ -740,7 +745,7 @@ def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):
     if podadas:
         precios = [p for p, _ in podadas]
         lotaje_total = sum(v for _, v in podadas)
-        print(f'  {valor}: poda por saturación — {len(podadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
+        print(f'  {_fmt_valor(valor)}: poda por saturación — {len(podadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
 
 
 def cambiar_SL(orden, valor: str, sl: float, silent: bool = False) -> bool:
@@ -758,18 +763,18 @@ def cambiar_SL(orden, valor: str, sl: float, silent: bool = False) -> bool:
     }
     result = mt5.order_send(request)
     if result is None:
-        _print_throttled(valor, 'cambiar_sl_none', f'  {valor}: cambiar_SL failed: {mt5.last_error()}')
+        _print_throttled(valor, 'cambiar_sl_none', f'  {_fmt_valor(valor)}: cambiar_SL failed: {mt5.last_error()}')
         return False
     elif result.retcode != mt5.TRADE_RETCODE_DONE:
         _print_throttled(valor, result.retcode,
-                          f'  {valor}: Error modificando SL orden {orden.ticket}: retcode={result.retcode}')
+                          f'  {_fmt_valor(valor)}: Error modificando SL orden {orden.ticket}: retcode={result.retcode}')
         return False
     posiciones = mt5.positions_get(ticket=orden.ticket)
     if not posiciones:
         print(f'  SL enviado pero posición {orden.ticket} ya fue cerrada durante la modificación')
         return False
     if not silent:
-        print(f'  {valor}: SL actualizado: orden {orden.ticket} → {posiciones[0].sl:.2f}')
+        print(f'  {_fmt_valor(valor)}: SL actualizado: orden {orden.ticket} → {posiciones[0].sl:.2f}')
     return True
 
 
@@ -829,7 +834,7 @@ def trailing_stop(actual_OA: list, valor: str, a: float, b: float,
                 dic_seguimiento[valor] = []
             if orden.ticket not in dic_seguimiento[valor]:
                 dic_seguimiento[valor].append(orden.ticket)
-            print(f'  Cambio de SL: {valor} orden {orden.ticket} → {sl_nuevo:.2f}')
+            print(f'  Cambio de SL: {_fmt_valor(valor)} orden {orden.ticket} → {sl_nuevo:.2f}')
 
     return sl_modificado
 
@@ -853,9 +858,9 @@ def cerrar_posicion(orden, valor: str, lotajes: dict):
     result = mt5.order_send(request)
     if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
         clave = result.retcode if result is not None else 'order_send_none'
-        _print_throttled(valor, clave, f'  {valor}: Error al cerrar posición {orden.ticket}: {mt5.last_error()}')
+        _print_throttled(valor, clave, f'  {_fmt_valor(valor)}: Error al cerrar posición {orden.ticket}: {mt5.last_error()}')
     else:
-        print(f'  Posición cerrada por perdida_max: {valor} ticket={orden.ticket}  lotaje={orden.volume}  @ {precio:.2f}')
+        print(f'  Posición cerrada por perdida_max: {_fmt_valor(valor)} ticket={orden.ticket}  lotaje={orden.volume}  @ {precio:.2f}')
 
 
 def controlar_perdida_max(actual_OA: list, valor: str,
@@ -873,7 +878,7 @@ def controlar_perdida_max(actual_OA: list, valor: str,
         Pi = orden.price_open
         perdida = (Pi - P0) * L
         if perdida > perdida_max_efectivo:
-            print(f'  PERDIDA_MAX alcanzada: {valor} lotaje={orden.volume} Pi={Pi:.2f} P0={P0:.2f} pérdida={perdida:.2f} USD')
+            print(f'  PERDIDA_MAX alcanzada: {_fmt_valor(valor)} lotaje={orden.volume} Pi={Pi:.2f} P0={P0:.2f} pérdida={perdida:.2f} USD')
             cerrar_posicion(orden, valor, lotajes)
 
 
@@ -943,7 +948,7 @@ def informacion(valores: list, n_sizes: dict, a: dict):
         if valor not in datos:
             continue
         d = datos[valor]
-        print(f'\n{valor} | P0={d["P0"]:.2f}')
+        print(f'\n{_fmt_valor(valor)} | P0={d["P0"]:.2f}')
         if d['df_a'] is not None:
             print(d['df_a'].to_string(index=False))
         else:
@@ -954,7 +959,7 @@ def informacion(valores: list, n_sizes: dict, a: dict):
         if valor not in datos:
             continue
         d = datos[valor]
-        print(f'\n{valor} | P0={d["P0"]:.2f}')
+        print(f'\n{_fmt_valor(valor)} | P0={d["P0"]:.2f}')
         if d['df_b'] is not None:
             print(d['df_b'].to_string(index=False))
         else:
@@ -971,7 +976,7 @@ if __name__ == '__main__':
     for valor in VALORES:
         info = mt5.symbol_info(valor)
         if info is None:
-            print(f'Símbolo no encontrado en broker: {valor}')
+            print(f'Símbolo no encontrado en broker: {_fmt_valor(valor)}')
         else:
             if not info.visible:
                 mt5.symbol_select(valor, True)
@@ -1084,14 +1089,14 @@ if __name__ == '__main__':
                         # diagnosticar: throttled y sin traceback para no inundar
                         # errores.log mientras persista.
                         _print_throttled(valor, 'json_faltante',
-                                          f'  [X1] {valor}: {e} — saltando activo hasta que X0 lo genere')
+                                          f'  [X1] {_fmt_valor(valor)}: {e} — saltando activo hasta que X0 lo genere')
                     except Exception as e:
                         if mt5.positions_get() is None:
                             _print_throttled('MT5', 'conexion_perdida',
                                               f'  [X1] Conexión con MT5 perdida: {mt5.last_error()} — reintentando inicialización')
                             mt5.initialize()
                             break
-                        print(f'  [X1] Error en {valor}: {e} — saltando activo este ciclo')
+                        print(f'  [X1] Error en {_fmt_valor(valor)}: {e} — saltando activo este ciclo')
                         _log_traceback(f'Error en {valor} (iteración {i})')
 
                 # Si alguna posición tiene trailing stop activo → no dormir (reaccionar rápido)

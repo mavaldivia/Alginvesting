@@ -299,3 +299,8 @@ Ordena los todos de manera secuancial, porque iré paso a paso en el orden que
 propongas
 
 /todos X5_alt_v2
+
+/new_todo X1
+
+Extiende el uso del ícono (en config) cada vez que se escriba el valor en X1, en cualquiera de los prints
+Quiero el formato (ícono valor) (nombre valor)

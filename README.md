@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — feat(x1): formato uniforme (ícono) (valor) en todos los prints
 - **2026-10-16** — fix(x0): reparte el tiempo límite real entre fases coarse/fine en vez de duplicarlo
 - **2026-10-16** — fix(x1): informacion() ya no crashea con JSON de soportes faltante
 - **2026-10-16** — fix(config): ícono de MSFT más acorde al resto de ICONOS_VALOR

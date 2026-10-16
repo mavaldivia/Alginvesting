@@ -290,15 +290,16 @@ APALANCAMIENTO = {
     'MSFT': 5.0,
 }
 
-# Ícono/emoji por activo para el monitor de X1 (cosmético, display del reemplazo O0/OE)
+# Ícono/emoji por activo para el monitor de X1 (cosmético, display en todos los prints
+# como "(ícono) (valor)" — ver _fmt_valor en X1_trading.py).
 ICONOS_VALOR = {
-    'BTCUSD': '₿ (BTC)',
-    'ETHUSD': 'Ξ (ETH)',
-    'TSLA': '⚡ (TSLA)',
-    'AMZN': '\U0001F4E6 (AMZN)',
-    'NVDA': '\U0001F3AE (NVDA)',
-    'GOOGL': '\U0001F50D (GOOGL)',
-    'MSFT': '\U0001F5A5 (MSFT)',
+    'BTCUSD': '₿',
+    'ETHUSD': 'Ξ',
+    'TSLA': '⚡',
+    'AMZN': '\U0001F4E6',
+    'NVDA': '\U0001F3AE',
+    'GOOGL': '\U0001F50D',
+    'MSFT': '\U0001F5A5',
 }
 
 # ─── Modo de ejecución ────────────────────────────────────────────────────────
