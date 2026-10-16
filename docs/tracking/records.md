@@ -2098,3 +2098,8 @@ Claude: acortó el warning en `X1_trading.py` (línea ~987) de dos prints a uno 
 Mauricio: vía `/new_todo Transversal`, pidió que los íconos que usa X1 se leyeran desde config, y que `agregar_valor.ipynb` llevara ahí el ícono de un activo nuevo en vez de a `X1_trading.py`.
 Claude: movió `_ICONOS_VALOR` de `X1_trading.py` a `ICONOS_VALOR` en `config.py` (junto al resto de parámetros por activo); actualizó el import y el uso en `X1_trading.py`. Actualizó `agregar_valor.ipynb`: Paso 4 ahora escribe el ícono en `config.py` en vez de en `X1_trading.py` (quitó la variable `X1_PY`, ya sin uso), y ajustó la celda markdown de alcance. Validó sintaxis de ambos `.py` y que no quedaran referencias sueltas a `_ICONOS_VALOR`/`X1_PY`. Registró el ítem en `done.md` → sección Transversal.
 (Cierre: 2026-10-16 13:57)
+
+## SECCIÓN 253
+Mauricio: invocó `/guardar` de nuevo, sin pedir trabajo adicional.
+Claude: detectó en disco un ajuste ya hecho fuera de esta sesión (ícono de MSFT en `config.py`, de `🔹` a `\U0001F5A5 (MSFT)`, más consistente con el formato del resto de `ICONOS_VALOR`), pendiente de commitear — lo dejó pasar a `update-push` tal cual, sin modificarlo.
+(Cierre: 2026-10-16 14:02)

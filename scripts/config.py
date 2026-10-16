@@ -298,7 +298,7 @@ ICONOS_VALOR = {
     'AMZN': '\U0001F4E6 (AMZN)',
     'NVDA': '\U0001F3AE (NVDA)',
     'GOOGL': '\U0001F50D (GOOGL)',
-    'MSFT': '🔹',
+    'MSFT': '\U0001F5A5 (MSFT)',
 }
 
 # ─── Modo de ejecución ────────────────────────────────────────────────────────
