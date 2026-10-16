@@ -290,6 +290,17 @@ APALANCAMIENTO = {
     'MSFT': 5.0,
 }
 
+# Ícono/emoji por activo para el monitor de X1 (cosmético, display del reemplazo O0/OE)
+ICONOS_VALOR = {
+    'BTCUSD': '₿ (BTC)',
+    'ETHUSD': 'Ξ (ETH)',
+    'TSLA': '⚡ (TSLA)',
+    'AMZN': '\U0001F4E6 (AMZN)',
+    'NVDA': '\U0001F3AE (NVDA)',
+    'GOOGL': '\U0001F50D (GOOGL)',
+    'MSFT': '🔹',
+}
+
 # ─── Modo de ejecución ────────────────────────────────────────────────────────
 # "est" → X1/X0/X4 usan los parámetros definidos en este archivo (estático).
 # "din" → X1/X0/X4 leen config/active_parameters.json generado por X5.

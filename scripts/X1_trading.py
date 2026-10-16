@@ -37,6 +37,7 @@ from config import (
     CARPETA_N_PROD,
     VALORES, A, B, TS, PERDIDA_MAX,
     LOTAJES, MIN_LOTAJES, UNITS, OFFSET_TRAILING,
+    ICONOS_VALOR,
     n_sizes_ejecucion as n_sizes,
     X1_RETRY_BLOQUEADOS_S,
     X1_REEMPLAZO_FRACCION_INICIAL,
@@ -46,21 +47,10 @@ from config import (
 )
 
 
-_ICONOS_VALOR = {
-    'BTCUSD': '₿ (BTC)',
-    'ETHUSD': 'Ξ (ETH)',
-    'TSLA': '⚡ (TSLA)',
-    'AMZN': '\U0001F4E6 (AMZN)',
-    'NVDA': '\U0001F3AE (NVDA)',
-    'GOOGL': '\U0001F50D (GOOGL)',
-    'MSFT': '🔹',
-}
-
-
 def _imprimir_tabla_reemplazo(valor: str, filas: list):
     """Imprime en una tabla alineada las filas (etiqueta, cantidad, desde, hasta, lotaje_total)
     del reemplazo O0→OE — reemplaza los 3 prints sueltos de antes por una sola vista por activo."""
-    print(f'  {_ICONOS_VALOR.get(valor, valor)} {valor}')
+    print(f'  {ICONOS_VALOR.get(valor, valor)} {valor}')
     print(f'  {"":<12}| {"#":^5}| {"Desde":^14}| {"Hasta":^14}| {"Lotaje total":^14}')
     for etiqueta, cantidad, desde, hasta, lotaje_total in filas:
         print(f'  {etiqueta:<12}| {cantidad:^5}| {desde:^14.2f}| {hasta:^14.2f}| {lotaje_total:^14.2f}')
@@ -984,10 +974,8 @@ if __name__ == '__main__':
     faltantes = [f'{valor}_{n_sizes[valor]}.json' for valor in VALORES
                  if not (CARPETA_N_PROD / f'{valor}_{n_sizes[valor]}.json').exists()]
     if faltantes:
-        print(f'\n⚠ Faltan JSONs de soportes en {CARPETA_N_PROD} para el N configurado: '
-              f'{", ".join(faltantes)}')
-        print('  Revisa que config.py esté sincronizado con lo que X0 ya generó '
-              '(n_sizes_ejecucion) — esos activos se saltarán cada ciclo hasta que aparezcan.')
+        print(f'\n⚠ Faltan JSONs de soportes (config.py desincronizado con X0, '
+              f'se saltarán cada ciclo): {", ".join(faltantes)}')
 
     def _fmt_duracion(s):
         s = int(s)

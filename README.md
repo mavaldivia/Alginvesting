@@ -115,7 +115,7 @@ scripts/
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
-  agregar_valor.ipynb    # Interrogatorio para integrar un activo nuevo: escribe en config.py, X2_fundamentals.py y X1_trading.py
+  agregar_valor.ipynb    # Interrogatorio para integrar un activo nuevo: escribe en config.py y X2_fundamentals.py
   X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores = list(cfg.VALORES)
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
   X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — refactor(activos): centraliza ICONOS_VALOR en config.py y acorta warning de X1
 - **2026-10-16** — fix(x1): JSON de soportes faltante no bloquea el loop completo
 - **2026-10-16** — feat(activos): agrega MSFT al sistema vía agregar_valor.ipynb
 - **2026-10-16** — feat(activos): agregar_valor.ipynb + X0/X5_Q ya no hardcodean tickers

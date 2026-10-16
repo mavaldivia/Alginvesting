@@ -2088,3 +2088,13 @@ Mauricio: invocó `/new_todo X1` pegando el log de X1 corriendo en Windows — `
 Claude: confirmó que el proceso no se caía (el loop por activo y la iteración completa ya estaban envueltos en try/except con recuperación), pero encontró el problema real: `leer_lista_N` reintentaba 12x5s=60s incluso cuando el archivo no existía en absoluto (no solo ante lock transitorio de uno ya escrito) — con `TS=0.01s` configurado, eso bloqueaba el loop completo 60s por ciclo, retrasando también a todos los `VALORES` posteriores a MSFT en la lista, cada ciclo, hasta que X0 generara el conjunto_N. Fix en `X1_trading.py`: `leer_lista_N` chequea existencia una sola vez y falla al instante si no existe (sin retry); el retry de 12x5s queda solo para archivo existente con lectura fallida. Loop por activo agrega `except FileNotFoundError` separado del genérico, con `_print_throttled` (intervalo `X1_RETRY_BLOQUEADOS_S`) y sin `_log_traceback`, para no inundar `errores.log` mientras el activo siga pendiente de su primer conjunto_N. Registrado en `done.md` → sección X1.
 Mauricio: pidió cerrar con `/guardar`, incluyendo en el commit un cambio ya hecho en `config.py` sobre `N_MAX_MODELS`.
 (Cierre: 2026-10-16 13:46)
+
+## SECCIÓN 251
+Mauricio: vía `/new_todo X1`, pidió acortar a una sola línea el warning de X1 por JSONs de soportes faltantes (reportado con MSFT_180.json, al agregar MSFT como activo nuevo).
+Claude: acortó el warning en `X1_trading.py` (línea ~987) de dos prints a uno solo, con el motivo entre paréntesis; registró el ítem en `done.md` → sección X1 — X1_trading.py.
+(Cierre: 2026-10-16 13:57)
+
+## SECCIÓN 252
+Mauricio: vía `/new_todo Transversal`, pidió que los íconos que usa X1 se leyeran desde config, y que `agregar_valor.ipynb` llevara ahí el ícono de un activo nuevo en vez de a `X1_trading.py`.
+Claude: movió `_ICONOS_VALOR` de `X1_trading.py` a `ICONOS_VALOR` en `config.py` (junto al resto de parámetros por activo); actualizó el import y el uso en `X1_trading.py`. Actualizó `agregar_valor.ipynb`: Paso 4 ahora escribe el ícono en `config.py` en vez de en `X1_trading.py` (quitó la variable `X1_PY`, ya sin uso), y ajustó la celda markdown de alcance. Validó sintaxis de ambos `.py` y que no quedaran referencias sueltas a `_ICONOS_VALOR`/`X1_PY`. Registró el ítem en `done.md` → sección Transversal.
+(Cierre: 2026-10-16 13:57)
