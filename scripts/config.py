@@ -118,7 +118,7 @@ MAX_CAMBIOS = 50000  # tope de cambios aceptados por corrida; al llegarse, corta
 # Tope de combos (valor, N) corriendo a la vez en el pool de procesos compartido por los
 # ciclos independientes de cada activo (X0_data_supports.py). None/0 = sin tope (todos a la
 # vez, uno por CPU disponible).
-N_MAX_MODELS = 6
+N_MAX_MODELS = len(VALORES)
 
 # ─── Visualizaciones ──────────────────────────────────────────────────────────
 # Desactivadas por defecto para ejecución sin cabeza en Windows.

@@ -163,7 +163,7 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 | `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
 | `T_UPDATE_O0` | 15 (min) | Cadencia de flush del `conjunto_N` a `resources/conjuntos_N/` en producción |
 | `T_UPDATE_CICLO_X0` | 60 (min) | Cadencia de refresco de data/X2/X3/distancias en producción |
-| `N_MAX_MODELS` | 6 | Tope de combos corriendo a la vez en el pool de procesos compartido (None/0 = sin tope) |
+| `N_MAX_MODELS` | `len(VALORES)` (7) | Tope de combos corriendo a la vez en el pool de procesos compartido (None/0 = sin tope) |
 | `FECHA_INICIAL` | 2022-01-01 | Inicio de la ventana de precios usada para buscar soportes |
 | `W_TENDENCIA` | 0.20 | Peso del score_tendencia en X2 |
 | `DIAS_TENDENCIA` | 30 | Ventana de comparación histórica en X2 |
@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — fix(x1): JSON de soportes faltante no bloquea el loop completo
 - **2026-10-16** — feat(activos): agrega MSFT al sistema vía agregar_valor.ipynb
 - **2026-10-16** — feat(activos): agregar_valor.ipynb + X0/X5_Q ya no hardcodean tickers
 - **2026-10-16** — feat(x0): backfill automático de historia inicial para cualquier activo
