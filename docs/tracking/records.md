@@ -2124,3 +2124,10 @@ Mauricio: invocó `/todos x5_alt_v2`; confirmó avanzar en `[Q4-2]`. Preguntó s
 Claude: mostró los 3 próximos pendientes de la sección (`Q4-2`, `Q4-3`, `Q4-4`). Verificó que la dependencia `[dep: Q3-EXEC]` ya estaba cerrada (`done.md:287`) y revisó el scaffold de `X5_Q4.ipynb` + `scripts/x5_alt_funciones.py`, confirmando que el trabajo de `[Q4-2]` (utilidades compartidas + alcance explícito) ya estaba implementado y probado con datos sintéticos en una sesión anterior (`records.md:2028`). Explicó que el patrón "implementar → ejecutar → revisar" de la lista estrictamente secuencial aplica por parámetro (`N`, `A`, `factor_B`, `K`, `N_EXP`), no a `Q4-2`/`Q4-3` — la primera ejecución real de `X5_Q4.ipynb` llega en `[Q4-5]`, recién después de implementar la Sección N en `[Q4-4]`.
 Claude: marcó `[Q4-2]` como hecho, lo movió a `done.md` bajo `X5_Q4`, y actualizó la dependencia de `[Q4-3]` de `[dep: Q4-2]` (sin cambios, ya apuntaba ahí) quedando `Q4-2` cerrado como habilitador.
 (Cierre: 2026-10-16 19:08)
+
+## SECCIÓN 258
+Mauricio: invocó `/todos`; eligió la sección `X5_alt_v2` y confirmó avanzar en el ítem 1 (`[Q4-3]`). Preguntó qué había que hacer y luego pidió implementar todo lo sugerido.
+Claude: verificó la dependencia `[dep: Q4-2]` (ya cerrada en `done.md:292`), revisó `percentil_causal` (`x5_alt_funciones.py:41`) y el patrón de gráfico a doble eje de `X5_Q2.ipynb` (`plot_doble_eje`), y propuso agregar una celda de inspección visual del target sintético sin reimplementar la función.
+Claude: insertó la celda de código en `scripts/X5_Q4.ipynb` (después de la Sección 3 "Utilidades compartidas") que calcula `percentil_causal` sobre `x3_drawdown_20` por activo, grafica `Close` vs. percentil a doble eje (título con el activo) y reporta media/p05/p50/p95. No se pudo ejecutar en Mac (requiere Windows/MT5) — queda para correr junto con `[Q4-5]`.
+Claude: marcó `[Q4-3]` como hecho, lo movió a `done.md` bajo `X5_Q4`, y eliminó la dependencia `[dep: Q4-3]` del título de `[Q4-4]` en `todos.md` (ya resuelta).
+(Cierre: 2026-10-16 19:14)

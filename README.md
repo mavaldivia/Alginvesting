@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — feat(x5-q4): celda de inspección visual del target sintético por percentil causal
 - **2026-10-16** — docs(x5_alt_v2): cierra Q4-2 en todos.md y ajusta ícono MSFT
 - **2026-10-16** — feat(x1): formato uniforme (ícono) (valor) en todos los prints
 - **2026-10-16** — fix(x0): reparte el tiempo límite real entre fases coarse/fine en vez de duplicarlo
