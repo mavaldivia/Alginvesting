@@ -62,6 +62,7 @@ from config import (
     n_sizes, n_sizes_ejecucion, N_MAX_MODELS, reiniciar_x0,
 )
 from X3_technical_features import actualizar_features as _x3_actualizar_features
+from X2_fundamentals import _CRYPTO
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
@@ -864,14 +865,14 @@ def descargar_datos(valores: list, carpeta_data: Path, verbose: bool = True):
 
 def detectar_gap_bt_eth(carpeta_data: Path, fecha_desde: datetime.datetime,
                          umbral_horas: float = 3.0):
-    """Revisa BTCUSD/ETHUSD (mercado 24/7 — cualquier hueco real en H1 es anómalo, a
-    diferencia de las acciones que tienen huecos normales por horario de mercado) buscando
-    velas faltantes en la serie desde `fecha_desde`. Devuelve el datetime de inicio del
-    hueco más antiguo encontrado (o None si no hay ninguno) — sirve como fecha de partida
-    para un backfill automático, igual al bug que dejó `Data/` con historia truncada tras
-    un sync de OneDrive."""
+    """Revisa las criptos de `_CRYPTO` (mercado 24/7 — cualquier hueco real en H1 es
+    anómalo, a diferencia de las acciones que tienen huecos normales por horario de
+    mercado) buscando velas faltantes en la serie desde `fecha_desde`. Devuelve el
+    datetime de inicio del hueco más antiguo encontrado (o None si no hay ninguno) —
+    sirve como fecha de partida para un backfill automático, igual al bug que dejó
+    `Data/` con historia truncada tras un sync de OneDrive."""
     gap_mas_antiguo = None
-    for valor in ('BTCUSD', 'ETHUSD'):
+    for valor in _CRYPTO:
         csv_path = carpeta_data / f'{valor}.csv'
         if not csv_path.exists():
             continue
@@ -1638,7 +1639,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                             backfill_historico([valor], carpeta_data, fecha_inicial_dt)
                     except Exception as e:
                         _log_error(CARPETA_LOGS, f'Backfill inicial falló para {valor}, continuando', e)
-                    if valor in ('BTCUSD', 'ETHUSD'):
+                    if valor in _CRYPTO:
                         try:
                             gap = detectar_gap_bt_eth(carpeta_data, fecha_inicial_dt)
                             if gap is not None:
