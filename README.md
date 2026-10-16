@@ -6,7 +6,7 @@ Sistema de trading algorítmico personal. Identifica soportes y resistencias óp
 
 ## Activos operados
 
-`BTCUSD` · `ETHUSD` · `TSLA` · `GOOGL` · `NVDA` · `AMZN`
+`BTCUSD` · `ETHUSD` · `TSLA` · `GOOGL` · `NVDA` · `AMZN` · `MSFT`
 
 ---
 
@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — feat(activos): agrega MSFT al sistema vía agregar_valor.ipynb
 - **2026-10-16** — feat(activos): agregar_valor.ipynb + X0/X5_Q ya no hardcodean tickers
 - **2026-10-16** — feat(x0): backfill automático de historia inicial para cualquier activo
 - **2026-10-16** — feat(x1): tabla alineada por activo con ícono para el reemplazo O0/OE

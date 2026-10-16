@@ -34,7 +34,7 @@ CARPETA_FUNDAMENTALS = BASE_DIR / 'resources' / 'x2'
 
 # ─── Activos y universo de soportes ───────────────────────────────────────────
 
-VALORES = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN']
+VALORES = ['BTCUSD', 'ETHUSD', 'TSLA', 'GOOGL', 'NVDA', 'AMZN', 'MSFT']
 
 # Cantidad de soportes evaluados por activo en el grid search de X0
 """
@@ -61,6 +61,7 @@ n_sizes = {
     'GOOGL':  [180],
     'NVDA':   [180],
     'AMZN':   [180],
+    'MSFT': [180],
 }
 
 # Cantidad de soportes activos en producción, usada por X1
@@ -71,6 +72,7 @@ n_sizes_ejecucion = {
     'GOOGL': 180,
     'NVDA': 180,
     'AMZN': 180,
+    'MSFT': 180,
 }
 
 # ─── Datos históricos ─────────────────────────────────────────────────────────
@@ -187,6 +189,7 @@ A = {
     'GOOGL':  3,
     'NVDA':   3,
     'AMZN':   3,
+    'MSFT': 3.0,
 }
 
 B = {
@@ -196,6 +199,7 @@ B = {
     'GOOGL':  1.5,
     'NVDA':   1.5,
     'AMZN':   1.5,
+    'MSFT': 1.5,
 }
 
 TS = 0.01  # segundos de espera entre ciclos cuando no hay posiciones activas en seguimiento
@@ -229,6 +233,7 @@ PERDIDA_MAX = {
     'GOOGL':  200,
     'NVDA':   200,
     'AMZN':   200,
+    'MSFT': 200.0,
 }
 
 # Tamaño mínimo de lote por activo (granularidad del broker)
@@ -239,6 +244,7 @@ MIN_LOTAJES = {
     'GOOGL':  0.01,
     'NVDA':   0.01,
     'AMZN':   0.01,
+    'MSFT': 0.01,
 }
 
 # Multiplicador de lote por activo
@@ -249,6 +255,7 @@ LOTAJES_M = {
     'GOOGL':  2,
     'NVDA':   2,
     'AMZN':   2,
+    'MSFT': 2.0,
 }
 
 # Lote efectivo: LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]
@@ -262,6 +269,7 @@ UNITS = {
     'GOOGL':  100,
     'NVDA':   100,
     'AMZN':   100,
+    'MSFT': 100.0,
 }
 
 # Distancia de precio entre el máximo de una OA desde que su trailing stop está
@@ -279,6 +287,7 @@ APALANCAMIENTO = {
     'GOOGL':  5,
     'NVDA':   5,
     'AMZN':   5,
+    'MSFT': 5.0,
 }
 
 # ─── Modo de ejecución ────────────────────────────────────────────────────────

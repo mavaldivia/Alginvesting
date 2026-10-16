@@ -45,6 +45,7 @@ _YF_TICKER = {
     'GOOGL': 'GOOGL',
     'NVDA': 'NVDA',
     'AMZN': 'AMZN',
+    'MSFT': 'MSFT',
 }
 
 _CG_ID = {

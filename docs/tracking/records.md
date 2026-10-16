@@ -2071,3 +2071,14 @@ Claude: preguntó (AskUserQuestion) si debía intentar auto-completar desde MT5 
 Mauricio: preguntó por qué X0/X3 y los notebooks `X5_Qi` quedaban fuera del alcance.
 Claude: encontró que X3 no tiene tickers hardcodeados (no necesita nada) pero X0 sí tenía `('BTCUSD', 'ETHUSD')` hardcodeado en el chequeo de huecos 24/7 (2 lugares) — con confirmación del usuario, lo generalizó importando `_CRYPTO` desde `X2_fundamentals.py` en vez de duplicar la lista. Sobre los notebooks `X5_Q1`-`X5_Q4`, corrigió una respuesta previa apresurada: la celda `valores = [...]` sí procesa todos los activos en loop (no es solo exploración puntual) y es una copia manual de `config.VALORES` que se desincroniza. A pedido de Mauricio, cambió las 4 celdas para que `valores = list(cfg.VALORES)` (moviendo el import de `config` a la celda 1), probado end-to-end con el intérprete `revenAI` real; documentó la convención obligatoria para notebooks `X5_Qi` futuros en `docs/plans/X5_alternativo.md` §10.2.
 (Cierre: 2026-10-16 13:25)
+
+## SECCIÓN 249
+Mauricio: avisó que no le preguntó por `UNITS`/`MIN_LOTAJES` al correr `agregar_valor.ipynb`.
+Claude: revisó el notebook y confirmó que sí están en la celda de Paso 2 — sin default sugerido a propósito (varían mucho entre activos), por eso aparecen sin `[valor]` entre corchetes.
+
+Mauricio: corrió el notebook para integrar `MSFT` y preguntó si Enter vacío toma el default.
+Claude: confirmó que sí, solo para los campos que muestran default entre corchetes; los sin default (MIN_LOTAJES, APALANCAMIENTO) exigen respuesta. Verificó en disco que `MSFT` quedó escrito correctamente en los 10 diccionarios de `config.py`, en `_YF_TICKER` de `X2_fundamentals.py` y en `_ICONOS_VALOR` de `X1_trading.py` (sin tocar `_CRYPTO`/`_CG_ID`, correcto por no ser crypto).
+
+Mauricio: preguntó para qué se usa `yfinance` y dónde se guarda el ticker de yfinance.
+Claude: explicó que `X2_fundamentals.py` lo usa para datos fundamentales — ROE, márgenes, FCF yield, crecimiento, P/E forward, deuda, score de analistas (acciones) y marketCap/volumen/circulating supply/hashrate (crypto, combinado con CoinGecko y Fear & Greed); señaló que el mapeo ticker-interno→ticker-yfinance vive en `_YF_TICKER` (`X2_fundamentals.py:41-48`), el mismo campo que escribe `agregar_valor.ipynb`.
+(Cierre: 2026-10-16 13:34)
