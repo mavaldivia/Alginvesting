@@ -1249,12 +1249,15 @@ def _optimizar_y_guardar_valor_N(valor: str, N: int, prep: dict, ordenes_activas
     df_FO = pd.DataFrame()
     convergio = False
     max_pasos = 0
+    deadline_abs = time.monotonic() + tiempo_limite_s if tiempo_limite_s is not None else None
     for fase in fases:
+        tiempo_restante_fase = (max(0.0, deadline_abs - time.monotonic())
+                                 if deadline_abs is not None else None)
         conjunto_N, df_extremos, df_FO_fase, convergio, _, max_pasos_fase = nuevo_optimizador_2(
             N, df_extremos, conjunto_N, LAMBDA_,
             ordenes_activas=ordenes_activas, M=M_por_fase[fase], max_iters=MAX_ITERS,
             estado_compartido=estado_compartido, llave=llave, verbose=verbose,
-            tiempo_limite_s=tiempo_limite_s,
+            tiempo_limite_s=tiempo_restante_fase,
         )
         if not df_FO_fase.empty:
             df_FO_fase['Iteracion'] += len(df_FO)

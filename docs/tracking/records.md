@@ -2108,3 +2108,8 @@ Claude: detectó en disco un ajuste ya hecho fuera de esta sesión (ícono de MS
 Mauricio: via /new_todo, reportó que X1 seguía fallando con un traceback periódico ("Error en informacion") aunque ya existía un fix previo (a177069) para el JSON de soportes faltante de MSFT — "No se arregló".
 Claude: identificó que el fix previo solo cubría el loop principal por activo, pero `informacion()` (reporte periódico cada ~5000 iteraciones) seguía llamando `leer_lista_N` sin ese mismo guard y propagaba el `FileNotFoundError`. Agregó try/except por activo dentro de `informacion()` y ajustó los dos loops de impresión para saltar activos ausentes de `datos`. Registrado en `done.md` → X1 — X1_trading.py.
 (Cierre: 2026-10-16 14:19)
+
+## SECCIÓN 255
+Mauricio: vía `/new_todo X0`, reportó que en el monitor en vivo de X0 todos los activos quedaban "pegados" en la barra `15/15min` del primer bloque de cada hora (`A0`) durante ~10 min, mientras las FOs seguían cambiando — preguntó por qué.
+Claude: ubicó la causa en `_optimizar_y_guardar_valor_N` (`X0_data_supports.py`): el loop sobre `fases=('coarse','fine')` (solo en el bloque `j==1`) le pasaba el mismo `tiempo_limite_s` completo a cada fase en vez de repartir el presupuesto restante entre ambas — `coarse` agotaba los 15 min y `fine` arrancaba otro deadline de 15 min desde cero (30 min reales), mientras la barra en pantalla quedaba anclada al `deadline_bloque` original y se saturaba en `15/15min` sin reflejar que el optimizador seguía corriendo. Fix: deadline absoluto calculado una sola vez antes del loop de fases, cada fase recibe el tiempo restante real. Registrado en `done.md` → sección X0.
+(Cierre: 2026-10-16 14:25)
