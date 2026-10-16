@@ -289,6 +289,7 @@
 ### X5_Q4 — X5_Q4.ipynb
 
 - [x] **[Q4-1] X5_Q4 — arranque obligatorio**: `scripts/X5_Q4.ipynb` (scaffold de Sección 0-1: `valores` lista, loaders de `{valor}_tabla_estado_v2.csv`/`{valor}_q2_5_export_metricas.json`/`{valor}_q3_4_tabla_final.csv`, import de `x5_alt_funciones`) corrido en Windows con los 6 activos operados y datos reales — gate formal satisfecho (antes solo validado en Mac con BTCUSD puntual desde los zips de `Q1`/`Q2`/`Q3`). Sin errores; `tabla_estado` cargada con 72 columnas en los 6 activos (mismo output de `Q1-2`): BTCUSD/ETHUSD 41.971 filas (2022-01-01→2026-10-16, 24/7), TSLA 11.967/NVDA 11.977/AMZN 11.976 filas (2022-01-03→2026-10-15), GOOGL 8.376 filas (mismo rango de fechas, ~30% menos filas que las otras 3 acciones — a revisar si el feed de GOOGL en MT5 no trae sesión extendida, no bloquea este gate). Habilita `Q4-2`.
+- [x] **[Q4-2] X5_Q4 — utilidades compartidas + alcance explícito**: `scripts/x5_alt_funciones.py` ya implementado y probado con datos sintéticos (sigmoide acotada, índice compuesto, percentil causal, `calibrar_parametro`); Sección 2 (alcance) ya redactada en el scaffold y validada contra datos reales de BTCUSD. Nada que ejecutar para este ítem: el primer "ejecutar `X5_Q4.ipynb` completo" de la secuencia estrictamente secuencial llega recién en `Q4-5`, después de implementar la Sección N (`Q4-4`). Habilita `Q4-3`.
 
 ### Transversal
 
