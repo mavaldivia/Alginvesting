@@ -646,9 +646,15 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
             lotaje_total = sum(v for _, v in eliminadas)
             print(f'  {valor}: reemplazo — {len(eliminadas)} OE eliminadas desde {min(precios)} hasta {max(precios)}  lotaje_total={lotaje_total}')
 
+    def _print_total_oe_actual():
+        precios_oe = sorted(_soporte_de_orden(o) for o in actual_OE)
+        if precios_oe:
+            print(f'  {valor}: total de OE actuales: {len(precios_oe)} desde {precios_oe[0]} hasta {precios_oe[-1]}')
+
     lista_OAE_actual = lista_OA + [_soporte_de_orden(o) for o in actual_OE]
     entrantes = sorted(Pi for Pi in set(lista_N) if Pi not in lista_OAE_actual)
     if not entrantes:
+        _print_total_oe_actual()
         _eliminar_salientes()
         return
 
@@ -679,6 +685,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
                               f'colocarse (mercado no operable pese a trade_mode/tick); no se toca ninguna OE')
         return
 
+    _print_total_oe_actual()
     orden_colocacion = [1]
 
     def _colocar_y_notificar(Pi):
