@@ -12,8 +12,9 @@ Resueltas con Mauricio vía `/consultar` antes de escribir este plan:
 1. **Target de calibración**: cada `f(x)` se ajusta ahora contra un **target de diseño** (sin requerir todavía un "valor óptimo histórico" de backtesting). La validación económica real (comparar el parámetro dinámico vs. el estático actual con resultados de `X4_backtester.py`) es una fase posterior (`X5_Q5.ipynb`), no bloquea esta.
 2. **Alcance**: los **5 parámetros activos** en paralelo — `N`, `A`, `factor_B`, `K`, `N_EXP`. `LAMBDA` queda fuera hasta resolver su bloqueador (rango de exploración inconsistente, ver §5). `LOTAJES_M`/`PERDIDA_MAX` siguen fuera de alcance (no prioritario / pausado, sin cambios respecto a `X5_alternativo.md` §10.5).
 3. **Forma funcional**: sigmoide/logística acotada para todos los parámetros, con piso y techo **configurables por parámetro** (no necesariamente el rango completo de `X5_PARAM_RANGES` — ej. `factor_B` podría acotarse a `(0.3, 0.7)` en vez de `(0.2, 0.7)`). El mecanismo exacto de ajuste se detalla en §3-4.
+4. **Estándar de documentación** (decisión posterior, 2026-10-17, ver `docs/context/decisiones.md`): `Q4`/`Q5` son notebooks "sobre el agua" — Mauricio se involucra directamente, a diferencia de `Q1`/`Q2`/`Q3`. Cada parámetro se documenta con Pregunta → Motivación → Metodología → Fundamento matemático → Ejecución → Resultados → Interpretación → Conclusión → Implicancias; el fundamento matemático se explica en detalle la primera vez (Sección 4, `N`) y se referencia sin repetir después.
 
-El resto de este documento desarrolla cómo se implementan estas tres decisiones.
+El resto de este documento desarrolla cómo se implementan estas decisiones.
 
 ---
 

@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-17** — docs(x5_q4): rediseña Sección 4 (N) y stubs 5-8 con estándar explicativo
 - **2026-10-17** — feat(x5-q4): agrega la celda de export a zip que faltaba en la Sección 10
 - **2026-10-17** — feat(x5-q4): suaviza N vía EMA causal sobre el índice compuesto s_t
 - **2026-10-17** — feat(x5_alt_v2): reorganiza I/O de X5_Qi con carpetas exp_Qi + zip
