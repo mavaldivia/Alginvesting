@@ -2181,3 +2181,11 @@ Claude: agregó `suavizar_ema`/`span_suavizado` a `scripts/x5_alt_funciones.py` 
 
 Mauricio: avisó que correrá de nuevo los 4 notebooks (`Q1`-`Q4`) en Windows con la nueva organización por carpetas (`exp_Qi`), revisará visualmente `Q4` y volverá con sus dudas — `[Q4-5]`/`[Q4-6]` quedan explícitamente pendientes (no se movieron a `done.md`, la ejecución revisada es anterior al cambio de suavizado).
 (Cierre: 2026-10-17 16:14)
+
+## SECCIÓN 264
+Mauricio: usó `/new_todo X5_alt_v2` para registrar que, al bajar los notebooks a Windows, la ruta de `X5_Q2.ipynb` para leer el output de `X5_Q1.ipynb` estaba mal (apuntaba a la raíz de `resources/x5_alt/` en vez de `exp_Q1/`) y que `X5_Q4.ipynb` no compila el zip final.
+Claude: revisó el estado actual del repo antes de registrar nada — encontró que ambos puntos ya estaban documentados/corregidos en una sesión anterior del mismo día (commit `8c7bff0`): la ruta de `X5_Q2.ipynb` ya usa `carpeta_exp('X5_Q1')`, y el zip de `X5_Q4.ipynb` estaba marcado intencionalmente `*Pendiente*` (secuencial, después de N_EXP/resumen consolidado).
+
+Mauricio: aclaró que no fue un re-arreglo de Claude — corrió Q1 en Windows exitosamente pero Q2 seguía con la ruta vieja (probablemente pulleó antes de que el fix llegara al remoto); pidió corregir el zip de Q4 ahora mismo, sin esperar al orden secuencial, porque siempre debe poder comprimir y mover carpetas de Windows a Mac.
+Claude: confirmó que el fix de Q2 ya está pusheado a GitHub (recomendó re-pull en Windows) y agregó la celda `exportar_zip('X5_Q4')` en la Sección 10 de `X5_Q4.ipynb` (corre sobre lo que exista en `exp_Q4/` en ese momento, sin exigir que las secciones 8-9 estén terminadas). Actualizó `docs/plans/X5_alternativo.md` (§10.2/10.4), `docs/tracking/done.md` y `docs/tracking/todos.md` (ítem `[Q4-EXEC]`, corrigiendo la numeración de sección del scaffold original).
+(Cierre: 2026-10-17 16:35)

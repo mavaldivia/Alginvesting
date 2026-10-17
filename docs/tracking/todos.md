@@ -189,8 +189,7 @@
   - Claude: implementar la tabla única por activo (R², elasticidad, coincidencia de signo) y el export `{valor}_q4_resumen.csv`.
 - [ ] **[Q4-20] Ejecutar X5_Q4.ipynb y revisar el resumen consolidado**: correr de punta a punta, Mauricio revisa la tabla completa (los 5 parámetros juntos) antes del cierre formal. [dep: Q4-19]
   - Mauricico: ejecutar el notebook de punta a punta en Windows y revisar la tabla consolidada de los 5 parámetros antes del cierre formal.
-- [ ] **[Q4-EXEC] Cierre de la Fase 2 principal**: agregar la celda de `exportar_zip` (Sección 12, ya con encabezado markdown en el scaffold) sobre los CSV de las secciones 4-19, correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) y confirmar el zip generado. [dep: Q4-20]
-  - Claude: agregar la celda de `exportar_zip` (Sección 12) sobre los CSV de las secciones 4-19.
+- [ ] **[Q4-EXEC] Cierre de la Fase 2 principal**: la celda de `exportar_zip('X5_Q4')` ya existe (Sección 10, no la 12 del scaffold original — numeración real quedó distinta al scaffold). Falta correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) y confirmar el zip generado con las secciones 4-9 completas. [dep: Q4-20]
   - Mauricico: correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) en Windows y confirmar el zip generado.
 
 **Q4 — extensión opcional: `LAMBDA`** (fuera del alcance comprometido de esta fase — decisión explícita de Mauricio de dejarlo afuera; retomar solo si decide resolver el bloqueador)
