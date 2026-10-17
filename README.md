@@ -98,7 +98,7 @@ El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste 
 
 Score final = `(1 - W_TENDENCIA) × score_cross + W_TENDENCIA × score_tendencia` (0.5 neutral si < 7 días de historia).
 
-Guarda historial en `fundamentals/x2_history.json` por periodos (`periodo_inicio`/`periodo_fin`; extiende `periodo_fin` si el score no cambió, abre entrada nueva si cambió), guard de día para no ejecutar dos veces, flag `--forzar`. Los pesos por activo son override-ables desde `config/active_parameters.json` (escrito por X5).
+Guarda historial en `fundamentals/x2_history.json` por periodos (`periodo_inicio`/`periodo_fin`; extiende `periodo_fin` si el score no cambió, abre entrada nueva si cambió), guard de día para no ejecutar dos veces, flag `--forzar`. El guard se ignora automáticamente si algún activo de `VALORES` todavía no tiene score en `scores.json` (ej. recién agregado a mitad de día) — recalcula el universo completo en vez de esperar al día siguiente. Los pesos por activo son override-ables desde `config/active_parameters.json` (escrito por X5).
 
 ---
 
@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-16** — fix(x2): día-guard ya no bloquea el cálculo de un activo nuevo en VALORES
 - **2026-10-16** — feat(x5-q4): calibra N = f(drawdown, volatilidad) con sigmoide acotada
 - **2026-10-16** — feat(x5-q4): celda de inspección visual del target sintético por percentil causal
 - **2026-10-16** — docs(x5_alt_v2): cierra Q4-2 en todos.md y ajusta ícono MSFT

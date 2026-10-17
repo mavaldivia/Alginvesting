@@ -595,23 +595,32 @@ if __name__ == '__main__':
                         help='Re-ejecuta aunque ya se haya corrido hoy')
     args = parser.parse_args()
 
-    if not args.forzar and _ya_ejecutado_hoy(CARPETA_FUNDAMENTALS):
+    path_scores = CARPETA_FUNDAMENTALS / 'scores.json'
+    scores_existentes = {}
+    if path_scores.exists():
+        try:
+            scores_existentes = {k: v for k, v in json.loads(path_scores.read_text()).items()
+                                 if not k.startswith('_')}
+        except Exception:
+            scores_existentes = {}
+    activos_nuevos = [v for v in VALORES if v not in scores_existentes]
+
+    if not args.forzar and _ya_ejecutado_hoy(CARPETA_FUNDAMENTALS) and not activos_nuevos:
         print('X2 ya ejecutado hoy. Usando scores.json existente.')
-        path = CARPETA_FUNDAMENTALS / 'scores.json'
-        if path.exists():
-            data   = json.loads(path.read_text())
-            scores = {k: v for k, v in data.items() if not k.startswith('_')}
-            print(f"\n{'Activo':<8}  {'Score':>6}  {'Cross':>6}  {'Tend':>8}")
-            print('-' * 36)
-            for v in VALORES:
-                if v in scores:
-                    s    = scores[v]
-                    tend = s.get('score_tendencia', 'n/d')
-                    tend_str = f'{tend:.4f}' if isinstance(tend, float) else str(tend)
-                    print(f"{v:<8}  {s['score']:>6.4f}  {s.get('score_cross', '-'):>6}  {tend_str:>8}")
+        print(f"\n{'Activo':<8}  {'Score':>6}  {'Cross':>6}  {'Tend':>8}")
+        print('-' * 36)
+        for v in VALORES:
+            if v in scores_existentes:
+                s    = scores_existentes[v]
+                tend = s.get('score_tendencia', 'n/d')
+                tend_str = f'{tend:.4f}' if isinstance(tend, float) else str(tend)
+                print(f"{v:<8}  {s['score']:>6.4f}  {s.get('score_cross', '-'):>6}  {tend_str:>8}")
         elapsed = time.time() - t0
         print(f'\nX2 completado en {elapsed:.1f}s')
         sys.exit(0)
+
+    if activos_nuevos and _ya_ejecutado_hoy(CARPETA_FUNDAMENTALS) and not args.forzar:
+        print(f'X2 ya ejecutado hoy pero {activos_nuevos} no está(n) en scores.json — recalculando el universo completo.')
 
     # Aviso si se saltó algún día
     dias = _dias_desde_ultima_ejecucion(CARPETA_FUNDAMENTALS)

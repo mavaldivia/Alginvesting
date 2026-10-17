@@ -157,8 +157,8 @@
 
 > **Lista estrictamente secuencial** (a pedido explícito de Mauricio, 2026-10-15): cada parámetro se trabaja en 3 pasos consecutivos — *implementar* (código) → *ejecutar* (correr `X5_Q4.ipynb` de punta a punta en Windows con datos reales) → *revisar visuales y validar* (gate humano: Mauricio mira los gráficos/diagnóstico de esa sección y confirma si la hipótesis se sostiene, antes de pasar al siguiente parámetro). No saltar pasos ni adelantar el parámetro siguiente sin cerrar los 3 del anterior.
 
-- [ ] **[Q4-5] Ejecutar X5_Q4.ipynb** (con la Sección N ya agregada): correr de punta a punta en Windows, 6 activos, datos reales — confirmar sin errores. [dep: Q4-4]
-  - Mauricico: ejecutar el notebook de punta a punta en Windows, 6 activos, datos reales, y confirmar que corre sin errores.
+- [ ] **[Q4-5] Ejecutar X5_Q4.ipynb** (con la Sección N ya agregada): correr de punta a punta en Windows, 7 activos (incluye MSFT), datos reales — confirmar sin errores. [dep: Q4-4]
+  - Mauricico: ejecutar el notebook de punta a punta en Windows, 7 activos (incluye MSFT), datos reales, y confirmar que corre sin errores.
 - [ ] **[Q4-6] Revisar visuales de la Sección N y validar**: Mauricio revisa la curva ajustada, la serie `N̂_t` vs. estático y el diagnóstico — confirma o ajusta la hipótesis antes de seguir a `A`. [dep: Q4-5]
   - Mauricico: revisar la curva ajustada, la serie `N̂_t` vs. estático y el diagnóstico; confirmar o ajustar la hipótesis.
 - [ ] **[Q4-7] Implementar Sección A: `A = f(x3_atr_pct)`**: mismo esqueleto que `N` con `k=1`. Nota explícita en el notebook: se calibra `A` único, sin separar `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21). Rango `(2.0, 20.0)` USD. [dep: Q4-6]
@@ -189,9 +189,9 @@
   - Claude: implementar la tabla única por activo (R², elasticidad, coincidencia de signo) y el export `{valor}_q4_resumen.csv`.
 - [ ] **[Q4-20] Ejecutar X5_Q4.ipynb y revisar el resumen consolidado**: correr de punta a punta, Mauricio revisa la tabla completa (los 5 parámetros juntos) antes del cierre formal. [dep: Q4-19]
   - Mauricico: ejecutar el notebook de punta a punta en Windows y revisar la tabla consolidada de los 5 parámetros antes del cierre formal.
-- [ ] **[Q4-EXEC] Cierre de la Fase 2 principal**: agregar la celda de `exportar_zip` (Sección 12, ya con encabezado markdown en el scaffold) sobre los CSV de las secciones 4-19, correr `X5_Q4.ipynb` una última vez de punta a punta (6 activos) y confirmar el zip generado. [dep: Q4-20]
+- [ ] **[Q4-EXEC] Cierre de la Fase 2 principal**: agregar la celda de `exportar_zip` (Sección 12, ya con encabezado markdown en el scaffold) sobre los CSV de las secciones 4-19, correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) y confirmar el zip generado. [dep: Q4-20]
   - Claude: agregar la celda de `exportar_zip` (Sección 12) sobre los CSV de las secciones 4-19.
-  - Mauricico: correr `X5_Q4.ipynb` una última vez de punta a punta (6 activos) en Windows y confirmar el zip generado.
+  - Mauricico: correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) en Windows y confirmar el zip generado.
 
 **Q4 — extensión opcional: `LAMBDA`** (fuera del alcance comprometido de esta fase — decisión explícita de Mauricio de dejarlo afuera; retomar solo si decide resolver el bloqueador)
 

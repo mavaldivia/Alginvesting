@@ -2141,3 +2141,13 @@ Claude: marcó `[Q4-4]` como hecho, lo movió a `done.md` bajo `X5_Q4`.
 Mauricio: pidió que la skill `/todos` siempre muestre las labores de Claude y Mauricico al elegir un ítem, antes de escribir código.
 Claude: agregó el paso 5 ("Al elegir un ítem para trabajar") a `~/.claude/skills/todos/SKILL.md` — gate de dependencias `[dep: ...]` + mostrar siempre las sub-líneas `Claude:`/`Mauricico:` del ítem (o decir explícitamente que no tiene ninguna). Actualizó la memoria `feedback_todo_workflow.md` y su línea en `MEMORY.md` con la nueva regla.
 (Cierre: 2026-10-16 21:10)
+
+## SECCIÓN 260
+Mauricio: invocó `/new_todo X5_alt_v2` reportando un `KeyError('DateTime')` en `X5_Q1.ipynb` al correr con MSFT — `_cargar_tabla_base` fallaba al construir `df_x2` porque MSFT no tenía registros en `x2_history.json`.
+Claude: identificó que `registros=[]` dejaba `pd.DataFrame([])` sin columnas (`KeyError` en `sort_values('DateTime')`). Corrigió la celda de Sección 1 de `X5_Q1.ipynb` con `columns=cols_x2` explícito + cast a `datetime64` antes del `sort_values` (necesario para que `merge_asof` no fallara por `MergeError` de dtype, verificado con pandas en el kernel `revenAI`). Registró el fix en `done.md` → X5_alt_v2.
+Mauricio: cuestionó el fix como "parche" y preguntó por qué MSFT no tenía registros si X0 (que llama a X2) ya se había corrido con MSFT en `VALORES` — pidió la causa de fondo.
+Claude: revisó `X2_fundamentals.py` y `_x2_watchdog` de `X0_data_supports.py`: `_ya_ejecutado_hoy` es un guard puramente por fecha calendario, sin noción de qué activos están en `scores.json` — si X2 ya corrió hoy *antes* de agregar MSFT a `VALORES`, cada corrida horaria posterior reusaba el `scores.json` viejo sin MSFT hasta el día calendario siguiente. Causa real del `KeyError`.
+Claude: corrigió `X2_fundamentals.py` (bloque `__main__`): calcula `activos_nuevos` (los de `VALORES` ausentes en `scores_existentes`) y, si hay alguno, ignora el día-guard y recalcula el universo completo (`calcular_scores`) en vez de salir temprano — el score es cross-sectional, no tiene sentido recalcular solo el activo nuevo. Registró el fix en `done.md` → X5_alt_v2.
+Mauricio: confirmó que le gustó el diagnóstico y preguntó si ahora corresponde hacer push y volver a correr X0 en Windows.
+Claude: confirmó el flujo (push → pull en Windows → correr X0; el guard debería detectar MSFT faltante y recalcular sin esperar al día siguiente) y preguntó si quería que Claude ejecutara el push o lo haría Mauricio manualmente.
+(Cierre: 2026-10-16 23:02)
