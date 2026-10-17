@@ -58,6 +58,8 @@ s_t = w_1 * z_{1,t} + w_2 * z_{2,t}       # w_2 = 1 - w_1; si k=1, w_1=1 y no ha
 
 `μ_i`/`σ_i` se congelan en el momento de calibrar (igual que cualquier normalización de un modelo entrenado) — no se recalculan en vivo. `w_1` es el único peso libre cuando `k=2` (se ajusta junto con el resto, ver 3.2) — con `k=1` no hay peso que ajustar.
 
+**Suavizado del índice (regla general, decisión de Mauricio 2026-10-17)**: el movimiento de cada parámetro dinámico debe ser suave en el tiempo, salvo que el estado del activo cambie de forma sostenida (ej. una caída fuerte de precio en un día) — eso sí puede justificar un movimiento más fuerte del parámetro. Detectado en la validación visual de `N` (`Q4-6`): `N̂_t` sin suavizar saltaba hasta ±70 en una hora en períodos sin novedad real, porque variables como `x3_drawdown_20` resetean seguido contra su máximo rolling. Mecanismo elegido: un EMA causal corto (`suavizar_ema`, `x5_alt_funciones.py`) sobre `s_t` **antes** de `percentil_causal`/`curve_fit` — no un rate-limiter con reglas de excepción aparte. Validado contra el crash histórico más fuerte de la muestra (BTCUSD, -19% en 24h, jun-2022): con `span=6` el índice sigue llegando a piso/techo en pocas horas, solo se filtra el ruido bar-a-bar, no los movimientos reales sostenidos. `calibrar_parametro(..., span_suavizado=...)` expone el parámetro — cada sección de `Q4` (`N`, `A`, `factor_B`, `K`, `N_EXP`) define su propio `SPAN_SUAVIZADO_{PARAM}` (default sugerido: `6` barras H1, ajustable por parámetro si la validación visual lo pide).
+
 ### 3.2. Sigmoide acotada
 
 ```
@@ -139,7 +141,7 @@ Mismo patrón de `Q1`/`Q2`/`Q3`: `valores` (lista, default `['BTCUSD']`), reutil
 - **Sección 0 — Arranque**: carga `{valor}_tabla_estado_v2.csv` (`Q1-2`) + `{valor}_q2_5_export_metricas.json` (`Q2-5`) + `{valor}_q3_4_tabla_final.csv` (`Q3-4`). Sin recalcular nada de `Q1`-`Q3`.
 - **Sección 1 — Utilidades compartidas**: importa `scripts/x5_alt_funciones.py` (nuevo módulo, ver §10) — sigmoide acotada, índice compuesto, percentil causal, ajuste por `curve_fit`, métricas de diagnóstico. Una sola implementación, las 5 secciones de parámetro la reutilizan (nunca reimplementan la fórmula).
 - **Secciones 2-6 — Una por parámetro** (`N`, `A`, `factor_B`, `K`, `N_EXP`), mismo esqueleto en cada una:
-  1. Construcción del índice compuesto `s_t` (gráfico de cada variable normalizada + el índice combinado, a doble eje con `Close`).
+  1. Construcción del índice compuesto `s_t`, ya suavizado con `span_suavizado` (ver §3.1) — gráfico de cada variable normalizada (sin suavizar) + el índice combinado (suavizado), a doble eje con `Close`.
   2. Ajuste de `punto_medio`/`pendiente`(/`w_1`) vía `curve_fit` contra el target sintético.
   3. Gráfico de la curva ajustada `P̂(s)` superpuesta sobre el scatter `(s_t, y*_t)`.
   4. Serie temporal `P̂_t` vs. el valor estático actual de producción, a doble eje con el precio — la pieza central para que Mauricio valide visualmente la hipótesis en episodios conocidos.

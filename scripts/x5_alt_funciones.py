@@ -12,6 +12,7 @@ No es un script standalone. Se importa con:
 """
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 
 
@@ -71,11 +72,37 @@ def z_score(x: np.ndarray) -> tuple[np.ndarray, float, float]:
     return (x - mu) / sigma, mu, sigma
 
 
-def indice_compuesto(variables: list[np.ndarray], pesos: list[float] | None = None) -> dict:
+def suavizar_ema(x: np.ndarray, span: float) -> np.ndarray:
+    """
+    EMA causal (usa solo s_0..s_t, sin leakage — Principio 11 de
+    x5_contexto_conversacion.md): s_ema_t = alpha*s_t + (1-alpha)*s_ema_{t-1}.
+    `span` en barras (H1 → horas). Ver plan_x5_alt_v2.md sección 3.1 — por qué
+    se suaviza el índice compuesto en vez de rate-limitar el parámetro final:
+    un EMA corto ya deja pasar movimientos sostenidos (un drawdown real se
+    mantiene extremo muchas barras seguidas y el EMA lo alcanza en pocas horas)
+    y solo filtra el ruido bar-a-bar de variables como `x3_drawdown_20`, que
+    resetea seguido contra su máximo rolling.
+    """
+    return pd.Series(x).ewm(span=span, adjust=False).mean().to_numpy()
+
+
+def indice_compuesto(
+    variables: list[np.ndarray],
+    pesos: list[float] | None = None,
+    span_suavizado: float | None = None,
+) -> dict:
     """
     Combina 1 o 2 variables explicativas (ya en sus unidades crudas) en un único
     índice de estado s_t = sum(w_i * z_i_t). Restricción deliberada a 1-2 variables
     por parámetro (ver plan_x5_alt_v2.md sección 5 — combinaciones limitadas).
+
+    `span_suavizado` (opcional, en barras): aplica `suavizar_ema` sobre s_t antes
+    de devolverlo — por defecto (`None`) no suaviza. Regla general de la fase
+    (decisión de Mauricio, 2026-10-17): el movimiento de cada parámetro dinámico
+    debe ser suave en el tiempo salvo que el estado del activo cambie de forma
+    sostenida (ej. una caída fuerte de precio en un día) — un EMA causal corto
+    sobre el índice, no un suavizado del parámetro ya calibrado, es el mecanismo
+    elegido para cumplir esto en los 5 parámetros de esta fase.
     """
     if len(variables) not in (1, 2):
         raise ValueError(
@@ -96,6 +123,9 @@ def indice_compuesto(variables: list[np.ndarray], pesos: list[float] | None = No
     s = np.zeros_like(zs[0])
     for w, z in zip(pesos, zs):
         s = s + w * z
+
+    if span_suavizado is not None:
+        s = suavizar_ema(s, span_suavizado)
 
     return {'s': s, 'pesos': pesos.tolist(), 'normalizacion': normalizacion}
 
@@ -134,6 +164,7 @@ def calibrar_parametro(
     piso: float,
     techo: float,
     grid_pesos: np.ndarray | None = None,
+    span_suavizado: float | None = None,
 ) -> dict:
     """
     Calibra P̂(x) = sigmoide_acotada(índice_compuesto(variables), piso, techo, ·, ·)
@@ -146,12 +177,16 @@ def calibrar_parametro(
     mismo curve_fit porque el propio target (percentil causal) depende de w_1; se
     resuelve como un perfil de verosimilitud sobre w_1 en vez de un ajuste conjunto.
 
+    `span_suavizado` (opcional, en barras): pasa directo a `indice_compuesto` — el
+    ajuste completo (target sintético incluido) se calibra ya sobre el índice
+    suavizado, no como un parche posterior sobre `y_ajustado`.
+
     Devuelve dict con: s, pesos, normalizacion, punto_medio, pendiente, r2,
     elasticidad_punto_medio, y_objetivo, y_ajustado.
     """
     k = len(variables)
     if k == 1:
-        compuesto = indice_compuesto(variables)
+        compuesto = indice_compuesto(variables, span_suavizado=span_suavizado)
         s = compuesto['s']
         y_objetivo = piso + (techo - piso) * percentil_causal(s)
         ajuste = _ajustar_sigmoide(s, y_objetivo, piso, techo)
@@ -162,7 +197,7 @@ def calibrar_parametro(
 
     mejor = None
     for w1 in grid_pesos:
-        compuesto = indice_compuesto(variables, pesos=[w1, 1 - w1])
+        compuesto = indice_compuesto(variables, pesos=[w1, 1 - w1], span_suavizado=span_suavizado)
         s = compuesto['s']
         y_objetivo = piso + (techo - piso) * percentil_causal(s)
         ajuste = _ajustar_sigmoide(s, y_objetivo, piso, techo)

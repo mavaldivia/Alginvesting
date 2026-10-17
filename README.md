@@ -120,7 +120,7 @@ scripts/
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
   X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
   X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra cada parámetro como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — scaffold, en desarrollo sección por sección
-  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, calibrar_parametro) — no depende de Data/MT5
+  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro) — no depende de Data/MT5
   x5_alt_export.py       # carpeta_exp()/limpiar_exp()/exportar_zip() — cada notebook X5_Q*.ipynb lee/escribe en su propia resources/x5_alt/exp_Qi/ (limpiada al inicio) y comprime esa carpeta en exp_Qi.zip para pasarlo de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-17** — feat(x5-q4): suaviza N vía EMA causal sobre el índice compuesto s_t
 - **2026-10-17** — feat(x5_alt_v2): reorganiza I/O de X5_Qi con carpetas exp_Qi + zip
 - **2026-10-17** — docs(x5_alt_v2): verifica bloque inicial mandatorio de VALORES en X5_Q1-Q4
 - **2026-10-16** — fix(x2): día-guard ya no bloquea el cálculo de un activo nuevo en VALORES

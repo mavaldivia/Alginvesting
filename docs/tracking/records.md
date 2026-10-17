@@ -2165,3 +2165,19 @@ Claude: antes de ejecutar, usó /consultar para resolver 3 ambigüedades de dise
 Claude: reescribió scripts/x5_alt_export.py (nuevas carpeta_exp/limpiar_exp, exportar_zip simplificado sin lista explícita de archivos) y aplicó la convención a X5_Q1.ipynb-X5_Q4.ipynb (celda de Preparación con CARPETA_EXP = limpiar_exp(...), lecturas cruzadas vía carpeta_exp('X5_Qj'), celdas de export reducidas a exportar_zip('X5_Qi')). Validó el módulo con un test en carpeta temporal y confirmó que ningún notebook quedó con CARPETA_X5_ALT residual.
 Claude: documentó el cambio en docs/plans/X5_alternativo.md (sección 10.2 reescrita + entrada 2026-10-17 en 10.4) y registró el ítem en docs/tracking/done.md, sección X5_alt_v2 (vía /new_todo).
 (Cierre: 2026-10-17 16:02)
+
+## SECCIÓN 263
+Mauricio: invocó `/todos X5_alt_v2`, confirmó trabajar el ítem `[Q4-5]` (ejecutar `X5_Q4.ipynb` con la Sección N, 7 activos incluyendo MSFT) diciendo que ya lo había corrido y pidió verificar que los exports en `resources/x5_alt/` estuvieran completos.
+Claude: revisó los 7 CSV `{VALOR}_q4_n.csv` (columnas, nulls, rango de fechas, `N_hat` dentro de piso/techo, `r2` por activo) — todo en orden; GOOGL con menos filas que el resto, pero confirmó que es heredado de `Data/GOOGL.csv` fuente, no un error de esta ejecución.
+
+Mauricio: pidió revisar juntos los gráficos de `[Q4-6]` (curva ajustada, índice `s_t`, `N̂_t` vs. estático) para validar la hipótesis de `N` antes de pasar a `A`.
+Claude: como el notebook ejecutado en Windows no tenía outputs embebidos ni PNGs exportados, reconstruyó los gráficos en Mac (extrajo `Close`/`x3_drawdown_20`/`x3_atr_pct` del zip de `X5_Q1`, recreó el índice compuesto y la curva de `X5_Q4.ipynb` Sección 4) y los inspeccionó con el tool de lectura de imágenes. Encontró dos hallazgos: (1) el peso quedó en `[0.90, 0.10]` en los 7 activos, pegado al límite superior del grid explorado; (2) `N̂_t` resultó extremadamente ruidoso bar-a-bar (saltos de hasta ±70 en una hora), confirmado con un zoom de 30 días en BTCUSD — no era un artefacto de renderizado.
+
+Mauricio: pidió un resumen del plan de `X5_alt_v2` Fase 2 (orden `N→A→factor_B→K→N_EXP`, 3 pasos por parámetro: implementar/ejecutar/revisar) y luego, sobre el ruido de `N`, estableció una regla general: el movimiento de cualquier parámetro dinámico debe ser suave en el tiempo salvo cambios sostenidos del activo (ej. una caída fuerte de precio en un día) — pidió explícitamente buscar cómo suavizar `N` con esa regla.
+Claude: explicó el estado del plan (`plan_x5_alt_v2.md`) y, para la regla de suavizado, validó en Mac con datos reales de BTCUSD que un EMA causal sobre el índice compuesto `s_t` (sin rate-limiter ni reglas de excepción aparte) cumple el pedido: reduce el ruido bar-a-bar (`std(|Δ|)` de 13.35 a 5.22 con `span=6`) y aun así llega a piso/techo en pocas horas durante un crash real (BTCUSD -19% en 24h, jun-2022). Recomendó `span=6` horas.
+
+Mauricio: confirmó avanzar con la implementación.
+Claude: agregó `suavizar_ema`/`span_suavizado` a `scripts/x5_alt_funciones.py` (`indice_compuesto`/`calibrar_parametro`), aplicó `SPAN_SUAVIZADO_N=6` en la Sección 4 de `X5_Q4.ipynb` (código + markdown actualizados), documentó la regla general (aplica a los 5 parámetros) en `docs/plans/plan_x5_alt_v2.md` §3.1/§8, y registró la decisión en `docs/context/decisiones.md`. Validó con `py_compile`, un test sintético de `calibrar_parametro` con/sin suavizado, y la comparación visual EMA vs. original ya mencionada.
+
+Mauricio: avisó que correrá de nuevo los 4 notebooks (`Q1`-`Q4`) en Windows con la nueva organización por carpetas (`exp_Qi`), revisará visualmente `Q4` y volverá con sus dudas — `[Q4-5]`/`[Q4-6]` quedan explícitamente pendientes (no se movieron a `done.md`, la ejecución revisada es anterior al cambio de suavizado).
+(Cierre: 2026-10-17 16:14)
