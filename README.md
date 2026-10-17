@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+- **2026-10-17** — docs(x5_alt_v2): verifica bloque inicial mandatorio de VALORES en X5_Q1-Q4
 - **2026-10-16** — fix(x2): día-guard ya no bloquea el cálculo de un activo nuevo en VALORES
 - **2026-10-16** — feat(x5-q4): calibra N = f(drawdown, volatilidad) con sigmoide acotada
 - **2026-10-16** — feat(x5-q4): celda de inspección visual del target sintético por percentil causal

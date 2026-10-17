@@ -2151,3 +2151,10 @@ Claude: corrigió `X2_fundamentals.py` (bloque `__main__`): calcula `activos_nue
 Mauricio: confirmó que le gustó el diagnóstico y preguntó si ahora corresponde hacer push y volver a correr X0 en Windows.
 Claude: confirmó el flujo (push → pull en Windows → correr X0; el guard debería detectar MSFT faltante y recalcular sin esperar al día siguiente) y preguntó si quería que Claude ejecutara el push o lo haría Mauricio manualmente.
 (Cierre: 2026-10-16 23:02)
+
+## SECCIÓN 261
+Mauricio: con `/new_todo` pidió verificar que `X5_Q1.ipynb`-`X5_Q4.ipynb` usen SIEMPRE el bloque inicial mandatorio para obtener `VALORES` (vía `cfg.VALORES`), porque sospechaba que `X5_Q2.ipynb` no lo estaba obteniendo bien de ahí.
+Claude: inspeccionó la celda 1 de los 4 notebooks y confirmó que los 4 (incluyendo `X5_Q2.ipynb`) ya tienen el bloque exacto (`SCRIPTS_DIR` + `import config as cfg` + `valores = list(cfg.VALORES)`), sin reasignaciones posteriores que lo pisen — no hizo falta ningún cambio de código. Registrado en `done.md` (sección X5_alt_v2).
+Mauricio: preguntó si Q2 ya lo tenía o si Claude lo corrigió recién.
+Claude: aclaró que ya lo tenía desde antes, no se corrigió nada en esta sesión.
+(Cierre: 2026-10-17 12:40)
