@@ -304,3 +304,32 @@ propongas
 
 Extiende el uso del ícono (en config) cada vez que se escriba el valor en X1, en cualquiera de los prints
 Quiero el formato (ícono valor) (nombre valor)
+
+/new_todo X5_alt_v2
+
+No importa en que estado esté el script Qi.ipynb, (en cualquiera de ellos y los que venga en el futuro)
+
+Siempre, todo lo exportado, debe consolidarse en un zip
+
+QUiero aclarar como debe comportars eel sistema de inputs/outputs en cada script Qi
+
+Un script Qi específico (i es ahora 1, 2, 3, 4)(aplica a todos los futuros tambien)
+Elimina todo el contenido de la carpeta resources/x5_alt/exp_Qi
+Todo lo que exporta, va a exp_Qi
+Si necesita inputs de otro j, los va a buscar a resources/x5_alt/exp_Qj
+Al final del script, si existe exp_Qi.zip, la elimina
+Comprime exp_Qi en exp_Qi.zip
+
+
+Así, debe quedar más ordenado resources/x5_alt, con la estructura
+
+Q1
+Q2
+..
+Qi
+Q1.zip
+Q2.zip
+..
+Qi.zip
+
+/consultar

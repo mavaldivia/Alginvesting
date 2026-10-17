@@ -2158,3 +2158,10 @@ Claude: inspeccionó la celda 1 de los 4 notebooks y confirmó que los 4 (incluy
 Mauricio: preguntó si Q2 ya lo tenía o si Claude lo corrigió recién.
 Claude: aclaró que ya lo tenía desde antes, no se corrigió nada en esta sesión.
 (Cierre: 2026-10-17 12:40)
+
+## SECCIÓN 262
+Mauricio: pidió, vía /new_todo + /consultar, rediseñar la convención de inputs/outputs de los notebooks X5_Qi (X5_alt_v2): cada Qi debe limpiar su propia carpeta resources/x5_alt/exp_Qi al inicio, exportar todo ahí (intermedios incluidos), leer inputs de otro Qj desde exp_Qj, y al final reemplazar exp_Qi.zip comprimiendo exp_Qi completa.
+Claude: antes de ejecutar, usó /consultar para resolver 3 ambigüedades de diseño — confirmadas: (1) todos los exports del notebook van a exp_Qi, no solo la lista curada que hoy entra al zip; (2) el contenido actual de resources/x5_alt/ (zips con timestamp + CSV sueltos) se deja intacto, sin limpiar; (3) el zip queda con contenido plano, sin subcarpeta interna.
+Claude: reescribió scripts/x5_alt_export.py (nuevas carpeta_exp/limpiar_exp, exportar_zip simplificado sin lista explícita de archivos) y aplicó la convención a X5_Q1.ipynb-X5_Q4.ipynb (celda de Preparación con CARPETA_EXP = limpiar_exp(...), lecturas cruzadas vía carpeta_exp('X5_Qj'), celdas de export reducidas a exportar_zip('X5_Qi')). Validó el módulo con un test en carpeta temporal y confirmó que ningún notebook quedó con CARPETA_X5_ALT residual.
+Claude: documentó el cambio en docs/plans/X5_alternativo.md (sección 10.2 reescrita + entrada 2026-10-17 en 10.4) y registró el ítem en docs/tracking/done.md, sección X5_alt_v2 (vía /new_todo).
+(Cierre: 2026-10-17 16:02)
