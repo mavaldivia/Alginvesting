@@ -44,6 +44,7 @@ from config import (
     X1_RETRY_RETCODE_MAX,
     X1_RETRY_RETCODE_SLEEP_S,
     X1_COMPACTAR_LOG_S,
+    soporte_de_orden as _soporte_de_orden,
 )
 
 
@@ -376,22 +377,6 @@ def generate_request_buy_limit(valor: str, order_type, volumen: float, precio: f
     if sl != 0:
         request['sl'] = float(sl)
     return request
-
-
-def _soporte_de_orden(orden) -> float:
-    """Soporte puro (sin spread) de una OE/OA, leído del comment ('P0={valor}', ver
-    generate_request_buy_limit) — así la identidad contra lista_N no depende de que
-    el spread no haya cambiado desde que se colocó la orden. Si el comment no tiene
-    ese formato (orden previa a este cambio, o el bróker no lo propagó de la OE a la
-    posición resultante), cae a price_open — igual que el comportamiento antes de
-    ajustar por spread."""
-    comment = getattr(orden, 'comment', '') or ''
-    if comment.startswith('P0='):
-        try:
-            return round(float(comment[3:]), 2)
-        except ValueError:
-            pass
-    return round(orden.price_open, 2)
 
 
 def ejecutar_orden(request: dict, symbol: str, volumen: float, precio: float) -> tuple:

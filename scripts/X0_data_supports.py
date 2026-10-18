@@ -54,7 +54,7 @@ warnings.filterwarnings('ignore')
 
 from config import (
     CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_PLOTS, CARPETA_LOGS,
-    VALORES, FECHA_INICIAL,
+    VALORES, FECHA_INICIAL, soporte_de_orden,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
     M, M_COARSE, LAMBDA, MAX_ITERS, MAX_CAMBIOS,
     T_UPDATE_O0, T_UPDATE_CICLO_X0,
@@ -769,7 +769,8 @@ def graficar_soportes_demo(df_0: pd.DataFrame, conjunto_N: set, ruta_png: Path,
 
 def obtener_ordenes_activas_mt5(valores: list) -> dict:
     """
-    Retorna {valor: [precios de posiciones abiertas]} desde MT5.
+    Retorna {valor: [soportes puros de posiciones abiertas]} desde MT5 (no price_open,
+    que es soporte + spread — ver config.soporte_de_orden).
     Solo incluye posiciones ejecutadas (OA), no órdenes pendientes (OE).
     Si MT5 no está disponible (Mac, error), retorna listas vacías sin abortar.
     """
@@ -781,7 +782,7 @@ def obtener_ordenes_activas_mt5(valores: list) -> dict:
         result = {}
         for valor in valores:
             positions = mt5.positions_get(symbol=valor) or []
-            result[valor] = [p.price_open for p in positions]
+            result[valor] = [soporte_de_orden(p) for p in positions]
             if result[valor]:
                 console.print(f'  {valor}: {len(result[valor])} posición(es) activa(s) → fija(s) en optimizador')
         mt5.shutdown()

@@ -372,3 +372,12 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** implementar en esta misma sesión las Secciones 5-8 (`A`, `factor_B`, `K`, `N_EXP`) o la Sección 9 (resumen consolidado) — siguen *pendientes de implementar* (`Q4-7` en adelante, `docs/tracking/todos.md`), fuera del alcance de este ajuste, que es exclusivamente de documentación/presentación sobre lo ya implementado. También se descartó aplicar el mismo trabajo a `X5_Q5.ipynb` en esta sesión — el notebook todavía no existe y su construcción está bloqueada por `[Q5-1]` (diseño pendiente del backtesting condicional por régimen); el estándar queda documentado para aplicarlo recién cuando se cree.
 
 **Validado:** revisión celda por celda de `X5_Q4.ipynb` completo (30 celdas) y `jupyter nbconvert --to notebook` para confirmar que el notebook sigue siendo JSON válido tras la edición manual del `.ipynb`.
+
+
+## 2026-10-17 — Identidad única de soporte para OA entre X0 y X1
+
+**Decisión:** `soporte_de_orden` vive en `config.py` y es la única forma de obtener el soporte de una OE/OA; X0 fija las OA con el soporte puro, no con `price_open` (= soporte + spread).
+
+**Razón:** X0 fijaba `price_open` y X1 leía el comment `P0=`; dos niveles distintos para la misma orden hacían que X1 colocara una OE extra a un spread de la OA (ETHUSD, pares a 0.70).
+
+**Descartado (por ahora):** separación mínima entre soportes/OA en X1 como segunda defensa.
