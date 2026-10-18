@@ -192,7 +192,7 @@
 - [ ] **[Q4-EXEC] Cierre de la Fase 2 principal**: la celda de `exportar_zip('X5_Q4')` ya existe (Sección 10, no la 12 del scaffold original — numeración real quedó distinta al scaffold). Falta correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) y confirmar el zip generado con las secciones 4-9 completas. [dep: Q4-20]
   - Mauricico: correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) en Windows y confirmar el zip generado.
 
-**Q4 — extensión opcional: `LAMBDA`** (fuera del alcance comprometido de esta fase — decisión explícita de Mauricio de dejarlo afuera; retomar solo si decide resolver el bloqueador)
+**Q4 — `LAMBDA`** (entra al alcance de la fase por decisión de Mauricio, 2026-10-18; Sección 11 del notebook)
 
 - [ ] **[Q4-L1] Resolver el rango real de `LAMBDA`**: decidir con Mauricio si se usa `(0.001,0.02)` (rango de exploración documentado) o `0.2` (valor productivo, `config.py:95`) como referencia de `piso`/`techo` — bloqueador heredado de `Q3-6`. Sin esto resuelto, no avanzar a `Q4-L2`. [dep: Q4-EXEC]
   - Claude: presentar las dos opciones de rango (`(0.001,0.02)` exploración vs. `0.2` productivo) con sus tradeoffs.
@@ -203,6 +203,18 @@
   - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
 - [ ] **[Q4-L4] Revisar visuales de la Sección LAMBDA y validar**. [dep: Q4-L3]
   - Mauricico: revisar curva, serie y diagnóstico de LAMBDA; confirmar o ajustar la hipótesis.
+
+**Q4 — `PERDIDA_MAX`** (entra al alcance por decisión de Mauricio, 2026-10-18; Sección 12 del notebook, scaffold dejado)
+
+- [ ] **[Q4-P1] Elegir variable(s) explicativa(s) de `PERDIDA_MAX` con evidencia**: `PERDIDA_MAX` no tiene hipótesis ni variable en `Q3`. Revisar la evidencia de `Q2` (`exp_Q2`) y proponer variable(s), signo esperado y argumento — nunca a priori. Confirmar rango de referencia `(100,300)` USD vs. valor productivo `200` (`config.py:385`; falta `MSFT`). [dep: Q4-EXEC]
+  - Claude: analizar la evidencia disponible y presentar 2 candidatas con tradeoffs y recomendación.
+  - Mauricico: elegir variable(s) e hipótesis de signo.
+- [ ] **[Q4-P2] Implementar Sección PERDIDA_MAX**: mismo esqueleto con `k` según lo decidido en `Q4-P1`. [dep: Q4-P1]
+  - Claude: implementar la Sección 12 en el notebook.
+- [ ] **[Q4-P3] Ejecutar X5_Q4.ipynb** (con la Sección PERDIDA_MAX ya agregada). [dep: Q4-P2]
+  - Mauricico: ejecutar el notebook y confirmar que corre sin errores.
+- [ ] **[Q4-P4] Revisar visuales de la Sección PERDIDA_MAX y validar**. [dep: Q4-P3]
+  - Mauricico: revisar curva, serie y diagnóstico; confirmar o ajustar la hipótesis.
 
 **Q5 — X5_Q5.ipynb (validación económica: puente a X4_backtester.py, `plan_x5_alt_v2.md` sección 9)**
 

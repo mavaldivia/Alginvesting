@@ -10,7 +10,7 @@
 Resueltas con Mauricio vía `/consultar` antes de escribir este plan:
 
 1. **Target de calibración**: cada `f(x)` se ajusta ahora contra un **target de diseño** (sin requerir todavía un "valor óptimo histórico" de backtesting). La validación económica real (comparar el parámetro dinámico vs. el estático actual con resultados de `X4_backtester.py`) es una fase posterior (`X5_Q5.ipynb`), no bloquea esta.
-2. **Alcance**: los **5 parámetros activos** en paralelo — `N`, `A`, `factor_B`, `K`, `N_EXP`. `LAMBDA` queda fuera hasta resolver su bloqueador (rango de exploración inconsistente, ver §5). `LOTAJES_M`/`PERDIDA_MAX` siguen fuera de alcance (no prioritario / pausado, sin cambios respecto a `X5_alternativo.md` §10.5).
+2. **Alcance**: los **5 parámetros iniciales** — `N`, `A`, `factor_B`, `K`, `N_EXP` — más `LAMBDA` y `PERDIDA_MAX`, incorporados el 2026-10-18 por decisión de Mauricio (secciones 11 y 12 del notebook, tras cerrar `Q4-EXEC`). `LAMBDA` conserva su bloqueador de rango (ver §5, `Q4-L1`); `PERDIDA_MAX` aún no tiene variable elegida (`Q4-P1`). `LOTAJES_M` sigue fuera de alcance.
 3. **Forma funcional**: sigmoide/logística acotada para todos los parámetros, con piso y techo **configurables por parámetro** (no necesariamente el rango completo de `X5_PARAM_RANGES` — ej. `factor_B` podría acotarse a `(0.3, 0.7)` en vez de `(0.2, 0.7)`). El mecanismo exacto de ajuste se detalla en §3-4.
 4. **Estándar de documentación** (decisión posterior, 2026-10-17, ver `docs/context/decisiones.md`): `Q4`/`Q5` son notebooks "sobre el agua" — Mauricio se involucra directamente, a diferencia de `Q1`/`Q2`/`Q3`. Cada parámetro se documenta con Pregunta → Motivación → Metodología → Fundamento matemático → Ejecución → Resultados → Interpretación → Conclusión → Implicancias; el fundamento matemático se explica en detalle la primera vez (Sección 4, `N`) y se referencia sin repetir después.
 
@@ -129,7 +129,7 @@ Total: **5 parámetros, 7 combinaciones parámetro-variable** (2+1+2+1+1). `x3_a
 ## 7. Qué queda explícitamente fuera de esta fase
 
 - Separar `A` en `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21) — `A` se calibra único por ahora; si más adelante se decide separarlo, la misma familia de función se replica dos veces sin cambios de diseño.
-- Resolver el rango real de `LAMBDA` — bloqueador explícito heredado de `Q3-6`. `Q4-9` lo deja como paso obligatorio *antes* de calibrar `LAMBDA`, no lo resuelve de antemano.
+- Resolver el rango real de `LAMBDA` de antemano — `Q4-L1` lo deja como paso obligatorio *antes* de calibrar `LAMBDA` (bloqueador heredado de `Q3-6`).
 - Cualquier cambio a `X0_data_supports.py`/`X1_trading.py`/`config.py` de producción — el puente a producción (cómo X1 leería `P̂(s_t)` en vivo, con qué cadencia de refresco, fallback si falta algún insumo) es una fase futura, análoga a `TIPO_EJECUCION="din"` de X5 original.
 - Validación económica/backtesting — eso es `X5_Q5.ipynb` (§9).
 
