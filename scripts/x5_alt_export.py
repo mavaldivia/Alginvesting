@@ -35,11 +35,20 @@ def carpeta_exp(nombre_notebook: str) -> Path:
 
 
 def limpiar_exp(nombre_notebook: str) -> Path:
-    """Vacía exp_Qi y la deja lista para esta corrida (se llama al inicio del notebook)."""
+    """Vacía exp_Qi y la deja lista para esta corrida (se llama al inicio del notebook).
+
+    Borra el contenido en vez de la carpeta misma: en Windows/OneDrive el
+    directorio puede quedar con un handle abierto (sync, otro kernel) y el
+    rmdir final de shutil.rmtree(carpeta) tira PermissionError aunque los
+    archivos de adentro sí se pudieron borrar.
+    """
     carpeta = CARPETA_X5_ALT / f'exp_{_qi(nombre_notebook)}'
-    if carpeta.exists():
-        shutil.rmtree(carpeta)
-    carpeta.mkdir(parents=True)
+    carpeta.mkdir(parents=True, exist_ok=True)
+    for item in carpeta.iterdir():
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
     return carpeta
 
 
