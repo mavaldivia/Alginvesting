@@ -2228,3 +2228,9 @@ Claude: explicó con ejemplos reales de BTCUSD las parejas (variable, precio) y 
 Mauricio: pidió recordarle como primer paso al retomar leer la sección "Qué hace y qué no hace este notebook", y aclaró que ningún TO DO pasa a done: solo se anota la inclusión de LAMBDA y PERDIDA_MAX, seguimos en Q4-5/Q4-6.
 Claude: guardó el recordatorio en memoria del proyecto y agregó la nota de alcance en done.md.
 (Cierre: 2026-10-18 00:36)
+
+## SECCIÓN 270
+Mauricio: invocó `/todos X5_alt_v2`; luego, leyendo la Sección 4.1 de `X5_Q4.ipynb`, señaló que faltaba la definición matemática de `drawdown` y `x3_atr_pct`, y pidió que toda variable explicativa lleve siempre su definición matemática en el archivo.
+Claude: mostró los próximos 3 TO DOs ([Q4-5], [Q4-6], [Q4-7]). Agregó las fórmulas (LaTeX) en 4.1 (`x3_drawdown_w`, `x3_atr_pct` con ATR de Wilder) y en las secciones 5.2 (`atr_pct`), 6.2 (`atr_pct`, `adx_14`), 7.2 (`ruptura_rango`), 8.2 (`cambio_volatilidad`) y 11 (`bb_width`, `duracion_en_rango`). Corrigió 4.2: el drawdown es contra el máximo de 20 barras, no el histórico. Guardó la regla en memoria.
+Mauricio: aclaró que sigue en [Q4-5]/[Q4-6] (ejecutando y revisando la Sección N); invocó `/guardar`. No se movió ningún ítem a `done.md`.
+(Cierre: 2026-10-18 22:35)
