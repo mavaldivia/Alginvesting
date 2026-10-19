@@ -2234,3 +2234,10 @@ Mauricio: invocó `/todos X5_alt_v2`; luego, leyendo la Sección 4.1 de `X5_Q4.i
 Claude: mostró los próximos 3 TO DOs ([Q4-5], [Q4-6], [Q4-7]). Agregó las fórmulas (LaTeX) en 4.1 (`x3_drawdown_w`, `x3_atr_pct` con ATR de Wilder) y en las secciones 5.2 (`atr_pct`), 6.2 (`atr_pct`, `adx_14`), 7.2 (`ruptura_rango`), 8.2 (`cambio_volatilidad`) y 11 (`bb_width`, `duracion_en_rango`). Corrigió 4.2: el drawdown es contra el máximo de 20 barras, no el histórico. Guardó la regla en memoria.
 Mauricio: aclaró que sigue en [Q4-5]/[Q4-6] (ejecutando y revisando la Sección N); invocó `/guardar`. No se movió ningún ítem a `done.md`.
 (Cierre: 2026-10-18 22:35)
+
+## SECCIÓN 271
+Mauricio: Preguntó (vía /new_todo X1) si la pausa de gestión de BuyLimits por SL activo también cubre la promoción O0>OE por alcance de precio (P-delta >= P(O0)) o solo el reemplazo total cuando X0 cierra una actualización.
+Claude: Revisó `X1_trading.py:1044` y confirmó que ambos casos se pausaban, porque el bloque A/B completo estaba bajo `not pausar_reemplazo_global`. Planteó 3 opciones sin tocar código.
+Mauricio: Decidió pausar solo el caso 1 (reemplazo total).
+Claude: Dejó la promoción O0→OE por precio (`crear_ordenes_espera`) activa durante la pausa; reemplazo total y poda por saturación siguen pausados, y si hay OE salientes pendientes la promoción tampoco corre. Actualizó los mensajes de pausa/reanudación y registró el ítem en `done.md` (X1).
+(Cierre: 2026-10-19 13:00)

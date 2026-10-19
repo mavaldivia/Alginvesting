@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 
 ## Changelog
 
+
 - **2026-10-18** — docs(x5-q4): agrega definición matemática de las variables explicativas en secciones 4-8 y 11
 - **2026-10-18** — docs(x5-q4): incorpora LAMBDA y PERDIDA_MAX como parámetros dinámicos en scaffold y TO DOs
 - **2026-10-18** — fix(x0-x1): X0 fija las OA con el soporte puro y comparte soporte_de_orden con X1

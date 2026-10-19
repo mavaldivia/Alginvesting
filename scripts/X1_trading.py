@@ -1024,9 +1024,9 @@ if __name__ == '__main__':
                 )
                 if pausar_reemplazo_global != pausar_reemplazo_global_prev:
                     if pausar_reemplazo_global:
-                        print('  SL activo más cerca de P_MAX que de P_SL → pausando gestión de buy limits (foco en trailing stop)')
+                        print('  SL activo más cerca de P_MAX que de P_SL → pausando reemplazo y poda de buy limits (foco en trailing stop)')
                     else:
-                        print('  Ningún SL cerca de su máximo → reanudando gestión de buy limits')
+                        print('  Ningún SL cerca de su máximo → reanudando reemplazo y poda de buy limits')
                     pausar_reemplazo_global_prev = pausar_reemplazo_global
 
                 for valor in VALORES:
@@ -1039,18 +1039,22 @@ if __name__ == '__main__':
                         # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
                         # no eliminar las OE existentes porque no se pueden reponer.
                         # Si hay un SL activo cerca de su máximo en el sistema
-                        # (pausar_reemplazo_global), se saltan A/B para priorizar la
-                        # revisión del trailing stop.
-                        if mercado_abierto(valor) and not pausar_reemplazo_global:
+                        # (pausar_reemplazo_global), solo se pausa el reemplazo total
+                        # (a) y la poda (c) para priorizar la revisión del trailing
+                        # stop. La promoción de O0 a OE por alcance de precio (b) sigue
+                        # activa: si el precio ya cruzó el margen, no debe esperar.
+                        if mercado_abierto(valor):
                             hay_salientes = any(_soporte_de_orden(o) not in lista_N for o in actual_OE)
                             if hay_salientes:
                                 # Caso (a): el conjunto de soportes cambió — reemplazo total
-                                reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, LOTAJES, dic_bloqueados)
+                                if not pausar_reemplazo_global:
+                                    reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, LOTAJES, dic_bloqueados)
                             else:
                                 # Caso (b): promoción normal de O0 a OE por margen
                                 crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, A[valor], LOTAJES, dic_bloqueados)
                                 # Caso (c): poda por saturación, solo sin reemplazo en curso
-                                podar_ordenes_saturacion(actual_OE, valor, N)
+                                if not pausar_reemplazo_global:
+                                    podar_ordenes_saturacion(actual_OE, valor, N)
 
                         # C: Trailing stop en posiciones abiertas
                         # Si activa o mueve el SL de una posición recién ahora, propaga
@@ -1061,7 +1065,7 @@ if __name__ == '__main__':
                         # el próximo ciclo, aunque este SL recién haya quedado a distancia
                         # completa de su máximo.
                         if trailing_stop(actual_OA, valor, A[valor], B[valor], dic_seguimiento) and not pausar_reemplazo_global:
-                            print('  SL activo más cerca de P_MAX que de P_SL → pausando gestión de buy limits (foco en trailing stop)')
+                            print('  SL activo más cerca de P_MAX que de P_SL → pausando reemplazo y poda de buy limits (foco en trailing stop)')
                             pausar_reemplazo_global = True
                             pausar_reemplazo_global_prev = True
 
