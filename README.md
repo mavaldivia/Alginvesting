@@ -230,6 +230,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-19** — docs(x5-q4): aclara pesos w1/w2, piso/techo del target y agrega gráfico de q_t e y*_t en la sección 4
 - **2026-10-19** — fix(x1): la pausa por trailing stop deja activa la promoción O0→OE por precio
 
 - **2026-10-18** — docs(x5-q4): agrega definición matemática de las variables explicativas en secciones 4-8 y 11

@@ -2241,3 +2241,12 @@ Claude: Revisó `X1_trading.py:1044` y confirmó que ambos casos se pausaban, po
 Mauricio: Decidió pausar solo el caso 1 (reemplazo total).
 Claude: Dejó la promoción O0→OE por precio (`crear_ordenes_espera`) activa durante la pausa; reemplazo total y poda por saturación siguen pausados, y si hay OE salientes pendientes la promoción tampoco corre. Actualizó los mensajes de pausa/reanudación y registró el ítem en `done.md` (X1).
 (Cierre: 2026-10-19 13:00)
+
+## SECCIÓN 272
+Mauricio: Registró vía /new_todo (X5_alt_v2) que ejecutó X5_Q4.ipynb solo hasta el punto 4.2, para ir entendiendo el flujo paso a paso.
+Claude: Agregó el ítem a `done.md` en la subsección X5_alt_v2.
+Mauricio: Preguntó qué w1 y w2 se asumen en los gráficos de 4.2, por qué no se grafican q(t) e y(t), y por qué el target usa piso y techo si después viene la sigmoide.
+Claude: Aclaró que w1/w2 salen de la grilla de `calibrar_parametro` (mejor R²), no se asumen; reconoció la omisión de q(t)/y*(t); explicó que piso/techo en el target es redundante con la sigmoide (escalado afín, mismo argmin y R²) y que la sigmoide aproxima la CDF empírica de `s`, por lo que el R² alto es casi por construcción.
+Mauricio: Pidió llevar todo eso a la documentación desde 4.2 hacia abajo (releerá y ejecutará 4.2).
+Claude: Editó `X5_Q4.ipynb`: notas en 4.2, 4.3 y 4.4, y nueva sección 4.3.1 (markdown + celda que grafica q_t, y*_t y N̂_t junto al Close). Sin ejecutar.
+(Cierre: 2026-10-19 23:42)
