@@ -110,6 +110,7 @@ scripts/
   X1_trading.py          # Loop de trading semi-automático
   X2_fundamentals.py     # Score fundamental por activo
   X3_technical_features.py  # Features técnicas incrementales por activo
+  market_status.py       # Estado de mercado por activo (abierto/premarket/postmarket/cerrado) vía MT5
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
@@ -230,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-21** — feat(transversal): agrega market_status.py que detecta vía MT5 el estado de mercado de cada activo
 - **2026-10-19** — docs(x5-q4): aclara pesos w1/w2, piso/techo del target y agrega gráfico de q_t e y*_t en la sección 4
 - **2026-10-19** — fix(x1): la pausa por trailing stop deja activa la promoción O0→OE por precio
 

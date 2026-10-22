@@ -2250,3 +2250,10 @@ Claude: Aclaró que w1/w2 salen de la grilla de `calibrar_parametro` (mejor R²)
 Mauricio: Pidió llevar todo eso a la documentación desde 4.2 hacia abajo (releerá y ejecutará 4.2).
 Claude: Editó `X5_Q4.ipynb`: notas en 4.2, 4.3 y 4.4, y nueva sección 4.3.1 (markdown + celda que grafica q_t, y*_t y N̂_t junto al Close). Sin ejecutar.
 (Cierre: 2026-10-19 23:42)
+
+## SECCIÓN 273
+Mauricio: Pidió vía /new_todo (Transversal) un script pequeño `market_status.py` en `scripts/` que tome los valores de config e indique si el mercado está cerrado, abierto o en premarket.
+Claude: Primera versión por horario fijo de Nueva York (crypto 24/7, acciones con premarket/regular/postmarket, sin feriados) y registro en `done.md`.
+Mauricio: Corrigió que no debe depender del horario, sino detectarse mediante MT5.
+Claude: Reescribió el script: usa `trade_mode` y las sesiones de trading/cotización de MT5 (`symbol_info_session_trade`/`_quote`) contra la hora del servidor, inferida del último tick de BTCUSD/ETHUSD. Solo compila en Mac, requiere probarlo en Windows (en particular que el broker defina sesiones de cotización para detectar premarket). Entrada de `done.md` actualizada.
+(Cierre: 2026-10-21 21:06)
