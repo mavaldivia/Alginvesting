@@ -381,3 +381,11 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Razón:** X0 fijaba `price_open` y X1 leía el comment `P0=`; dos niveles distintos para la misma orden hacían que X1 colocara una OE extra a un spread de la OA (ETHUSD, pares a 0.70).
 
 **Descartado (por ahora):** separación mínima entre soportes/OA en X1 como segunda defensa.
+
+## 2026-10-21 — X5_Q5: se prueba la calibración en tres niveles de agregación
+
+**Decisión:** `Q5` compara el ajuste de cada parámetro dinámico (`w`, `punto_medio`, `pendiente`) en tres niveles: por `valor`, por `tipo_valor` (cryptos / acciones) y todos agregados. Detalle en `docs/plans/plan_x5_alt_v2.md` §9.1 y TODO `Q5-3`.
+
+**Razón:** `Q4` calibra solo por activo, con pocos datos por ajuste; agrupar reduce el sobreajuste pero pierde especificidad. No se asume cuál nivel es mejor.
+
+**Descartado:** fijar el nivel a priori; elegir por `R²` dentro de muestra (siempre favorece al más granular).

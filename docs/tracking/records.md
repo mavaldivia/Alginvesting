@@ -2257,3 +2257,10 @@ Claude: Primera versión por horario fijo de Nueva York (crypto 24/7, acciones c
 Mauricio: Corrigió que no debe depender del horario, sino detectarse mediante MT5.
 Claude: Reescribió el script: usa `trade_mode` y las sesiones de trading/cotización de MT5 (`symbol_info_session_trade`/`_quote`) contra la hora del servidor, inferida del último tick de BTCUSD/ETHUSD. Solo compila en Mac, requiere probarlo en Windows (en particular que el broker defina sesiones de cotización para detectar premarket). Entrada de `done.md` actualizada.
 (Cierre: 2026-10-21 21:06)
+
+## SECCIÓN 274
+Mauricio: Mientras lee X5_Q4, pregunta qué parámetros óptimos se buscarán en el backtesting (w1, w2 = 1 - w1 y los demás) y luego si esos parámetros (w, pendiente, punto_medio) pueden abrirse por valor, tipo_valor (cryptos / acciones) y todos agregados.
+Claude: Explicó que Q4 ajusta hoy w_1 (grilla por R²), punto_medio y pendiente por activo, con piso/techo fijos; recomendó que Q5 evalúe la curva congelada de Q4 y no re-optimice por PnL. Confirmó que los tres niveles de agregación son válidos pero solo "por valor" está implementado; con n variables hay n-1 pesos libres.
+Mauricio: Pidió dejar documentada la prueba de los tres casos de cara a Q5; luego aclaró que en Q4 solo busca entender los conceptos teóricos.
+Claude: Documentó la prueba en `plan_x5_alt_v2.md` §9.1, ítem `Q5-3` en `todos.md` y entrada en `decisiones.md`. Queda abierto cómo normalizar el target y*_t en ajustes agrupados.
+(Cierre: 2026-10-21 21:17)

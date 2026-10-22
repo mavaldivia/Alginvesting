@@ -158,6 +158,23 @@ Mismo patrón de `Q1`/`Q2`/`Q3`: `valores` (lista, default `['BTCUSD']`), reutil
 
 Puente a `X4_backtester.py`: para cada combo de `Q4`, correr el parámetro dinámico `P̂_t` vs. el estático actual sobre el mismo período histórico y comparar resultado económico real (no solo bondad de ajuste a un target sintético). Requiere antes diseñar el "backtesting condicional por régimen" que `x5_contexto_conversacion.md` §21 deja como decisión pendiente — por eso no se desglosa en detalle aquí (ver `Q5-1` en los TODOs: ese diseño es un paso previo, no una sección más del notebook). Walk-forward / fuera de muestra por activo, consistente con el Principio 10 de `x5_contexto_conversacion.md`.
 
+### 9.1. Prueba de tres niveles de agregación (decidido 2026-10-21)
+
+`Q4` calibra hoy cada parámetro **por activo** (`valor`): cada uno tiene su propio juego de `w_1, ..., w_n` (con `Σ w_i = 1`), `punto_medio` y `pendiente`; `piso`/`techo` son fijos (`X5_PARAM_RANGES`). Antes de dar por buena esa granularidad, `Q5` debe comparar tres niveles de agregación del mismo ajuste:
+
+| Nivel | Qué se agrupa | Juegos de parámetros por cada `P` | Riesgo |
+|---|---|---|---|
+| Por `valor` | Un ajuste por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) | 6 | Sobreajuste: pocos datos por ajuste |
+| Por `tipo_valor` | Un ajuste para cryptos (BTCUSD, ETHUSD) y otro para acciones (TSLA, GOOGL, NVDA, AMZN) | 2 | Mezcla activos con dinámica distinta dentro del grupo |
+| Todos agregados | Un solo ajuste para los 6 activos | 1 | Pierde la especificidad de cada activo |
+
+Reglas de la comparación:
+- Se compara el resultado económico (backtesting con `X4_backtester.py`, sin reimplementar su lógica) y también el `R²` fuera de muestra, no solo el `R²` dentro de muestra (que siempre favorece al nivel más granular).
+- Los ajustes agrupados usan `s_t` ya normalizado en z-score por activo (escala comparable entre activos). Falta definir si el target `y*_t` del agrupado se normaliza por activo antes de juntar los datos, porque el rango de `N` y de los otros parámetros depende del activo.
+- Con 3 o más variables explicativas la grilla de `w` crece rápido (símplex de `n-1` pesos libres); pasar a un optimizador (Nelder-Mead sobre el símplex) en vez de grilla completa.
+- `K`, `N_EXP` y `LAMBDA` son globales en producción: para ellos el nivel "todos agregados" es el operativamente relevante; los otros dos niveles solo informan si vale la pena hacerlos por activo en `X0`.
+- Gana el nivel más agregado cuyo resultado fuera de muestra no sea peor que el más granular (criterio de parsimonia); el desempate lo decide Mauricio.
+
 ---
 
 ## 10. Entregables de esta sesión

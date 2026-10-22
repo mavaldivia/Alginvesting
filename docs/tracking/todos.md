@@ -224,6 +224,9 @@
 - [ ] **[Q5-2] X5_Q5 — comparar resultado económico de cada parámetro dinámico (Q4) vs. estático actual**: walk-forward / fuera de muestra por activo (Principio 10, `x5_contexto_conversacion.md`), usando `X4_backtester.py` sin reimplementar su lógica (Principio "X4/X5 dependen de X0/X1" de `CLAUDE.md`). [dep: Q5-1]
   - Claude: implementar la comparación walk-forward / fuera de muestra por activo en el notebook, usando `X4_backtester.py` sin reimplementar su lógica.
   - Mauricico: ejecutar en Windows con datos reales y revisar los resultados económicos por activo.
+- [ ] **[Q5-3] X5_Q5 — probar los tres niveles de agregación (por `valor`, por `tipo_valor`, todos agregados)**: repetir la calibración de `Q4` y la comparación de `Q5-2` en cada nivel y elegir por resultado fuera de muestra con criterio de parsimonia. Diseño en `docs/plans/plan_x5_alt_v2.md` §9.1. [dep: Q5-2]
+  - Claude: implementar el ajuste agrupado por `tipo_valor` y global, y la tabla comparativa de los tres niveles.
+  - Mauricico: decidir el nivel final por parámetro con la tabla.
 
 **Transversales / implementación**
 
