@@ -2264,3 +2264,10 @@ Claude: Explicó que Q4 ajusta hoy w_1 (grilla por R²), punto_medio y pendiente
 Mauricio: Pidió dejar documentada la prueba de los tres casos de cara a Q5; luego aclaró que en Q4 solo busca entender los conceptos teóricos.
 Claude: Documentó la prueba en `plan_x5_alt_v2.md` §9.1, ítem `Q5-3` en `todos.md` y entrada en `decisiones.md`. Queda abierto cómo normalizar el target y*_t en ajustes agrupados.
 (Cierre: 2026-10-21 21:17)
+
+## SECCIÓN 275
+Mauricio: Pregunta cuánto vale alpha y precisa que es el del suavizado de s_t en Q4; luego pregunta si el valor se define por alguna razón, si puede cambiar y si mayor alpha es menos suavizado.
+Claude: Confirmó SPAN_SUAVIZADO_N = 6 (alpha = 2/7 ≈ 0.286, ewm causal) y su origen (decisión del 2026-10-17: N̂_t saltaba ±70 por hora; validado contra span 12/24 y el crash de BTCUSD jun-2022). Se equivocó al decir que Mauricio tenía la relación al revés: mayor alpha sí es menos suavizado; lo corrigió con ejemplo numérico (0 → 10).
+Mauricio: Pidió incluir esa explicación en X5_Q4.
+Claude: Agregó en la celda 4.2 (Paso 3) de `X5_Q4.ipynb` la lectura de alpha, el ejemplo numérico y la tabla span/alpha/suavizado.
+(Cierre: 2026-10-22 13:45)
