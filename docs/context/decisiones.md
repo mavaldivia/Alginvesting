@@ -414,3 +414,22 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Razón:** cada vuelta reprocesa la misma historia, así que lo único realmente fuera de muestra es la cola nueva; evaluar sobre lo ya visto sobreestima el desempeño. Con dinero real conviene empezar con compuerta humana.
 
 **Descartado:** muestreo guiado desde la primera vuelta (riesgo de quedar atrapado con pocos registros); walk-forward sobre toda la historia como criterio de promoción (contaminación por repetición); tramo reservado fijo (se "quema" con consultas frecuentes); traspaso automático sin compuerta.
+
+
+## 2026-10-23 — X5_Q4: `SPAN_SUAVIZADO_N` sube de 6 a 12
+
+**Decisión:** `SPAN_SUAVIZADO_N = 12` en `X5_Q4.ipynb` Sección 4 (alpha 0.154).
+
+**Motivo:** revisión visual de `Q4-6`: `N̂_t` caía fuerte, subía poco y aun así volvía a crecer fuerte. Con `w_1=0.9`/`w_2=0.1` (export del 18-oct) el ATR casi no pesa; el problema es la pendiente alta de la sigmoide (elasticidad 68-100 en el punto medio), que amplifica el ruido de `s_t`.
+
+**Descartado:** acotar la grilla de `w_1` (más intrusivo, cambia lo que el ajuste puede elegir).
+
+## 2026-10-23 — X5_Q4: `drawdown_30d` y `w_1 = 0.7` fijo en la Sección N
+
+**Decisión:** la variable de drawdown de `N` pasa de `drawdown_7d` a `drawdown_30d` (columna de la tabla de Q1). `w_1 = 0.7` / `w_2 = 0.3` fijos para los 7 activos (`W1_N`, `grid_pesos=np.array([W1_N])`); ya no se elige por grilla de R².
+
+**Motivo:** BTCUSD ene-feb 2026: con `drawdown_7d` el máximo de 90k sale de la ventana a los 7 días y `q_t` vuelve a ~0.68 con el precio ~30% bajo el máximo. Con `drawdown_30d` sigue adverso hasta fines de febrero (`falso_sano` baja en los 7 activos, `sano_ok` ~igual). `w_1` por R² no mide información económica (el target es el percentil del propio `s_t`) y oscilaba entre extremos (0.9 casi siempre, 0.1 en GOOGL con 30d).
+
+**Descartado:** `drawdown_60d` (recuperación demasiado lenta, `sano_ok` cae en BTC/ETH); rango mínimo de `w_1` en la grilla (sigue sin criterio económico).
+
+**Pendiente:** `w_1`, ventana del drawdown y `span` del suavizado se calibran en Q5 con resultados de backtesting (ver `Q5-2`).

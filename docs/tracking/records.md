@@ -2289,3 +2289,11 @@ Claude: Explicó que hoy se calibran contra un target sintético y que el backte
 Mauricio: Describió el proceso continuo de vueltas de backtesting de un activo (desde 1/1/22 hasta la última vela) que traspasa mejores configuraciones a X0/X1. Respondió /consultar: muestreo aleatorio al inicio y guiado después, evaluación solo sobre la cola nueva, traspaso con compuerta manual. Aclaró que los 10 días eran inventados.
 Claude: Registró las decisiones en `docs/context/decisiones.md`, reescribió Q5-1/Q5-2 y creó Q5-2b en `todos.md`. Corrigió la duración de vuelta como "a medir". Q4-5 queda pendiente (labor de Mauricio, sin confirmar). Mauricio sigue leyendo Q4 (4.4 en curso).
 (Cierre: 2026-10-23 16:29)
+
+## SECCIÓN 278
+Mauricio: /todos x5_alt_v2 y luego revisión de la Sección N de X5_Q4 (4.6). Le gustan los puntos 1 y 3, pero N̂_t no es suficientemente suave: cae fuerte, sube poco y vuelve a crecer fuerte. Preguntó si lo graficado en 4.5 es la sigmoide y qué pesos w1/w2 se usan.
+Claude: Mostró los próximos 3 TO DOs. Aclaró que la sigmoide es solo la curva roja y los puntos grises son el target. Con el export del 18-oct (drawdown_20) w1=0.9/w2=0.1 en los 7 activos y elasticidad alta (68-100). Subió SPAN_SUAVIZADO_N de 6 a 12 (notebook + decisiones.md).
+Mauricio: En BTC ene-feb 2026, N baja bien pero vuelve a subir antes de que el precio supere 65-70k. Pidió calcular drawdown_30d y drawdown_60d, preguntó por GOOGL y propuso que w1/w2 se calibren en backtesting.
+Claude: Diagnosticó que drawdown_7d se resetea al salir el máximo de 90k de la ventana. Con Data/*.csv, 30d mantiene q_t adverso hasta fines de feb y baja falso_sano en los 7 activos; 60d recupera demasiado lento. Explicó que w1 por R² no mide información económica. Aplicó drawdown_30d y w1=0.7 fijo (W1_N) en X5_Q4.ipynb, y registró la decisión en decisiones.md; w1, ventana y span quedan para calibrar en Q5-2. Explicó qué es falso_sano y por qué se descartó 60d.
+Mauricio: Deja 30d por ahora y sigue leyendo Q4. Pendiente reejecutar el notebook en Windows para ver el efecto en BTC y GOOGL.
+(Cierre: 2026-10-23 16:57)

@@ -223,7 +223,7 @@
   - Claude: implementar la interfaz en X4 (sin reimplementar X0/X1), el sorteo, el control estático pareado y el registro por ventana.
   - Mauricico: ejecutar varios ciclos completos por activo en Windows.
 - [ ] **[Q5-2] X5_Q5 — proceso continuo de vueltas + modelo sustituto (surrogate)**: vueltas de backtest desde `FECHA_INICIAL` hasta la última vela (un activo primero), muestreo aleatorio al inicio y guiado después, modelo sustituto coeficientes a diferencia de retorno, evaluación solo sobre la cola nueva fuera de muestra contra el `N` estático y la calibración por percentil de `Q4`. Decisión en `docs/context/decisiones.md` (2026-10-23). [dep: Q5-1]
-  - Claude: implementar el bucle de vueltas, el modelo y la evaluación sobre la cola nueva.
+  - Claude: implementar el bucle de vueltas, el modelo y la evaluación sobre la cola nueva. Incluir como parámetros a calibrar de `N` (fijados a mano en Q4): `w_1` (hoy 0.7), ventana del drawdown (7d/30d/60d) y `span` del suavizado (hoy 12).
   - Mauricico: dejar corriendo el proceso en Windows y revisar los resultados por vuelta, incluyendo drawdown máximo.
 - [ ] **[Q5-2b] Traspaso de la configuración candidata a X0/X1 con compuerta manual**: archivo de candidata aparte, aprobación de Mauricio, lectura vía `TIPO_EJECUCION="din"`. Pasa a automático con reglas de seguridad más adelante. [dep: Q5-2]
   - Claude: implementar la escritura de la candidata y la lectura en X0/X1 sin duplicar su lógica.
