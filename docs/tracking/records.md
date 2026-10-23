@@ -2304,3 +2304,11 @@ Claude: mostró los próximos 3 TO DOs (Q4-5, Q4-6, Q4-7). Revisó `resources/x5
 Mauricio: pidió marcar Q4-5 y Q4-6 como done para dejar Q4-7 como primer pendiente.
 Claude: movió Q4-5 y Q4-6 a `[x]` en `docs/tracking/done.md` (sección X5_Q4), los quitó de `todos.md` y dejó Q4-7 como primer pendiente de X5_alt_v2.
 (Cierre: 2026-10-23 17:02)
+
+## SECCIÓN 280
+Mauricio: invocó /new_todo X5_alt_v2 pidiendo revisar la planificación y todo lo construido hasta ahora, cuestionarlo, detectar potencial y documentarlo en `docs/context/x5_alt_v2_opus.pdf` (LaTeX, 10-12 páginas, poca matemática).
+Claude: leyó plan, documento rector, decisiones, TODOs y los notebooks Q1-Q4, y corrió análisis propios sobre `exp_Q1`/`exp_Q4`. Hallazgos: la evidencia "alta" de Q3 para `N`/`K` es mecánica (retorno de la misma vela); la calibración de Q4 no puede fallar (R² 0.98 con RSI, 0.998 con ruido; hipótesis invertida da el mismo R²); `N̂` es sobre todo un `N` más bajo (media 117-135 vs 180); el efecto de `N` es de riesgo (MAE ~50% mayor en estados adversos); ventanas en barras no en tiempo; `A`/`B`/`PERDIDA_MAX` en USD (en GOOGL/NVDA/AMZN `PERDIDA_MAX` no se habría activado nunca); perfil de ganancias chicas y pérdidas grandes. Generó `x5_alt_v2_opus.tex`/`.pdf` (11 páginas) con re-plan propuesto sin aplicarlo a `todos.md`, y registró el ítem en `done.md`.
+Mauricio: aclaró que la idea es justamente comprobar las hipótesis con el desarrollo y que sabe que aún no hay nada comprobado empíricamente.
+Claude: reconoció que "no hay evidencia" es el estado esperado y no un hallazgo en contra; dejó cuatro condiciones para que Q5 pueda responder (control estático igualado, métrica a valor de mercado y ajustada por riesgo, ventanas en tiempo, tramo final intocable) y planteó la decisión de Q4-7 (`A`): sigmoide a USD (plan) vs. `A = k·ATR·L`, recomendando la segunda.
+Mauricio: no entendió las opciones A/B. Claude las explicó con un ejemplo de BTCUSD (300 USD de distancia equivalen a 1.3 ATR en 2022 y 0.64 ATR en 2026). Mauricio dejó la decisión pendiente ("después seguimos en esto") y cerró con /guardar.
+(Cierre: 2026-10-23 17:47)
