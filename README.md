@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-23** — docs(x5-q5): define recolección aleatoria con control pareado y aclara s y puntos grises en Q4
 - **2026-10-23** — feat(x5-q4): cambia la variable de drawdown de N a drawdown_7d y agrega gráficos de 365 días
 - **2026-10-22** — docs(x5-q4): explica en el notebook qué es alpha del suavizado de s_t y su relación con span
 - **2026-10-21** — docs(x5-q5): documenta la prueba de tres niveles de agregación (valor, tipo_valor, agregado)

@@ -219,12 +219,15 @@
 
 **Q5 — X5_Q5.ipynb (validación económica: puente a X4_backtester.py, `plan_x5_alt_v2.md` sección 9)**
 
-- [ ] **[Q5-1] X5_Q5 — diseñar el backtesting condicional por régimen**: decisión pendiente explícita de `x5_contexto_conversacion.md` §21 ("Definir cómo se realizará el backtesting condicional por régimen") — paso previo obligatorio, no una sección más del notebook. Sin esto resuelto no se desglosan más ítems de `Q5`. [dep: Q4-EXEC]
-  - Claude: proponer el diseño del backtesting condicional por régimen (opciones y tradeoffs).
-  - Mauricico: decidir el enfoque a implementar.
-- [ ] **[Q5-2] X5_Q5 — comparar resultado económico de cada parámetro dinámico (Q4) vs. estático actual**: walk-forward / fuera de muestra por activo (Principio 10, `x5_contexto_conversacion.md`), usando `X4_backtester.py` sin reimplementar su lógica (Principio "X4/X5 dependen de X0/X1" de `CLAUDE.md`). [dep: Q5-1]
-  - Claude: implementar la comparación walk-forward / fuera de muestra por activo en el notebook, usando `X4_backtester.py` sin reimplementar su lógica.
-  - Mauricico: ejecutar en Windows con datos reales y revisar los resultados económicos por activo.
+- [ ] **[Q5-1] X5_Q5 — recolección aleatoria de ciclos de backtesting con control estático pareado**: diseño decidido el 2026-10-23 (ver `docs/context/decisiones.md`). Interfaz en `X4_backtester.py` para recibir los coeficientes `{w_i, span, punto_medio, pendiente}` de los 5 parámetros dinámicos; sorteo de coeficientes por ventana (7 días inicial, variantes 3/14); registro de `retorno_aleatorio - retorno_estático` por ventana en CSV. [dep: Q4-EXEC]
+  - Claude: implementar la interfaz en X4 (sin reimplementar X0/X1), el sorteo, el control estático pareado y el registro por ventana.
+  - Mauricico: ejecutar varios ciclos completos por activo en Windows.
+- [ ] **[Q5-2] X5_Q5 — proceso continuo de vueltas + modelo sustituto (surrogate)**: vueltas de backtest desde `FECHA_INICIAL` hasta la última vela (un activo primero), muestreo aleatorio al inicio y guiado después, modelo sustituto coeficientes a diferencia de retorno, evaluación solo sobre la cola nueva fuera de muestra contra el `N` estático y la calibración por percentil de `Q4`. Decisión en `docs/context/decisiones.md` (2026-10-23). [dep: Q5-1]
+  - Claude: implementar el bucle de vueltas, el modelo y la evaluación sobre la cola nueva.
+  - Mauricico: dejar corriendo el proceso en Windows y revisar los resultados por vuelta, incluyendo drawdown máximo.
+- [ ] **[Q5-2b] Traspaso de la configuración candidata a X0/X1 con compuerta manual**: archivo de candidata aparte, aprobación de Mauricio, lectura vía `TIPO_EJECUCION="din"`. Pasa a automático con reglas de seguridad más adelante. [dep: Q5-2]
+  - Claude: implementar la escritura de la candidata y la lectura en X0/X1 sin duplicar su lógica.
+  - Mauricico: aprobar cada candidata mientras la compuerta sea manual.
 - [ ] **[Q5-3] X5_Q5 — probar los tres niveles de agregación (por `valor`, por `tipo_valor`, todos agregados)**: repetir la calibración de `Q4` y la comparación de `Q5-2` en cada nivel y elegir por resultado fuera de muestra con criterio de parsimonia. Diseño en `docs/plans/plan_x5_alt_v2.md` §9.1. [dep: Q5-2]
   - Claude: implementar el ajuste agrupado por `tipo_valor` y global, y la tabla comparativa de los tres niveles.
   - Mauricico: decidir el nivel final por parámetro con la tabla.

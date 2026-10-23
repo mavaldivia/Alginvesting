@@ -2280,3 +2280,12 @@ Claude: Cambió la Sección 4 de X5_Q4 a drawdown_7d (código, justificación co
 Mauricio: Lo ve mejor; empieza a leer 4.4. Pidió actualizar el TO DO.
 Claude: Dejó nota de estado en Q4-6 (en curso, revisado hasta 4.3).
 (Cierre: 2026-10-23 15:59)
+
+## SECCIÓN 277
+Mauricio: Abrió /todos X5_alt_v2, eligió Q4-5; preguntó qué es `s` en la sigmoide de 4.4 y pidió explicar los puntos grises (s_t, y*_t) con un ejemplo concreto.
+Claude: Confirmó que `s` es el índice ya suavizado (EMA span=6) y lo aclaró en 4.4. Agregó a 4.5 un ejemplo de 5 barras, corrigiendo mi ejemplo inicial al revisar `percentil_causal` (rango/(t+1), contando la propia barra).
+Mauricio: Preguntó si todos los parámetros de la curva (w_i, span, punto_medio, pendiente) se calibran con backtesting. Decidió calibrar con backtesting: ciclos con coeficientes aleatorios que cambian cada ventana (7 días), control estático pareado (opción A), los 5 parámetros juntos, retorno total como métrica, walk-forward.
+Claude: Explicó que hoy se calibran contra un target sintético y que el backtesting (Q5) solo valida; propuso y refinó el diseño de recolección aleatoria más modelo sustituto (surrogate).
+Mauricio: Describió el proceso continuo de vueltas de backtesting de un activo (desde 1/1/22 hasta la última vela) que traspasa mejores configuraciones a X0/X1. Respondió /consultar: muestreo aleatorio al inicio y guiado después, evaluación solo sobre la cola nueva, traspaso con compuerta manual. Aclaró que los 10 días eran inventados.
+Claude: Registró las decisiones en `docs/context/decisiones.md`, reescribió Q5-1/Q5-2 y creó Q5-2b en `todos.md`. Corrigió la duración de vuelta como "a medir". Q4-5 queda pendiente (labor de Mauricio, sin confirmar). Mauricio sigue leyendo Q4 (4.4 en curso).
+(Cierre: 2026-10-23 16:29)

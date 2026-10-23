@@ -398,3 +398,19 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 
 **Descartado:** `x3_drawdown_50` (mejora poca: `falso_sano` 0.436); `drawdown_30d` (menor `falso_sano`, 0.259, pero la métrica usa el máximo de 30 días y favorece a esa variable, y en GOOGL `w_1` saltó a 0.1). Pendiente: TSLA queda en `falso_sano` ~0.48 con cualquier ventana.
 
+
+## 2026-10-23 — X5_Q5: diseño del backtesting por recolección aleatoria con control estático pareado
+
+**Decisión:** `Q5` no optimiza dentro del backtest. Cada ciclo completo de backtesting por activo sortea (Sobol o uniforme, en rangos acotados) los coeficientes `{w_i, span, punto_medio, pendiente}` de los 5 parámetros (`N`, `A`, `factor_B`, `K`, `N_EXP`) y los **cambia cada ventana fija (7 días como valor inicial; 3 y 14 como variantes a probar)**. Por ventana se registra `retorno_aleatorio - retorno_estático`, donde el estático es la configuración actual corrida una sola vez sobre las mismas fechas (control pareado, cancela el efecto del mercado de esa ventana). Las órdenes se atribuyen a la ventana en que se abrieron; el modelo recibe además el estado del activo al inicio de la ventana y el efecto de la ventana previa (arrastre de posiciones). Con los registros se entrena después un modelo sustituto (surrogate) coeficientes a diferencia de retorno, y se busca con él la configuración óptima sin nuevos backtests. Métrica: retorno total (se reporta también el drawdown máximo, sin optimizar sobre él). Validación: walk-forward en el tiempo para entrenar y evaluar, más un tramo final por activo que ni el modelo ni la búsqueda ven (se evalúa una sola vez). Varios ciclos completos por activo. `X4_backtester.py` recibe los coeficientes sin reimplementar la lógica de X0/X1.
+
+**Razón:** el retorno de una ventana mezcla el efecto de los coeficientes con el comportamiento del activo esos días; el sorteo aleatorio evita el sesgo sistemático y el control pareado reduce el ruido.
+
+**Descartado:** optimizar durante el backtest (aprendiendo en línea); coeficientes fijos por ciclo completo (pocos registros); control sin pareado con solo covariables de estado (opción B: difícil de separar con poco historial por activo).
+
+## 2026-10-23 — X5_Q5: proceso continuo de vueltas de backtesting, un activo, traspaso a producción con compuerta manual
+
+**Decisión:** el diseño de recolección (entrada anterior de hoy) corre como proceso continuo por activo (se diseña con uno solo). Cada vuelta recorre el backtest desde `FECHA_INICIAL` hasta la última vela disponible al iniciar (la duración de cada vuelta depende del cómputo real y se medirá; la cola nueva de la siguiente vuelta equivale a lo que tardó la anterior). Muestreo: aleatorio en las primeras vueltas; cuando el modelo sustituto (surrogate) valida en datos no vistos, pasa a sortear cerca de las mejores zonas, dejando siempre un porcentaje aleatorio de exploración. Evaluación para promover una configuración: solo sobre la cola nueva posterior a su elección (fuera de muestra); la historia ya vista se usa para entrenar, no para decidir. Traspaso a producción: el proceso escribe la configuración candidata en un archivo aparte; Mauricio la aprueba antes de que X0/X1 (`TIPO_EJECUCION="din"`, `config/active_parameters.json`) la lean; se pasa a automático con reglas de seguridad solo cuando haya historial de que supera al estático en datos nuevos.
+
+**Razón:** cada vuelta reprocesa la misma historia, así que lo único realmente fuera de muestra es la cola nueva; evaluar sobre lo ya visto sobreestima el desempeño. Con dinero real conviene empezar con compuerta humana.
+
+**Descartado:** muestreo guiado desde la primera vuelta (riesgo de quedar atrapado con pocos registros); walk-forward sobre toda la historia como criterio de promoción (contaminación por repetición); tramo reservado fijo (se "quema" con consultas frecuentes); traspaso automático sin compuerta.
