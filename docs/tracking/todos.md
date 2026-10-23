@@ -157,11 +157,6 @@
 
 > **Lista estrictamente secuencial** (a pedido explícito de Mauricio, 2026-10-15): cada parámetro se trabaja en 3 pasos consecutivos — *implementar* (código) → *ejecutar* (correr `X5_Q4.ipynb` de punta a punta en Windows con datos reales) → *revisar visuales y validar* (gate humano: Mauricio mira los gráficos/diagnóstico de esa sección y confirma si la hipótesis se sostiene, antes de pasar al siguiente parámetro). No saltar pasos ni adelantar el parámetro siguiente sin cerrar los 3 del anterior.
 
-- [ ] **[Q4-5] Ejecutar X5_Q4.ipynb** (con la Sección N ya agregada): correr de punta a punta en Windows, 7 activos (incluye MSFT), datos reales — confirmar sin errores. [dep: Q4-4]
-  - Mauricico: ejecutar el notebook de punta a punta en Windows, 7 activos (incluye MSFT), datos reales, y confirmar que corre sin errores.
-- [ ] **[Q4-6] Revisar visuales de la Sección N y validar**: Mauricio revisa la curva ajustada, la serie `N̂_t` vs. estático y el diagnóstico — confirma o ajusta la hipótesis antes de seguir a `A`. [dep: Q4-5]
-  - Mauricico: revisar la curva ajustada, la serie `N̂_t` vs. estático y el diagnóstico; confirmar o ajustar la hipótesis.
-  - Estado (2026-10-23): en curso. Mauricio revisó hasta 4.3 (con `drawdown_7d` ya aplicado, se ve mejor) y empieza la lectura de 4.4.
 - [ ] **[Q4-7] Implementar Sección A: `A = f(x3_atr_pct)`**: mismo esqueleto que `N` con `k=1`. Nota explícita en el notebook: se calibra `A` único, sin separar `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21). Rango `(2.0, 20.0)` USD. [dep: Q4-6]
   - Claude: implementar la Sección A (mismo esqueleto que N, `k=1`, con la nota sobre `A_OE`/`A_TRAILING`) en el notebook.
 - [ ] **[Q4-8] Ejecutar X5_Q4.ipynb** (con la Sección A ya agregada). [dep: Q4-7]

@@ -231,7 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
-- **2026-10-23** — feat(x5-q4): cambia drawdown de N a 30d, fija w_1=0.7 y sube span del suavizado a 12
+- **2026-10-23** — docs(x5-q4): marca Q4-5 y Q4-6 como hechos y registra salidas de la Sección N- **2026-10-23** — feat(x5-q4): cambia drawdown de N a 30d, fija w_1=0.7 y sube span del suavizado a 12
 - **2026-10-23** — docs(x5-q5): define recolección aleatoria con control pareado y aclara s y puntos grises en Q4
 - **2026-10-23** — feat(x5-q4): cambia la variable de drawdown de N a drawdown_7d y agrega gráficos de 365 días
 - **2026-10-22** — docs(x5-q4): explica en el notebook qué es alpha del suavizado de s_t y su relación con span

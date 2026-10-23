@@ -2297,3 +2297,10 @@ Mauricio: En BTC ene-feb 2026, N baja bien pero vuelve a subir antes de que el p
 Claude: Diagnosticó que drawdown_7d se resetea al salir el máximo de 90k de la ventana. Con Data/*.csv, 30d mantiene q_t adverso hasta fines de feb y baja falso_sano en los 7 activos; 60d recupera demasiado lento. Explicó que w1 por R² no mide información económica. Aplicó drawdown_30d y w1=0.7 fijo (W1_N) en X5_Q4.ipynb, y registró la decisión en decisiones.md; w1, ventana y span quedan para calibrar en Q5-2. Explicó qué es falso_sano y por qué se descartó 60d.
 Mauricio: Deja 30d por ahora y sigue leyendo Q4. Pendiente reejecutar el notebook en Windows para ver el efecto en BTC y GOOGL.
 (Cierre: 2026-10-23 16:57)
+
+## SECCIÓN 279
+Mauricio: invocó /todos X5_alt_v2, luego informó que leyó y ejecutó Q4 hasta la 4.8 y preguntó qué viene y si Claude puede revisar el zip para levantar algo más.
+Claude: mostró los próximos 3 TO DOs (Q4-5, Q4-6, Q4-7). Revisó `resources/x5_alt/exp_Q4/` (el zip en sí es del 18-oct, la carpeta descomprimida es de hoy): R² 0.68-0.88 en parte circular porque `y_objetivo` sale de un percentil de `s_t`; sigmoide sin saturación en techo; mediana de `N_hat` 120-150 (bajo el N=250 estático); cripto con elasticidad y pendiente mayores que acciones; GOOGL con menos filas (8.383 vs ~12.000).
+Mauricio: pidió marcar Q4-5 y Q4-6 como done para dejar Q4-7 como primer pendiente.
+Claude: movió Q4-5 y Q4-6 a `[x]` en `docs/tracking/done.md` (sección X5_Q4), los quitó de `todos.md` y dejó Q4-7 como primer pendiente de X5_alt_v2.
+(Cierre: 2026-10-23 17:02)
