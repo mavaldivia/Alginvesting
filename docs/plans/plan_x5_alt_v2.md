@@ -35,6 +35,8 @@ De `X5_alternativo.md` §10.5 y la tabla final de `Q3` (`BTCUSD_q3_4_tabla_final
 | Parámetro | Evidencia Q3 | Variables ya candidateadas |
 |---|---|---|
 | `N` | Alta (drawdown), volatilidad aún no testeada junto a `N` | `x3_drawdown_20` (Pearson 0.28, coseno 0.21 — la mejor de las 3 testeadas), `x3_drawdown_50`, `drawdown_7d` |
+
+> Actualización 2026-10-23: en `X5_Q4` la variable de drawdown para `N` pasó de `x3_drawdown_20` a `drawdown_7d` (ver `docs/context/decisiones.md`).
 | `A` | Baja | `x3_atr_pct` (Pearson -0.013), `x3_bb_width` (redundante con `atr_pct`, Pearson 0.74 entre ambas — `Q2-12`) |
 | `factor_B` | Baja (esperado — no es hipótesis de predicción de retorno) | `x3_atr_pct`, `adx_14`, `regimen_tendencia` (nominal, sin evidencia Q2) |
 | `K` | Alta (`ruptura_rango`) / baja (`duracion_en_rango`) | `ruptura_rango` (Pearson 0.50), `duracion_en_rango` (≈0) |

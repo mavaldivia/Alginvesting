@@ -2271,3 +2271,12 @@ Claude: Confirmó SPAN_SUAVIZADO_N = 6 (alpha = 2/7 ≈ 0.286, ewm causal) y su 
 Mauricio: Pidió incluir esa explicación en X5_Q4.
 Claude: Agregó en la celda 4.2 (Paso 3) de `X5_Q4.ipynb` la lectura de alpha, el ejemplo numérico y la tabla span/alpha/suavizado.
 (Cierre: 2026-10-22 13:45)
+
+## SECCIÓN 276
+Mauricio: Preguntó por qué q_t pertenece a (0,1] y no incluye el 0; pidió en 4.3.1 cuatro gráficos por activo (los dos actuales más los mismos de los últimos 365 días); pidió ver el drawdown con distintas ventanas; y reportó que en BTC (ene-feb 2026, caída de 90k a 60k) q_t seguía alto en ciertos momentos.
+Claude: Explicó que el rango del percentil parte en 1 (el propio dato cuenta), por eso el mínimo es 1/(t+1). Agregó los gráficos de 365 días en 4.3.1. Calculó el drawdown con ventanas 5-250 en los 6 activos. Diagnosticó que con w_1 = 0.9 el índice depende casi solo de drawdown_20, que se resetea en cada rebote de unas horas.
+Mauricio: Eligió la opción 1 (cambiar la variable) y luego confirmó drawdown_7d tras ver la comparación de drawdown_20, 50, 7d y 30d en los 6 activos.
+Claude: Cambió la Sección 4 de X5_Q4 a drawdown_7d (código, justificación con tabla en 4.1, textos de 4.2 y 4.3, columna exportada peso_drawdown_7d); registró la decisión en decisiones.md y plan_x5_alt_v2.md. Limitación abierta: TSLA queda con falso_sano ~0.48 con cualquier ventana.
+Mauricio: Lo ve mejor; empieza a leer 4.4. Pidió actualizar el TO DO.
+Claude: Dejó nota de estado en Q4-6 (en curso, revisado hasta 4.3).
+(Cierre: 2026-10-23 15:59)

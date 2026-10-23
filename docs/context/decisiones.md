@@ -389,3 +389,12 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Razón:** `Q4` calibra solo por activo, con pocos datos por ajuste; agrupar reduce el sobreajuste pero pierde especificidad. No se asume cuál nivel es mejor.
 
 **Descartado:** fijar el nivel a priori; elegir por `R²` dentro de muestra (siempre favorece al más granular).
+
+## 2026-10-23 — X5_Q4: la variable de drawdown de `N` pasa de `x3_drawdown_20` a `drawdown_7d`
+
+**Decisión:** `VARIABLES_N = ['drawdown_7d', 'x3_atr_pct']` en la Sección 4 de `X5_Q4.ipynb`. La columna exportada pasa de `peso_x3_drawdown_20` a `peso_drawdown_7d`.
+
+**Razón:** en BTCUSD (caída ene-feb 2026, 90k a 60k) `q_t` seguía alto en los rebotes, porque `drawdown_20` mira solo 20 horas y se resetea a ~0. En los 6 activos, `falso_sano` (barras en caída profunda con `q_t > 0.5`) bajó de 0.462 a 0.362, `sano_ok` subió de 0.907 a 0.999 y el cambio medio de `q_t` por hora pasó de 0.035 a 0.013. Tabla completa en la Sección 4.1 del notebook.
+
+**Descartado:** `x3_drawdown_50` (mejora poca: `falso_sano` 0.436); `drawdown_30d` (menor `falso_sano`, 0.259, pero la métrica usa el máximo de 30 días y favorece a esa variable, y en GOOGL `w_1` saltó a 0.1). Pendiente: TSLA queda en `falso_sano` ~0.48 con cualquier ventana.
+
