@@ -2312,3 +2312,8 @@ Mauricio: aclaró que la idea es justamente comprobar las hipótesis con el desa
 Claude: reconoció que "no hay evidencia" es el estado esperado y no un hallazgo en contra; dejó cuatro condiciones para que Q5 pueda responder (control estático igualado, métrica a valor de mercado y ajustada por riesgo, ventanas en tiempo, tramo final intocable) y planteó la decisión de Q4-7 (`A`): sigmoide a USD (plan) vs. `A = k·ATR·L`, recomendando la segunda.
 Mauricio: no entendió las opciones A/B. Claude las explicó con un ejemplo de BTCUSD (300 USD de distancia equivalen a 1.3 ATR en 2022 y 0.64 ATR en 2026). Mauricio dejó la decisión pendiente ("después seguimos en esto") y cerró con /guardar.
 (Cierre: 2026-10-23 17:47)
+
+## SECCIÓN 281
+Mauricio: invocó `/new_todo X1` indicando que `_fmt_valor` fue demasiado literal al incluir los paréntesis en "(ícono) (valor)". Quiere el formato ícono + un espacio + nombre del valor, ej. `₿ BTCUSD`, en todos los prints de X1.
+Claude: ubicó el único punto de formato (`_fmt_valor` en `X1_trading.py`) y lo cambió a `f'{ICONOS_VALOR.get(valor, "?")} {valor}'`; al estar centralizado, aplica a los ~25 prints de X1. Actualizó el docstring y el comentario de `ICONOS_VALOR` en `config.py`, validó sintaxis de ambos `.py` y registró el ítem en `done.md` (sección X1).
+(Cierre: 2026-10-28 19:07)

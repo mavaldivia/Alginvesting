@@ -291,7 +291,7 @@ APALANCAMIENTO = {
 }
 
 # Ícono/emoji por activo para el monitor de X1 (cosmético, display en todos los prints
-# como "(ícono) (valor)" — ver _fmt_valor en X1_trading.py).
+# como "ícono valor", ej. "₿ BTCUSD" — ver _fmt_valor en X1_trading.py).
 ICONOS_VALOR = {
     'BTCUSD': '₿',
     'ETHUSD': 'Ξ',

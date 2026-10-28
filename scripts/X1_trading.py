@@ -49,8 +49,8 @@ from config import (
 
 
 def _fmt_valor(valor: str) -> str:
-    """Formato uniforme '(ícono) (valor)' para mostrar un activo en cualquier print de X1."""
-    return f'({ICONOS_VALOR.get(valor, "?")}) ({valor})'
+    """Formato uniforme 'ícono valor' (ej. '₿ BTCUSD') para mostrar un activo en cualquier print de X1."""
+    return f'{ICONOS_VALOR.get(valor, "?")} {valor}'
 
 
 def _imprimir_tabla_reemplazo(valor: str, filas: list):
