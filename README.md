@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-30** — feat(x1): agrega dos saltos de línea antes de los prints que parten con el activo
 - **2026-10-28** — fix(x1): quita paréntesis literales del formato de activo en prints (₿ BTCUSD)
 - **2026-10-23** — docs(x5-alt-v2): agrega revisión crítica independiente de la planificación y los notebooks Q1-Q4
 - **2026-10-23** — docs(x5-q4): marca Q4-5 y Q4-6 como hechos y registra salidas de la Sección N

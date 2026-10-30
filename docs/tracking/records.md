@@ -2317,3 +2317,8 @@ Mauricio: no entendió las opciones A/B. Claude las explicó con un ejemplo de B
 Mauricio: invocó `/new_todo X1` indicando que `_fmt_valor` fue demasiado literal al incluir los paréntesis en "(ícono) (valor)". Quiere el formato ícono + un espacio + nombre del valor, ej. `₿ BTCUSD`, en todos los prints de X1.
 Claude: ubicó el único punto de formato (`_fmt_valor` en `X1_trading.py`) y lo cambió a `f'{ICONOS_VALOR.get(valor, "?")} {valor}'`; al estar centralizado, aplica a los ~25 prints de X1. Actualizó el docstring y el comentario de `ICONOS_VALOR` en `config.py`, validó sintaxis de ambos `.py` y registró el ítem en `done.md` (sección X1).
 (Cierre: 2026-10-28 19:07)
+
+## SECCIÓN 282
+Mauricio: Pidió vía /new_todo (X1) que cada print cuyo primer contenido sea el símbolo del activo lleve dos saltos de línea antes.
+Claude: Identificó los prints que parten con `_fmt_valor(...)` (incluidos los mensajes de `_print_throttled`) y les antepuso `\n\n`, conservando la sangría; los dos que ya tenían `\n` pasaron a `\n\n`. Dejó igual los que tienen texto antes del activo (`[OA > OC]`, `[X1]`, etc.). El `sed` de macOS falló, así que aplicó el cambio con Python; el archivo compila. Registró el ítem en `done.md` (X1). Advirtió que contó la sangría como "antes" del símbolo, por lo que la mayoría de los eventos por activo quedan con dos líneas en blanco arriba, y ofreció limitarlo a encabezados si queda muy ruidoso.
+(Cierre: 2026-10-30 13:08)
