@@ -2340,3 +2340,8 @@ Claude: Aclaró que la convergencia no bloquea nada y que su diagnóstico era un
 Mauricio: Pidió agregar el aviso.
 Claude: Agregó en `X1_trading.py` un print throttled (`reemplazo_sin_colocables`) con entrantes, umbral, P0 y saliente más alta; lo probó con MT5 simulado, lo registró en `done.md` (X1) y como diagnóstico abierto en `decisiones.md`. Pendiente: ver en Windows si el aviso aparece para GOOGL.
 (Cierre: 2026-10-30 16:17)
+
+## SECCIÓN 285
+Mauricio: Pidió vía /new_todo (Transversal) registrar el error de `market_status.py` en Windows: `AttributeError: module 'MetaTrader5' has no attribute 'symbol_info_session_trade'`.
+Claude: Diagnosticó que la API Python de MT5 no expone `symbol_info_session_trade`/`_quote` (solo MQL5), por lo que el script nunca pudo correr. Reescribió `scripts/market_status.py` para reutilizar `mercado_abierto` y `_servidor_ahora` de `X1_trading.py` (`trade_mode` + frescura del último tick). Queda en `abierto` / `cerrado` / `sin símbolo`; se descarta premarket/postmarket porque no se puede distinguir sin la API de sesiones. Solo se verificó compilación en Mac; falta probarlo en Windows. Actualizó `done.md` (Transversal) y la línea de `market_status.py` en `README.md`.
+(Cierre: 2026-10-30 19:33)

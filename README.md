@@ -110,7 +110,7 @@ scripts/
   X1_trading.py          # Loop de trading semi-automático
   X2_fundamentals.py     # Score fundamental por activo
   X3_technical_features.py  # Features técnicas incrementales por activo
-  market_status.py       # Estado de mercado por activo (abierto/premarket/postmarket/cerrado) vía MT5
+  market_status.py       # Estado de mercado por activo (abierto/cerrado, por frescura de tick) vía MT5
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
@@ -232,6 +232,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-30** — fix(transversal): market_status.py usa frescura de tick de X1 en vez de sesiones MT5 inexistentes en la API Python
 - **2026-10-30** — feat(x0): afina M tras converger en el bloque y avisa reemplazos X1 sin entrantes colocables
 - **2026-10-30** — feat(x1): registra en JSONL los últimos 1000 reemplazos O0/OE por activo con foto antes/después
 - **2026-10-30** — feat(x1): agrega dos saltos de línea antes de los prints que parten con el activo
