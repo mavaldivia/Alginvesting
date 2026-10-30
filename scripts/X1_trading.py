@@ -44,6 +44,7 @@ from config import (
     X1_RETRY_RETCODE_MAX,
     X1_RETRY_RETCODE_SLEEP_S,
     X1_COMPACTAR_LOG_S,
+    X1_LOG_CAMBIOS_MAX,
     soporte_de_orden as _soporte_de_orden,
 )
 
@@ -595,6 +596,86 @@ def _colocar_orden_real(Pi: float, spread: float, valor: str, lotajes: dict, dic
     return _ejecutar_con_liberacion(request, valor, lotajes[valor], Pi, dic_bloqueados, silent=True)
 
 
+_lineas_log_cambios = {}  # {valor: int} — líneas vigentes en cambios_{VALOR}.jsonl, contadas una vez al primer uso
+
+
+def _registrar_cambio(valor: str, lista_N: list, lista_OA_antes: list, cambio: dict,
+                      dic_bloqueados: dict) -> None:
+    """Agrega a resources/x1/logs/cambios_{VALOR}.jsonl la foto de un reemplazo O0/OE
+    (una línea JSON por evento, solo los últimos X1_LOG_CAMBIOS_MAX por activo).
+
+    Se llama justo después de imprimir la tabla resumen de `reemplazar_ordenes_espera`.
+    El estado "despues" se relee de MT5 en vez de derivarse de lo que X1 cree haber
+    hecho, así que comparar el "despues" de un evento con el "antes" del siguiente
+    muestra OE que desaparecieron entre ambos sin que X1 las tocara (broker, margen).
+
+    O0 no existe como objeto en X1: aquí es lista_N menos OE y OA, o sea todo soporte
+    sin orden, incluidos los bloqueados por límite de cuenta o sobre el umbral.
+
+    Un fallo del log (lock de OneDrive, disco) no debe cortar el ciclo del activo —
+    saltaría trailing_stop y controlar_perdida_max de ese ciclo—, por eso no propaga."""
+    try:
+        tick = mt5.symbol_info_tick(valor)
+        OE_despues = mt5.orders_get(symbol=valor) or ()
+        OA_despues = mt5.positions_get(symbol=valor) or ()
+        oe_antes = cambio['oe_antes']
+        oa_antes = sorted(lista_OA_antes)
+        oe_despues = sorted(_soporte_de_orden(o) for o in OE_despues)
+        oa_despues = sorted(_soporte_de_orden(p) for p in OA_despues)
+
+        def _o0(oe, oa):
+            return sorted(set(lista_N) - set(oe) - set(oa))
+
+        json_x0 = CARPETA_N_PROD / f'{valor}_{n_sizes[valor]}.json'
+        ahora = time.time()
+        evento = {
+            'ts': datetime.datetime.now().isoformat(timespec='seconds'),
+            'valor': valor,
+            'p0': tick.bid,
+            'spread': round(tick.ask - tick.bid, 4),
+            'tick_ts_servidor': tick.time,
+            'mercado_abierto': mercado_abierto(valor),
+            'x0_json_mtime': datetime.datetime.fromtimestamp(json_x0.stat().st_mtime).isoformat(timespec='seconds'),
+            'umbral': cambio['umbral'],
+            'lista_N': sorted(lista_N),
+            'entrantes': cambio['entrantes'],
+            'colocadas': sorted(cambio['colocadas']),
+            'eliminadas': sorted(cambio['eliminadas']),
+            'no_eliminadas': sorted(set(cambio['salientes']) - set(cambio['eliminadas'])),
+            'fallas': cambio['fallas'],
+            'antes': {'o0': _o0(oe_antes, oa_antes), 'oe': oe_antes, 'oa': oa_antes},
+            'despues': {'o0': _o0(oe_despues, oa_despues), 'oe': oe_despues, 'oa': oa_despues},
+            'oa_detalle': [
+                {'ticket': p.ticket, 'soporte': _soporte_de_orden(p), 'precio_apertura': p.price_open,
+                 'volumen': p.volume, 'sl': p.sl, 'ganancia': p.profit}
+                for p in OA_despues
+            ],
+            'bloqueados': sorted(p for p, t in dic_bloqueados.get(valor, {}).items()
+                                  if ahora - t < X1_RETRY_BLOQUEADOS_S),
+            'ordenes_cuenta': mt5.orders_total(),
+            'posiciones_cuenta': mt5.positions_total(),
+        }
+
+        CARPETA_LOGS_X1.mkdir(parents=True, exist_ok=True)
+        path = CARPETA_LOGS_X1 / f'cambios_{valor}.jsonl'
+        if valor not in _lineas_log_cambios:
+            with open(path, 'a+', encoding='utf-8') as f:
+                f.seek(0)
+                _lineas_log_cambios[valor] = sum(1 for _ in f)
+        with open(path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(evento, separators=(',', ':')) + '\n')
+        _lineas_log_cambios[valor] += 1
+
+        if _lineas_log_cambios[valor] > X1_LOG_CAMBIOS_MAX:
+            lineas = path.read_text(encoding='utf-8').splitlines()[-X1_LOG_CAMBIOS_MAX:]
+            tmp = path.with_suffix('.jsonl.tmp')
+            tmp.write_text('\n'.join(lineas) + '\n', encoding='utf-8')
+            os.replace(tmp, path)
+            _lineas_log_cambios[valor] = len(lineas)
+    except Exception:
+        _log_traceback(f'Error registrando cambio de {valor} en cambios_{valor}.jsonl')
+
+
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
                                lotajes: dict, dic_bloqueados: dict,
                                fraccion_inicial: float = X1_REEMPLAZO_FRACCION_INICIAL):
@@ -641,11 +722,17 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
         key=_soporte_de_orden, reverse=True,
     )
     filas = []
+    cambio = {
+        'oe_antes': sorted(_soporte_de_orden(o) for o in actual_OE),
+        'salientes': [_soporte_de_orden(o) for o in salientes],
+        'entrantes': [], 'umbral': None, 'colocadas': [], 'eliminadas': [], 'fallas': [],
+    }
 
     def _fila_eliminar_salientes():
         eliminadas = [(_soporte_de_orden(o), o.volume_initial) for o in salientes if _cancelar_orden(o, valor)]
         if eliminadas:
             precios = [p for p, _ in eliminadas]
+            cambio['eliminadas'] = precios
             lotaje_total = sum(v for _, v in eliminadas)
             filas.append(('eliminadas', len(eliminadas), min(precios), max(precios), lotaje_total))
 
@@ -657,17 +744,20 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
 
     lista_OAE_actual = lista_OA + [_soporte_de_orden(o) for o in actual_OE]
     entrantes = sorted(Pi for Pi in set(lista_N) if Pi not in lista_OAE_actual)
+    cambio['entrantes'] = entrantes
     if not entrantes:
         _fila_total_oe_actual()
         _fila_eliminar_salientes()
         if filas:
             _imprimir_tabla_reemplazo(valor, filas)
+            _registrar_cambio(valor, lista_N, lista_OA, cambio, dic_bloqueados)
         return
 
     P0 = obtener_precio_actual(valor, modo='B')
     spread = obtener_spread(valor)
     bloqueados_valor = dic_bloqueados.setdefault(valor, {})
     umbral = (P0 + _soporte_de_orden(salientes[0])) / 2
+    cambio['umbral'] = round(umbral, 2)
     colocables = sorted(
         Pi for Pi in entrantes
         if Pi < umbral
@@ -679,10 +769,11 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     # Paso 1: probe real, de menor a mayor precio.
     probada = None
     for Pi in colocables:
-        ok, _retcode, _comment = _colocar_orden_real(Pi, spread, valor, lotajes, dic_bloqueados)
+        ok, retcode, comment = _colocar_orden_real(Pi, spread, valor, lotajes, dic_bloqueados)
         if ok:
             probada = Pi
             break
+        cambio['fallas'].append({'accion': 'colocar', 'precio': Pi, 'retcode': retcode, 'comment': comment})
 
     if probada is None:
         if not _mercado_cerrado_notificado.get(valor):
@@ -698,6 +789,7 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
         ok, retcode, comment = _colocar_orden_real(Pi, spread, valor, lotajes, dic_bloqueados)
         orden_colocacion[0] += 1
         if not ok:
+            cambio['fallas'].append({'accion': 'colocar', 'precio': Pi, 'retcode': retcode, 'comment': comment})
             print(f'\n\n  {_fmt_valor(valor)}: falla al colocar orden #{orden_colocacion[0]} en {Pi:.2f}  '
                   f'lotaje={lotajes[valor]}  retcode={retcode}  comment={comment}  '
                   f'(inesperado: el mercado ya aceptó una orden este ciclo)')
@@ -716,6 +808,8 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
         filas.append(('colocadas', len(ejecutadas), min(ejecutadas), max(ejecutadas), len(ejecutadas) * lotajes[valor]))
     if filas:
         _imprimir_tabla_reemplazo(valor, filas)
+        cambio['colocadas'] = ejecutadas
+        _registrar_cambio(valor, lista_N, lista_OA, cambio, dic_bloqueados)
 
 
 def podar_ordenes_saturacion(actual_OE: list, valor: str, max_ordenes: int):

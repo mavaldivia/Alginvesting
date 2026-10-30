@@ -132,7 +132,7 @@ resources/               # Todo generado en Windows, fuera de git
   conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
   x0/logs/               # Logs de convergencia por combo {valor}_{N}.jsonl (append-only) + diag_conjunto_N/ (diagnóstico de crashes por tamaño de conjunto_N) + errores.log (traceback completo de errores del ciclo principal)
   x0/plots/              # Gráficos de X0 (Extremos, FO, Soportes, Zoom)
-  x1/logs/               # errores.log — traceback completo de errores del loop de trading
+  x1/logs/               # errores.log — traceback completo de errores del loop de trading + cambios_{VALOR}.jsonl (últimos 1000 reemplazos O0/OE por activo, foto ANTES/DESPUÉS, `X1_LOG_CAMBIOS_MAX`)
   x2/                    # scores.json, x2_history.json, x2_last_run.json
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
@@ -231,6 +231,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-30** — feat(x1): registra en JSONL los últimos 1000 reemplazos O0/OE por activo con foto antes/después
 - **2026-10-30** — feat(x1): agrega dos saltos de línea antes de los prints que parten con el activo
 - **2026-10-28** — fix(x1): quita paréntesis literales del formato de activo en prints (₿ BTCUSD)
 - **2026-10-23** — docs(x5-alt-v2): agrega revisión crítica independiente de la planificación y los notebooks Q1-Q4

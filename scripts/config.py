@@ -225,7 +225,13 @@ X1_REEMPLAZO_FRACCION_INICIAL = 0.2
 # del loop (TS) en que se ejecuta de a una.
 X1_COMPACTAR_LOG_S = 2
 
-# USD — si la pérdida de una posición abierta supera este valor, se cierra
+# Cantidad de reemplazos O0/OE (los que imprimen la tabla resumen en X1) que se
+# conservan por activo en resources/x1/logs/cambios_{VALOR}.jsonl — al superarla se
+# descartan los más antiguos.
+X1_LOG_CAMBIOS_MAX = 1000
+
+# USD por cada 1x MIN_LOTAJES — el umbral real de cada posición abierta es
+# PERDIDA_MAX * (orden.volume / MIN_LOTAJES). Ej: 200 con 0.02 lot de BTC → corta a 400 USD.
 PERDIDA_MAX = {
     'BTCUSD': 200,
     'ETHUSD': 200,

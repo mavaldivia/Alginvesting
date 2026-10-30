@@ -433,3 +433,13 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** `drawdown_60d` (recuperación demasiado lenta, `sano_ok` cae en BTC/ETH); rango mínimo de `w_1` en la grilla (sigue sin criterio económico).
 
 **Pendiente:** `w_1`, ventana del drawdown y `span` del suavizado se calibran en Q5 con resultados de backtesting (ver `Q5-2`).
+
+## 2026-10-30 — X1: log por activo de los últimos 1000 reemplazos O0/OE
+
+**Decisión:** `reemplazar_ordenes_espera` registra cada reemplazo (el que imprime la tabla resumen) en `resources/x1/logs/cambios_{VALOR}.jsonl`, una línea JSON por evento, con tope `X1_LOG_CAMBIOS_MAX = 1000` por activo. Foto ampliada: estado ANTES y DESPUÉS (O0/OE/OA), `lista_N`, mtime del JSON de X0, P0/spread/tick del servidor, fallas con retcode, bloqueados y totales de la cuenta.
+
+**Motivo:** el 2026-10-30 las OE de AMZN entre ~224 y ~244 no estaban ni como OE ni como OA tras el gap de la apertura y no quedó rastro de qué las quitó: X1 solo imprime a consola y no detecta OE que desaparecen sin pasar por OA. Con ANTES/DESPUÉS releído de MT5 se puede ver entre qué dos reemplazos desaparecieron.
+
+**Descartado:** registrar los reemplazos abortados por mercado que no acepta órdenes (no se pidió; la tabla resumen es el criterio del evento); registrar también promociones O0→OE de `crear_ordenes_espera` y la poda (multiplica el volumen, sobre todo en cripto); un JSON único reescrito en cada evento (reescribe MBs por evento).
+
+**Pendiente:** los cambios de OE fuera de un reemplazo (promociones, poda, desapariciones por el broker) solo se ven por diferencia entre eventos consecutivos.

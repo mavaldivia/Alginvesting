@@ -57,6 +57,7 @@ X4 (backtesting) y X5 (surrogate model / exploración) nunca reimplementan el al
 | `resources/x0/` | `logs/` (JSONs de convergencia por combo) y `plots/` (FO, Soportes) — generados en Windows, fuera de git |
 | `resources/x2/` | Scores fundamentales (`scores.json`), historial (`x2_history.json`), guard de día (`x2_last_run.json`) — generados en Windows, fuera de git |
 | `resources/x3/` | Features técnicas por activo (`{VALOR}.csv`) — generados, fuera de git |
+| `resources/x1/logs/` | `errores.log` (tracebacks) + `cambios_{VALOR}.jsonl` (últimos 1000 reemplazos O0/OE por activo, foto ANTES/DESPUÉS) — generados en Windows, fuera de git |
 | `resources/x5/` | Store de trades por activo (`{ACTIVO}_store.csv`) + modelos entrenados (`models/{ACTIVO}_lgbm.pkl`, `models/{ACTIVO}_ftt.pt`) + `demo_plots/{ACTIVO}/` (gráficos de cada búsqueda de soportes del modo demo) — generados, fuera de git |
 | `config/` | `active_parameters.json` — escrito por X5, leído por X1/X0 cuando `TIPO_EJECUCION="din"` |
 
