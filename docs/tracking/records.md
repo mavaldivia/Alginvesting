@@ -2329,3 +2329,14 @@ Claude: Revisó `X1_trading.py` y los docs: X1 no cierra esas posiciones (el umb
 Mauricio: Dijo que no importa lo de hoy y pidió guardar logs de los últimos 1000 cambios por activo, donde un cambio es un reemplazo O0/OE (cuando sale la tabla resumen), con foto completa. En /consultar eligió JSONL por activo y foto ampliada con `lista_N` completa.
 Claude: Implementó `_registrar_cambio` en `X1_trading.py` y `X1_LOG_CAMBIOS_MAX = 1000` en `config.py`: una línea JSON por reemplazo en `resources/x1/logs/cambios_{VALOR}.jsonl`, con listas ANTES/DESPUÉS de O0/OE/OA releídas de MT5, fallas con retcode, bloqueados y totales de cuenta. Lo probó en Mac con un MT5 simulado (recorte, reinicio, aborto sin log). Registró el ítem en `done.md` (X1), `decisiones.md` y `CLAUDE.md`, y corrigió su cifra previa de `PERDIDA_MAX`.
 (Cierre: 2026-10-30 14:24)
+
+## SECCIÓN 284
+Mauricio: Invocó /new_todo X0 & X1 reportando que GOOGL converge en cada actualización CX AY (itera, encuentra mejoras y converge antes de los 15 min) y que por eso X1 lleva rato sin reemplazar O0 por OE.
+Claude: Revisó `nuevo_optimizador_2`, `_optimizar_y_guardar_valor_N`, `_ciclo_activo` y los casos (a)/(b) de X1. Diagnóstico por código: la preparación es horaria, así que los bloques 2-4 usan los mismos datos, parten del óptimo del bloque 1 y terminan sin cambios; X1 solo reemplaza si hay salientes (`lista_N` cambió). Los logs locales eran del 21-sep con N=180, sin evidencia real.
+Mauricio: En la consulta eligió "Afinar M al converger" (entre perturbar y seguir, afinar M, o diagnosticar primero).
+Claude: Agregó `M_AFINADO = (100, 300)` en `config.py` y encadenó barridos más finos en `_optimizar_y_guardar_valor_N` solo en vivo (con `tiempo_limite_s`), hasta agotar `T_UPDATE_O0`; bt/X5 intactos. Probó el flujo con un optimizador simulado y registró el ítem en `done.md` (X0), `decisiones.md` y `CLAUDE.md`.
+Mauricio: Preguntó si la convergencia prohibía el reemplazo en X1, y luego informó que no existe `cambios_GOOGL.jsonl` (sí para los otros 6 activos).
+Claude: Aclaró que la convergencia no bloquea nada y que su diagnóstico era una hipótesis sin confirmar. Identificó dos escenarios: `lista_N` estable, o salientes sin entrantes colocables, donde `reemplazar_ordenes_espera` hace `return` en silencio y el caso (b) nunca corre porque `hay_salientes` sigue True. También notó que con reemplazo global pausado y salientes ni (a) ni (b) corren.
+Mauricio: Pidió agregar el aviso.
+Claude: Agregó en `X1_trading.py` un print throttled (`reemplazo_sin_colocables`) con entrantes, umbral, P0 y saliente más alta; lo probó con MT5 simulado, lo registró en `done.md` (X1) y como diagnóstico abierto en `decisiones.md`. Pendiente: ver en Windows si el aviso aparece para GOOGL.
+(Cierre: 2026-10-30 16:17)

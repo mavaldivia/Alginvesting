@@ -56,7 +56,7 @@ from config import (
     CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL, soporte_de_orden,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
-    M, M_COARSE, LAMBDA, MAX_ITERS, MAX_CAMBIOS,
+    M, M_COARSE, M_AFINADO, LAMBDA, MAX_ITERS, MAX_CAMBIOS,
     T_UPDATE_O0, T_UPDATE_CICLO_X0,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes, n_sizes_ejecucion, N_MAX_MODELS, reiniciar_x0,
@@ -1251,12 +1251,21 @@ def _optimizar_y_guardar_valor_N(valor: str, N: int, prep: dict, ordenes_activas
     convergio = False
     max_pasos = 0
     deadline_abs = time.monotonic() + tiempo_limite_s if tiempo_limite_s is not None else None
-    for fase in fases:
+    # Con presupuesto de tiempo (vivo), converger antes de agotarlo deja el resto ocioso y
+    # el conjunto_N no cambia para X1: se barre con M cada vez mayor hasta agotar el bloque.
+    # bt/X5 (sin presupuesto) siguen cortando en la convergencia de las fases pedidas.
+    Ms = [M_por_fase[fase] for fase in fases]
+    n_base = len(Ms)
+    if deadline_abs is not None:
+        Ms += list(M_AFINADO)
+    for k, M_fase in enumerate(Ms):
         tiempo_restante_fase = (max(0.0, deadline_abs - time.monotonic())
                                  if deadline_abs is not None else None)
+        if k >= n_base and (not convergio or tiempo_restante_fase <= 0):
+            break
         conjunto_N, df_extremos, df_FO_fase, convergio, _, max_pasos_fase = nuevo_optimizador_2(
             N, df_extremos, conjunto_N, LAMBDA_,
-            ordenes_activas=ordenes_activas, M=M_por_fase[fase], max_iters=MAX_ITERS,
+            ordenes_activas=ordenes_activas, M=M_fase, max_iters=MAX_ITERS,
             estado_compartido=estado_compartido, llave=llave, verbose=verbose,
             tiempo_limite_s=tiempo_restante_fase,
         )

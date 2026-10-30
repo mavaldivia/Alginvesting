@@ -764,6 +764,14 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
         and (bloqueados_valor.get(Pi) is None or (time.time() - bloqueados_valor[Pi]) >= X1_RETRY_BLOQUEADOS_S)
     )
     if not colocables:
+        # Sin aviso, esta salida deja salientes vivas y, como hay_salientes sigue True, el
+        # caso (b) tampoco corre: el activo queda congelado sin rastro en consola ni log.
+        sobre_umbral = [Pi for Pi in entrantes if Pi >= umbral]
+        _print_throttled(valor, 'reemplazo_sin_colocables',
+                          f'\n\n  {_fmt_valor(valor)}: reemplazo pendiente — ninguna de las {len(entrantes)} entrantes '
+                          f'({min(entrantes):.2f}–{max(entrantes):.2f}) es colocable: {len(sobre_umbral)} sobre el umbral '
+                          f'{umbral:.2f} y {len(entrantes) - len(sobre_umbral)} bloqueadas  '
+                          f'(P0={P0:.2f}, saliente más alta={_soporte_de_orden(salientes[0]):.2f}, {len(salientes)} salientes sin eliminar)')
         return  # nada colocable este ciclo (todo bloqueado o sobre el umbral) — no tocar OE
 
     # Paso 1: probe real, de menor a mayor precio.

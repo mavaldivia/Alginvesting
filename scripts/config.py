@@ -99,6 +99,7 @@ parametros_soportes = {
 LAMBDA = 1 / 5    # penaliza dispersión desigual entre soportes: FO = mean(z) - LAMBDA * cv(H_n)
 M = 30              # candidatos evaluados por soporte en fase fine (linspace entre vecinos)
 M_COARSE = 5        # candidatos en fase coarse (exploración barata antes del refinamiento fino)
+M_AFINADO = (100, 300)  # solo en vivo: barridos más finos tras converger con M, hasta agotar T_UPDATE_O0 (memoria ~ M × n_velas)
 
 # ─── X0 producción en vivo: cadencia de ciclos (reloj real) ───────────────────
 # Solo aplica a X0 en producción (--opcion 1/2, _ciclo_activo). Backtesting/X5

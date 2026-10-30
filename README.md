@@ -85,7 +85,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Ciclos temporales independientes por activo**: cada activo corre su propio hilo con dos relojes anidados — cada `T_UPDATE_CICLO_X0` min (60 por defecto) re-descarga datos y recalcula distancias (ciclo `i`); cada `T_UPDATE_O0` min (15 por defecto) corre el optimizador con presupuesto de tiempo y flushea el `conjunto_N` a `resources/conjuntos_N/` (bloque `j`), sin esperar a los demás activos. `T_UPDATE_CICLO_X0` debe ser múltiplo exacto de `T_UPDATE_O0` (se valida al arrancar X0); el paso de bloque a ciclo se dispara por conteo de bloques, no por tiempo transcurrido, para no cortar un bloque a medio presupuesto. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo (`[C {i} | A {j}] {valor}_{N}: ...`) con su fase actual, incluyendo una barra `|████░░░░| N/T_UPDATE_O0min` que marca el avance del bloque en curso mientras está `[corriendo]`.
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
-El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta cualquier cambio que mejore la FO (sin umbral mínimo). En backtesting/X5 corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse sin necesidad de converger.
+El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta cualquier cambio que mejore la FO (sin umbral mínimo). En backtesting/X5 corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse; si converge antes, el tiempo sobrante se usa en barridos más finos (`M_AFINADO`).
 
 ---
 
@@ -162,6 +162,7 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 | `M` | 30 | Candidatos evaluados por soporte en cada paso |
 | `LAMBDA` | 1/5 | Penalización por dispersión desigual |
 | `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
+| `M_AFINADO` | (100, 300) | Solo en vivo: barridos más finos tras converger con `M`, hasta agotar el bloque de `T_UPDATE_O0` |
 | `T_UPDATE_O0` | 15 (min) | Cadencia de flush del `conjunto_N` a `resources/conjuntos_N/` en producción |
 | `T_UPDATE_CICLO_X0` | 60 (min) | Cadencia de refresco de data/X2/X3/distancias en producción |
 | `N_MAX_MODELS` | `len(VALORES)` (7) | Tope de combos corriendo a la vez en el pool de procesos compartido (None/0 = sin tope) |
@@ -231,6 +232,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-30** — feat(x0): afina M tras converger en el bloque y avisa reemplazos X1 sin entrantes colocables
 - **2026-10-30** — feat(x1): registra en JSONL los últimos 1000 reemplazos O0/OE por activo con foto antes/después
 - **2026-10-30** — feat(x1): agrega dos saltos de línea antes de los prints que parten con el activo
 - **2026-10-28** — fix(x1): quita paréntesis literales del formato de activo en prints (₿ BTCUSD)

@@ -443,3 +443,15 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** registrar los reemplazos abortados por mercado que no acepta órdenes (no se pidió; la tabla resumen es el criterio del evento); registrar también promociones O0→OE de `crear_ordenes_espera` y la poda (multiplica el volumen, sobre todo en cripto); un JSON único reescrito en cada evento (reescribe MBs por evento).
 
 **Pendiente:** los cambios de OE fuera de un reemplazo (promociones, poda, desapariciones por el broker) solo se ven por diferencia entre eventos consecutivos.
+
+## 2026-10-30 — X0: afinar `M` tras converger dentro del bloque de `T_UPDATE_O0`
+
+**Decisión:** en producción (`_optimizar_y_guardar_valor_N` con `tiempo_limite_s`), si la última fase converge antes de agotar el bloque, se repite el optimizador con `M_AFINADO = (100, 300)` (`config.py`) hasta agotar el tiempo. bt/X5 (sin presupuesto) no cambian. `convergio` queda en `True` solo si también convergió con el `M` más fino.
+
+**Motivo:** GOOGL convergía en el bloque 1 de cada hora; los bloques 2-4 usan los mismos datos (la preparación es horaria), arrancan de ese óptimo y terminaban sin cambios en segundos. X1 solo reemplaza OE cuando hay salientes (`lista_N` cambió), por lo que dejaba de reemplazar mientras X0 estaba ocioso. No se confirmó con logs de Windows (los locales son del 2026-09-21 con N=180).
+
+**Descartado:** perturbar soportes al converger (iterated local search): escapa de óptimos locales, pero introduce aleatoriedad y más recambio de OE; se prefirió el barrido determinista. Diagnosticar primero con logs: no se pidió.
+
+**Pendiente:** la ganancia de FO de `M=100/300` puede ser mínima y no cambiar `lista_N`; si tras unas horas en Windows X1 sigue sin reemplazos, retomar la perturbación. `M=300` usa ~5 matrices de `M × n_velas` float64 por worker (~150 MB con 12.000 velas).
+
+**Diagnóstico abierto (GOOGL sin reemplazos en X1):** hipótesis alternativa — con salientes que no tienen entrantes bajo el umbral, `reemplazar_ordenes_espera` sale en silencio y el caso (b) no corre porque `hay_salientes` sigue True. Se agregó un aviso throttled en `X1_trading.py` (`reemplazo_sin_colocables`) para confirmarlo; si aparece, evaluar que (b) corra también cuando el reemplazo no es posible.
