@@ -2345,3 +2345,10 @@ Claude: Agregó en `X1_trading.py` un print throttled (`reemplazo_sin_colocables
 Mauricio: Pidió vía /new_todo (Transversal) registrar el error de `market_status.py` en Windows: `AttributeError: module 'MetaTrader5' has no attribute 'symbol_info_session_trade'`.
 Claude: Diagnosticó que la API Python de MT5 no expone `symbol_info_session_trade`/`_quote` (solo MQL5), por lo que el script nunca pudo correr. Reescribió `scripts/market_status.py` para reutilizar `mercado_abierto` y `_servidor_ahora` de `X1_trading.py` (`trade_mode` + frescura del último tick). Queda en `abierto` / `cerrado` / `sin símbolo`; se descarta premarket/postmarket porque no se puede distinguir sin la API de sesiones. Solo se verificó compilación en Mac; falta probarlo en Windows. Actualizó `done.md` (Transversal) y la línea de `market_status.py` en `README.md`.
 (Cierre: 2026-10-30 19:33)
+
+## SECCIÓN 286
+Mauricio: Invocó /new_todo para X0: al hacer Ctrl+C en Windows queda pegado con `OSError: handle is closed` y `ERROR: A process in the process pool` por combo. Preguntó cómo solucionarlo.
+Claude: Diagnóstico: en Windows el Ctrl+C llega a todos los procesos de la consola, los workers mueren, el pool queda roto y los hilos de `_ciclo_activo` reintentan sin `stop_event`; el `join()` sin timeout y el `shutdown(wait=True)` previo al `except` completan el cuelgue. Fix en `X0_data_supports.py`: workers ignoran SIGINT (`_ignorar_sigint`), `join(timeout=0.5)` en loop, `_detener_pool` (cancela pendientes + `terminate` de workers) al interrumpir, y los `except` de `_ciclo_activo` salen en silencio con `stop_event` seteado.
+Claude: Simulación en Mac con SIGINT al grupo de procesos encontró un bug propio (`shutdown()` deja `_processes = None`, así que terminaba cero workers); corregido leyendo los procesos antes del shutdown. Registrado en `done.md` (X0) y `decisiones.md`.
+Mauricio: Preguntó si quedaba solucionado. Claude aclaró que no está confirmado: solo probado en Mac, falta commit/push, pull en Windows y Ctrl+C real en distintos momentos. Mauricio avisará si falla.
+(Cierre: 2026-10-30 19:37)

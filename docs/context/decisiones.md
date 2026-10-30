@@ -455,3 +455,13 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Pendiente:** la ganancia de FO de `M=100/300` puede ser mínima y no cambiar `lista_N`; si tras unas horas en Windows X1 sigue sin reemplazos, retomar la perturbación. `M=300` usa ~5 matrices de `M × n_velas` float64 por worker (~150 MB con 12.000 velas).
 
 **Diagnóstico abierto (GOOGL sin reemplazos en X1):** hipótesis alternativa — con salientes que no tienen entrantes bajo el umbral, `reemplazar_ordenes_espera` sale en silencio y el caso (b) no corre porque `hay_salientes` sigue True. Se agregó un aviso throttled en `X1_trading.py` (`reemplazo_sin_colocables`) para confirmarlo; si aparece, evaluar que (b) corra también cuando el reemplazo no es posible.
+
+## 2026-10-30 — X0: Ctrl+C baja el pool desde el proceso principal
+
+**Decisión:** los workers del `ProcessPoolExecutor` de X0 ignoran SIGINT (`_ignorar_sigint`, `initializer`). Ante `KeyboardInterrupt` el principal setea `stop_event` y llama `_detener_pool` (lee `executor._processes`, `shutdown(wait=False, cancel_futures=True)`, `terminate()` de cada worker) antes del `__exit__` del `with executor`. El entry point espera los hilos con `join(timeout=0.5)` en loop en vez de `join()`.
+
+**Motivo:** en Windows el Ctrl+C llega a todos los procesos de la consola. Los workers morían, el pool quedaba en `BrokenProcessPool` y los hilos de `_ciclo_activo` reintentaban sin que `stop_event` estuviera seteado; el `join()` sin timeout y el `shutdown(wait=True)` previo al `except` dejaban el proceso colgado.
+
+**Descartado:** señal compartida (`multiprocessing.Event`) para que el optimizador corte solo — obliga a cambiar la firma de `_optimizar_y_guardar_valor_N`, que comparten X4/X5; dejar que los workers mueran con Ctrl+C — es el estado roto actual. Matar workers a mitad de bloque no pierde datos: `json_act` y los cache bt escriben con tmp + `os.replace`.
+
+**Pendiente:** `_processes` es API privada de `concurrent.futures` (estable hasta 3.11 en `revenAI`). No se pudo probar en Windows; la simulación en Mac solo cubre el patrón hilos + pool.

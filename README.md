@@ -232,6 +232,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-10-30** — fix(x0): Ctrl+C baja el pool desde el proceso principal en vez de dejar X0 pegado con workers muertos
 - **2026-10-30** — fix(transversal): market_status.py usa frescura de tick de X1 en vez de sesiones MT5 inexistentes en la API Python
 - **2026-10-30** — feat(x0): afina M tras converger en el bloque y avisa reemplazos X1 sin entrantes colocables
 - **2026-10-30** — feat(x1): registra en JSONL los últimos 1000 reemplazos O0/OE por activo con foto antes/después

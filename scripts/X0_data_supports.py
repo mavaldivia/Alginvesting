@@ -26,6 +26,7 @@ if multiprocessing.current_process().name != 'MainProcess':
 import os
 import random
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -1551,6 +1552,28 @@ def _resumen_combo(v: str, n: int, res: dict):
                       f'precios {res["t0"]} → {res["tf"]} ({res["n_velas"]} velas) | {ws}')
 
 
+def _ignorar_sigint():
+    """Initializer de los workers del pool. En Windows el Ctrl+C se entrega a todos los
+    procesos de la consola, no solo al principal: sin esto los workers mueren con
+    KeyboardInterrupt, el pool queda roto (BrokenProcessPool) y los hilos de _ciclo_activo
+    siguen reintentando contra un pool muerto. Con SIGINT ignorado, el único que reacciona
+    es el proceso principal, que baja el pool ordenadamente (_detener_pool)."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _detener_pool(executor):
+    """Cancela lo pendiente y mata los workers en curso. Los workers ignoran SIGINT
+    (_ignorar_sigint), así que sin terminate seguirían corriendo hasta agotar su bloque de
+    T_UPDATE_O0. Matarlos a mitad de un bloque es seguro: json_act y los cache bt escriben
+    de forma atómica (tmp + os.replace). `_processes` es API privada, pero
+    ProcessPoolExecutor no expone otra forma de terminar workers que están ejecutando.
+    Se leen antes del shutdown: shutdown() deja `_processes = None`."""
+    procesos = list((getattr(executor, '_processes', None) or {}).values())
+    executor.shutdown(wait=False, cancel_futures=True)
+    for p in procesos:
+        p.terminate()
+
+
 def _esperar_resultado_pool(future, llave: str, estado_compartido):
     """Bloquea hasta que `future` resuelva, reflejando en estado_compartido el tiempo en
     cola (con aviso en consola si supera 60s) — mismo patrón usado tanto para la
@@ -1698,6 +1721,8 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     try:
                         prep_por_n[n] = _esperar_resultado_pool(future, llave, estado_compartido)
                     except Exception as exc:
+                        if stop_event.is_set():  # pool bajado por Ctrl+C, no es un error real
+                            return
                         prev = estado_compartido.get(llave, (0, 0, None, 'ERROR'))
                         estado_compartido[llave] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
                         _log_error(CARPETA_LOGS, f'Error preparando combo ({valor}, N={n})', exc)
@@ -1723,6 +1748,8 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                         try:
                             res = _esperar_resultado_pool(future, llave, estado_compartido)
                         except Exception as exc:
+                            if stop_event.is_set():
+                                return
                             prev = estado_compartido.get(llave, (0, 0, None, 'ERROR'))
                             estado_compartido[llave] = (prev[0], prev[1], prev[2], f'ERROR: {str(exc)[:30]}')
                             _log_error(CARPETA_LOGS, f'Error en bloque ({valor}, N={n})', exc)
@@ -1745,6 +1772,8 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     if restante > 0:
                         stop_event.wait(restante)
         except Exception as e:
+            if stop_event.is_set():
+                return
             _log_error(CARPETA_LOGS, f'Error en hora {i} de {valor}. Reintentando en la próxima hora', e)
 
         if max_ciclos > 0 and i >= max_ciclos:
@@ -1837,20 +1866,31 @@ if __name__ == '__main__':
                 # N_MAX_MODELS acá limita cuántos combos corren a la vez en el pool compartido
                 # (antes limitaba cuántos se seleccionaban por ciclo global; ese concepto ya no
                 # existe con ciclos independientes por activo).
-                with concurrent.futures.ProcessPoolExecutor(max_workers=N_MAX_MODELS or None) as executor:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=N_MAX_MODELS or None,
+                                                            initializer=_ignorar_sigint) as executor:
                     hilos = []
-                    for valor in VALORES:
-                        t = threading.Thread(
-                            target=_ciclo_activo,
-                            args=(valor, n_sizes.get(valor, []), CARPETA_DATA, CARPETA_DATA_MINUTO,
-                                  CARPETA_N_PROD, executor, estado_compartido, ciclos_estado,
-                                  mt5_lock, stop_event, args.opcion, args.ciclos),
-                            daemon=True,
-                        )
-                        t.start()
-                        hilos.append(t)
-                    for t in hilos:
-                        t.join()
+                    try:
+                        for valor in VALORES:
+                            t = threading.Thread(
+                                target=_ciclo_activo,
+                                args=(valor, n_sizes.get(valor, []), CARPETA_DATA, CARPETA_DATA_MINUTO,
+                                      CARPETA_N_PROD, executor, estado_compartido, ciclos_estado,
+                                      mt5_lock, stop_event, args.opcion, args.ciclos),
+                                daemon=True,
+                            )
+                            t.start()
+                            hilos.append(t)
+                        # join con timeout: en Windows un join() sin timeout bloquea sin dejar
+                        # pasar el KeyboardInterrupt hasta que el hilo termina.
+                        while any(t.is_alive() for t in hilos):
+                            for t in hilos:
+                                t.join(timeout=0.5)
+                    except KeyboardInterrupt:
+                        # stop_event y el pool se bajan acá, antes de que el __exit__ del
+                        # `with executor` haga shutdown(wait=True) y espere workers en curso.
+                        stop_event.set()
+                        _detener_pool(executor)
+                        raise
 
                 stop_event.set()
 
