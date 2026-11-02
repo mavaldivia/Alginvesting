@@ -157,13 +157,6 @@
 
 > **Lista estrictamente secuencial** (a pedido explícito de Mauricio, 2026-10-15): cada parámetro se trabaja en 3 pasos consecutivos — *implementar* (código) → *ejecutar* (correr `X5_Q4.ipynb` de punta a punta en Windows con datos reales) → *revisar visuales y validar* (gate humano: Mauricio mira los gráficos/diagnóstico de esa sección y confirma si la hipótesis se sostiene, antes de pasar al siguiente parámetro). No saltar pasos ni adelantar el parámetro siguiente sin cerrar los 3 del anterior.
 
-- [ ] **[Q4-6c] Ejecutar X5_Q4.ipynb** (con `ln_razon_vol_30d` ya agregada a `N`, pesos `[0.6, 0.2, 0.2]`). [dep: Q4-6b]
-  - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores (en particular la celda 4.3.2 y los 7 activos).
-- [ ] **[Q4-6d] Revisar visuales de `N` con la tercera variable y validar**: índice `s_t` de 4 series, curva ajustada, `N̂_t` vs. estático y el chequeo de 4.3.2 (redundancia, peso efectivo `pe_*`, relación con el retorno). [dep: Q4-6c]
-  - Mauricico: revisar los gráficos y la tabla de 4.3.2; confirmar que `ln_razon_vol_30d` aporta (o ajustar/descartar la variable y los pesos `PESOS_N`) antes de pasar a `A`.
-  - Claude: completar la celda **Interpretación** de 4.3.2 con los resultados de Windows.
-- [ ] **[Q4-7] Implementar Sección A: `A = f(x3_atr_pct)`**: mismo esqueleto que `N` con `k=1`. Nota explícita en el notebook: se calibra `A` único, sin separar `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21). Rango `(2.0, 20.0)` USD. [dep: Q4-6d]
-  - Claude: implementar la Sección A (mismo esqueleto que N, `k=1`, con la nota sobre `A_OE`/`A_TRAILING`) en el notebook.
 - [ ] **[Q4-8] Ejecutar X5_Q4.ipynb** (con la Sección A ya agregada). [dep: Q4-7]
   - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
 - [ ] **[Q4-9] Revisar visuales de la Sección A y validar**. [dep: Q4-8]
@@ -219,11 +212,11 @@
 
 **Q5 — X5_Q5.ipynb (validación económica: puente a X4_backtester.py, `plan_x5_alt_v2.md` sección 9)**
 
-- [ ] **[Q5-1] X5_Q5 — recolección aleatoria de ciclos de backtesting con control estático pareado**: diseño decidido el 2026-10-23 (ver `docs/context/decisiones.md`). Interfaz en `X4_backtester.py` para recibir los coeficientes `{w_i, span, punto_medio, pendiente}` de los 5 parámetros dinámicos; sorteo de coeficientes por ventana (7 días inicial, variantes 3/14); registro de `retorno_aleatorio - retorno_estático` por ventana en CSV. [dep: Q4-EXEC]
+- [ ] **[Q5-1] X5_Q5 — recolección aleatoria de ciclos de backtesting con control estático pareado**: diseño decidido el 2026-10-23 (ver `docs/context/decisiones.md`). Interfaz en `X4_backtester.py` para recibir los coeficientes `{w_i, span, punto_medio, pendiente}` de **cada** parámetro dinámico de `Q4` (`N`, `A`, `factor_B`, `K`, `N_EXP` y, si entran, `LAMBDA`, `PERDIDA_MAX`); **siempre** los cuatro grupos de coeficientes se calibran, ninguno se deja fijo a mano (decisión 2026-11-02); sorteo de coeficientes por ventana (7 días inicial, variantes 3/14); registro de `retorno_aleatorio - retorno_estático` por ventana en CSV. [dep: Q4-EXEC]
   - Claude: implementar la interfaz en X4 (sin reimplementar X0/X1), el sorteo, el control estático pareado y el registro por ventana.
   - Mauricico: ejecutar varios ciclos completos por activo en Windows.
 - [ ] **[Q5-2] X5_Q5 — proceso continuo de vueltas + modelo sustituto (surrogate)**: vueltas de backtest desde `FECHA_INICIAL` hasta la última vela (un activo primero), muestreo aleatorio al inicio y guiado después, modelo sustituto coeficientes a diferencia de retorno, evaluación solo sobre la cola nueva fuera de muestra contra el `N` estático y la calibración por percentil de `Q4`. Decisión en `docs/context/decisiones.md` (2026-10-23). [dep: Q5-1]
-  - Claude: implementar el bucle de vueltas, el modelo y la evaluación sobre la cola nueva. Incluir como parámetros a calibrar de `N` (fijados a mano en Q4): `w_1` (hoy 0.7), ventana del drawdown (7d/30d/60d) y `span` del suavizado (hoy 12).
+  - Claude: implementar el bucle de vueltas, el modelo y la evaluación sobre la cola nueva. Calibrar para cada parámetro dinámico, incluido `N`: los pesos `w_1..w_n` (`N`: 3 pesos con `Σ=1`, hoy `[0.6, 0.2, 0.2]`, 2 grados de libertad), el `span` del suavizado (hoy 12), `punto_medio` y `pendiente`. Con `k=1` (`A`, `K`) el peso es trivialmente 1 y quedan `span`, `punto_medio` y `pendiente`. Las ventanas de 30 días de `drawdown_30d` y `ln_razon_vol_30d` quedan fijas por ahora (no se calibran). Búsqueda eficiente: muestreo Sobol/uniforme y luego guiado por el modelo sustituto, nunca grilla completa (pesos muestreados sobre el símplex).
   - Mauricico: dejar corriendo el proceso en Windows y revisar los resultados por vuelta, incluyendo drawdown máximo.
 - [ ] **[Q5-2b] Traspaso de la configuración candidata a X0/X1 con compuerta manual**: archivo de candidata aparte, aprobación de Mauricio, lectura vía `TIPO_EJECUCION="din"`. Pasa a automático con reglas de seguridad más adelante. [dep: Q5-2]
   - Claude: implementar la escritura de la candidata y la lectura en X0/X1 sin duplicar su lógica.

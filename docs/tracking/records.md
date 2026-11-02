@@ -2368,3 +2368,10 @@ Mauricio: Reportó un error en Q4.
 Claude: Era un kernel de Jupyter viejo con `x5_alt_funciones` ya importado (`unexpected keyword argument 'pesos_fijos'`); el código en disco estaba bien. Indicó reiniciar el kernel o hacer `importlib.reload`.
 Mauricio: Cerró la sesión con `/guardar`.
 (Cierre: 2026-11-02 18:40)
+
+## SECCIÓN 289
+Mauricio: Preguntó qué parámetros se calibrarán en el backtesting de X5_alt_v2 para obtener `N` (ver Q4).
+Claude: Revisó `X5_Q4.ipynb`, `plan_x5_alt_v2.md`, `todos.md` y `decisiones.md`. En Q4 solo `punto_medio` y `pendiente` se ajustan por `curve_fit`; los pesos `[0.6, 0.2, 0.2]`, el `span` (12) y la ventana del drawdown van fijos a mano y pasan a Q5. Detectó que `todos.md` Q5-2 seguía diciendo `w_1` (hoy 0.7), desactualizado desde la tercera variable.
+Mauricio: Pidió actualizar esa info, asumiendo la ventana de 30d como fija por ahora, y fijar que todo parámetro dinámico calibre siempre `w_1..w_n`, `span`, `punto_medio` y `pendiente`, de forma eficiente.
+Claude: Actualizó `todos.md` (Q5-1, Q5-2), agregó la §9.0 a `plan_x5_alt_v2.md` y una entrada del 2026-11-02 en `decisiones.md`. Aclaró los nombres: "parámetro dinámico" y "coeficientes". Con `k=1` el peso vale 1. No tocó `X5_Q4.ipynb`.
+(Cierre: 2026-11-02 18:54)

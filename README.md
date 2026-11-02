@@ -232,6 +232,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-02** — feat(x5-q4): implementa Sección A, cierra Q4-6d y fija los coeficientes que Q5 siempre calibra
 - **2026-11-02** — feat(x5-q4): agrega ln_razon_vol_30d como tercera variable de N con pesos fijos 0.6/0.2/0.2
 - **2026-11-02** — feat(transversal): market_status.py agrega pre-market por horario NY y declara el próximo cambio de estado
 - **2026-10-30** — fix(x0): Ctrl+C baja el pool desde el proceso principal en vez de dejar X0 pegado con workers muertos

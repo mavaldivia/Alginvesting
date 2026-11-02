@@ -475,3 +475,14 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** asimetría (skewness) de los retornos (mezcla forma de cola con variabilidad, más ruidosa); razón de medias de subidas/bajadas (mide tamaño medio, no variabilidad); ventanas de 7 y 60 días (30 días iguala a `drawdown_30d`); pesos `0.5/0.25/0.25` y `1/3` cada uno; agregar la variable a Q1 y re-correr Q2/Q3 (ya está en Q1; el chequeo vive en la Sección 4.3.2 de Q4); semidesviación respecto de 0 (habría exigido una función nueva en lugar de reutilizar las columnas de Q1).
 
 **Pendiente:** correr `X5_Q4.ipynb` en Windows y validar (`Q4-6c`/`Q4-6d`), con la celda 4.3.2 como chequeo. Los pesos se calibran en `Q5` junto con `w_1`/ventana del drawdown/`span`. La correlación casi nula con el retorno no invalida la variable (`N` no es una hipótesis de predicción de retorno), pero tampoco es evidencia a favor.
+
+
+## 2026-11-02 — X5_Q5: todo parámetro dinámico calibra siempre `w_1..w_n`, `span`, `punto_medio` y `pendiente`; ventanas de 30 días fijas
+
+**Decisión:** en `Q5`, cada parámetro dinámico (`N`, `A`, `factor_B`, `K`, `N_EXP` y, si entran, `LAMBDA`, `PERDIDA_MAX`) calibra siempre los pesos `w_1, ..., w_n` (`Σ=1`), el `span` del suavizado, `punto_medio` y `pendiente`, con una búsqueda eficiente (Sobol/uniforme y luego guiada por el modelo sustituto, sin grilla completa). Con `k=1` el peso es 1 y quedan tres coeficientes. Las ventanas de 30 días de `drawdown_30d` y `ln_razon_vol_30d` quedan fijas por ahora.
+
+**Razón:** pedido de Mauricio; evita decidir a mano qué coeficientes se calibran por parámetro.
+
+**Reemplaza:** la lista de `N` en `Q5-2` (`w_1`, ventana del drawdown, `span`) y el "Pendiente" de las entradas del 2026-10-23 (`drawdown_30d`/`w_1`) y del 2026-11-02 (tercera variable). La ventana del drawdown sale de la calibración.
+
+**Descartado:** calibrar la ventana del drawdown (7d/30d/60d) en `Q5`; es discreta y obliga a recalcular la variable. Se reabre solo si se decide.

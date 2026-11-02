@@ -161,6 +161,10 @@ Mismo patrón de `Q1`/`Q2`/`Q3`: `valores` (lista, default `['BTCUSD']`), reutil
 
 Puente a `X4_backtester.py`: para cada combo de `Q4`, correr el parámetro dinámico `P̂_t` vs. el estático actual sobre el mismo período histórico y comparar resultado económico real (no solo bondad de ajuste a un target sintético). Requiere antes diseñar el "backtesting condicional por régimen" que `x5_contexto_conversacion.md` §21 deja como decisión pendiente — por eso no se desglosa en detalle aquí (ver `Q5-1` en los TODOs: ese diseño es un paso previo, no una sección más del notebook). Walk-forward / fuera de muestra por activo, consistente con el Principio 10 de `x5_contexto_conversacion.md`.
 
+### 9.0. Coeficientes que `Q5` siempre calibra (decidido 2026-11-02)
+
+Para **cada** parámetro dinámico (`N`, `A`, `factor_B`, `K`, `N_EXP` y, si entran, `LAMBDA`, `PERDIDA_MAX`) `Q5` calibra siempre los cuatro grupos de coeficientes: pesos `w_1, ..., w_n` (`Σ w_i = 1`, `n-1` grados de libertad), `span` del suavizado, `punto_medio` y `pendiente`. En `Q4` los pesos de `N` y el `span` van fijos a mano y solo `punto_medio`/`pendiente` se ajustan (contra el target sintético); esos valores de `Q4` quedan como referencia de partida y de comparación, no como valores finales. Con `k=1` el peso es trivialmente 1. `piso`/`techo` y las ventanas de las variables (hoy 30 días en `drawdown_30d` y `ln_razon_vol_30d`) no se calibran por ahora. La búsqueda debe ser eficiente (muestreo Sobol/uniforme y luego guiado por el modelo sustituto, ver `Q5-2`), no una grilla completa.
+
 ### 9.1. Prueba de tres niveles de agregación (decidido 2026-10-21)
 
 `Q4` calibra hoy cada parámetro **por activo** (`valor`): cada uno tiene su propio juego de `w_1, ..., w_n` (con `Σ w_i = 1`), `punto_medio` y `pendiente`; `piso`/`techo` son fijos (`X5_PARAM_RANGES`). Antes de dar por buena esa granularidad, `Q5` debe comparar tres niveles de agregación del mismo ajuste:
