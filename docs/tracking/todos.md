@@ -157,7 +157,12 @@
 
 > **Lista estrictamente secuencial** (a pedido explícito de Mauricio, 2026-10-15): cada parámetro se trabaja en 3 pasos consecutivos — *implementar* (código) → *ejecutar* (correr `X5_Q4.ipynb` de punta a punta en Windows con datos reales) → *revisar visuales y validar* (gate humano: Mauricio mira los gráficos/diagnóstico de esa sección y confirma si la hipótesis se sostiene, antes de pasar al siguiente parámetro). No saltar pasos ni adelantar el parámetro siguiente sin cerrar los 3 del anterior.
 
-- [ ] **[Q4-7] Implementar Sección A: `A = f(x3_atr_pct)`**: mismo esqueleto que `N` con `k=1`. Nota explícita en el notebook: se calibra `A` único, sin separar `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21). Rango `(2.0, 20.0)` USD. [dep: Q4-6]
+- [ ] **[Q4-6c] Ejecutar X5_Q4.ipynb** (con `ln_razon_vol_30d` ya agregada a `N`, pesos `[0.6, 0.2, 0.2]`). [dep: Q4-6b]
+  - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores (en particular la celda 4.3.2 y los 7 activos).
+- [ ] **[Q4-6d] Revisar visuales de `N` con la tercera variable y validar**: índice `s_t` de 4 series, curva ajustada, `N̂_t` vs. estático y el chequeo de 4.3.2 (redundancia, peso efectivo `pe_*`, relación con el retorno). [dep: Q4-6c]
+  - Mauricico: revisar los gráficos y la tabla de 4.3.2; confirmar que `ln_razon_vol_30d` aporta (o ajustar/descartar la variable y los pesos `PESOS_N`) antes de pasar a `A`.
+  - Claude: completar la celda **Interpretación** de 4.3.2 con los resultados de Windows.
+- [ ] **[Q4-7] Implementar Sección A: `A = f(x3_atr_pct)`**: mismo esqueleto que `N` con `k=1`. Nota explícita en el notebook: se calibra `A` único, sin separar `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21). Rango `(2.0, 20.0)` USD. [dep: Q4-6d]
   - Claude: implementar la Sección A (mismo esqueleto que N, `k=1`, con la nota sobre `A_OE`/`A_TRAILING`) en el notebook.
 - [ ] **[Q4-8] Ejecutar X5_Q4.ipynb** (con la Sección A ya agregada). [dep: Q4-7]
   - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.

@@ -92,9 +92,10 @@ def indice_compuesto(
     span_suavizado: float | None = None,
 ) -> dict:
     """
-    Combina 1 o 2 variables explicativas (ya en sus unidades crudas) en un único
+    Combina 1, 2 o 3 variables explicativas (ya en sus unidades crudas) en un único
     índice de estado s_t = sum(w_i * z_i_t). Restricción deliberada a 1-2 variables
-    por parámetro (ver plan_x5_alt_v2.md sección 5 — combinaciones limitadas).
+    por parámetro (ver plan_x5_alt_v2.md sección 5 — combinaciones limitadas); la única
+    excepción es `N` con 3 (decisión de Mauricio, 2026-11-02), que exige `pesos` explícitos.
 
     `span_suavizado` (opcional, en barras): aplica `suavizar_ema` sobre s_t antes
     de devolverlo — por defecto (`None`) no suaviza. Regla general de la fase
@@ -104,11 +105,13 @@ def indice_compuesto(
     sobre el índice, no un suavizado del parámetro ya calibrado, es el mecanismo
     elegido para cumplir esto en los 5 parámetros de esta fase.
     """
-    if len(variables) not in (1, 2):
+    if len(variables) not in (1, 2, 3):
         raise ValueError(
-            "indice_compuesto soporta 1 o 2 variables explicativas por parámetro "
+            "indice_compuesto soporta 1 a 3 variables explicativas por parámetro "
             "(restricción deliberada — ver plan_x5_alt_v2.md sección 5)."
         )
+    if len(variables) == 3 and pesos is None:
+        raise ValueError("indice_compuesto con 3 variables exige `pesos` explícitos (sin default parejo).")
     zs, normalizacion = [], []
     for x in variables:
         z, mu, sigma = z_score(x)
@@ -165,6 +168,7 @@ def calibrar_parametro(
     techo: float,
     grid_pesos: np.ndarray | None = None,
     span_suavizado: float | None = None,
+    pesos_fijos: list[float] | None = None,
 ) -> dict:
     """
     Calibra P̂(x) = sigmoide_acotada(índice_compuesto(variables), piso, techo, ·, ·)
@@ -181,12 +185,18 @@ def calibrar_parametro(
     ajuste completo (target sintético incluido) se calibra ya sobre el índice
     suavizado, no como un parche posterior sobre `y_ajustado`.
 
+    `pesos_fijos` (opcional): pesos de `indice_compuesto` sin explorar grilla — obligatorio
+    con 3 variables (no hay perfil de verosimilitud sobre 2 pesos libres a la vez), válido
+    también con 2.
+
     Devuelve dict con: s, pesos, normalizacion, punto_medio, pendiente, r2,
     elasticidad_punto_medio, y_objetivo, y_ajustado.
     """
     k = len(variables)
-    if k == 1:
-        compuesto = indice_compuesto(variables, span_suavizado=span_suavizado)
+    if k == 3 and pesos_fijos is None:
+        raise ValueError("calibrar_parametro con 3 variables exige `pesos_fijos`.")
+    if k == 1 or pesos_fijos is not None:
+        compuesto = indice_compuesto(variables, pesos=pesos_fijos, span_suavizado=span_suavizado)
         s = compuesto['s']
         y_objetivo = piso + (techo - piso) * percentil_causal(s)
         ajuste = _ajustar_sigmoide(s, y_objetivo, piso, techo)

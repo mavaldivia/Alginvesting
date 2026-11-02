@@ -121,7 +121,7 @@ scripts/
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
   X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
   X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra cada parámetro como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — scaffold, en desarrollo sección por sección
-  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro) — no depende de Data/MT5
+  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro con 1-3 variables) — no depende de Data/MT5
   x5_alt_export.py       # carpeta_exp()/limpiar_exp()/exportar_zip() — cada notebook X5_Q*.ipynb lee/escribe en su propia resources/x5_alt/exp_Qi/ (limpiada al inicio) y comprime esa carpeta en exp_Qi.zip para pasarlo de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
@@ -232,6 +232,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-02** — feat(x5-q4): agrega ln_razon_vol_30d como tercera variable de N con pesos fijos 0.6/0.2/0.2
 - **2026-11-02** — feat(transversal): market_status.py agrega pre-market por horario NY y declara el próximo cambio de estado
 - **2026-10-30** — fix(x0): Ctrl+C baja el pool desde el proceso principal en vez de dejar X0 pegado con workers muertos
 - **2026-10-30** — fix(transversal): market_status.py usa frescura de tick de X1 en vez de sesiones MT5 inexistentes en la API Python

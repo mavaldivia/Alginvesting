@@ -2359,3 +2359,12 @@ Claude: Reescribió `market_status.py` con esa base: `permisos_mercado` suma `pr
 Claude: Probó con MT5 simulado (pre-market, apertura, cierre, fin de semana, cambio de hora, sin ticks, crypto) y registró el ítem en `done.md` (Transversal). Quedó pendiente validar en Windows con MT5 real comparando "Hora servidor MT5" vs "Hora Nueva York" para confirmar el offset del broker.
 Mauricio: Cerró la sesión con `/guardar`.
 (Cierre: 2026-11-02 18:28)
+
+## SECCIÓN 288
+Mauricio: Invocó `/todos X5_alt_v2`. Antes de avanzar con Q4-7 pidió una tercera variable (w3) para `N` en Q4: una métrica que compare la variabilidad del crecimiento contra la del decrecimiento, de modo que si domina el crecimiento suba `N` y si domina el decrecimiento baje.
+Claude: Mostró los próximos 3 ítems (Q4-7, Q4-8, Q4-9) y, antes de implementar, preguntó métrica, ventana, pesos y forma de validar. Mauricio eligió `ln(σ_subida/σ_bajada)`, 30 días y chequeo dentro de Q4; sobre los pesos preguntó si las 3 variables estaban en la misma escala. Claude confirmó que todas pasan por z-score, pero con matiz: el drawdown tiene cola larga y las variables están correlacionadas, así que el peso efectivo difiere del nominal. Mauricio fijó 0.6/0.2/0.2.
+Claude: Corrigió que `vol_alcista_30d`/`vol_bajista_30d` ya existían en la tabla de Q1 (había dicho que no). Con `exp_Q1` de los 7 activos el chequeo preliminar dio correlación de w3 con drawdown de 0.32 a 0.49, peso efectivo ≈ [0.70, 0.16, 0.14] y correlación con el retorno casi nula. Implementó `pesos_fijos` y 3 variables en `x5_alt_funciones.py`, actualizó la Sección 4 de `X5_Q4.ipynb` con la celda nueva 4.3.2, y dejó `decisiones.md`, `plan_x5_alt_v2.md`, `todos.md` (Q4-6c, Q4-6d; Q4-7 ahora depende de Q4-6d) y `done.md` (Q4-6b) al día.
+Mauricio: Reportó un error en Q4.
+Claude: Era un kernel de Jupyter viejo con `x5_alt_funciones` ya importado (`unexpected keyword argument 'pesos_fijos'`); el código en disco estaba bien. Indicó reiniciar el kernel o hacer `importlib.reload`.
+Mauricio: Cerró la sesión con `/guardar`.
+(Cierre: 2026-11-02 18:40)
