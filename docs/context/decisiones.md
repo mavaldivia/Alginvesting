@@ -486,3 +486,13 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Reemplaza:** la lista de `N` en `Q5-2` (`w_1`, ventana del drawdown, `span`) y el "Pendiente" de las entradas del 2026-10-23 (`drawdown_30d`/`w_1`) y del 2026-11-02 (tercera variable). La ventana del drawdown sale de la calibración.
 
 **Descartado:** calibrar la ventana del drawdown (7d/30d/60d) en `Q5`; es discreta y obliga a recalcular la variable. Se reabre solo si se decide.
+
+## 2026-11-02 — X5_Q4: `A` suma `ln_razon_vol_30d` con pesos fijos 0.7/0.3
+
+**Decisión:** `A` pasa de `k=1` a `k=2`: `x3_atr_pct` y `ln_razon_vol_30d = ln(vol_alcista_30d / vol_bajista_30d)`, ambas sin invertir (volatilidad alta y razón > 0 suben `A`), pesos fijos `[0.7, 0.3]` (`PESOS_A`, `pesos_fijos` de `calibrar_parametro`). Rango `(2.0, 20.0)` USD, EMA `span=12` como en `N`.
+
+**Motivo:** pedido de Mauricio, antes de ejecutar la Sección A en Windows (`Q4-8`). El sentido de la razón lo eligió Mauricio entre dos opciones. Chequeo previo en Mac con `exp_Q1` (7 activos): R² 0.63-0.91 y pendiente positiva en todos; la redundancia con el ATR ya estaba medida en 4.3.2 (|corr| ≤ 0.2).
+
+**Descartado:** sentido opuesto (razón < 0 sube `A`): el argumento (si las caídas son las que más se mueven, exigir más distancia al soporte) solo cubre el rol de creación de Órdenes en Espera, no el de activación del trailing; explorar `w_1` por grilla (los pesos se calibran en `Q5`, ver entrada del 2026-11-02 sobre `Q5`).
+
+**Pendiente:** correr `Q4-8` y validar en `Q4-9`. `A` sigue único, sin separar `A_OE`/`A_TRAILING`.

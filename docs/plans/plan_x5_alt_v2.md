@@ -111,12 +111,12 @@ Deliberadamente limitadas (restricción explícita de Mauricio). Reutilizan las 
 | Parámetro | `k` | Variables (`x_1`, `x_2`) | Rango productivo (`piso`, `techo`) default | Nota |
 |---|---|---|---|---|
 | `N` | 3 | `x3_drawdown_20`, `x3_atr_pct`, `ln_razon_vol_30d` | `(50, 200)` BTCUSD/ETHUSD, `(40, 180)` resto (`X5_PARAM_RANGES['n_sizes_ejecucion']`) | `x3_atr_pct` no estaba en la tabla `Q3-4` para `N` — se agrega para completar la hipótesis `drawdown + volatilidad` de `X5_alternativo.md` §10.5. Desde 2026-11-02 suma `ln_razon_vol_30d = ln(vol_alcista_30d / vol_bajista_30d)` (columnas de Q1, ventana 30d; razón > 0 sube `N`), pesos fijos `[0.6, 0.2, 0.2]` — única excepción al límite de 2 variables, pedido de Mauricio (`decisiones.md` 2026-11-02). Hoy la variable de drawdown es `drawdown_30d`, ver nota del 2026-10-23. |
-| `A` | 1 | `x3_atr_pct` | `(2.0, 20.0)` USD (`X5_PARAM_RANGES['A']`) | Se descarta `x3_bb_width` por redundante con `atr_pct` (`Q2-12`, Pearson 0.74). Nota explícita en el notebook: `A` se calibra **único**, sin separar `A_OE`/`A_TRAILING` — decisión pendiente de `x5_contexto_conversacion.md` §21 que esta fase no resuelve (ver §7). |
+| `A` | 2 | `x3_atr_pct`, `ln_razon_vol_30d` | `(2.0, 20.0)` USD (`X5_PARAM_RANGES['A']`) | Se descarta `x3_bb_width` por redundante con `atr_pct` (`Q2-12`, Pearson 0.74). Desde 2026-11-02 suma `ln_razon_vol_30d` (la misma de `N`), pesos fijos `[0.7, 0.3]` y sin invertir ninguna de las dos (razón > 0 sube `A`; hipótesis de Mauricio, no estaba en `Q3`). Nota explícita en el notebook: `A` se calibra **único**, sin separar `A_OE`/`A_TRAILING` — decisión pendiente de `x5_contexto_conversacion.md` §21 que esta fase no resuelve (ver §7). |
 | `factor_B` | 2 | `x3_atr_pct`, `adx_14` | `(0.2, 0.7)` (tentativo, `x5_contexto_conversacion.md` §8 — **no está en `X5_PARAM_RANGES`** todavía, ver §6) | Se descarta `regimen_tendencia` (nominal, no apto para índice continuo); `adx_14` cubre la dimensión de tendencia. |
 | `K` | 1 | `ruptura_rango` | `(0.5, 2.0)` (`X5_PARAM_RANGES['K']`) | Se descarta `duracion_en_rango` (evidencia ≈0 en `Q3-4`). |
 | `N_EXP` | 1 | `cambio_volatilidad` | `(0.5, 3.0)` (`X5_PARAM_RANGES['N_EXP']`) | Se descarta `frecuencia_extremos_30d` para mantener `k=1` — es secundaria según `Q3-6`. |
 
-Total: **5 parámetros, 8 combinaciones parámetro-variable** (3+1+2+1+1). `x3_atr_pct` se reutiliza en `N`/`A`/`factor_B` — eso no viola la restricción (que es sobre cuántas variables explican *cada* parámetro, no sobre cuántos parámetros puede explicar una misma variable).
+Total: **5 parámetros, 9 combinaciones parámetro-variable** (3+2+2+1+1). `x3_atr_pct` se reutiliza en `N`/`A`/`factor_B` — eso no viola la restricción (que es sobre cuántas variables explican *cada* parámetro, no sobre cuántos parámetros puede explicar una misma variable).
 
 `LAMBDA` queda fuera de esta tabla — ver `Q4-9`/§7.
 

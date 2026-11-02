@@ -2375,3 +2375,13 @@ Claude: Revisó `X5_Q4.ipynb`, `plan_x5_alt_v2.md`, `todos.md` y `decisiones.md`
 Mauricio: Pidió actualizar esa info, asumiendo la ventana de 30d como fija por ahora, y fijar que todo parámetro dinámico calibre siempre `w_1..w_n`, `span`, `punto_medio` y `pendiente`, de forma eficiente.
 Claude: Actualizó `todos.md` (Q5-1, Q5-2), agregó la §9.0 a `plan_x5_alt_v2.md` y una entrada del 2026-11-02 en `decisiones.md`. Aclaró los nombres: "parámetro dinámico" y "coeficientes". Con `k=1` el peso vale 1. No tocó `X5_Q4.ipynb`.
 (Cierre: 2026-11-02 18:54)
+
+## SECCIÓN 290
+Mauricio: Abrió con `/todos X5_alt_v2`; luego dio por buenos Q4-6c y Q4-6d, pidió llevarlos a `done.md` y seguir con Q4-7 (Sección A).
+Claude: Completó la celda "Interpretación" de 4.3.2 con los CSV de Windows (`ln_razon_vol_30d` no redundante, peso efectivo 0.12-0.15, sin relación con el retorno), movió Q4-6c/Q4-6d a `done.md` e implementó la Sección A con `k=1` (celdas 5.3-5.8), probada en Mac con `exp_Q1`. Mauricio preguntó por qué no veía código; el archivo del Mac sí lo tenía (era una copia desactualizada o el editor sin recargar).
+Mauricio: Pidió que `A` dependa también de `ln_razon_vol_30d`, con pesos iniciales 0.7/0.3; eligió el sentido directo (razón > 0 sube `A`), el mismo que en `N`.
+Claude: Rehízo la Sección A con `k=2` y `pesos_fijos=[0.7, 0.3]`, sin invertir ninguna variable (R² 0.63-0.91, pendiente positiva en los 7 activos). Actualizó `plan_x5_alt_v2.md` (9 combinaciones), `done.md` y `decisiones.md`.
+Mauricio: Ejecutó en Windows sin errores (Q4-8), revisó los visuales y pidió mantener el ajuste de `A` tal cual (Q4-9).
+Claude: Movió Q4-8 y Q4-9 a `done.md`, completó la celda 5.7 con los CSV de Windows (`Â_t` sobre el `A` estático de 3 USD en 95%-100% de las barras; el estático queda pegado al piso del rango 2 USD). Implementó la Sección factor_B (Q4-10, `k=2`, `x3_atr_pct` + `adx_14`, rango `(0.2, 0.7)`, estático `B/A = 0.5`): R² 0.90-0.97, pero la grilla de pesos elige `[0.1, 0.9]` (ADX casi solo) en los 7 activos. Quedó abierto si se fijan los pesos como en `N` y `A`; Q4-11 (ejecutar en Windows) pendiente.
+Mauricio: Cerró con `/guardar`.
+(Cierre: 2026-11-02 19:10)

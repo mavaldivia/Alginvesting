@@ -157,12 +157,6 @@
 
 > **Lista estrictamente secuencial** (a pedido explícito de Mauricio, 2026-10-15): cada parámetro se trabaja en 3 pasos consecutivos — *implementar* (código) → *ejecutar* (correr `X5_Q4.ipynb` de punta a punta en Windows con datos reales) → *revisar visuales y validar* (gate humano: Mauricio mira los gráficos/diagnóstico de esa sección y confirma si la hipótesis se sostiene, antes de pasar al siguiente parámetro). No saltar pasos ni adelantar el parámetro siguiente sin cerrar los 3 del anterior.
 
-- [ ] **[Q4-8] Ejecutar X5_Q4.ipynb** (con la Sección A ya agregada). [dep: Q4-7]
-  - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
-- [ ] **[Q4-9] Revisar visuales de la Sección A y validar**. [dep: Q4-8]
-  - Mauricico: revisar curva, serie y diagnóstico de A; confirmar o ajustar la hipótesis.
-- [ ] **[Q4-10] Implementar Sección factor_B: `factor_B = f(x3_atr_pct, adx_14)`**: mismo esqueleto con `k=2`. Rango tentativo `(0.2, 0.7)` — no está en `X5_PARAM_RANGES` todavía (`plan_x5_alt_v2.md` sección 6). [dep: Q4-9]
-  - Claude: implementar la Sección factor_B (`k=2`, rango tentativo) en el notebook.
 - [ ] **[Q4-11] Ejecutar X5_Q4.ipynb** (con la Sección factor_B ya agregada). [dep: Q4-10]
   - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
 - [ ] **[Q4-12] Revisar visuales de la Sección factor_B y validar**. [dep: Q4-11]
