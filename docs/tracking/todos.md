@@ -145,7 +145,7 @@
 > **En esta sección el orden de abajo ES el orden de implementación** (a diferencia del resto del TO DO, aquí no se prioriza por score): cada ítem quedó ubicado después de todos sus `[dep: ...]`, así que trabajarlos de arriba hacia abajo, en orden, nunca topa con una dependencia pendiente. Dentro de cada notebook se respeta además el orden narrativo ya validado (core variable-precio primero, profundización después, regímenes/estabilidad al final de la capa descriptiva en Q2; hipótesis individuales antes de la tabla final en Q3).
 > **Convención de dependencias (solo esta sección)**: cada ítem lleva un ID entre corchetes al inicio del título y un tag `[dep: ...]` al final (`[dep: —]` si no depende de nada). El score `(I:x C:y H:z → score)` se conserva solo como referencia de impacto — no determina el orden de lectura ni de ejecución aquí. Si se reordena o agrega un ítem más adelante, verificar que siga después de todos sus `[dep: ...]`; si al empezar un ítem falta alguna dependencia sin marcar `[x]` (movida a `done.md`), **advertir explícitamente cuál falta y no avanzar con ese ítem**.
 > **Export a zip (Windows → Mac)**: cada notebook `X5_Q*.ipynb` debe cerrar con una celda que llame a `exportar_zip(nombre_notebook, archivos)` (`scripts/x5_alt_export.py`) sobre los archivos que generó en `resources/x5_alt/` — ya implementado en `X5_Q1.ipynb` (Sección 11); replicar al construir `X5_Q2.ipynb` (ítem `[Q2-5]` o `[Q2-EXEC]`) y `X5_Q3.ipynb` (ítem `[Q3-4]` o `[Q3-EXEC]`). Detalle en `docs/plans/X5_alternativo.md` sección 10.2.
-> **Fase 2 — funciones dinámicas (`Q4`/`Q5`)**: con `Q1`/`Q2`/`Q3` cerrados (2026-10-12), el plan completo de esta fase (forma funcional, mecanismo de calibración, combinaciones parámetro↔variable, alcance de cada notebook) vive en [`docs/plans/plan_x5_alt_v2.md`](../plans/plan_x5_alt_v2.md) — no duplicar acá, solo los ítems. Módulo compartido `scripts/x5_alt_funciones.py` ya implementado y probado (matemática pura, no requiere `Data`/MT5).
+> **Fase 2 — funciones dinámicas (`Q4`/`Q5`)**: con `Q1`/`Q2`/`Q3` cerrados (2026-10-12) y `Q4` cerrado (2026-11-02; funciones finales en [`docs/context/funciones_pars_dinamicos.pdf`](../context/funciones_pars_dinamicos.pdf), pisos y techos en `scripts/config_smart.py`), el plan completo de esta fase (forma funcional, mecanismo de calibración, combinaciones parámetro↔variable, alcance de cada notebook) vive en [`docs/plans/plan_x5_alt_v2.md`](../plans/plan_x5_alt_v2.md) — no duplicar acá, solo los ítems. Módulo compartido `scripts/x5_alt_funciones.py` ya implementado y probado (matemática pura, no requiere `Data`/MT5).
 
 **Q1 — X5_Q1.ipynb (tabla maestra + variables de estado del activo)**
 
@@ -155,73 +155,37 @@
 
 **Q4 — X5_Q4.ipynb (calibración de diseño: sigmoide acotada por parámetro, `plan_x5_alt_v2.md`)**
 
-> **Lista estrictamente secuencial** (a pedido explícito de Mauricio, 2026-10-15): cada parámetro se trabaja en 3 pasos consecutivos — *implementar* (código) → *ejecutar* (correr `X5_Q4.ipynb` de punta a punta en Windows con datos reales) → *revisar visuales y validar* (gate humano: Mauricio mira los gráficos/diagnóstico de esa sección y confirma si la hipótesis se sostiene, antes de pasar al siguiente parámetro). No saltar pasos ni adelantar el parámetro siguiente sin cerrar los 3 del anterior.
+**Q5 — Backtesting inteligente (validación económica: puente a `X4_backtester.py`, `plan_x5_alt_v2.md` sección 9)**
 
-- [ ] **[Q4-11] Ejecutar X5_Q4.ipynb** (con la Sección factor_B ya agregada). [dep: Q4-10]
-  - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
-- [ ] **[Q4-12] Revisar visuales de la Sección factor_B y validar**. [dep: Q4-11]
-  - Mauricico: revisar curva, serie y diagnóstico de factor_B; confirmar o ajustar la hipótesis.
-- [ ] **[Q4-13] Implementar Sección K: `K = f(ruptura_rango)`**: mismo esqueleto con `k=1`. Rango `(0.5, 2.0)`. Nota: `K` es global en producción, se calibra por activo solo para este análisis (`plan_x5_alt_v2.md` sección 6). [dep: Q4-12]
-  - Claude: implementar la Sección K (`k=1`, rango `(0.5,2.0)`, con la nota sobre `K` global) en el notebook.
-- [ ] **[Q4-14] Ejecutar X5_Q4.ipynb** (con la Sección K ya agregada). [dep: Q4-13]
-  - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
-- [ ] **[Q4-15] Revisar visuales de la Sección K y validar**. [dep: Q4-14]
-  - Mauricico: revisar curva, serie y diagnóstico de K; confirmar o ajustar la hipótesis.
-- [ ] **[Q4-16] Implementar Sección N_EXP: `N_EXP = f(cambio_volatilidad)`**: mismo esqueleto con `k=1`. Rango `(0.5, 3.0)`. Misma nota que `K` sobre parámetros globales. [dep: Q4-15]
-  - Claude: implementar la Sección N_EXP (`k=1`, rango `(0.5,3.0)`) en el notebook.
-- [ ] **[Q4-17] Ejecutar X5_Q4.ipynb** (con la Sección N_EXP ya agregada). [dep: Q4-16]
-  - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
-- [ ] **[Q4-18] Revisar visuales de la Sección N_EXP y validar**. [dep: Q4-17]
-  - Mauricico: revisar curva, serie y diagnóstico de N_EXP; confirmar o ajustar la hipótesis.
-- [ ] **[Q4-19] Implementar resumen consolidado** (los 5 parámetros de esta fase: `N`,`A`,`factor_B`,`K`,`N_EXP`): tabla única por activo con R², elasticidad y coincidencia de signo vs. hipótesis Q3. Export `{valor}_q4_resumen.csv`. [dep: Q4-18]
-  - Claude: implementar la tabla única por activo (R², elasticidad, coincidencia de signo) y el export `{valor}_q4_resumen.csv`.
-- [ ] **[Q4-20] Ejecutar X5_Q4.ipynb y revisar el resumen consolidado**: correr de punta a punta, Mauricio revisa la tabla completa (los 5 parámetros juntos) antes del cierre formal. [dep: Q4-19]
-  - Mauricico: ejecutar el notebook de punta a punta en Windows y revisar la tabla consolidada de los 5 parámetros antes del cierre formal.
-- [ ] **[Q4-EXEC] Cierre de la Fase 2 principal**: la celda de `exportar_zip('X5_Q4')` ya existe (Sección 10, no la 12 del scaffold original — numeración real quedó distinta al scaffold). Falta correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) y confirmar el zip generado con las secciones 4-9 completas. [dep: Q4-20]
-  - Mauricico: correr `X5_Q4.ipynb` una última vez de punta a punta (7 activos, incluye MSFT) en Windows y confirmar el zip generado.
+> **Diseño (decidido 2026-11-02, reemplaza al del 2026-10-23; ver `docs/context/decisiones.md`)**: para cada combinación valor × parámetro dinámico (`N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA`, `PERDIDA_MAX`) cada vuelta sortea los coeficientes `{w_i, span, punto_medio, pendiente}` y los mantiene **fijos desde `FECHA_INICIAL` (2022-01-01) hasta la última vela histórica**. Premio de la vuelta = valor de la cuenta de ese valor al final (cerrado + P&L abierto), dividido por el número de velas para normalizar. Tras cada vuelta se aprende del resultado, se corrigen los coeficientes y empieza una nueva; los valores corren en paralelo (un proceso por valor, `--activo`). Cada vuelta guarda además KPIs de performance para validar las funciones de `Q4`.
+> **Construye sobre**: `X4_backtester.py` (modo `--x5` y `--activo`, `_aplicar_params_x5`, checkpoint y equity aislados por activo, `_calcular_estado_cuenta`/`_append_equity`) y `X4B_crear_version_backtesting.py` (versión aislada `resources/x4/version{V}/` con `config_{V}.py` congelado); de `Q4` toma `{valor}_q4_resumen.csv` (coeficientes de partida, `μ`/`σ`), `x5_alt_funciones.py` (matemática de `P̂_t`) y `config_smart.py` (pisos y techos editables en caliente). Nunca reimplementa X0/X1.
+> **Riesgos abiertos**: (1) una observación por valor y vuelta, contra cientos del diseño por ventanas de 7 días: el aprendizaje depende de cuánto dure una vuelta y del paralelismo, y `Q5-1` lo mide antes de construir nada; (2) el caché de soportes de X4 está indexado por `N` (`{VALOR}_{N}_bt.json`) y con `N_t` dinámico el `N` cambia en cada recálculo, lo que rompe el warm start; (3) `μ`/`σ` de `Q4` usan todo el histórico (look-ahead): en un backtest honesto deben ser expanding o fijarse en un tramo inicial; (4) evaluar sobre la historia ya vista sobreestima, por eso se promueve solo sobre la cola nueva posterior a la elección (decisión 2026-10-23, se mantiene).
 
-**Q4 — `LAMBDA`** (entra al alcance de la fase por decisión de Mauricio, 2026-10-18; Sección 11 del notebook)
-
-- [ ] **[Q4-L1] Resolver el rango real de `LAMBDA`**: decidir con Mauricio si se usa `(0.001,0.02)` (rango de exploración documentado) o `0.2` (valor productivo, `config.py:95`) como referencia de `piso`/`techo` — bloqueador heredado de `Q3-6`. Sin esto resuelto, no avanzar a `Q4-L2`. [dep: Q4-EXEC]
-  - Claude: presentar las dos opciones de rango (`(0.001,0.02)` exploración vs. `0.2` productivo) con sus tradeoffs.
-  - Mauricico: decidir cuál usar como referencia de piso/techo.
-- [ ] **[Q4-L2] Implementar Sección LAMBDA: `LAMBDA = f(x3_bb_width, duracion_en_rango)`**: mismo esqueleto con `k=2`, usando el rango decidido en `Q4-L1`. [dep: Q4-L1]
-  - Claude: implementar la Sección LAMBDA (`k=2`, con el rango ya decidido) en el notebook.
-- [ ] **[Q4-L3] Ejecutar X5_Q4.ipynb** (con la Sección LAMBDA ya agregada). [dep: Q4-L2]
-  - Mauricico: ejecutar el notebook en Windows y confirmar que corre sin errores.
-- [ ] **[Q4-L4] Revisar visuales de la Sección LAMBDA y validar**. [dep: Q4-L3]
-  - Mauricico: revisar curva, serie y diagnóstico de LAMBDA; confirmar o ajustar la hipótesis.
-
-**Q4 — `PERDIDA_MAX`** (entra al alcance por decisión de Mauricio, 2026-10-18; Sección 12 del notebook, scaffold dejado)
-
-- [ ] **[Q4-P1] Elegir variable(s) explicativa(s) de `PERDIDA_MAX` con evidencia**: `PERDIDA_MAX` no tiene hipótesis ni variable en `Q3`. Revisar la evidencia de `Q2` (`exp_Q2`) y proponer variable(s), signo esperado y argumento — nunca a priori. Confirmar rango de referencia `(100,300)` USD vs. valor productivo `200` (`config.py:385`; falta `MSFT`). [dep: Q4-EXEC]
-  - Claude: analizar la evidencia disponible y presentar 2 candidatas con tradeoffs y recomendación.
-  - Mauricico: elegir variable(s) e hipótesis de signo.
-- [ ] **[Q4-P2] Implementar Sección PERDIDA_MAX**: mismo esqueleto con `k` según lo decidido en `Q4-P1`. [dep: Q4-P1]
-  - Claude: implementar la Sección 12 en el notebook.
-- [ ] **[Q4-P3] Ejecutar X5_Q4.ipynb** (con la Sección PERDIDA_MAX ya agregada). [dep: Q4-P2]
-  - Mauricico: ejecutar el notebook y confirmar que corre sin errores.
-- [ ] **[Q4-P4] Revisar visuales de la Sección PERDIDA_MAX y validar**. [dep: Q4-P3]
-  - Mauricico: revisar curva, serie y diagnóstico; confirmar o ajustar la hipótesis.
-
-**Q5 — X5_Q5.ipynb (validación económica: puente a X4_backtester.py, `plan_x5_alt_v2.md` sección 9)**
-
-- [ ] **[Q5-1] X5_Q5 — recolección aleatoria de ciclos de backtesting con control estático pareado**: diseño decidido el 2026-10-23 (ver `docs/context/decisiones.md`). Interfaz en `X4_backtester.py` para recibir los coeficientes `{w_i, span, punto_medio, pendiente}` de **cada** parámetro dinámico de `Q4` (`N`, `A`, `factor_B`, `K`, `N_EXP` y, si entran, `LAMBDA`, `PERDIDA_MAX`); **siempre** los cuatro grupos de coeficientes se calibran, ninguno se deja fijo a mano (decisión 2026-11-02); sorteo de coeficientes por ventana (7 días inicial, variantes 3/14); registro de `retorno_aleatorio - retorno_estático` por ventana en CSV. [dep: Q4-EXEC]
-  - Claude: implementar la interfaz en X4 (sin reimplementar X0/X1), el sorteo, el control estático pareado y el registro por ventana.
-  - Mauricico: ejecutar varios ciclos completos por activo en Windows.
-- [ ] **[Q5-2] X5_Q5 — proceso continuo de vueltas + modelo sustituto (surrogate)**: vueltas de backtest desde `FECHA_INICIAL` hasta la última vela (un activo primero), muestreo aleatorio al inicio y guiado después, modelo sustituto coeficientes a diferencia de retorno, evaluación solo sobre la cola nueva fuera de muestra contra el `N` estático y la calibración por percentil de `Q4`. Decisión en `docs/context/decisiones.md` (2026-10-23). [dep: Q5-1]
-  - Claude: implementar el bucle de vueltas, el modelo y la evaluación sobre la cola nueva. Calibrar para cada parámetro dinámico, incluido `N`: los pesos `w_1..w_n` (`N`: 3 pesos con `Σ=1`, hoy `[0.6, 0.2, 0.2]`, 2 grados de libertad), el `span` del suavizado (hoy 12), `punto_medio` y `pendiente`. Con `k=1` (`A`, `K`) el peso es trivialmente 1 y quedan `span`, `punto_medio` y `pendiente`. Las ventanas de 30 días de `drawdown_30d` y `ln_razon_vol_30d` quedan fijas por ahora (no se calibran). Búsqueda eficiente: muestreo Sobol/uniforme y luego guiado por el modelo sustituto, nunca grilla completa (pesos muestreados sobre el símplex).
-  - Mauricico: dejar corriendo el proceso en Windows y revisar los resultados por vuelta, incluyendo drawdown máximo.
-- [ ] **[Q5-2b] Traspaso de la configuración candidata a X0/X1 con compuerta manual**: archivo de candidata aparte, aprobación de Mauricio, lectura vía `TIPO_EJECUCION="din"`. Pasa a automático con reglas de seguridad más adelante. [dep: Q5-2]
+- [ ] **[Q5-1] Spike: costo de una vuelta completa e interfaz de parámetros dinámicos en X4**: correr X4 de `FECHA_INICIAL` a la última vela con los estáticos de un activo y medir cuánto dura; mapear dónde X4 lee `A`, `B`, `PERDIDA_MAX` (por barra) y `N`, `K`, `N_EXP`, `LAMBDA` (al recalcular soportes); resolver el warm start con `N` cambiante; decidir con 2 opciones y tradeoffs si corre como modo nuevo `--smart` de `X4_backtester.py` o como versión creada con `X4B` (`config_{V}.py` congelado). Con la duración medida se decide cuántas vueltas son viables por activo. [dep: —]
+  - Claude: leer `ejecutar_backtest`, `_paso_*` y `_recalcular_soportes`, y presentar el mapa de inyección, el problema del caché por `N` y las 2 opciones con recomendación.
+  - Mauricico: correr la vuelta de medición en Windows (un activo, estáticos) y pasar la duración; elegir entre las 2 opciones.
+- [ ] **[Q5-2] Serie `P̂_t` causal por vuelta en `x5_alt_funciones.py`**: función que dados los coeficientes de una vuelta y la tabla de estado de `Q1` devuelve `P̂_t` barra a barra, importada por X4 (una sola implementación). Resolver el look-ahead de `μ`/`σ` (expanding o fijados en un tramo inicial, con 2 opciones). Rangos de sorteo de los coeficientes en `config_smart.py`. Prueba: con los coeficientes de `Q4` reproduce las columnas `*_hat` de `{valor}_q4_*.csv`. [dep: Q5-1]
+  - Claude: implementar la función y la prueba de reproducción sobre `exp_Q4` (se puede validar en Mac).
+  - Mauricico: elegir cómo se normalizan `μ`/`σ` en el backtest y los rangos de sorteo de `w_i`, `span`, `punto_medio` y `pendiente`.
+- [ ] **[Q5-3] X4 con parámetros dinámicos, premio y KPIs por vuelta**: implementación según `Q5-1`, sin reimplementar X0/X1: `N`, `K`, `N_EXP`, `LAMBDA` se fijan en cada recálculo de soportes y `A`, `B = factor_B · A` y `PERDIDA_MAX` se leen por barra desde `P̂_t`. Registra el premio (cerrado + P&L abierto al final, dividido por el número de velas) y KPIs: valor final de la cuenta, drawdown máximo, número de trades, tasa de aciertos, tiempo en mercado, margen usado, stop-out y promedio de cada parámetro dinámico en la vuelta. Salida `resources/x5_alt/q5/{valor}_vueltas.csv`. [dep: Q5-2]
+  - Claude: implementar la interfaz en X4, el premio y los KPIs, y la prueba de que con `P̂_t` constante igual al estático la vuelta reproduce el backtest actual.
+  - Mauricico: ejecutar una vuelta en Windows con datos reales y revisar los KPIs.
+- [ ] **[Q5-4] Orquestador de vueltas en paralelo y control estático**: un proceso por valor (`--activo`), sorteo Sobol de los coeficientes de los 7 parámetros (siempre los cuatro grupos, decisión 2026-11-02), ejecución de la vuelta y registro; la vuelta estática (configuración actual) se corre una vez por valor como referencia. Checkpoint reanudable por vuelta. [dep: Q5-3]
+  - Claude: implementar el orquestador, el sorteo y el control estático.
+  - Mauricico: dejar corriendo varias vueltas por activo en Windows.
+- [ ] **[Q5-5] Modelo sustituto, muestreo guiado y evaluación fuera de muestra**: aprender de las vueltas y corregir los coeficientes para la siguiente: modelo sustituto coeficientes a premio, sorteo aleatorio al inicio y guiado después con un porcentaje fijo de exploración. Un candidato se promueve solo si supera al estático y a la calibración de `Q4` en la cola nueva posterior a su elección. Se reporta el drawdown máximo sin optimizarlo. [dep: Q5-4]
+  - Claude: implementar el modelo sustituto, el muestreo guiado y la evaluación sobre la cola nueva.
+  - Mauricico: dejar corriendo el proceso en Windows y revisar los resultados por vuelta.
+- [ ] **[Q5-5b] Traspaso de la configuración candidata a X0/X1 con compuerta manual**: archivo de candidata aparte, aprobación de Mauricio, lectura vía `TIPO_EJECUCION="din"`. Pasa a automático con reglas de seguridad más adelante. [dep: Q5-5]
   - Claude: implementar la escritura de la candidata y la lectura en X0/X1 sin duplicar su lógica.
   - Mauricico: aprobar cada candidata mientras la compuerta sea manual.
-- [ ] **[Q5-3] X5_Q5 — probar los tres niveles de agregación (por `valor`, por `tipo_valor`, todos agregados)**: repetir la calibración de `Q4` y la comparación de `Q5-2` en cada nivel y elegir por resultado fuera de muestra con criterio de parsimonia. Diseño en `docs/plans/plan_x5_alt_v2.md` §9.1. [dep: Q5-2]
+- [ ] **[Q5-6] Probar los tres niveles de agregación (por `valor`, por `tipo_valor`, todos agregados)**: repetir la calibración de `Q4` y la comparación de `Q5-5` en cada nivel (con premio agregado = suma de los premios de los valores del grupo) y elegir por resultado fuera de muestra con criterio de parsimonia. Diseño en `docs/plans/plan_x5_alt_v2.md` §9.1. [dep: Q5-5]
   - Claude: implementar el ajuste agrupado por `tipo_valor` y global, y la tabla comparativa de los tres niveles.
   - Mauricico: decidir el nivel final por parámetro con la tabla.
 
 **Transversales / implementación**
 
-- [ ] **[TRANS-2] Generar `docs/plans/plan_x5_alt_v2.pdf`** en LaTeX (~10-12 páginas), mismo patrón que `x5_alt_v2.tex`/`.pdf` existente para `Q1`/`Q2`/`Q3` — documentando la Fase 2 (funciones dinámicas) una vez `Q4` esté calibrado, para que refleje resultados reales y no solo el diseño. Ojo con el nombre: ya existe `docs/plans/x5_alt_v2.pdf` (documenta `Q1`/`Q2`/`Q3`, sin prefijo `plan_`) — evaluar si conviene renombrar uno de los dos para no confundirlos. [dep: Q4-EXEC]
+- [ ] **[TRANS-2] Generar `docs/plans/plan_x5_alt_v2.pdf`** en LaTeX (~10-12 páginas), mismo patrón que `x5_alt_v2.tex`/`.pdf` existente para `Q1`/`Q2`/`Q3` — documentando la Fase 2 (funciones dinámicas) con `Q4` ya calibrado (cerrado el 2026-11-02; las funciones finales ya están en `docs/context/funciones_pars_dinamicos.pdf`, reutilizar). Ojo con el nombre: ya existe `docs/plans/x5_alt_v2.pdf` (documenta `Q1`/`Q2`/`Q3`, sin prefijo `plan_`) — evaluar si conviene renombrar uno de los dos para no confundirlos. [dep: —]
   - Claude: generar el documento LaTeX/PDF (~10-12 páginas) con los resultados reales de la Fase 2.
   - Mauricico: decidir si renombrar `x5_alt_v2.pdf` existente para evitar confusión entre ambos documentos.
 

@@ -36,7 +36,7 @@ Una vez que una posición ya tiene SL activo, `B` define a qué distancia en USD
 En `controlar_perdida_max` (`X1_trading.py:556-565`): si `perdida = (Pi - P0) * L > PERDIDA_MAX`, la posición se cierra a mercado de inmediato (`cerrar_posicion`), independiente del estado del trailing stop.
 
 - **Ubicación**: `config.py:196-203`
-- **Valor actual**: `120` (USD) para todos los activos
+- **Valor actual**: `200` (USD) para todos los activos (`config.py`)
 - **Rango de exploración X5**: `(100, 300)` (`config.py:328`)
 - **↑ PERDIDA_MAX**: tolera mayor drawdown por posición antes de cortar — más margen para que el precio se recupere, pero mayor pérdida máxima realizable por operación.
 - **↓ PERDIDA_MAX**: corta pérdidas antes — limita el downside por operación, pero mayor probabilidad de cerrar posiciones que habrían recuperado con más tiempo.

@@ -333,3 +333,21 @@ Q2.zip
 Qi.zip
 
 /consultar
+
+
+
+En x5_alt_v2 quiero ir pensando en el backtesting, aunque por ahora definamos que un parámetro dinámico = f(cosas) y no sea la función definitiva
+La idea es que el backtesting capture varios datos de la performance para ir validando eso también.
+Recuerda que el backtesting, para una combinación valor-parámetro dinámico (ej BTCUSD-N)
+Debe comenzar con: w1_N, w2_N, w3_N, alpha, punto medio, pendiente (no se si otro)
+aleatorios. Hacerlo para todos los valores-parámetros dinámicos
+Mantener todos los parámetros w1_N, w2_N, w3_N, alpha, punto medio, pendiente
+desde que inicia el horizonte 1/1/22 hasta que termina (último dato histórico)
+Aprender, corregir parámetros y empezar un nuevo ciclo
+Ideal si los valores se ejecutan en paralelo
+Recuerda que el premio del ciclo total es cuanto vale la cuenta de ese valor: cerrado + P&L al final del horizonte (puedes dividirlo en la cantidad de velas para normalizar)
+
+Por lo tanto necesito:
+Cierra Q4. Asumiendo que revisé las salidas del script. Ejecuta todos los to dos asociados a implementar y ejecutar Q4
+Documenta como quedan las funciones de todos los parámetros dinámicos, en un pdf con latex que tenga aprox una hoja por parámetro dinámico. Dejalo en docs/context/funciones_pars_dinamicos.pdf
+Planifica la creación del backtesting inteligente en los todos. Se debe desarrollar considerando lo construido en X4.py y X4B.py, además de todo lo que hay en Q4

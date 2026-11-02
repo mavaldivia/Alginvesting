@@ -14,6 +14,9 @@ Resueltas con Mauricio vía `/consultar` antes de escribir este plan:
 3. **Forma funcional**: sigmoide/logística acotada para todos los parámetros, con piso y techo **configurables por parámetro** (no necesariamente el rango completo de `X5_PARAM_RANGES` — ej. `factor_B` podría acotarse a `(0.3, 0.7)` en vez de `(0.2, 0.7)`). El mecanismo exacto de ajuste se detalla en §3-4.
 4. **Estándar de documentación** (decisión posterior, 2026-10-17, ver `docs/context/decisiones.md`): `Q4`/`Q5` son notebooks "sobre el agua" — Mauricio se involucra directamente, a diferencia de `Q1`/`Q2`/`Q3`. Cada parámetro se documenta con Pregunta → Motivación → Metodología → Fundamento matemático → Ejecución → Resultados → Interpretación → Conclusión → Implicancias; el fundamento matemático se explica en detalle la primera vez (Sección 4, `N`) y se referencia sin repetir después.
 
+5. **Cierre de `Q4` (2026-11-02)**: siete parámetros calibrados (`N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA`, `PERDIDA_MAX`); pisos y techos movidos a `scripts/config_smart.py` (cripto y acciones por separado); funciones finales documentadas en [`docs/context/funciones_pars_dinamicos.pdf`](../context/funciones_pars_dinamicos.pdf). Detalle y razones en `docs/context/decisiones.md`.
+6. **Backtesting (2026-11-02)**: `Q5` pasa a ser el backtesting inteligente de horizonte completo (§9), que reemplaza el diseño por ventanas de 7 días del 2026-10-23.
+
 El resto de este documento desarrolla cómo se implementan estas decisiones.
 
 ---
@@ -113,12 +116,14 @@ Deliberadamente limitadas (restricción explícita de Mauricio). Reutilizan las 
 | `N` | 3 | `x3_drawdown_20`, `x3_atr_pct`, `ln_razon_vol_30d` | `(50, 200)` BTCUSD/ETHUSD, `(40, 180)` resto (`X5_PARAM_RANGES['n_sizes_ejecucion']`) | `x3_atr_pct` no estaba en la tabla `Q3-4` para `N` — se agrega para completar la hipótesis `drawdown + volatilidad` de `X5_alternativo.md` §10.5. Desde 2026-11-02 suma `ln_razon_vol_30d = ln(vol_alcista_30d / vol_bajista_30d)` (columnas de Q1, ventana 30d; razón > 0 sube `N`), pesos fijos `[0.6, 0.2, 0.2]` — única excepción al límite de 2 variables, pedido de Mauricio (`decisiones.md` 2026-11-02). Hoy la variable de drawdown es `drawdown_30d`, ver nota del 2026-10-23. |
 | `A` | 2 | `x3_atr_pct`, `ln_razon_vol_30d` | `(2.0, 20.0)` USD (`X5_PARAM_RANGES['A']`) | Se descarta `x3_bb_width` por redundante con `atr_pct` (`Q2-12`, Pearson 0.74). Desde 2026-11-02 suma `ln_razon_vol_30d` (la misma de `N`), pesos fijos `[0.7, 0.3]` y sin invertir ninguna de las dos (razón > 0 sube `A`; hipótesis de Mauricio, no estaba en `Q3`). Nota explícita en el notebook: `A` se calibra **único**, sin separar `A_OE`/`A_TRAILING` — decisión pendiente de `x5_contexto_conversacion.md` §21 que esta fase no resuelve (ver §7). |
 | `factor_B` | 2 | `x3_atr_pct`, `adx_14` | `(0.2, 0.7)` (tentativo, `x5_contexto_conversacion.md` §8 — **no está en `X5_PARAM_RANGES`** todavía, ver §6) | Se descarta `regimen_tendencia` (nominal, no apto para índice continuo); `adx_14` cubre la dimensión de tendencia. |
-| `K` | 1 | `ruptura_rango` | `(0.5, 2.0)` (`X5_PARAM_RANGES['K']`) | Se descarta `duracion_en_rango` (evidencia ≈0 en `Q3-4`). |
-| `N_EXP` | 1 | `cambio_volatilidad` | `(0.5, 3.0)` (`X5_PARAM_RANGES['N_EXP']`) | Se descarta `frecuencia_extremos_30d` para mantener `k=1` — es secundaria según `Q3-6`. |
+| `K` | 1 | `-abs(ruptura_rango)` | `(0.5, 2.0)` (`X5_PARAM_RANGES['K']`) | Se descarta `duracion_en_rango` (evidencia ≈0 en `Q3-4`). Valor absoluto invertido: una ruptura al alza y una a la baja son ambas un nivel que no se sostuvo. La evidencia "alta" de `Q3-4` para `ruptura_rango` es mecánica (Pearson 0.50 solo con el retorno de la misma hora), así que la variable descansa en la hipótesis. |
+| `N_EXP` | 1 | `cambio_volatilidad` | `(0.5, 3.0)` (`X5_PARAM_RANGES['N_EXP']`) | Se descarta `frecuencia_extremos_30d` para mantener `k=1` — es secundaria según `Q3-6`. Evidencia de `Q2`/`Q3` baja; descansa en la hipótesis. |
+| `LAMBDA` | 2 | `x3_bb_width`, `duracion_en_rango` | `(0.05, 0.5)` (decisión 2026-11-02; contiene el productivo 0.2, el rango `(0.001, 0.02)` de `X5_PARAM_RANGES` lo dejaba fuera) | Pesos por grilla (salen `[0.2, 0.8]`/`[0.3, 0.7]`). Evidencia baja. |
+| `PERDIDA_MAX` | 1 | `drawdown_7d` | `(100, 300)` USD | Sin hipótesis en `Q3`; elegida con la evidencia de `Q2` (alta y estable en los 7 activos contra el retorno de la hora siguiente). Pausada como posible capa externa de riesgo (`x5_contexto_conversacion.md` §10). |
 
-Total: **5 parámetros, 9 combinaciones parámetro-variable** (3+2+2+1+1). `x3_atr_pct` se reutiliza en `N`/`A`/`factor_B` — eso no viola la restricción (que es sobre cuántas variables explican *cada* parámetro, no sobre cuántos parámetros puede explicar una misma variable).
+Total: **7 parámetros, 12 combinaciones parámetro-variable** (3+2+2+1+1+2+1). `x3_atr_pct` se reutiliza en `N`/`A`/`factor_B` — eso no viola la restricción (que es sobre cuántas variables explican *cada* parámetro, no sobre cuántos parámetros puede explicar una misma variable).
 
-`LAMBDA` queda fuera de esta tabla — ver `Q4-9`/§7.
+Los pisos y techos de la columna "Rango" ya no se leen de `config.py` sino de `scripts/config_smart.py`, separados en cripto y acciones.
 
 ---
 
@@ -132,7 +137,7 @@ Total: **5 parámetros, 9 combinaciones parámetro-variable** (3+2+2+1+1). `x3_a
 ## 7. Qué queda explícitamente fuera de esta fase
 
 - Separar `A` en `A_OE`/`A_TRAILING` (decisión pendiente, `x5_contexto_conversacion.md` §21) — `A` se calibra único por ahora; si más adelante se decide separarlo, la misma familia de función se replica dos veces sin cambios de diseño.
-- Resolver el rango real de `LAMBDA` de antemano — `Q4-L1` lo deja como paso obligatorio *antes* de calibrar `LAMBDA` (bloqueador heredado de `Q3-6`).
+- (Resuelto el 2026-11-02) El rango de `LAMBDA` queda en `(0.05, 0.5)` en `config_smart.py`.
 - Cualquier cambio a `X0_data_supports.py`/`X1_trading.py`/`config.py` de producción — el puente a producción (cómo X1 leería `P̂(s_t)` en vivo, con qué cadencia de refresco, fallback si falta algún insumo) es una fase futura, análoga a `TIPO_EJECUCION="din"` de X5 original.
 - Validación económica/backtesting — eso es `X5_Q5.ipynb` (§9).
 
@@ -151,19 +156,23 @@ Mismo patrón de `Q1`/`Q2`/`Q3`: `valores` (lista, default `['BTCUSD']`), reutil
   4. Serie temporal `P̂_t` vs. el valor estático actual de producción, a doble eje con el precio — la pieza central para que Mauricio valide visualmente la hipótesis en episodios conocidos.
   5. Diagnóstico: `R²`, elasticidad en el punto medio, chequeo de signo vs. hipótesis `Q3`.
   6. Export: parámetros ajustados + serie `P̂_t` a `{valor}_q4_{parametro}.csv`.
-- **Sección 7 — `LAMBDA`** (condicional a resolver `Q4-9` primero — puede quedar vacía/pendiente si no se resuelve en la misma sesión).
-- **Sección 8 — Resumen consolidado**: tabla única con bondad de ajuste + elasticidad por combo, `{valor}_q4_resumen.csv`.
-- **Sección 9 — Export a zip** (`exportar_zip`, mismo patrón que `Q1`/`Q2`/`Q3`).
+- **Estructura final (2026-11-02)**: secciones 4 `N`, 5 `A`, 6 `factor_B`, 7 `K`, 8 `N_EXP`, 9 `LAMBDA`, 10 `PERDIDA_MAX`, 11 resumen consolidado y 12 export a zip.
+- **Sección 11 — Resumen consolidado**: tabla con bondad de ajuste, elasticidad, signo, estático y suavidad por parámetro y activo, más variables, pesos y `μ`/`σ` para reconstruir `P̂_t`, en `{valor}_q4_resumen.csv`.
+- **Sección 12 — Export a zip** (`exportar_zip`, mismo patrón que `Q1`/`Q2`/`Q3`).
 
 ---
 
-## 9. `X5_Q5.ipynb` — fase posterior (solo alcance, no se implementa todavía)
+## 9. Backtesting inteligente (`Q5`) — puente a `X4_backtester.py`
 
-Puente a `X4_backtester.py`: para cada combo de `Q4`, correr el parámetro dinámico `P̂_t` vs. el estático actual sobre el mismo período histórico y comparar resultado económico real (no solo bondad de ajuste a un target sintético). Requiere antes diseñar el "backtesting condicional por régimen" que `x5_contexto_conversacion.md` §21 deja como decisión pendiente — por eso no se desglosa en detalle aquí (ver `Q5-1` en los TODOs: ese diseño es un paso previo, no una sección más del notebook). Walk-forward / fuera de muestra por activo, consistente con el Principio 10 de `x5_contexto_conversacion.md`.
+Decidido el 2026-11-02 (reemplaza el diseño por ventanas de 7 días del 2026-10-23, ver `docs/context/decisiones.md`). Para cada combinación valor × parámetro dinámico, cada vuelta sortea los coeficientes `{w_i, span, punto_medio, pendiente}` y los mantiene fijos desde `FECHA_INICIAL` (2022-01-01) hasta la última vela histórica. El premio de la vuelta es el valor de la cuenta de ese valor al final (cerrado + P&L abierto) dividido por el número de velas. Se aprende de cada vuelta, se corrigen los coeficientes y empieza la siguiente; los valores corren en paralelo, un proceso por valor (`--activo`). Cada vuelta guarda también KPIs de performance (drawdown máximo, número de trades, tasa de aciertos, tiempo en mercado, margen usado, stop-out, promedio de cada parámetro dinámico) para validar las funciones de `Q4`.
+
+Se desarrolla sobre lo que ya existe: `X4_backtester.py` (modo `--x5` y `--activo`, `_aplicar_params_x5`, checkpoint y equity aislados por activo) y `X4B_crear_version_backtesting.py` (versión aislada con `config_{V}.py` congelado); de `Q4` toma `{valor}_q4_resumen.csv`, `x5_alt_funciones.py` y `config_smart.py`. Nunca reimplementa X0/X1. Los ítems están en `todos.md` (`Q5-1` a `Q5-6`). Walk-forward / fuera de muestra por activo, consistente con el Principio 10 de `x5_contexto_conversacion.md`: un candidato se promueve solo si supera al estático en la cola nueva posterior a su elección.
+
+Riesgos abiertos: una observación por valor y vuelta; el caché de soportes de X4 está indexado por `N` y con `N_t` dinámico cambia en cada recálculo (rompe el warm start); `μ`/`σ` de `Q4` usan todo el histórico, un look-ahead que el backtest debe evitar; la duración de una vuelta completa es desconocida hasta `Q5-1`.
 
 ### 9.0. Coeficientes que `Q5` siempre calibra (decidido 2026-11-02)
 
-Para **cada** parámetro dinámico (`N`, `A`, `factor_B`, `K`, `N_EXP` y, si entran, `LAMBDA`, `PERDIDA_MAX`) `Q5` calibra siempre los cuatro grupos de coeficientes: pesos `w_1, ..., w_n` (`Σ w_i = 1`, `n-1` grados de libertad), `span` del suavizado, `punto_medio` y `pendiente`. En `Q4` los pesos de `N` y el `span` van fijos a mano y solo `punto_medio`/`pendiente` se ajustan (contra el target sintético); esos valores de `Q4` quedan como referencia de partida y de comparación, no como valores finales. Con `k=1` el peso es trivialmente 1. `piso`/`techo` y las ventanas de las variables (hoy 30 días en `drawdown_30d` y `ln_razon_vol_30d`) no se calibran por ahora. La búsqueda debe ser eficiente (muestreo Sobol/uniforme y luego guiado por el modelo sustituto, ver `Q5-2`), no una grilla completa.
+Para **cada** parámetro dinámico (`N`, `A`, `factor_B`, `K`, `N_EXP` y, si entran, `LAMBDA`, `PERDIDA_MAX`) `Q5` calibra siempre los cuatro grupos de coeficientes: pesos `w_1, ..., w_n` (`Σ w_i = 1`, `n-1` grados de libertad), `span` del suavizado, `punto_medio` y `pendiente`. En `Q4` los pesos de `N` y el `span` van fijos a mano y solo `punto_medio`/`pendiente` se ajustan (contra el target sintético); esos valores de `Q4` quedan como referencia de partida y de comparación, no como valores finales. Con `k=1` el peso es trivialmente 1. `piso`/`techo` y las ventanas de las variables (hoy 30 días en `drawdown_30d` y `ln_razon_vol_30d`) no se calibran por ahora. La búsqueda debe ser eficiente (muestreo Sobol/uniforme y luego guiado por el modelo sustituto, ver `Q5-5`), no una grilla completa.
 
 ### 9.1. Prueba de tres niveles de agregación (decidido 2026-10-21)
 

@@ -114,13 +114,14 @@ scripts/
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
+  config_smart.py        # Pisos y techos de los 7 parámetros dinámicos (cripto y acciones por separado), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   agregar_valor.ipynb    # Interrogatorio para integrar un activo nuevo: escribe en config.py y X2_fundamentals.py
   X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores = list(cfg.VALORES)
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
   X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
-  X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra cada parámetro como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — scaffold, en desarrollo sección por sección
+  X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra 7 parámetros (N, A, factor_B, K, N_EXP, LAMBDA, PERDIDA_MAX) como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — cerrado 2026-11-02; resumen por activo con coeficientes y μ/σ en exp_Q4/{VALOR}_q4_resumen.csv
   x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro con 1-3 variables) — no depende de Data/MT5
   x5_alt_export.py       # carpeta_exp()/limpiar_exp()/exportar_zip() — cada notebook X5_Q*.ipynb lee/escribe en su propia resources/x5_alt/exp_Qi/ (limpiada al inicio) y comprime esa carpeta en exp_Qi.zip para pasarlo de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
@@ -139,7 +140,7 @@ resources/               # Todo generado en Windows, fuera de git
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
   x5_alt/                # X5_alt v1: {VALOR}_tabla_maestra.csv suelto en la raíz (X5_P1.ipynb). X5_alt_v2: exp_Qi/ por notebook (ej. exp_Q1/{VALOR}_tabla_estado_v2.csv + {VALOR}_catalogo_variables.csv de X5_Q1.ipynb, consumidos por X5_Q2/Q3/Q4 vía carpeta_exp) + exp_Qi.zip (comprime exp_Qi/ completa, reemplazado en cada corrida — ver x5_alt_export.py)
 docs/
-  context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md
+  context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md, funciones_pars_dinamicos.pdf/.tex (una hoja por parámetro dinámico de X5_Q4)
   plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + plan_x5_alt_v2.md (Fase 2: parámetros como funciones dinámicas) + documentacion.html (doc interactiva por sección, ver /documentar)
   tracking/              # todos.md, done.md, records.md
 Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Alginvesting_base/, prompts (ver docs/context/propuesta_restructuracion.md)
@@ -232,6 +233,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-02** — feat(x5-q4): cierra Q4 con los 7 parámetros dinámicos, config_smart.py, PDF de funciones y plan del backtesting inteligente
 - **2026-11-02** — feat(x5-q4): A suma ln_razon_vol_30d con pesos 0.7/0.3 e implementa Sección factor_B
 - **2026-11-02** — feat(x5-q4): implementa Sección A, cierra Q4-6d y fija los coeficientes que Q5 siempre calibra
 - **2026-11-02** — feat(x5-q4): agrega ln_razon_vol_30d como tercera variable de N con pesos fijos 0.6/0.2/0.2

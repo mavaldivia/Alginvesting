@@ -496,3 +496,27 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** sentido opuesto (razón < 0 sube `A`): el argumento (si las caídas son las que más se mueven, exigir más distancia al soporte) solo cubre el rol de creación de Órdenes en Espera, no el de activación del trailing; explorar `w_1` por grilla (los pesos se calibran en `Q5`, ver entrada del 2026-11-02 sobre `Q5`).
 
 **Pendiente:** correr `Q4-8` y validar en `Q4-9`. `A` sigue único, sin separar `A_OE`/`A_TRAILING`.
+
+## 2026-11-02 — X5_Q5: backtesting inteligente con coeficientes fijos durante todo el horizonte; reemplaza el diseño por ventanas
+
+**Decisión:** para cada combinación valor × parámetro dinámico (`N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA`, `PERDIDA_MAX`) cada vuelta de backtesting sortea los coeficientes `{w_i, span, punto_medio, pendiente}` y los mantiene fijos desde `FECHA_INICIAL` (2022-01-01) hasta la última vela histórica. Premio de la vuelta = valor de la cuenta de ese valor al final (cerrado + P&L abierto), dividido por el número de velas. Después de cada vuelta se aprende, se corrigen los coeficientes y empieza otra; los valores corren en paralelo (un proceso por valor). Cada vuelta guarda KPIs de performance. Se desarrolla sobre `X4_backtester.py` y `X4B_crear_version_backtesting.py` y sobre las salidas de `Q4`.
+
+**Razón:** pedido de Mauricio. El premio es el resultado económico de la cuenta del valor en todo el horizonte, no una diferencia por ventana.
+
+**Reemplaza:** las dos entradas del 2026-10-23 sobre `Q5` en lo que se refiere a la recolección: coeficientes sorteados cada ventana de 7 días (3/14 como variantes) con control estático pareado, y los ítems `Q5-1`/`Q5-2` de `todos.md`. Los ítems nuevos son `Q5-1` a `Q5-6`.
+
+**Se mantiene:** vuelta continua hasta la última vela, muestreo aleatorio al inicio y guiado después con exploración fija, evaluación para promover solo sobre la cola nueva, traspaso a producción con compuerta manual (2026-10-23); calibrar siempre `w_i`, `span`, `punto_medio` y `pendiente` (2026-11-02).
+
+**Descartado:** ventana configurable con el horizonte completo como caso límite, y mantener el diseño anterior en paralelo; Mauricio eligió solo horizonte completo.
+
+**Riesgos que se asumen:** una observación por valor y vuelta (el diseño por ventanas daba cientos); el caché de soportes de X4 está indexado por `N`, y con `N_t` dinámico cambia en cada recálculo; `μ`/`σ` de `Q4` usan todo el histórico (look-ahead). `Q5-1` mide la duración de una vuelta y resuelve el caché antes de construir.
+
+## 2026-11-02 — X5_Q4: cierre de la fase, pisos y techos en `config_smart.py`, y variables de `K`, `LAMBDA` y `PERDIDA_MAX`
+
+**Decisión:** (1) los pisos y techos de todos los parámetros dinámicos viven en `scripts/config_smart.py`, separados en cripto y acciones, y `X5_Q4.ipynb` los relee en cada corrida; (2) `LAMBDA` usa `(0.05, 0.5)`; (3) `PERDIDA_MAX` usa `drawdown_7d` con `k=1` y rango `(100, 300)` USD; (4) `K` usa `-|ruptura_rango|`; (5) `Q4` se da por cerrado con 7 parámetros, asumiendo la revisión de Mauricio de las salidas.
+
+**Razón:** (1) pedido de Mauricio para moverlos en tiempo real sin tocar código; (2) contiene el valor productivo 0.2; (3) es la variable de evidencia alta y estable en los 7 activos de `Q2` (Pearson medio +0.115 con el retorno de la hora siguiente) que no usa `N`, y la continuación que implica sugiere cortar antes con drawdown profundo; (4) una ruptura al alza y una a la baja son ambas un nivel que no se sostuvo, y el signo invertido deja la pendiente esperada positiva.
+
+**Descartado:** `(0.001, 0.02)` para `LAMBDA` (deja el estático 0.2 fuera de la banda); `x3_atr_pct` para `PERDIDA_MAX` (sin evidencia estable y ya usada en tres parámetros); `ruptura_rango` con signo para `K` (trata la ruptura al alza y a la baja como señales opuestas).
+
+**Hallazgos que quedan abiertos:** la evidencia "alta" de `Q3-4` para `ruptura_rango` (Pearson 0.50) es mecánica: se define con el cierre de la propia barra y coincide con el retorno de esa hora (0.4996 contra -0.003 con la hora siguiente en BTCUSD), así que `K` descansa en la hipótesis, igual que `N_EXP` y `LAMBDA`. `K` es la serie menos suave (cambia 6.8% del rango por barra en promedio, el resto 0.4%-3.6%) y `LAMBDA` la segunda; el `span` se calibra en `Q5`. `PERDIDA_MAX` sigue pausado como posible capa externa de riesgo (`x5_contexto_conversacion.md` §10).
