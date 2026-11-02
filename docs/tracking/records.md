@@ -2352,3 +2352,10 @@ Claude: Diagnóstico: en Windows el Ctrl+C llega a todos los procesos de la cons
 Claude: Simulación en Mac con SIGINT al grupo de procesos encontró un bug propio (`shutdown()` deja `_processes = None`, así que terminaba cero workers); corregido leyendo los procesos antes del shutdown. Registrado en `done.md` (X0) y `decisiones.md`.
 Mauricio: Preguntó si quedaba solucionado. Claude aclaró que no está confirmado: solo probado en Mac, falta commit/push, pull en Windows y Ctrl+C real en distintos momentos. Mauricio avisará si falla.
 (Cierre: 2026-10-30 19:37)
+
+## SECCIÓN 287
+Mauricio: Pidió vía `/new_todo` (Transversal) que `scripts/market_status.py` parta de una base nueva con estados `abierto` / `pre-market` / `cerrado` por horario de Nueva York para acciones USA, y que además declare, si se puede, la hora del próximo cambio de estado, en cuánto tiempo y a qué estado.
+Claude: Reescribió `market_status.py` con esa base: `permisos_mercado` suma `proximo_estado`, `proximo_cambio_ny` y `faltan`; el próximo cambio solo se declara para acciones USA cuando MT5 coincide con el horario regular, y queda en `None` para crypto o sin ticks en plena sesión. Decisión de implementación: la hora NY sale del reloj del sistema y no de `_servidor_ahora()`, porque el `tick.time` de MT5 viene en hora del servidor del broker (no UTC); el tiempo restante se resta en UTC para cruzar bien el cambio de hora de EE.UU.
+Claude: Probó con MT5 simulado (pre-market, apertura, cierre, fin de semana, cambio de hora, sin ticks, crypto) y registró el ítem en `done.md` (Transversal). Quedó pendiente validar en Windows con MT5 real comparando "Hora servidor MT5" vs "Hora Nueva York" para confirmar el offset del broker.
+Mauricio: Cerró la sesión con `/guardar`.
+(Cierre: 2026-11-02 18:28)
