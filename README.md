@@ -234,6 +234,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-03** — docs(q5-1): registra cold start medido en Mac y corrida local de V4
 - **2026-11-03** — feat(q5-1): empaquetador de la medición de X4 en un zip y comandos de reanudación sin pisar la salida
 - **2026-11-03** — docs(x5-q5): cierra decisiones de Q5-1 y agrega instrucciones de medición para Windows
 - **2026-11-02** — docs(x5-q5): documenta backtesting inteligente con parámetros C1/C2, cuenta de 3000 USD y decisiones pendientes de Mauricio
