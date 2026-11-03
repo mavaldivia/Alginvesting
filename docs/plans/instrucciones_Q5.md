@@ -28,16 +28,18 @@ Medir cuánto tarda un backtest completo de BTCUSD con parámetros estáticos, d
    copy docs\plans\config_V4_medicion_q5_1.py resources\x4\versionV4\config_V4.py
    ```
 
-3. Corre el backtest completo, guardando la salida en un archivo:
+3. Corre el backtest completo, guardando la salida en un archivo con fecha y hora (así una ventana nueva después de una interrupción no pisa la salida anterior; `-u` evita que Python retenga líneas en un buffer al usar el pipe):
    ```
-   python scripts/X4_backtester.py --version V4 --reset 2>&1 | Tee-Object -FilePath resources\x4\versionV4\salida_V4.txt
+   python -u scripts/X4_backtester.py --version V4 --reset 2>&1 | Tee-Object -FilePath "resources\x4\versionV4\salida_V4_$(Get-Date -Format yyyyMMdd_HHmm).txt"
    ```
 
-4. Cuando termine, envía (a Claude, en el Mac):
-   - El tiempo total que imprime al final. Debe decir "Backtest completado", no "STOP OUT".
-   - `resources\x4\versionV4\salida_V4.txt`
-   - `resources\x0\logs\BTCUSD_180_bt.jsonl` (duración de cada búsqueda de soportes)
-   - Modelo de CPU y memoria RAM del equipo, y si había otros procesos pesados corriendo.
+4. Cuando termine (o en cualquier momento, aunque la corrida esté interrumpida o aún corriendo), empaqueta todo en un solo zip:
+   ```
+   python scripts/q5_empaquetar_medicion.py V4
+   ```
+   Genera `resources\x4\versionV4\medicion_V4.zip` con la salida de consola de todas las ventanas, `config_V4.py`, `checkpoint.json`, el log de cada búsqueda de soportes (duración, iteraciones, si convergió; filtrado a esta corrida) y `resumen.json` con el modelo de CPU, la RAM y los tiempos agregados. Envía ese zip a Claude, en el Mac, más:
+   - Si la última línea de la salida dice "Backtest completado" o "STOP OUT".
+   - Si había otros procesos pesados corriendo. Si `resumen.json` dice que `psutil` no está instalado, la cantidad de RAM del equipo.
 
 ## Qué configuración se usa
 
@@ -57,11 +59,12 @@ Medir cuánto tarda un backtest completo de BTCUSD con parámetros estáticos, d
 - **`Config no encontrada`**: revisa que el paso 2 dejó el archivo en `resources\x4\versionV4\config_V4.py`.
 - **`Sin datos H1 disponibles`**: falta `Data\BTCUSD.csv` o está vacío.
 - **Dice "STOP OUT"**: no repitas; envíame la salida tal como quedó.
-- **Se interrumpe** (corte de luz, cierre de ventana): retoma sin `--reset` (el checkpoint se guarda cada 24 velas):
+- **Se interrumpe** (corte de luz, cierre de ventana): retoma sin `--reset` (el checkpoint se guarda cada 24 velas), con el mismo comando del paso 3 sin `--reset`:
   ```
-  python scripts/X4_backtester.py --version V4
+  python -u scripts/X4_backtester.py --version V4 2>&1 | Tee-Object -FilePath "resources\x4\versionV4\salida_V4_$(Get-Date -Format yyyyMMdd_HHmm).txt"
   ```
-  Si retomas, anota la duración de cada tramo y envíamelas todas, porque el "Tiempo total" final solo cuenta el último tramo.
+  No necesitas anotar nada: el zip del paso 4 junta la salida de todas las ventanas, y `resumen.json` marca los huecos largos entre búsquedas como posibles interrupciones.
+- **Repetir la medición**: el caché de soportes (`resources\x4\versionV4\resources_V4\conjuntos_N`) sirve de punto de partida a la búsqueda siguiente, incluso con `--reset`, y una repetición mediría menos de lo real. Antes de repetir, borra esa carpeta.
 
 ## Qué viene después
 
