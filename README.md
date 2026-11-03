@@ -233,6 +233,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-03** — docs(x5-q5): cierra decisiones de Q5-1 y agrega instrucciones de medición para Windows
 - **2026-11-02** — docs(x5-q5): documenta backtesting inteligente con parámetros C1/C2, cuenta de 3000 USD y decisiones pendientes de Mauricio
 - **2026-11-02** — feat(x5-q4): cierra Q4 con los 7 parámetros dinámicos, config_smart.py, PDF de funciones y plan del backtesting inteligente
 - **2026-11-02** — feat(x5-q4): A suma ln_razon_vol_30d con pesos 0.7/0.3 e implementa Sección factor_B

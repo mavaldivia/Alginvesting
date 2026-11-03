@@ -11,7 +11,7 @@ Definición de los parámetros de `scripts/config.py` que X5 explora/optimiza po
 Cumple dos roles en `X1_trading.py`, ambos como umbral de distancia en dólares, pero con distinta base de escalado:
 
 1. **Filtro de creación de Órdenes en Espera (OE)** — en `crear_ordenes_espera` (`X1_trading.py:388-436`): un soporte solo recibe un buy limit si `(P0 - Pi) * L >= A`, donde `P0` es el precio actual, `Pi` el precio del soporte y `L = MIN_LOTAJES[valor] * UNITS[valor]` — el lotaje **mínimo** del activo, no el configurado (`LOTAJES[valor]`). Decisión 2026-09-25 (`docs/context/decisiones.md`): antes usaba `LOTAJES[valor] * UNITS[valor]`, así que subir `LOTAJES_M` relajaba el gap de activación sin motivo — el gap para declarar una OE es una propiedad del activo, no del tamaño de la posición que se abriría ahí.
-2. **Ganancia mínima para activar el primer Stop Loss (SL) ganador** — en `trailing_stop` (`X1_trading.py:518-566`): mientras la posición no tiene SL, se le pone el primero cuando `ganancia = (P0 - Pi) * L >= A`, con `L = orden.volume * UNITS[valor]` — el lotaje **real** de esa posición específica (sin cambios, ver ítem "Fix: A/B/PERDIDA_MAX no escalaban con el lotaje real" en `docs/tracking/done.md`).
+2. **Ganancia mínima para activar el primer Stop Loss (SL) ganador** — en `trailing_stop` (`X1_trading.py:518-566`): mientras la posición no tiene SL, se le pone el primero cuando `ganancia = (P0 - Pi) * L >= A * m`, con `L = orden.volume * UNITS[valor]` (lotaje **real** de esa posición) y `m = orden.volume / MIN_LOTAJES[valor]` (`X1_trading.py:898-909`): la distancia en precio no depende del lote (corregido 2026-11-03; antes decía `>= A` sin escalar; ver ítem "Fix: A/B/PERDIDA_MAX no escalaban con el lotaje real" en `docs/tracking/done.md`).
 
 - **Ubicación**: `config.py:171-178`
 - **Valor actual**: `3` (USD) para todos los activos
@@ -21,7 +21,7 @@ Cumple dos roles en `X1_trading.py`, ambos como umbral de distancia en dólares,
 
 ### B — distancia del trailing stop (USD)
 
-Una vez que una posición ya tiene SL activo, `B` define a qué distancia en USD se mantiene el SL bajo el precio actual. En `trailing_stop` (`X1_trading.py:480-529`): `sl_nuevo = P0 - B / L`. El SL solo se mueve al alza (`sl_nuevo > sl` actual), nunca baja.
+Una vez que una posición ya tiene SL activo, `B` define a qué distancia en USD se mantiene el SL bajo el precio actual. En `trailing_stop` (`X1_trading.py:480-529`): `sl_nuevo = P0 - B * m / L`, con `m = orden.volume / MIN_LOTAJES[valor]`, que equivale a `P0 - B / (MIN_LOTAJES * UNITS)`: la distancia en precio no depende del lote (corregido 2026-11-03). El SL solo se mueve al alza (`sl_nuevo > sl` actual), nunca baja.
 
 - **Ubicación**: `config.py:180-187`
 - **Valor actual**: `1.5` (USD) para todos los activos
@@ -33,7 +33,7 @@ Una vez que una posición ya tiene SL activo, `B` define a qué distancia en USD
 
 ### PERDIDA_MAX — pérdida máxima antes de cierre forzado (USD)
 
-En `controlar_perdida_max` (`X1_trading.py:556-565`): si `perdida = (Pi - P0) * L > PERDIDA_MAX`, la posición se cierra a mercado de inmediato (`cerrar_posicion`), independiente del estado del trailing stop.
+En `controlar_perdida_max` (`X1_trading.py:556-565`): si `perdida = (Pi - P0) * L > PERDIDA_MAX * m`, con `m = orden.volume / MIN_LOTAJES[valor]` (`X1_trading.py:962-967`; corregido 2026-11-03, antes decía `> PERDIDA_MAX` sin escalar), la posición se cierra a mercado de inmediato (`cerrar_posicion`), independiente del estado del trailing stop.
 
 - **Ubicación**: `config.py:196-203`
 - **Valor actual**: `200` (USD) para todos los activos (`config.py`)
@@ -107,7 +107,7 @@ Desde el 2026-11-02 los parámetros de este documento son los de **primera categ
 
 Dos definiciones del backtesting inteligente difieren de las de producción descritas arriba (producción no cambia):
 
-- **`PERDIDA_MAX`**: es una fracción `p` de la cuenta del valor (`PERDIDA_MAX_PCT` en `config_smart.py`). El umbral en USD de cada orden abierta es `p · Z`, con `Z = cerrado + P&L abierto`, sin escalar por lotaje. Ej. `p = 0.04`, `cerrado = 6000`, `P&L = −1000` → 200 USD.
+- **`PERDIDA_MAX`**: es una fracción `p` de la cuenta del valor (`PERDIDA_MAX_PCT` en `config_smart.py`). El umbral en USD de cada orden abierta es `p · Z`, con `Z = cerrado + P&L abierto`, sin escalar por lotaje. Ej. `p = 0.04`, `cerrado = 6000`, `P&L = −1000` → 200 USD. Como X1 escala `PERDIDA_MAX` por `m`, a producción se le entregaría `p · Z / m` (`Q5-5b`). `A` y `B` sí se escalan por `m`, igual que en X1.
 - **`LOTAJES_M`**: deja de ser fijo y es `max(1, (Z − 6000) // 3000 + 2)` sobre la misma `Z`. La cuenta parte con 3000 USD por valor.
 
 Los C1 se actualizan con dos cadencias: `N`, `K`, `N_EXP` y `LAMBDA` cada `n_velas` velas H1 (`N_VELAS` en `config_smart.py`), junto con una búsqueda nueva de soportes; `A`, `factor_B` y `PERDIDA_MAX` en cada vela. Cada C1 se redondea a su grilla (`PASOS_*` en `config_smart.py`).

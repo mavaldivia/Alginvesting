@@ -164,9 +164,9 @@ Mismo patrón de `Q1`/`Q2`/`Q3`: `valores` (lista, default `['BTCUSD']`), reutil
 
 ## 9. Backtesting inteligente (`Q5`) — puente a `X4_backtester.py`
 
-Decidido el 2026-11-02 y precisado el mismo día con la jerarquía de parámetros C1/C2, las dos cadencias de actualización, la cuenta de 3000 USD por valor y el aprendizaje con Regresión Lineal Múltiple (RLM) + Gradient Ascent (ver `docs/context/decisiones.md`). Reemplaza el diseño por ventanas de 7 días del 2026-10-23. Para cada valor, una **vuelta** es un backtest completo desde `FECHA_INICIAL` (2022-01-01) hasta la última vela histórica, con los coeficientes C2 fijos durante toda la vuelta; al terminar se aprende de ella y se corrigen los C2 para la siguiente. Cada valor se trata de forma independiente (un proceso por valor, `--activo`).
+Decidido el 2026-11-02 y precisado el mismo día con la jerarquía de parámetros C1/C2, las dos cadencias de actualización, la cuenta de 3000 USD por valor y el aprendizaje con Regresión Lineal Múltiple (RLM) + Gradient Ascent (ver `docs/context/decisiones.md`). Reemplaza el diseño por ventanas de 7 días del 2026-10-23. Para cada valor, una **vuelta** es un backtest completo desde el 2022-03-01 (`FECHA_INICIO_BT`, fija: 60 días de calentamiento) hasta la última vela histórica, con los coeficientes C2 fijos durante toda la vuelta; las búsquedas de soportes usan datos desde `FECHA_INICIAL` (2022-01-01, `config.py`); al terminar se aprende de ella y se corrigen los C2 para la siguiente. Cada valor se trata de forma independiente (un proceso por valor, `--activo`).
 
-Se desarrolla sobre lo que ya existe: `X4_backtester.py` (modo `--x5` y `--activo`, `_aplicar_params_x5`, checkpoint y equity aislados por activo) y `X4B_crear_version_backtesting.py` (versión aislada con `config_{V}.py` congelado); de `Q4` toma `{valor}_q4_resumen.csv`, `x5_alt_funciones.py` y `config_smart.py`. Nunca reimplementa X0/X1.
+Se desarrolla sobre lo que ya existe: `X4_backtester.py` (modo `--x5` y `--activo`, `_aplicar_params_x5`, checkpoint y equity aislados por activo); el backtesting inteligente es un **script nuevo** (`X4S_backtesting_inteligente.py`, nombre provisional) que importa de `X4_backtester.py`, sin modo `--smart` ni `X4B` (decidido 2026-11-03); de `Q4` toma `{valor}_q4_resumen.csv`, `x5_alt_funciones.py` y `config_smart.py`. Nunca reimplementa X0/X1.
 
 ### 9.0. Jerarquía de parámetros: C1 y C2
 
@@ -195,15 +195,16 @@ Los C2 que `Q5` siempre calibra (decidido 2026-11-02): para **cada** C1, los cua
 | (a) búsqueda de soportes | `N`, `K`, `N_EXP`, `LAMBDA` | cada `n_velas` velas H1 (`N_VELAS` en `config_smart.py`, por tipo de valor) | Son los parámetros del algoritmo de X0: al cambiarlos hay que **hacer una búsqueda nueva de soportes** antes de seguir el backtest |
 | (b) operación | `A`, `factor_B` (con `B = factor_B · A`), `PERDIDA_MAX` | cada vela H1 | Están asociados directo a la ejecución de órdenes: pueden cambiar de forma continua |
 
-Ejemplo con `N_VELAS = 168`: en la vela 168, 336, 504, ... el backtest toma los valores de `N`, `K`, `N_EXP` y `LAMBDA` que entregan sus funciones en ese instante, los lleva a la grilla (9.4) y recalcula los soportes con esos valores; entre medio, `A`, `factor_B` y `PERDIDA_MAX` cambian en cada vela. Hoy el recálculo de soportes de X4 en modo `--x5` es una constante (`X5_RECALC_SOPORTES_CADA = 168`) y el de modo normal está en días (`delta_recalculo_soportes`); `N_VELAS` los reemplaza en el modo inteligente.
+Ejemplo con `N_VELAS = 168`: en la vela 168, 336, 504, ... el backtest toma los valores de `N`, `K`, `N_EXP` y `LAMBDA` que entregan sus funciones en ese instante, los lleva a la grilla (9.4) y recalcula los soportes con esos valores; entre medio, `A`, `factor_B` y `PERDIDA_MAX` cambian en cada vela. Hoy X4 recalcula los soportes por días (`delta_recalculo_soportes * 24` horas, `X4_backtester.py:1113`; 5 días en `config_x5_default.py`); `X5_RECALC_SOPORTES_CADA` de `config.py` no lo usa X4. `N_VELAS` lo reemplaza en el script nuevo, como un contador de velas.
 
 ### 9.3. Cuenta del valor: capital, lotaje y pérdida máxima
 
 Cada valor opera con una cuenta propia que parte con **3000 USD** (hoy `X5_CAPITAL_BT = 1_000_000`, sin restricción de margen: con 3000 USD el margen sí limita). Sea `Z = cerrado + P&L abierto` del valor en ese momento.
 
-- **Lotaje**: `lotajes_m = max(1, (Z − 6000) // 3000 + 2)`. Con `Z` = 3000 → 1; 5999 → 1; 6000 → 2; 8999 → 2; 9000 → 3; 12000 → 4.
+- **Lotaje**: `lotajes_m = max(1, (Z − 6000) // 3000 + 2)`. Con `Z` = 3000 → 1; 5999 → 1; 6000 → 2; 8999 → 2; 9000 → 3; 12000 → 4. Se fija **al crear la Orden en Espera (OE)**, como en X1 (el buy limit lleva su volumen); una OE que espera conserva su `m` aunque `Z` cambie después (decidido 2026-11-03).
 - **Pérdida máxima**: `perdida_max_USD = p · Z`, con `p` la fracción que entrega la función dinámica (`PERDIDA_MAX_PCT`, rango `(0.03, 0.06)` en `config_smart.py`, es decir 90-180 USD sobre los 3000 USD iniciales). Una orden abierta (OA) se cierra cuando su pérdida en USD supera ese umbral, **sin escalar por lotaje**. Ejemplo: `p = 0.04`, `cerrado = 6000`, `P&L = −1000` → `Z = 5000` → `perdida_max_USD = 200`.
-- `A` y `B` siguen en USD y se comparan contra `(P0 − Pi) · L` con el lote real de cada posición, como en X1.
+- `A` y `B` siguen en USD **a lotaje mínimo**: como en X1 se escalan por `m = lote / MIN_LOTAJES` (`a_efectivo = A · m`, `b_efectivo = B · m`, `X1_trading.py:898-902`), de modo que la distancia en precio no depende del lote, y el filtro de creación de OE (`distancia_ok`) usa `MIN_LOTAJES` (`X1_trading.py:523`). X4 hoy no escala (`X4_backtester.py:477-478`, `:590`) y solo coincide con X1 cuando `m = 1`; el script nuevo lo alinea (decidido 2026-11-03).
+- **`PERDIDA_MAX` realizada** en X4: `p · max(Z, 0)` por orden. X1 escala `PERDIDA_MAX` por `m` (`X1_trading.py:962-967`), así que a producción se le entregaría `p · Z / m` (`Q5-5b`); coinciden en posiciones abiertas con el `m` vigente.
 
 `PERDIDA_MAX` en USD (`(100, 300)`) se mantiene en `config_smart.py` solo para que `X5_Q4.ipynb` siga reproducible; las funciones de `Q4` se ajustaron contra un target de percentil, así que su `punto_medio`/`pendiente` no dependen de la escala del rango.
 
@@ -268,12 +269,14 @@ Reglas de la comparación:
 Las decisiones que Mauricio debe tomar están en `docs/tracking/todos.md`, marcadas `[DECIDE MAURICIO]` en el ítem de `Q5` donde se necesitan.
 
 - **Una observación por valor y vuelta contra 26 dimensiones**: el aprendizaje depende de cuántas vueltas caben; `Q5-1` mide la duración de una vuelta antes de construir nada.
-- **Lote por posición**: X4 usa un solo `cfg.LOTAJES[activo]` por activo en `_paso_B`/`C`/`D`/`E`/`F`, `_calcular_estado_cuenta` y `_registrar_trade`. Con `lotajes_m(Z)` dinámico cada posición necesita su propio volumen; falta definir si `lotajes_m` lo fija la creación de la Orden en Espera (OE) o su activación a OA. Es el cambio estructural más grande de `Q5-3`.
+- **Lote por posición**: X4 usa un solo `cfg.LOTAJES[activo]` por activo en `_paso_B`/`C`/`D`/`E`/`F`, `_calcular_estado_cuenta` y `_registrar_trade`. Con `lotajes_m(Z)` dinámico cada posición necesita su propio volumen. Decidido en `Q5-1` (2026-11-03): se fija al crear la Orden en Espera (OE). Cada OE y OA de X4 ya guarda `'lote'` (`X4_backtester.py:405`, `:441`, `:482`, `:599`), así que el cambio es leer ese campo en vez de `cfg.LOTAJES[activo]` (9 lugares), no rediseñar la estructura.
+- **Intra-vela aleatoria**: `_simular_intravela` elige el bloque M1 con `random.randint` sin semilla (`X4_backtester.py:662`), así que dos vueltas con los mismos C2 dan premios distintos, lo que agrega ruido a una observación por vuelta y rompe la prueba de reproducibilidad de `Q5-3`. Se siembra por `(valor, ts)`.
 - **Caché de soportes indexado por `N`** (`{VALOR}_{N}_bt.json`): con `N_t` dinámico cambia en cada recálculo y rompe el warm start (solución previa como punto de partida).
 - **`μ`/`σ` de `Q4` usan todo el histórico** (look-ahead): en el backtest deben ser expanding o fijarse en un tramo inicial.
 - **Premio no lineal**: `lotajes_m` sube con `Z`, así que ganar temprano compone y pesa más que ganar tarde; el premio por tramo reservado y el control estático con las mismas reglas lo hacen comparable.
-- **Documentación de `PERDIDA_MAX` inconsistente**: el comentario de `config.py:234` dice que el umbral escala con `volume / MIN_LOTAJES`, mientras `pars_configurables.md` y `controlar_perdida_max` comparan `(Pi − P0) · L` con el lote real. `Q5-1` verifica qué hacen X1 y X4 antes de implementar.
-- **`N_VELAS` de acciones** (35) es un supuesto (~7 velas H1 por día × 5 días); verificar en Windows cuántas velas H1 por día tiene cada acción.
+- **`PERDIDA_MAX`, `A` y `B` con `m > 1`** (resuelto en `Q5-1`, 2026-11-03): X1 escala los tres por `m = orden.volume / MIN_LOTAJES` (el comentario de `config.py:234` es el correcto) y X4 no escala nada, así que solo coinciden con `m = 1`, el caso de toda la recolección de X5 (`LOTAJES_M = (1,1)`). Reglas del script nuevo en 9.3; `pars_configurables.md` corregido.
+- **`N_VELAS` de acciones** (35) es un supuesto (~7 velas H1 por día × 5 días). El `Data/` local (hasta 2026-06-02) da 10 velas por día en TSLA, NVDA, AMZN y MSFT y 7 en GOOGL, así que 50 equivale a una semana; confirmar en Windows (decisión en `Q5-3`).
+- **Primera búsqueda de soportes**: la ventana de X0 crece desde `FECHA_INICIAL` (`X0_data_supports.py:1151`), así que arrancar el backtest en esa misma fecha deja el cold start sin datos. Se resuelve con el inicio fijo en 2022-03-01.
 - **7 procesos a la vez**: CPU y memoria (datos H1 y M1 por proceso, búsquedas de soportes simultáneas) y volumen de lo que se registra por vuelta; `Q5-1` lo mide y `Q5-3` define la retención de curvas (9.10, 9.11).
 
 ### 9.10. Registro de datos y resumen en vivo
