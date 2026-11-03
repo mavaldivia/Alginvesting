@@ -114,7 +114,7 @@ scripts/
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
-  config_smart.py        # Pisos y techos de los 7 parámetros dinámicos (cripto y acciones por separado), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
+  config_smart.py        # Pisos, techos y pasos de los 7 parámetros dinámicos (cripto y acciones por separado), N_VELAS (cadencia de recálculo de soportes) y GRADO (aprendizaje), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   agregar_valor.ipynb    # Interrogatorio para integrar un activo nuevo: escribe en config.py y X2_fundamentals.py
@@ -233,6 +233,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-02** — docs(x5-q5): documenta backtesting inteligente con parámetros C1/C2, cuenta de 3000 USD y decisiones pendientes de Mauricio
 - **2026-11-02** — feat(x5-q4): cierra Q4 con los 7 parámetros dinámicos, config_smart.py, PDF de funciones y plan del backtesting inteligente
 - **2026-11-02** — feat(x5-q4): A suma ln_razon_vol_30d con pesos 0.7/0.3 e implementa Sección factor_B
 - **2026-11-02** — feat(x5-q4): implementa Sección A, cierra Q4-6d y fija los coeficientes que Q5 siempre calibra

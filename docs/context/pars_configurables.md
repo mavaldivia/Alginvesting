@@ -98,3 +98,16 @@ En `calcular_FO` (`X0_data_supports.py:255-287`): `FO = mean(z) - LAMBDA * cv(H_
 - **↓ LAMBDA**: la FO se guía casi solo por `mean(z)` — permite que los soportes se concentren donde hay más evidencia (velas aisladas y recientes), aunque dejen huecos grandes en otras zonas del rango.
 
 > **Nota**: `CLAUDE.md` (sección "Parámetros del algoritmo") documentaba `LAMBDA = 1/500`, desactualizado desde que `config.py:95` pasó a `1/5` (valor confirmado como el real de producción). Corregido en `CLAUDE.md`. El rango de exploración de X5 (`0.001`–`0.02`, `config.py:319`) quedó centrado en el valor viejo (`1/500 ≈ 0.002`) y no cubre el actual (`1/5 = 0.2`) — separado, fuera del alcance de este documento.
+
+---
+
+## Categorías C1 y C2 (backtesting inteligente, `X5_Q5`)
+
+Desde el 2026-11-02 los parámetros de este documento son los de **primera categoría (C1)**: `N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA` y `PERDIDA_MAX`. En el backtesting inteligente cada uno es una función `C1(v) = f(C2(v))` de los de **segunda categoría (C2)**: `span`, `punto_medio`, `pendiente` y pesos `w_i` (normalizados `w̃_i = w_i / Σ w_j`). Detalle en `docs/plans/plan_x5_alt_v2.md` §9.0.
+
+Dos definiciones del backtesting inteligente difieren de las de producción descritas arriba (producción no cambia):
+
+- **`PERDIDA_MAX`**: es una fracción `p` de la cuenta del valor (`PERDIDA_MAX_PCT` en `config_smart.py`). El umbral en USD de cada orden abierta es `p · Z`, con `Z = cerrado + P&L abierto`, sin escalar por lotaje. Ej. `p = 0.04`, `cerrado = 6000`, `P&L = −1000` → 200 USD.
+- **`LOTAJES_M`**: deja de ser fijo y es `max(1, (Z − 6000) // 3000 + 2)` sobre la misma `Z`. La cuenta parte con 3000 USD por valor.
+
+Los C1 se actualizan con dos cadencias: `N`, `K`, `N_EXP` y `LAMBDA` cada `n_velas` velas H1 (`N_VELAS` en `config_smart.py`), junto con una búsqueda nueva de soportes; `A`, `factor_B` y `PERDIDA_MAX` en cada vela. Cada C1 se redondea a su grilla (`PASOS_*` en `config_smart.py`).

@@ -15,7 +15,7 @@ Resueltas con Mauricio vía `/consultar` antes de escribir este plan:
 4. **Estándar de documentación** (decisión posterior, 2026-10-17, ver `docs/context/decisiones.md`): `Q4`/`Q5` son notebooks "sobre el agua" — Mauricio se involucra directamente, a diferencia de `Q1`/`Q2`/`Q3`. Cada parámetro se documenta con Pregunta → Motivación → Metodología → Fundamento matemático → Ejecución → Resultados → Interpretación → Conclusión → Implicancias; el fundamento matemático se explica en detalle la primera vez (Sección 4, `N`) y se referencia sin repetir después.
 
 5. **Cierre de `Q4` (2026-11-02)**: siete parámetros calibrados (`N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA`, `PERDIDA_MAX`); pisos y techos movidos a `scripts/config_smart.py` (cripto y acciones por separado); funciones finales documentadas en [`docs/context/funciones_pars_dinamicos.pdf`](../context/funciones_pars_dinamicos.pdf). Detalle y razones en `docs/context/decisiones.md`.
-6. **Backtesting (2026-11-02)**: `Q5` pasa a ser el backtesting inteligente de horizonte completo (§9), que reemplaza el diseño por ventanas de 7 días del 2026-10-23.
+6. **Backtesting (2026-11-02)**: `Q5` pasa a ser el backtesting inteligente de horizonte completo (§9), que reemplaza el diseño por ventanas de 7 días del 2026-10-23. Se precisó el mismo día con la jerarquía de parámetros C1/C2, cadencias `N_VELAS`, cuenta de 3000 USD por valor, aprendizaje con RLM + Gradient Ascent, tramo reservado como compuerta y tres niveles de agregación pausados.
 
 El resto de este documento desarrolla cómo se implementan estas decisiones.
 
@@ -164,25 +164,97 @@ Mismo patrón de `Q1`/`Q2`/`Q3`: `valores` (lista, default `['BTCUSD']`), reutil
 
 ## 9. Backtesting inteligente (`Q5`) — puente a `X4_backtester.py`
 
-Decidido el 2026-11-02 (reemplaza el diseño por ventanas de 7 días del 2026-10-23, ver `docs/context/decisiones.md`). Para cada combinación valor × parámetro dinámico, cada vuelta sortea los coeficientes `{w_i, span, punto_medio, pendiente}` y los mantiene fijos desde `FECHA_INICIAL` (2022-01-01) hasta la última vela histórica. El premio de la vuelta es el valor de la cuenta de ese valor al final (cerrado + P&L abierto) dividido por el número de velas. Se aprende de cada vuelta, se corrigen los coeficientes y empieza la siguiente; los valores corren en paralelo, un proceso por valor (`--activo`). Cada vuelta guarda también KPIs de performance (drawdown máximo, número de trades, tasa de aciertos, tiempo en mercado, margen usado, stop-out, promedio de cada parámetro dinámico) para validar las funciones de `Q4`.
+Decidido el 2026-11-02 y precisado el mismo día con la jerarquía de parámetros C1/C2, las dos cadencias de actualización, la cuenta de 3000 USD por valor y el aprendizaje con Regresión Lineal Múltiple (RLM) + Gradient Ascent (ver `docs/context/decisiones.md`). Reemplaza el diseño por ventanas de 7 días del 2026-10-23. Para cada valor, una **vuelta** es un backtest completo desde `FECHA_INICIAL` (2022-01-01) hasta la última vela histórica, con los coeficientes C2 fijos durante toda la vuelta; al terminar se aprende de ella y se corrigen los C2 para la siguiente. Cada valor se trata de forma independiente (un proceso por valor, `--activo`).
 
-Se desarrolla sobre lo que ya existe: `X4_backtester.py` (modo `--x5` y `--activo`, `_aplicar_params_x5`, checkpoint y equity aislados por activo) y `X4B_crear_version_backtesting.py` (versión aislada con `config_{V}.py` congelado); de `Q4` toma `{valor}_q4_resumen.csv`, `x5_alt_funciones.py` y `config_smart.py`. Nunca reimplementa X0/X1. Los ítems están en `todos.md` (`Q5-1` a `Q5-6`). Walk-forward / fuera de muestra por activo, consistente con el Principio 10 de `x5_contexto_conversacion.md`: un candidato se promueve solo si supera al estático en la cola nueva posterior a su elección.
+Se desarrolla sobre lo que ya existe: `X4_backtester.py` (modo `--x5` y `--activo`, `_aplicar_params_x5`, checkpoint y equity aislados por activo) y `X4B_crear_version_backtesting.py` (versión aislada con `config_{V}.py` congelado); de `Q4` toma `{valor}_q4_resumen.csv`, `x5_alt_funciones.py` y `config_smart.py`. Nunca reimplementa X0/X1.
 
-Riesgos abiertos: una observación por valor y vuelta; el caché de soportes de X4 está indexado por `N` y con `N_t` dinámico cambia en cada recálculo (rompe el warm start); `μ`/`σ` de `Q4` usan todo el histórico, un look-ahead que el backtest debe evitar; la duración de una vuelta completa es desconocida hasta `Q5-1`.
+### 9.0. Jerarquía de parámetros: C1 y C2
 
-### 9.0. Coeficientes que `Q5` siempre calibra (decidido 2026-11-02)
+| Categoría | Qué es | Parámetros |
+|---|---|---|
+| **Primera categoría (C1)** | Los siete parámetros configurables que usan X0/X1, por valor `v` | `N`, `A`, `factor_B`, `K`, `N_EXP`, `LAMBDA`, `PERDIDA_MAX` (esta última como fracción `p` de la cuenta, ver 9.3) |
+| **Segunda categoría (C2)** | Los coeficientes de la función que produce cada C1: `C1(v) = f(C2(v))`, con la sigmoide acotada de §3 | por cada C1: `span` del suavizado, `punto_medio`, `pendiente` y pesos `w_i` de sus variables |
 
-Para **cada** parámetro dinámico (`N`, `A`, `factor_B`, `K`, `N_EXP` y, si entran, `LAMBDA`, `PERDIDA_MAX`) `Q5` calibra siempre los cuatro grupos de coeficientes: pesos `w_1, ..., w_n` (`Σ w_i = 1`, `n-1` grados de libertad), `span` del suavizado, `punto_medio` y `pendiente`. En `Q4` los pesos de `N` y el `span` van fijos a mano y solo `punto_medio`/`pendiente` se ajustan (contra el target sintético); esos valores de `Q4` quedan como referencia de partida y de comparación, no como valores finales. Con `k=1` el peso es trivialmente 1. `piso`/`techo` y las ventanas de las variables (hoy 30 días en `drawdown_30d` y `ln_razon_vol_30d`) no se calibran por ahora. La búsqueda debe ser eficiente (muestreo Sobol/uniforme y luego guiado por el modelo sustituto, ver `Q5-5`), no una grilla completa.
+Los pesos se normalizan: `w̃_i = w_i / Σ_j w_j`, de modo que `Σ w̃_i = 1`. El sorteo y el aprendizaje mueven los `w_i`; la función usa los `w̃_i`.
 
-### 9.1. Prueba de tres niveles de agregación (decidido 2026-10-21)
+Los C2 que `Q5` siempre calibra (decidido 2026-11-02): para **cada** C1, los cuatro grupos `w_1, ..., w_n`, `span`, `punto_medio` y `pendiente`. En `Q4` los pesos de `N` y `A` y el `span` van fijos a mano y solo `punto_medio`/`pendiente` se ajustan contra el target sintético; esos valores quedan como punto de partida y de comparación, no como valores finales. `piso`/`techo` y las ventanas de las variables (hoy 30 días en `drawdown_30d` y `ln_razon_vol_30d`) no se calibran por ahora.
 
-`Q4` calibra hoy cada parámetro **por activo** (`valor`): cada uno tiene su propio juego de `w_1, ..., w_n` (con `Σ w_i = 1`), `punto_medio` y `pendiente`; `piso`/`techo` son fijos (`X5_PARAM_RANGES`). Antes de dar por buena esa granularidad, `Q5` debe comparar tres niveles de agregación del mismo ajuste:
+**Dimensión del problema.** `N` tiene 3 variables (2 pesos libres), `A`, `factor_B` y `LAMBDA` tienen 2 (1 peso libre cada uno), `K`, `N_EXP` y `PERDIDA_MAX` tienen 1 (peso trivialmente 1). Total: 7 parámetros × 3 (`span`, `punto_medio`, `pendiente`) + 5 pesos libres = **26 grados de libertad** por valor.
+
+### 9.1. Lógica de `Q5` para cada valor `v`
+
+1. Inicializar los C2 de cada C1 (primera vuelta: valores de `Q4`; siguientes: los que entregue el aprendizaje, ver 9.5).
+2. Calcular `w̃_i` para cada C1.
+3. Ejecutar el backtest sobre toda la historia, actualizando los C1 con las cadencias de 9.2.
+4. Al terminar el horizonte, tomar las mediciones de la vuelta y corregir los C2: **etapa de aprendizaje** (9.5).
+
+### 9.2. Cadencias de actualización de los C1
+
+| Grupo | C1 | Cuándo se recalcula | Por qué |
+|---|---|---|---|
+| (a) búsqueda de soportes | `N`, `K`, `N_EXP`, `LAMBDA` | cada `n_velas` velas H1 (`N_VELAS` en `config_smart.py`, por tipo de valor) | Son los parámetros del algoritmo de X0: al cambiarlos hay que **hacer una búsqueda nueva de soportes** antes de seguir el backtest |
+| (b) operación | `A`, `factor_B` (con `B = factor_B · A`), `PERDIDA_MAX` | cada vela H1 | Están asociados directo a la ejecución de órdenes: pueden cambiar de forma continua |
+
+Ejemplo con `N_VELAS = 168`: en la vela 168, 336, 504, ... el backtest toma los valores de `N`, `K`, `N_EXP` y `LAMBDA` que entregan sus funciones en ese instante, los lleva a la grilla (9.4) y recalcula los soportes con esos valores; entre medio, `A`, `factor_B` y `PERDIDA_MAX` cambian en cada vela. Hoy el recálculo de soportes de X4 en modo `--x5` es una constante (`X5_RECALC_SOPORTES_CADA = 168`) y el de modo normal está en días (`delta_recalculo_soportes`); `N_VELAS` los reemplaza en el modo inteligente.
+
+### 9.3. Cuenta del valor: capital, lotaje y pérdida máxima
+
+Cada valor opera con una cuenta propia que parte con **3000 USD** (hoy `X5_CAPITAL_BT = 1_000_000`, sin restricción de margen: con 3000 USD el margen sí limita). Sea `Z = cerrado + P&L abierto` del valor en ese momento.
+
+- **Lotaje**: `lotajes_m = max(1, (Z − 6000) // 3000 + 2)`. Con `Z` = 3000 → 1; 5999 → 1; 6000 → 2; 8999 → 2; 9000 → 3; 12000 → 4.
+- **Pérdida máxima**: `perdida_max_USD = p · Z`, con `p` la fracción que entrega la función dinámica (`PERDIDA_MAX_PCT`, rango `(0.03, 0.06)` en `config_smart.py`, es decir 90-180 USD sobre los 3000 USD iniciales). Una orden abierta (OA) se cierra cuando su pérdida en USD supera ese umbral, **sin escalar por lotaje**. Ejemplo: `p = 0.04`, `cerrado = 6000`, `P&L = −1000` → `Z = 5000` → `perdida_max_USD = 200`.
+- `A` y `B` siguen en USD y se comparan contra `(P0 − Pi) · L` con el lote real de cada posición, como en X1.
+
+`PERDIDA_MAX` en USD (`(100, 300)`) se mantiene en `config_smart.py` solo para que `X5_Q4.ipynb` siga reproducible; las funciones de `Q4` se ajustaron contra un target de percentil, así que su `punto_medio`/`pendiente` no dependen de la escala del rango.
+
+### 9.4. Grilla de pasos permitidos
+
+Cada C1 tiene `piso`, `techo` y `paso` en `config_smart.py` (`RANGOS_*` y `PASOS_*`, separados en crypto y acción). El valor que entrega la función se lleva al permitido más cercano, anclado en el piso: `piso + round((x − piso) / paso) · paso`.
+
+Ejemplo: `N` en acciones con rango `(40, 180)` y paso 10 permite `[40, 50, ..., 180]`; si la función entrega 52.33, queda en 50.
+
+Pasos por defecto (Mauricio los ajusta): `N` 10, `A` 0.5, `factor_B` 0.05, `K` 0.1, `N_EXP` 0.1, `LAMBDA` 0.05, `PERDIDA_MAX_PCT` 0.005. Cada uno cuadra exactamente con su rango. Los C2 no tienen grilla salvo `span`, que debe ser un entero de velas ≥ 1.
+
+### 9.5. Etapa de aprendizaje
+
+Al terminar la vuelta de un valor `v`, cada C2 es un regresor: `w̃_1^N, w̃_2^N, spanN, pmN, pendienteN, w̃^A, ...`. El resultado que aprende cada vuelta es el premio del **tramo de aprendizaje** (9.6): `Z_tongo = Z al corte / velas hasta el corte`, donde el corte es el 80% de la historia (por defecto). El tramo reservado del final no entra al aprendizaje. Se supone `Z_tongo = f(C2)`:
+
+- **Grado 1 (por defecto, `GRADO = 1`)**: `Z_tongo = h_0 + Σ_i h_i · p_i`.
+- **Grado 2 (`GRADO = 2`)**: suma los productos cruzados, por ejemplo con 3 regresores `y = h_0 + h_1 x_1 + h_2 x_2 + h_3 x_3 + h_4 x_1 x_2 + h_5 x_1 x_3 + h_6 x_2 x_3` (sin cuadrados).
+
+Con una RLM se estiman los `h_i` y con **Gradient Ascent** se mueve levemente cada `p_i` en la dirección que sube `Z_tongo`. Mientras hay pocos registros se usa **muestreo Sobol** (secuencia casi aleatoria que cubre el espacio de los 26 C2 de forma pareja); pasado un umbral de vueltas se cambia a RLM + Gradient Ascent.
+
+Con 26 regresores, el grado 1 tiene 27 coeficientes y el grado 2 tiene 352 (1 + 26 + 325 productos cruzados). Con el grado 2 la RLM solo es identificable con muchas vueltas o con regularización (ridge), y cada vuelta aporta una sola observación por valor. Por eso el grado por defecto es 1 y el umbral para dejar Sobol debe superar el número de coeficientes (sugerido: 32 vueltas, potencia de 2, que conserva el balance de la secuencia). Los pesos se regresan como `w̃` omitiendo uno por grupo (con `Σ w̃ = 1` el último es redundante y haría singular la regresión); tras cada paso de gradiente se proyectan de vuelta al símplex. El paso del gradiente es una fracción del rango de cada C2 y siempre se recorta a sus límites. Estos detalles se fijan en `Q5-5`.
+
+### 9.6. Compuerta de promoción: tramo reservado
+
+Evaluar con la misma historia con la que se aprendió sobreestima: el candidato siempre se ve bueno. Por eso el último tramo de la historia (por defecto el 20% de las velas, parámetro en `config_smart.py` cuando lo consuma `Q5-3`) **no se usa para aprender**.
+
+- En la misma vuelta se miden dos premios: el del tramo de aprendizaje (`Z` al corte / velas hasta el corte) y el del tramo reservado (`Z_final − Z` al corte, dividido por las velas del tramo). La vuelta no se parte: los C2 y la cuenta son continuos.
+- El aprendizaje (9.5) usa solo el premio del tramo de aprendizaje; el tramo reservado nunca alimenta la RLM, porque si lo hiciera dejaría de ser fuera de muestra y solo serviría para decidir si el candidato pasa.
+- Ejemplo con 42.000 velas y corte en la 33.600: si `Z` al corte es 4.200, el premio de aprendizaje es 4.200 / 33.600 = 0.125. Si `Z_final` es 4.500, el premio del tramo reservado es (4.500 − 4.200) / 8.400 ≈ 0.036, y se compara con el del estático y el de `Q4` sobre esas mismas 8.400 velas.
+- Un candidato se promueve solo si supera a la vuelta estática de control y a la calibración de `Q4` en el tramo reservado. Antes de pasar a producción se confirma además con velas nuevas posteriores a su elección, con aprobación manual de Mauricio (`Q5-5b`).
+- La vuelta estática de control corre con las mismas reglas de cuenta (3000 USD, `lotajes_m(Z)`, `perdida_max = p · Z` con `p` fijo equivalente al estático actual; el estático de 200 USD equivale a `p ≈ 0.067`, fuera del rango `(0.03, 0.06)`, decisión pendiente de Mauricio en `Q5-3`) para que la diferencia venga solo de los C1.
+
+### 9.7. Stop-out
+
+La vuelta **no se corta** al hacer stop-out: sigue hasta el final "como si el valor de la cuenta fuera negativo" (decisión de Mauricio 2026-11-02). Hoy X4 hace `break` cuando `equity ≤ 0` o el nivel de margen baja de `STOP_OUT_LEVEL` (`X4_backtester.py:1199-1224`); en el modo inteligente eso se reemplaza por un evento registrado como KPI. Reglas operativas (supuesto a confirmar en `Q5-3`):
+
+- `lotajes_m` queda acotado por el `max(1, ·)`.
+- `perdida_max_USD = p · max(Z, 0)`: con `Z < 0` el umbral negativo cerraría incluso posiciones en ganancia.
+- El control de margen existente de X4 sigue impidiendo abrir posiciones nuevas sin margen libre.
+
+### 9.8. Prueba de tres niveles de agregación (pausada)
+
+Decidido el 2026-10-21 y **pausado el 2026-11-02**: por ahora cada valor se calibra de forma independiente (un juego de C2 por valor y por parámetro). Se retoma cuando el ciclo por valor funcione (`Q5-6`). El diseño se conserva:
+
+`Q4` calibra hoy cada parámetro **por activo** (`valor`). Antes de dar por buena esa granularidad, `Q5` debería comparar tres niveles de agregación del mismo ajuste:
 
 | Nivel | Qué se agrupa | Juegos de parámetros por cada `P` | Riesgo |
 |---|---|---|---|
-| Por `valor` | Un ajuste por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN) | 6 | Sobreajuste: pocos datos por ajuste |
-| Por `tipo_valor` | Un ajuste para cryptos (BTCUSD, ETHUSD) y otro para acciones (TSLA, GOOGL, NVDA, AMZN) | 2 | Mezcla activos con dinámica distinta dentro del grupo |
-| Todos agregados | Un solo ajuste para los 6 activos | 1 | Pierde la especificidad de cada activo |
+| Por `valor` | Un ajuste por activo (BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN, MSFT) | 7 | Sobreajuste: pocos datos por ajuste |
+| Por `tipo_valor` | Un ajuste para cryptos (BTCUSD, ETHUSD) y otro para acciones (TSLA, GOOGL, NVDA, AMZN, MSFT) | 2 | Mezcla activos con dinámica distinta dentro del grupo |
+| Todos agregados | Un solo ajuste para los 7 activos | 1 | Pierde la especificidad de cada activo |
 
 Reglas de la comparación:
 - Se compara el resultado económico (backtesting con `X4_backtester.py`, sin reimplementar su lógica) y también el `R²` fuera de muestra, no solo el `R²` dentro de muestra (que siempre favorece al nivel más granular).
@@ -190,6 +262,55 @@ Reglas de la comparación:
 - Con 3 o más variables explicativas la grilla de `w` crece rápido (símplex de `n-1` pesos libres); pasar a un optimizador (Nelder-Mead sobre el símplex) en vez de grilla completa.
 - `K`, `N_EXP` y `LAMBDA` son globales en producción: para ellos el nivel "todos agregados" es el operativamente relevante; los otros dos niveles solo informan si vale la pena hacerlos por activo en `X0`.
 - Gana el nivel más agregado cuyo resultado fuera de muestra no sea peor que el más granular (criterio de parsimonia); el desempate lo decide Mauricio.
+
+### 9.9. Riesgos abiertos
+
+Las decisiones que Mauricio debe tomar están en `docs/tracking/todos.md`, marcadas `[DECIDE MAURICIO]` en el ítem de `Q5` donde se necesitan.
+
+- **Una observación por valor y vuelta contra 26 dimensiones**: el aprendizaje depende de cuántas vueltas caben; `Q5-1` mide la duración de una vuelta antes de construir nada.
+- **Lote por posición**: X4 usa un solo `cfg.LOTAJES[activo]` por activo en `_paso_B`/`C`/`D`/`E`/`F`, `_calcular_estado_cuenta` y `_registrar_trade`. Con `lotajes_m(Z)` dinámico cada posición necesita su propio volumen; falta definir si `lotajes_m` lo fija la creación de la Orden en Espera (OE) o su activación a OA. Es el cambio estructural más grande de `Q5-3`.
+- **Caché de soportes indexado por `N`** (`{VALOR}_{N}_bt.json`): con `N_t` dinámico cambia en cada recálculo y rompe el warm start (solución previa como punto de partida).
+- **`μ`/`σ` de `Q4` usan todo el histórico** (look-ahead): en el backtest deben ser expanding o fijarse en un tramo inicial.
+- **Premio no lineal**: `lotajes_m` sube con `Z`, así que ganar temprano compone y pesa más que ganar tarde; el premio por tramo reservado y el control estático con las mismas reglas lo hacen comparable.
+- **Documentación de `PERDIDA_MAX` inconsistente**: el comentario de `config.py:234` dice que el umbral escala con `volume / MIN_LOTAJES`, mientras `pars_configurables.md` y `controlar_perdida_max` comparan `(Pi − P0) · L` con el lote real. `Q5-1` verifica qué hacen X1 y X4 antes de implementar.
+- **`N_VELAS` de acciones** (35) es un supuesto (~7 velas H1 por día × 5 días); verificar en Windows cuántas velas H1 por día tiene cada acción.
+- **7 procesos a la vez**: CPU y memoria (datos H1 y M1 por proceso, búsquedas de soportes simultáneas) y volumen de lo que se registra por vuelta; `Q5-1` lo mide y `Q5-3` define la retención de curvas (9.10, 9.11).
+
+### 9.10. Registro de datos y resumen en vivo
+
+Toda vuelta registra siempre sus datos, sin opción para apagarlo: son la materia prima del aprendizaje y de la revisión de Mauricio. Se reutiliza lo que X4 ya escribe (`trades.json`, `events.json` con los stop-out, `equity_global.csv`, `equity_activos.csv` vía `_append_equity`, checkpoint) y se agregan los archivos propios de `Q5` en `resources/x5_alt/q5/`, todos por valor:
+
+| Archivo | Una fila por | Contenido |
+|---|---|---|
+| `{valor}_vueltas.csv` | vuelta | id, fase (Sobol o RLM), los C2 completos, promedio de cada C1, premio del tramo de aprendizaje y del reservado, KPIs (valor final de la cuenta, drawdown máximo, trades, tasa de aciertos, tiempo en mercado, margen usado, stop-outs, `lotajes_m` máximo), duración |
+| `{valor}_seguimiento.csv` | resumen cada `n_velas` de cada vuelta | exactamente los datos del resumen en pantalla (ver abajo), para poder reconstruir la vuelta sin releer la consola |
+| `{valor}_aprendizaje.csv` | vuelta | fase, coeficientes `h_i` de la RLM, su `R²`, paso de gradiente y C2 propuestos para la vuelta siguiente |
+
+La serie de C1 vela a vela se reconstruye desde los C2 y la tabla de estado de `Q1`, así que no se guarda. La curva de `equity` por vela sí se necesita (drawdown, gráficos); `Q5-3` define cuántas vueltas se conservan completas (todas, o las mejores y la estática) para no acumular cientos de MB por valor.
+
+**Resumen en pantalla**: cada vez que termina la búsqueda de soportes (cada `n_velas`), el backtest imprime un bloque con el status de la vuelta y de la cuenta. Todas las líneas llevan el prefijo del valor y de la vuelta, porque los 7 procesos escriben a la vez en la misma consola. Ejemplo con datos ficticios:
+
+```
+[BTCUSD | vuelta 12 | bloque 37/250 | aprendizaje | 2024-03-04 08:00 | 14.8%]  ETA 1h20m
+  status   : normal | margen 412% | 3 OA, 5 OE
+  cuenta   : cerrado 3,210.40 | P&L abierto -85.10 | Z 3,125.30 | lotajes_m 1
+  bloque   : 6 trades (4 ganados) | acumulado 212 (61%) | drawdown máx -9.8%
+  C1       : N 120 | K 1.1 | N_EXP 1.6 | LAMBDA 0.20 | A 6.5 | B 3.2 | p 0.045 (umbral 140 USD)
+  soportes : FO 1.2e-1 -> 1.5e-1 (convergió, 41 s)
+```
+
+- **status** = estado de la cuenta (`normal`, `margen bajo` si el nivel de margen baja de `STOP_OUT_LEVEL`, `cuenta negativa` si `Z ≤ 0`) más el avance: vuelta, bloque `i` de `total`, tramo (aprendizaje o reservado), fecha del backtest, porcentaje de velas y ETA de la vuelta.
+- **cuenta** = `cerrado`, `P&L abierto`, `Z = cerrado + P&L abierto` y `lotajes_m` vigente. **bloque** = trades cerrados desde el resumen anterior y acumulados, tasa de aciertos y drawdown máximo hasta ahora. **C1** = los valores vigentes tras la grilla y los promedios de `A`, `B` y `p` del bloque, con el umbral de pérdida en USD. **soportes** = lo que ya reporta `_informar_recalculo` (FO inicial y final, convergencia, duración).
+- Al cerrar la vuelta se imprime un resumen final con el premio de cada tramo y los KPIs.
+
+Se engancha justo después de la llamada a `_recalcular_soportes` (`X4_backtester.py:1123`) y reutiliza `_calcular_estado_cuenta` para balance, equity, margen y número de OA/OE.
+
+### 9.11. Ejecución en paralelo de los 7 valores
+
+Los 7 valores (`VALORES`: BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN, MSFT) corren a la vez, un proceso por valor (`--activo`). Un lanzador (`Q5-4`) arranca los 7, cada uno con su propio checkpoint, caché de soportes aislado (`resources/x5/bt_{ACTIVO}/` ya existe), carpeta de registro y archivo de log.
+
+- Los valores son independientes: cada proceso hace su ciclo completo (vuelta, aprendizaje, vuelta siguiente) sin esperar a los demás, así que cada valor puede acumular un número distinto de vueltas. Si uno falla, los otros siguen y solo ese se reanuda desde su checkpoint.
+- Hoy X4 solo paraleliza la búsqueda de soportes (`_recalcular_soportes` abre un `ProcessPoolExecutor` de hasta 4 workers, uno por valor). Con un proceso por valor cada uno tendría una sola tarea, pero hay que medir en `Q5-1` el uso de CPU y de memoria de los 7 procesos a la vez (cada uno carga datos H1 y M1) y definir cuántos hilos y workers usa cada uno para no sobresuscribir el equipo.
 
 ---
 
@@ -213,4 +334,5 @@ Pendiente para una sesión futura (ya en los TODOs, no se hace ahora): `docs/pla
 - **Historial corto por activo**: ajustar 2-3 parámetros por combo es deliberadamente poco, pero igual puede sobreajustar en activos con pocas velas o regímenes poco variados (ej. activos listados más recientemente) — revisar visualmente antes de confiar en el ajuste.
 - **Percentil causal con ventana expanding**: al principio del histórico el percentil es poco informativo (pocos datos para comparar) — los primeros tramos de la serie `P̂_t` deben leerse con cautela, no como señal real.
 - **`atr_pct` reutilizado en 3 parámetros** (`N`, `A`, `factor_B`): si `atr_pct` tiene algún problema de calidad/cobertura de datos, contamina las 3 calibraciones a la vez — vale la pena un chequeo de calidad de esa columna específica antes de calibrar.
+- **Riesgos de `Q5`** (una observación por vuelta contra 26 dimensiones, lote por posición en X4, caché por `N`, look-ahead de `μ`/`σ`): viven en §9.9.
 - **Buen ajuste a un target sintético no implica utilidad económica** — riesgo central de esta fase, mitigado por mantener `Q5` como gate obligatorio antes de cualquier wiring a producción.

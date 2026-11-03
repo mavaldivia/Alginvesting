@@ -351,3 +351,63 @@ Por lo tanto necesito:
 Cierra Q4. Asumiendo que revisé las salidas del script. Ejecuta todos los to dos asociados a implementar y ejecutar Q4
 Documenta como quedan las funciones de todos los parámetros dinámicos, en un pdf con latex que tenga aprox una hoja por parámetro dinámico. Dejalo en docs/context/funciones_pars_dinamicos.pdf
 Planifica la creación del backtesting inteligente en los todos. Se debe desarrollar considerando lo construido en X4.py y X4B.py, además de todo lo que hay en Q4
+
+
+/new_todo X5_alt_v2
+/plan
+Dado que Q4.ipynb se declara completado para todos los "parámetros dinámicos", tomaremos contexto profundo y definiciones claras de cara a lo que será la construcción del backtesting.
+Quiero que en esta sesión solo documentes y planifiques, actualizando los todos a detalle para que quede conceptualmente todo lo más claro posible.
+Como sabemos y estudiamos en Q4, tenemos lo que conocemos como parámetros configurables o, desde ahora, parámetros de primera categoría o C1. Específicamente, para cada valor (o tipo de valor, crypto o acciones) v, se tienen los parámetros C1: N, A, factor_b, K, N_exp, lambda y pérdida max [PC1(v)]
+Luego, aparecen los que desde ahora conoceremos como parámetros de segunda categoría, C2:
+Específicamente, se tiene que
+PC1(v) = f(PC2(v))
+En PC2 están: span, punto medio, pendiente y wi ({w1, w2, ...})
+Declararemos además, para cada valor, o tipo de valor v y parámetro de primera categoría p
+wi tongo (p, v) = wi / sum(j, wj), para normalizarlos y que sum(wi tongo) = 1
+
+La etapa de backtesting debe tener la siguiente lógica:
+Para cada valor v:
+
+1. Inicializar parámetros C2 para cada parámetro C1 (p)
+2. Calcular wi tongo, para cada parámetro p
+3. Tomar toda la data histórica y ejecutar bckt
+4. Cuando termine el horizonte, tomar todas las mediciones y corregir los parámetros PC2, de cada PC1 [ETAPA DE APENDIZAJE]
+
+Hablemos entonces de 3 y 4
+3. Los parámetros de primera categoría deberían actualizarse cada
+a: n_velas. Para los parámetros: N, K, N_exp y lambda
+b: una vala. Para los parámetros: A, factor_b, perdida_max
+
+Se puede notar que en a), están los parámetros C1 asociados a la búsqueda de sopres, por lo tanto, cada n_velas, deberían actualizarse los sopres nuevos considerando los nuevos valores de N, K, N_Exp y lambda
+En cambio los de b), pueden cambiar de forma continua, ya que están asociados directamente con la operación / ejecución
+
+El backtesting debe comenzar hipotéticamente con 3000 usd por valor, mientras que perdida_max debe ser un % del valor de la cuenta de ese valor (ej, si perdida_max es 0.04
+y en un momento BTC tiene cerrado = 6000 usd y P&L = -1000 usd, entonces la perdida_max en USD sería de 0.04 * (6000 - 1000) = 200 usd
+
+Por otro lado, lotajes_m será un valor que depende directamente de cerrado + P&L de ese valor en particular. Sea Z = cerrado + P&L (6000 - 1000 = 5000 en el ejemplo). 
+lotajes_m del valor debe ser max(1, (Z - 6000) // 3000 + 2)
+
+Entonces, cada n_velas, se debe hacer una búsqueda nueva de sopres antes de continuar la ejecución del backtesting
+n_velas debe ser un parámetro para acciones y para cryptos en config_smart.py (se mide en velas de una hora).
+
+COnsidera además en config_smart.py, un paso para cada parámetro C1
+Supongamos N(cryptos): min = 40, max = 180, paso = 10
+Eso significa que se permiten valores [40, 50, 60, ..., 180], de tal forma que al obtener la aproximación, se debe llevar al más cercano permitido. Por ejemplo si el resultado es 52.33, entonces queda en 50. Define los valores de paso por defecto por ahora. Yo lo cambio después
+
+4.
+Ahora, con respecto a 4, ocurre lo siguiente en la etapa de aprendizaje para un valor v
+Al terminar el ciclo de backtesting, con cada PC1 definido en el tiempo por valores fijos de PC2 en ese ciclo de backtesting, viene la etapa de aprendizaje
+Sea p un PC2 para el valor v, aquí tenemos: w1N, w2N, w3N, spanN, pmN, slopeN, w1K, ....
+Además, tenemos un output dado por Z_tongo = (cerrado + P&L) / total de velas de una hora
+Luego, podemos suponer que Z_tongo = funcion(PC2)
+Específicamente podríamos suponer una función lineal, dada por:
+Z_tongo = sum(i, h_i * p_i)
+Luego, con una RLM se pueden obtener los valores de h_i y con un gradient ascent, mover levemente cada uno de los valores de p_i
+Cuando no hayan tantos registros en los primeros ciclos, se pueden hacer movimientos aleatorios
+Incluso, en vez de crear un manto lineal, tambien podemos crear uno de grado 2,
+Por ejemplo si y = f(x1, x2, x3), se puede proponer:
+y = h0 + h1x1 + h2x2 + h3x3 + h4x1x2 + h5x1x3 + h6x2x3
+Define el parámetro grado en config_smart.py
+
+
+/consultar
