@@ -85,7 +85,7 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Ciclos temporales independientes por activo**: cada activo corre su propio hilo con dos relojes anidados — cada `T_UPDATE_CICLO_X0` min (60 por defecto) re-descarga datos y recalcula distancias (ciclo `i`); cada `T_UPDATE_O0` min (15 por defecto) corre el optimizador con presupuesto de tiempo y flushea el `conjunto_N` a `resources/conjuntos_N/` (bloque `j`), sin esperar a los demás activos. `T_UPDATE_CICLO_X0` debe ser múltiplo exacto de `T_UPDATE_O0` (se valida al arrancar X0); el paso de bloque a ciclo se dispara por conteo de bloques, no por tiempo transcurrido, para no cortar un bloque a medio presupuesto. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo (`[C {i} | A {j}] {valor}_{N}: ...`) con su fase actual, incluyendo una barra `|████░░░░| N/T_UPDATE_O0min` que marca el avance del bloque en curso mientras está `[corriendo]`.
 - **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
 
-El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y acepta cualquier cambio que mejore la FO (sin umbral mínimo). En backtesting/X5 corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse; si converge antes, el tiempo sobrante se usa en barridos más finos (`M_AFINADO`).
+El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y saltos a cualquier zona del rango (`M_SALTO`), y acepta cualquier cambio que mejore la FO (sin umbral mínimo). Las OA son soportes fijos que entran a la FO sin limitar a los libres. En X4/X5 cada búsqueda tiene un tope de `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` minutos. En backtesting/X5 corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse; si converge antes, el tiempo sobrante se usa en barridos más finos (`M_AFINADO`).
 
 ---
 
@@ -165,6 +165,9 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 | `LAMBDA` | 1/5 | Penalización por dispersión desigual |
 | `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
 | `M_AFINADO` | (100, 300) | Solo en vivo: barridos más finos tras converger con `M`, hasta agotar el bloque de `T_UPDATE_O0` |
+| `M_SALTO` | 60 | Candidatos de salto por soporte libre en todo `[p_min, p_max]` (sin respetar vecinos); 0 = solo búsqueda local |
+| `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` | 15 (min) | Tope de cada búsqueda de soportes en X4/X5 (cold start y recálculos); conserva la mejor solución al agotarse |
+| `X4_TIEMPO_MAX_FASE_GRUESA_MIN` | 9 (min) | Tope de la fase gruesa (`M_COARSE`) dentro de esa búsqueda; la fase fina (`M`) usa el resto hasta los 15 min |
 | `T_UPDATE_O0` | 15 (min) | Cadencia de flush del `conjunto_N` a `resources/conjuntos_N/` en producción |
 | `T_UPDATE_CICLO_X0` | 60 (min) | Cadencia de refresco de data/X2/X3/distancias en producción |
 | `N_MAX_MODELS` | `len(VALORES)` (7) | Tope de combos corriendo a la vez en el pool de procesos compartido (None/0 = sin tope) |
@@ -234,6 +237,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-03** — feat(x0,x4): saltos en el optimizador de soportes (M_SALTO) para cubrir zonas nuevas bajo/sobre las OA, tope de 15 min por búsqueda en X4 (9 min la fase gruesa) y `--reset` que limpia `resources_{versión}`
 - **2026-11-03** — fix(x1): coloca el 20% superior del reemplazo O0/OE de menor a mayor
 - **2026-11-03** — feat(x4): reporte tras cada búsqueda de soportes con total, rango de precios y desglose OK (ya OA, ya OE, por activar) vs. O0
 - **2026-11-03** — feat(x4): resumen diario del backtester con rango y cantidad de OA/OE, precio y rango de 24 h, y P&L total, flotante y cerrado (24 h y acumulado)

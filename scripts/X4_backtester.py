@@ -18,6 +18,7 @@ import importlib.util
 import json
 import os
 import random
+import shutil
 import sys
 import time
 from collections import deque
@@ -106,6 +107,22 @@ def _cargar_datos_m1(cfg) -> dict:
 
 # ─── Checkpoint ───────────────────────────────────────────────────────────────
 
+def _limpiar_resources_version(cfg) -> None:
+    """--reset en modo versión: vacía la carpeta de resultados de la versión (checkpoint, trades,
+    events, equity, caché de soportes y logs). Sin esto el caché `_bt.json` (indexado por fecha)
+    sirve de warm start a la corrida nueva y los CSV/JSON se siguen agregando a los viejos.
+    Solo toca `resources_{version}`; el log de convergencia de X0 (`resources/x0/logs`) es global
+    y compartido entre versiones, así que no se borra."""
+    carpeta = cfg.CARPETA_RESOURCES
+    if carpeta.name != f'resources_{cfg.version}' or not carpeta.exists():
+        return
+    n = 0
+    for item in carpeta.iterdir():
+        shutil.rmtree(item) if item.is_dir() else item.unlink()
+        n += 1
+    print(f'Reset: {carpeta.name} limpiada ({n} elementos: checkpoint, trades, events, equity, caché de soportes y logs).')
+
+
 def _cargar_checkpoint(cfg) -> dict | None:
     ckpt_path = cfg.CARPETA_RESOURCES / 'checkpoint.json'
     if not ckpt_path.exists():
@@ -145,7 +162,7 @@ def _guardar_checkpoint(estado: dict, cfg):
 
 def _worker_recalcular(args):
     (activo, N, carpeta_data, carpeta_n_prod, carpeta_n_bt, ts_actual, oa_bt,
-     params_soporte, warm_start, ruta_plot) = args
+     params_soporte, warm_start, ruta_plot, tiempo_limite_s, tope_fase_gruesa_s) = args
     return _procesar_valor_N(
         activo, N,
         carpeta_data,
@@ -159,6 +176,8 @@ def _worker_recalcular(args):
         params_soporte,  # K/N_EXP/LAMBDA del ciclo (None → globales de config.py)
         warm_start,      # usa la solución de (valor, N) en t* <= t como punto de partida
         ruta_plot,       # demo: PNG de precios + soportes de esta búsqueda
+        tiempo_limite_s, # tope de la búsqueda (X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN)
+        tope_fase_gruesa_s,  # tope de la fase M_COARSE (X4_TIEMPO_MAX_FASE_GRUESA_MIN)
     )
 
 
@@ -192,7 +211,8 @@ def _informar_recalculo(infos: list, ts_actual, demo: bool, estado: dict,
         if not demo:
             print(f'  [{ts_actual}] {info["valor"]} N={info["N"]}: precios '
                   f'{info["t0"]} → {info["tf"]} ({info["n_velas"]} velas) | '
-                  f'warm start: {ws} | {info["duracion"]}s')
+                  f'warm start: {ws} | {info["duracion"]}s'
+                  + (' (cortada por tope de tiempo)' if info['tiempo_agotado'] else ''))
             continue
         est_a = estado['por_activo'].get(info['valor'], {})
         print()
@@ -221,24 +241,25 @@ def _distancia_ok(precio_ref: float, soporte: float, L: float, cfg) -> bool:
 
 
 def _reporte_soportes(estado: dict, precios_ref: dict, cfg) -> None:
-    """Por activo: cuántos soportes hay, entre qué precios y cuántos ya cumplen `distancia_ok`.
+    """Por activo: cuántos soportes hay, entre qué precios y en qué estado está cada uno.
 
-    OK = soporte que ya se puede activar como OE; O0 = aún demasiado cerca del precio (o por encima)."""
+    Partición: ya OA, ya OE, OK (se puede activar como OE) y O0 (aún cerca del precio, o por encima)."""
     for activo, est_a in estado['por_activo'].items():
         soportes = est_a['soportes']
         precio = precios_ref.get(activo)
         if not soportes or precio is None:
             continue
         L = cfg.LOTAJES[activo] * cfg.UNITS[activo]
-        ok = [s for s in soportes if _distancia_ok(precio, s, L, cfg)]
-        o0 = [s for s in soportes if not _distancia_ok(precio, s, L, cfg)]
-        n_oa = sum(s in est_a['OA'] for s in ok)
-        n_oe = sum(s in est_a['OE'] for s in ok)
+        ya_oa = [s for s in soportes if s in est_a['OA']]
+        ya_oe = [s for s in soportes if s in est_a['OE']]
+        libres = [s for s in soportes if s not in est_a['OA'] and s not in est_a['OE']]
+        ok = [s for s in libres if _distancia_ok(precio, s, L, cfg)]
+        o0 = [s for s in libres if not _distancia_ok(precio, s, L, cfg)]
         print(f'    {activo}: {len(soportes)} soportes entre {min(soportes):.2f} y {max(soportes):.2f}'
               f' | precio={precio:.2f}')
-        print(f'      OK (se pueden activar): {len(ok)} [{_fmt_rango(ok)}]'
-              f' → ya OA={n_oa}, ya OE={n_oe}, por activar={len(ok) - n_oa - n_oe}'
-              f' | O0 (aún cerca del precio): {len(o0)} [{_fmt_rango(o0)}]')
+        print(f'      ya OA={len(ya_oa)} [{_fmt_rango(ya_oa)}] | ya OE={len(ya_oe)} [{_fmt_rango(ya_oe)}]'
+              f' | OK por activar={len(ok)} [{_fmt_rango(ok)}]'
+              f' | O0 (aún cerca del precio)={len(o0)} [{_fmt_rango(o0)}]')
 
 
 def _demo_evento_plot(infos: list, ts_actual) -> None:
@@ -259,6 +280,9 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
                       if x5_mode else None)
     warm_start = bool(getattr(cfg, 'X5_WARM_START_SOPORTES', True)) if x5_mode else True
     demo = x5_demo.esta_activo()
+    import config as _gc
+    tiempo_limite_s = _gc.X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN * 60
+    tope_fase_gruesa_s = _gc.X4_TIEMPO_MAX_FASE_GRUESA_MIN * 60
     tasks = []
     for activo in cfg.valores:
         if activo not in estado['por_activo']:
@@ -267,7 +291,8 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
         oa_bt = list(estado['por_activo'][activo]['OA'].keys())
         ruta_plot = _ruta_plot_demo(activo, N, ts_actual) if demo else None
         tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT,
-                      ts_actual, oa_bt, params_soporte, warm_start, ruta_plot))
+                      ts_actual, oa_bt, params_soporte, warm_start, ruta_plot, tiempo_limite_s,
+                      tope_fase_gruesa_s))
 
     n_workers = min(len(tasks), 4)
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
@@ -1025,6 +1050,8 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
     print(f' X4 Backtester — versión {cfg.version}')
     print(f'{"═"*60}')
 
+    if reset and not x5_mode:
+        _limpiar_resources_version(cfg)
     cfg.CARPETA_RESOURCES.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
     cfg.CARPETA_LOGS_BT.mkdir(parents=True, exist_ok=True)
@@ -1493,7 +1520,7 @@ if __name__ == '__main__':
     parser.add_argument('--version', type=str, default=X4_VERSION_ACTIVA,
                         help=f'Versión a ejecutar (default: {X4_VERSION_ACTIVA})')
     parser.add_argument('--reset', action='store_true',
-                        help='Ignorar checkpoint existente y partir de cero')
+                        help='Partir de cero: limpia la carpeta de resultados de la versión (checkpoint, trades, events, equity, caché de soportes y logs)')
     parser.add_argument('--x5', action='store_true',
                         help='Modo X5: explore/exploit de params, emite [MES_BT] markers para X5 --recolectar')
     parser.add_argument('--activo', type=str, default=None,

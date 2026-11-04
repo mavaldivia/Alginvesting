@@ -64,7 +64,7 @@ Medir cuánto tarda un backtest completo de BTCUSD con parámetros estáticos, d
   python -u scripts/X4_backtester.py --version V4 2>&1 | Tee-Object -FilePath "resources\x4\versionV4\salida_V4_$(Get-Date -Format yyyyMMdd_HHmm).txt"
   ```
   No necesitas anotar nada: el zip del paso 4 junta la salida de todas las ventanas, y `resumen.json` marca los huecos largos entre búsquedas como posibles interrupciones.
-- **Repetir la medición**: el caché de soportes (`resources\x4\versionV4\resources_V4\conjuntos_N`) sirve de punto de partida a la búsqueda siguiente, incluso con `--reset`, y una repetición mediría menos de lo real. Antes de repetir, borra esa carpeta.
+- **Repetir la medición**: `--reset` limpia `resources_V4` completo (checkpoint, trades, events, equity, caché de soportes y logs), así que la corrida parte de cero y el caché viejo no sirve de warm start. No toca los `salida_V4_*.txt` ni el log de X0 (`resources/x0/logs`, global y compartido entre versiones): antes de repetir, mueve o borra los `salida_V4_*.txt` viejos, porque el zip del paso 4 los junta todos.
 
 ## Qué viene después
 

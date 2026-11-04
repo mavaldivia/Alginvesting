@@ -102,11 +102,14 @@ En cada iteración, para cada soporte `i` del conjunto N:
 2. Evalúa la FO para cada candidato.
 3. Si la curva FO(candidato) tiene forma de U invertida → ajuste cuadrático para hallar el máximo analítico exacto.
 4. Si no → toma el candidato con mayor FO.
-5. Acepta el cambio si mejora la FO (sin umbral mínimo).
+5. Salto: además evalúa `M_SALTO` candidatos repartidos en todo `[p_min, p_max]`, sin respetar a los vecinos, y se queda con el mejor entre el local y el salto. Así un soporte libre puede pasar a una zona que el conjunto no cubre (ej. bajo las OA tras una caída del precio); sin esto, los soportes quedaban encerrados entre sus vecinos y nunca cubrían precios nuevos.
+6. Acepta el cambio si mejora la FO (sin umbral mínimo).
+
+Las órdenes activas (OA) son soportes fijos del conjunto N: entran a la FO pero no se mueven ni limitan a los libres. No hay orden entre soportes que respetar; `dic_N` se reordena tras cada cambio aceptado solo para indexar.
 
 Si ningún soporte mejora en la vuelta actual → expande a todos los soportes y reintenta. Si aún no hay mejora → convergencia.
 
-En **backtesting/X5**, corre sin límite hasta convergencia natural (o hasta los topes de seguridad `MAX_ITERS`/`MAX_CAMBIOS`). En **producción en vivo**, `nuevo_optimizador_2` recibe un presupuesto de tiempo (`tiempo_limite_s`) y corta al agotarse sin necesidad de converger — ver el modelo de ciclos temporales más abajo.
+En **backtesting/X5**, corre hasta convergencia natural, los topes de seguridad `MAX_ITERS`/`MAX_CAMBIOS` o el tope de tiempo `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` (15 min por búsqueda, cold start incluido; la fase gruesa `M_COARSE` tiene su propio tope `X4_TIEMPO_MAX_FASE_GRUESA_MIN` = 9 min y la fina `M` usa lo que quede hasta los 15; al agotarse conserva la mejor solución hallada y no corre los barridos `M_AFINADO`). En **producción en vivo**, `nuevo_optimizador_2` recibe un presupuesto de tiempo (`tiempo_limite_s`) y corta al agotarse sin necesidad de converger — ver el modelo de ciclos temporales más abajo.
 
 Versión activa: `nuevo_optimizador_2`.
 
@@ -157,6 +160,7 @@ Definidos en `scripts/config.py`, secciones "Calidad del algoritmo de búsqueda 
 Genera M precios equidistantes (`linspace`) entre los soportes vecinos y evalúa la FO en cada uno.
 - **↑ M**: barrido más fino entre soportes vecinos → más probabilidad de hallar el óptimo local exacto (o una buena base para el ajuste cuadrático), pero cada paso cuesta M evaluaciones de `calcular_FO` adicionales.
 - **↓ M**: pasos más rápidos, pero candidatos más espaciados → más riesgo de saltarse el máximo real entre dos soportes vecinos.
+- **`M_SALTO = 60`**: candidatos de salto por soporte libre, repartidos en todo `[p_min, p_max]` (resolución ~500 USD en BTC; el paso local entre vecinos afina después). `0` desactiva los saltos. Cuesta `M_SALTO` evaluaciones extra de FO por soporte y pasada.
 - **`M_AFINADO = (100, 300)`**: solo en vivo. Si el bloque de `T_UPDATE_O0` converge con M antes de agotarse, repite el optimizador con estos M crecientes hasta agotar el tiempo (bt/X5 no lo usan).
 
 ### LAMBDA = 1/5 — penalización por dispersión desigual: `FO = mean(z) - LAMBDA * cv(H_n)`

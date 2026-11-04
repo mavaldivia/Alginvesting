@@ -100,6 +100,7 @@ LAMBDA = 1 / 5    # penaliza dispersión desigual entre soportes: FO = mean(z) -
 M = 30              # candidatos evaluados por soporte en fase fine (linspace entre vecinos)
 M_COARSE = 5        # candidatos en fase coarse (exploración barata antes del refinamiento fino)
 M_AFINADO = (100, 300)  # solo en vivo: barridos más finos tras converger con M, hasta agotar T_UPDATE_O0 (memoria ~ M × n_velas)
+M_SALTO = 60        # candidatos de salto por soporte libre, repartidos en todo [p_min, p_max] (sin respetar vecinos); 0 = solo búsqueda local entre vecinos
 
 # ─── X0 producción en vivo: cadencia de ciclos (reloj real) ───────────────────
 # Solo aplica a X0 en producción (--opcion 1/2, _ciclo_activo). Backtesting/X5
@@ -107,6 +108,12 @@ M_AFINADO = (100, 300)  # solo en vivo: barridos más finos tras converger con M
 # en resources/x4/version{V}/config_{V}.py, X5_RECALC_SOPORTES_CADA en X5), independiente.
 T_UPDATE_O0 = 15         # minutos entre flushes del conjunto_N vigente a resources/conjuntos_N/
 T_UPDATE_CICLO_X0 = 60   # minutos entre refrescos de data H1/M1 + X2 + X3 + recálculo de distancias
+
+# X4/X5: tope de tiempo de cada búsqueda de soportes (cold start y recálculos cada delta_recalculo_soportes).
+# Al agotarse corta y conserva la mejor solución hallada; no hay barridos M_AFINADO (solo en vivo).
+# La fase gruesa (M_COARSE) tiene su propio tope; la fina (M) usa lo que quede hasta el total.
+X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN = 15
+X4_TIEMPO_MAX_FASE_GRUESA_MIN = 9
 
 # ─── Velocidad / cómputo ──────────────────────────────────────────────────────
 

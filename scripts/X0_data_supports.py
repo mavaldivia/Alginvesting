@@ -57,7 +57,7 @@ from config import (
     CARPETA_DATA, CARPETA_DATA_MINUTO, CARPETA_N_PROD, CARPETA_PLOTS, CARPETA_LOGS,
     VALORES, FECHA_INICIAL, soporte_de_orden,
     K, N_EXP, BLOQUE_DISTANCIAS, parametros_soportes,
-    M, M_COARSE, M_AFINADO, LAMBDA, MAX_ITERS, MAX_CAMBIOS,
+    M, M_COARSE, M_AFINADO, M_SALTO, LAMBDA, MAX_ITERS, MAX_CAMBIOS,
     T_UPDATE_O0, T_UPDATE_CICLO_X0,
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes, n_sizes_ejecucion, N_MAX_MODELS, reiniciar_x0,
@@ -416,7 +416,7 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                          prueba_cercanos: bool = False,
                          estado_compartido=None, llave: str = '',
                          verbose: bool = True, max_cambios: int = MAX_CAMBIOS,
-                         tiempo_limite_s: float = None) -> tuple:
+                         tiempo_limite_s: float = None, m_salto: int = M_SALTO) -> tuple:
     """
     Optimizador de búsqueda local sobre el conjunto N de soportes.
 
@@ -426,11 +426,16 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
         - Evalúa todos en una pasada numpy vectorizada (calcular_FO_batch).
         - Si los puntos forman una U invertida → ajuste cuadrático para hallar el óptimo exacto.
         - Si no → toma el candidato con mayor FO.
+        - Salto: además evalúa m_salto candidatos repartidos en todo [p_min, p_max], sin respetar a
+          los vecinos, y se queda con el mejor entre el local y el salto. Así un soporte libre puede
+          pasar a una zona que el conjunto no cubre (p. ej. bajo las OA tras una caída del precio).
         - Acepta el cambio si mejora la FO (sin umbral mínimo).
       Si ningún soporte mejoró → expande casos_moviles a todos y vuelve a intentar.
       Si aun así no mejora → converge, sale del loop.
 
-    ordenes_activas: precios fijos (ya están ejecutados en la plataforma, no se mueven).
+    ordenes_activas: precios fijos (ya están ejecutados en la plataforma, no se mueven). Entran a la FO
+      como soportes del conjunto N, pero no limitan a los libres: no hay orden entre soportes que se
+      deba respetar, solo el que lleva dic_N para indexar (se reordena tras cada cambio aceptado).
     prueba_cercanos: si True, prioriza vecinos del soporte cambiado en la siguiente iteración.
     max_cambios: tope de cambios aceptados; al alcanzarse, corta y retorna la mejor solución
       hallada hasta ese punto con convergio=False (evita ciclos que nunca convergen).
@@ -554,9 +559,21 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                     caso = float(df_plot['caso'].iloc[idx_max])
                     FO_iter = float(df_plot['FO_iter'].iloc[idx_max])
 
+                es_salto = False
+                if m_salto:
+                    cand_salto = np.linspace(p_min, p_max, m_salto)[1:-1]
+                    dist_a_soportes = np.abs(cand_salto[:, None] - np.array(lista_N)[None, :]).min(axis=1)
+                    cand_salto = cand_salto[dist_a_soportes > 1e-6]  # nunca sobre un soporte existente
+                    if len(cand_salto):
+                        FO_salto = calcular_FO_batch(df_extremos, lista_N, i, cand_salto, lambda_ponderador,
+                                                     dist_max_global=dist_max_iter)
+                        k_salto = int(FO_salto.argmax())
+                        if FO_salto[k_salto] > FO_iter:
+                            caso, FO_iter, es_salto = float(cand_salto[k_salto]), float(FO_salto[k_salto]), True
+
                 if FO_iter > FO_base:
                     if verbose:
-                        print(f'  Mejora en soporte i={i}, nuevo={caso:.2f}: '
+                        print(f'  Mejora en soporte i={i}, nuevo={caso:.2f}{" (salto)" if es_salto else ""}: '
                               f'{notacion_cientifica(FO_base)} -> {notacion_cientifica(FO_iter)}')
                     mejora = True
                     cambios += 1
@@ -586,6 +603,9 @@ def nuevo_optimizador_2(N: int, df_extremos: pd.DataFrame, conjunto_N: set,
                 casos_moviles = list(dic_N.keys())
             else:
                 dic_N[i_change] = nuevo_value
+                # Un salto puede cruzar a otros soportes: dic_N indexa por rango, hay que reordenarlo
+                dic_N = dict(enumerate(sorted(dic_N.values())))
+                i_change = list(dic_N.values()).index(nuevo_value)
                 if verbose:
                     print(f'FO {j}: {notacion_cientifica(FO_base, 4)} | '
                           f'[{notacion_cientifica(particion_FO[0], 4)}, {notacion_cientifica(particion_FO[1], 4)}]')
@@ -1230,7 +1250,8 @@ def _optimizar_y_guardar_valor_N(valor: str, N: int, prep: dict, ordenes_activas
                                  fases: tuple = ('coarse', 'fine'),
                                  tiempo_limite_s: float = None,
                                  estado_compartido=None, verbose: bool = True,
-                                 ruta_plot=None) -> dict:
+                                 ruta_plot=None, afinar: bool = True,
+                                 tope_fase_gruesa_s: float = None) -> dict:
     """Corre nuevo_optimizador_2 una vez por fase en `fases` ('coarse' usa M_COARSE
     candidatos de exploración barata, 'fine' usa M) sobre prep['df_extremos']/
     prep['conjunto_N'], compartiendo tiempo_limite_s entre las fases pedidas (None =
@@ -1257,11 +1278,14 @@ def _optimizar_y_guardar_valor_N(valor: str, N: int, prep: dict, ordenes_activas
     # bt/X5 (sin presupuesto) siguen cortando en la convergencia de las fases pedidas.
     Ms = [M_por_fase[fase] for fase in fases]
     n_base = len(Ms)
-    if deadline_abs is not None:
+    if deadline_abs is not None and afinar:
         Ms += list(M_AFINADO)
     for k, M_fase in enumerate(Ms):
         tiempo_restante_fase = (max(0.0, deadline_abs - time.monotonic())
                                  if deadline_abs is not None else None)
+        if tope_fase_gruesa_s is not None and k < n_base and fases[k] == 'coarse':
+            tiempo_restante_fase = (tope_fase_gruesa_s if tiempo_restante_fase is None
+                                    else min(tiempo_restante_fase, tope_fase_gruesa_s))
         if k >= n_base and (not convergio or tiempo_restante_fase <= 0):
             break
         conjunto_N, df_extremos, df_FO_fase, convergio, _, max_pasos_fase = nuevo_optimizador_2(
@@ -1317,6 +1341,7 @@ def _optimizar_y_guardar_valor_N(valor: str, N: int, prep: dict, ordenes_activas
         'FO_final': FO_final, 'convergio': convergio,
         'cambios': cambios_netos, 'n_iters': len(df_FO), 'max_pasos': max_pasos,
         'plot': plot_generado,
+        'tiempo_agotado': deadline_abs is not None and time.monotonic() >= deadline_abs,
     }
 
 
@@ -1326,7 +1351,8 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
                       estado_compartido=None, verbose: bool = True,
                       ordenes_abiertas_bt: list = [],
                       params_soporte: dict = None,
-                      warm_start: bool = True, ruta_plot=None):
+                      warm_start: bool = True, ruta_plot=None,
+                      tiempo_limite_s: float = None, tope_fase_gruesa_s: float = None):
     """Worker para ProcessPoolExecutor: procesa un único par (valor, N) a convergencia
     (o hasta los topes de seguridad MAX_ITERS/MAX_CAMBIOS). Usado por backtesting (X4/X5)
     y, en producción, por la preparación horaria de _ciclo_activo. El flujo en vivo de
@@ -1345,6 +1371,11 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
                 producción si no. Con False parte de puntos aleatorios.
     ruta_plot:  si se pasa, guarda ahí el gráfico de precios (t0 → tf) con los soportes
                 encontrados. Usado por el modo demo de X5, donde también aplica en bt.
+    tiempo_limite_s: tope de la búsqueda completa (preparación + optimización). Al agotarse
+                conserva la mejor solución hallada y no corre los barridos M_AFINADO (solo en vivo).
+                None = sin tope, corre a convergencia o a los topes MAX_ITERS/MAX_CAMBIOS.
+    tope_fase_gruesa_s: tope propio de la fase coarse (M_COARSE); la fase fina (M) usa el tiempo
+                que quede hasta tiempo_limite_s. None = la fase gruesa puede usar todo el tiempo.
 
     Retorna un dict con la metadata de la corrida (rango usado, warm start, FO, duración)
     o None si el combo se saltó por falta de datos.
@@ -1357,10 +1388,13 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         return None
 
     oa = ordenes_abiertas_bt if prep['es_bt'] else ordenes_activas
+    restante_s = (max(0.0, tiempo_limite_s - (time.time() - t_inicio))
+                  if tiempo_limite_s is not None else None)
     r = _optimizar_y_guardar_valor_N(
         valor, N, prep, oa, carpeta_n_prod, carpeta_n_bt,
-        fases=('coarse', 'fine'), tiempo_limite_s=None,
+        fases=('coarse', 'fine'), tiempo_limite_s=restante_s,
         estado_compartido=estado_compartido, verbose=verbose, ruta_plot=ruta_plot,
+        afinar=False, tope_fase_gruesa_s=tope_fase_gruesa_s,
     )
     t_fin = time.time()
 
@@ -1385,7 +1419,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         'warm_start_n': prep['warm_start_n'], 'warm_start_t': prep['warm_start_t'],
         'FO_inicial': prep['FO_ref'], 'FO_final': r['FO_final'],
         'convergio': r['convergio'], 'duracion': round(duracion, 1),
-        'plot': r['plot'],
+        'plot': r['plot'], 'tiempo_agotado': r['tiempo_agotado'],
     }
 
 

@@ -1,0 +1,54 @@
+ANTIGUO
+(V4, BTCUSD, N=180. Corrida previa a los saltos y al tope de 15 min: resumen diario y búsquedas de soportes del 2022-12-27 al 2023-01-10)
+
+  [2022-12-27 19:00:00] eq=978940.04 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21059.96 (flotante=-5266.26) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16687.46 24h[16597.68–16944.50] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2022-12-28 19:00:00] eq=978912.68 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21087.32 (flotante=-5293.62) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16596.26 24h[16561.17–16782.62] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2022-12-29 19:00:00] eq=978916.93 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21083.07 (flotante=-5289.37) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16610.44 24h[16465.55–16660.34] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2022-12-30 19:00:00] eq=978892.36 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21107.64 (flotante=-5313.94) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16528.54 24h[16334.03–16651.58] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2022-12-31 19:00:00] eq=978901.54 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21098.46 (flotante=-5304.76) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16559.13 24h[16521.81–16656.02] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-01 19:00:00] eq=978910.69 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21089.31 (flotante=-5295.61) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16589.63 24h[16472.25–16608.54] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-02 19:00:00] eq=978950.31 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21049.69 (flotante=-5256.00) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16721.69 24h[16535.88–16750.19] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-03 00:00:00] Recalculando soportes...
+  [2023-01-03 00:00:00] BTCUSD N=180: precios 2022-01-01 03:00:00 → 2023-01-03 00:00:00 (8803 velas) | warm start: 180 soportes desde t*=2022-12-27 00:00:00 | 882.7s
+    BTCUSD: 180 soportes entre 33026.45 y 47747.41 | precio=16665.66
+      OK (se pueden activar): 0 [—] → ya OA=0, ya OE=0, por activar=0 | O0 (aún cerca del precio): 180 [33026.45–47747.41]
+  [2023-01-03 20:00:00] eq=978927.88 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21072.12 (flotante=-5278.42) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16646.93 24h[16593.15–16773.61] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-04 20:00:00] eq=978971.55 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21028.45 (flotante=-5234.75) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16792.52 24h[16632.88–16988.17] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-05 20:00:00] eq=978987.95 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21012.05 (flotante=-5218.35) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16847.17 24h[16750.72–16868.59] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-06 20:00:00] eq=978997.76 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-21002.24 (flotante=-5208.54) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16879.86 24h[16644.66–17030.81] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-07 20:00:00] eq=979015.15 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-20984.85 (flotante=-5191.15) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16937.85 24h[16874.25–16968.83] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-08 20:00:00] eq=979020.12 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-20979.88 (flotante=-5186.18) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=16954.42 24h[16900.05–17011.24] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-09 20:00:00] eq=979096.94 bal=984206.30 | OA=30 OE=0 | trades=0
+    P&L total=-20903.06 (flotante=-5109.36) | cerrado 24h=0.00 | cerrado acum=-15793.70
+    BTCUSD precio=17210.48 24h[16933.37–17389.85] | OA=30 [33026.45–35456.54] | OE=0 [—]
+  [2023-01-10 00:00:00] Recalculando soportes...
+
+NUEVO
+(pendiente: se completa con la salida de la corrida completa de V4 con saltos y tope de 15 min, mismo tramo 2022-12-27 19:00 → 2023-01-10 00:00. Fuente: resources/x4/versionV4/salida_V4_*.txt)
+
