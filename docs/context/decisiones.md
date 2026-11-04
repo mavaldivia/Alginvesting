@@ -548,3 +548,15 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Correcciones de documentación:** `pars_configurables.md` decía que `A` y `PERDIDA_MAX` comparan contra `L` real sin escalar; el código de X1 escala por `m`. `X5_RECALC_SOPORTES_CADA` no lo usa X4 (usa `delta_recalculo_soportes`).
 
 **Pendiente:** cuántas vueltas por valor son aceptables (depende de la duración medida en Windows); `p · Z / m` coincide con X1 solo en posiciones abiertas con el `m` vigente, a revisar en `Q5-5b`.
+
+## 2026-11-03 — X1: etapa 1 del reemplazo de OE se coloca de menor a mayor
+
+**Decisión:** en `reemplazar_ordenes_espera`, el 20% de mayor precio de las colocables (`tanda_20`) se coloca de menor a mayor en vez de mayor a menor. El resto del flujo (probe, eliminación de salientes de mayor a menor, 80% restante de mayor a menor) no cambia.
+
+**Razón:** mientras corre la etapa 1 las salientes siguen vivas, y las entrantes nuevas quedan a pocos USD de una saliente por el warm start de X0. Colocando la más alta al final, la entrante más cercana al precio convive con la saliente más alta solo el rato entre su colocación y la eliminación inmediatamente posterior, en vez de toda la etapa 1. Motivado por dos OE pegadas de BTC que pasaron a OA juntas. La cobertura cerca del precio no se pierde: las salientes siguen vivas hasta la etapa 2.
+
+**Descartado:** cancelar la saliente vecina justo antes de colocar cada entrante (reabre el hueco de cobertura si la colocación falla después de cancelar, el problema que se resolvió el 2026-09-29); gate de separación mínima respecto de OA/OE vivas (ataca la fuente persistente de pares OA+OE pegados, no la ventana temporal; pendiente si el log de Windows muestra que ese fue el caso).
+
+**Efecto lateral:** las entrantes más bajas del 20% quedan ahora más rato junto a sus salientes vecinas, que se cancelan al final. Están más lejos del precio, así que el riesgo de ejecución simultánea es menor.
+
+**Validado:** `python3 -m py_compile X1_trading.py`. Sin test en vivo (requiere MT5, no disponible en Mac).

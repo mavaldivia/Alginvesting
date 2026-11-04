@@ -2437,3 +2437,12 @@ Claude: verificó que `checkpoint.json` seguía intacto (ts=2022-12-05 15:00, ca
 Mauricio: pidió mejorar el reporte de la búsqueda de soportes: cuántos son, entre qué precios y cuántos se activan una vez que están OK.
 Claude: agregó `_reporte_soportes` y `_distancia_ok` en `X4_backtester.py`: tras cada búsqueda (cold start y recálculos periódicos) imprime por activo el total de soportes con su rango, los OK (desglosados en ya OA, ya OE y por activar) y los O0 con su rango. `_paso_F` ahora usa `_distancia_ok` para que reporte y activación compartan la regla. Probado con datos sintéticos en `revenAI`; el loop completo queda para Windows/Mac con `Data/`.
 (Cierre: 2026-11-03 21:59)
+
+## SECCIÓN 298
+Mauricio: reportó que en BTC se activaron (OE a OA) dos OE muy pegadas, probablemente durante el reemplazo de O0/OE, y pidió confirmar si quedan casos "duplicados" por un tiempo mientras la zona superior coloca primero las entrantes.
+Claude: leyó `reemplazar_ordenes_espera` y `crear_ordenes_espera` en X1 y confirmó dos fuentes. (1) Ventana temporal: la etapa 1 coloca el 20% superior de entrantes antes de eliminar las salientes, y por el warm start de X0 cada entrante queda cerca de una saliente. (2) Fuente persistente: una OA vieja nunca sale de `lista_N`, así que un soporte nuevo cercano recibe una OE pegada. No pudo ver el caso concreto porque `cambios_BTCUSD.jsonl` está en Windows; indicó qué campos revisar.
+Mauricio: preguntó cómo se hace el reemplazo en orden y si son 3 etapas.
+Claude: lo describió como probe más 3 etapas (20% superior, eliminación de salientes, 80% restante), con las condiciones de entrada del loop, el umbral y las colocables.
+Mauricio: decidió cambiar solo la etapa 1 para que se coloque de menor a mayor, así la saliente más alta y su entrante vecina conviven menos rato.
+Claude: aplicó `reversed(tanda_20)` en `X1_trading.py` y actualizó el docstring; compila, sin prueba en vivo (requiere MT5). Registró el cambio en `done.md` (X1) y `decisiones.md`, con descartados (cancelar la saliente vecina antes de colocar; gate de separación mínima) y el efecto lateral sobre las entrantes más bajas. Pendiente validar en Windows.
+(Cierre: 2026-11-03 22:59)

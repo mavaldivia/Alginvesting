@@ -707,8 +707,9 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
          OE y se reintenta el próximo ciclo.
       2. Confirmado que el mercado acepta: coloca el `fraccion_inicial` (ej. 20%)
          de mayor precio de las colocables (menos la ya colocada en el probe),
-         de mayor a menor — asegura cobertura cerca del precio ANTES de borrar
-         nada.
+         de menor a mayor — asegura cobertura cerca del precio ANTES de borrar
+         nada, y deja la entrante más alta para el final para que coexista lo
+         mínimo con la saliente más alta, que se elimina de inmediato después.
       3. Elimina todas las OE salientes (soportes que ya no están en lista_N),
          de mayor a menor.
       4. Coloca el resto (80%) de las colocables, de mayor a menor.
@@ -808,7 +809,10 @@ def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, va
     tanda_20 = [Pi for Pi in colocables_desc[:corte] if Pi != probada]
     tanda_80 = [Pi for Pi in colocables_desc[corte:] if Pi != probada]
 
-    ejecutadas = [probada] + [Pi for Pi in tanda_20 if _colocar_y_notificar(Pi)]
+    # De menor a mayor: la entrante más alta del 20% se coloca al final, así convive el
+    # mínimo rato con la saliente más alta (que se cancela justo después) y se reduce
+    # el riesgo de que ambas se ejecuten juntas.
+    ejecutadas = [probada] + [Pi for Pi in reversed(tanda_20) if _colocar_y_notificar(Pi)]
     _fila_eliminar_salientes()
     ejecutadas += [Pi for Pi in tanda_80 if _colocar_y_notificar(Pi)]
 

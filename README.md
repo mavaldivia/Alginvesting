@@ -234,6 +234,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-03** — fix(x1): coloca el 20% superior del reemplazo O0/OE de menor a mayor
 - **2026-11-03** — feat(x4): reporte tras cada búsqueda de soportes con total, rango de precios y desglose OK (ya OA, ya OE, por activar) vs. O0
 - **2026-11-03** — feat(x4): resumen diario del backtester con rango y cantidad de OA/OE, precio y rango de 24 h, y P&L total, flotante y cerrado (24 h y acumulado)
 - **2026-11-03** — docs(q5-1): registra cold start medido en Mac y corrida local de V4
