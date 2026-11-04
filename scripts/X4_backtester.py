@@ -20,6 +20,7 @@ import os
 import random
 import sys
 import time
+from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -740,6 +741,32 @@ def _append_equity(ts, estado: dict, precios: dict, cfg) -> dict:
     return mc
 
 
+def _fmt_rango(precios) -> str:
+    return f'{min(precios):.2f}–{max(precios):.2f}' if precios else '—'
+
+
+def _resumen_diario(ts, mc: dict, estado: dict, precios_ts: dict, ventana_precios: dict,
+                    balance_base: float, n_trades_total: int, cfg) -> str:
+    """Resumen de cuenta + una línea por activo. `balance_base` es el balance de hace 24 h."""
+    cerrado_acum = mc['balance'] - cfg.capital_inicial
+    flotante = mc['equity'] - mc['balance']
+    lineas = [
+        f'  [{ts}] eq={mc["equity"]:.2f} bal={mc["balance"]:.2f} | OA={mc["n_OA"]} OE={mc["n_OE"]} | trades={n_trades_total}',
+        f'    P&L total={cerrado_acum + flotante:.2f} (flotante={flotante:.2f}) | '
+        f'cerrado 24h={mc["balance"] - balance_base:.2f} | cerrado acum={cerrado_acum:.2f}',
+    ]
+    for activo, est_a in estado['por_activo'].items():
+        v = ventana_precios[activo]
+        rango_24h = f'{min(l for _, l, _ in v):.2f}–{max(h for _, _, h in v):.2f}' if v else '—'
+        precio = precios_ts.get(activo)
+        lineas.append(
+            f'    {activo} precio={f"{precio:.2f}" if precio is not None else "—"} 24h[{rango_24h}]'
+            f' | OA={len(est_a["OA"])} [{_fmt_rango(list(est_a["OA"]))}]'
+            f' | OE={len(est_a["OE"])} [{_fmt_rango(list(est_a["OE"]))}]'
+        )
+    return '\n'.join(lineas)
+
+
 # ─── Flush a disco ────────────────────────────────────────────────────────────
 
 def _flush_json_list(items: list, path: Path) -> int:
@@ -1080,6 +1107,10 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
     velas_procesadas = 0
     cierre_previo: dict = {a: None for a in cfg.valores}
     mes_actual: str | None = None  # para [MES_BT] markers en x5_mode
+    dia = pd.Timedelta(hours=24)
+    ventana_precios: dict = {a: deque() for a in cfg.valores}  # (ts, Low, High) de las últimas 24 h
+    hist_balance: deque = deque()                               # (ts, balance) de las últimas 24 h
+    balance_base = estado['capital']                            # balance justo antes de la ventana de 24 h
 
     # Timestamps unión de todos los activos
     all_ts = sorted(set().union(*[set(df.index) for df in datos_h1.values()]))
@@ -1098,6 +1129,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         for activo, df in datos_h1.items():
             if ts in df.index and ts_ultimo is not None and ts <= ts_ultimo:
                 cierre_previo[activo] = df.loc[ts, 'Close']
+                ventana_precios[activo].append((ts, df.loc[ts, 'Low'], df.loc[ts, 'High']))
 
         if ts_ultimo is not None and ts <= ts_ultimo:
             continue
@@ -1166,6 +1198,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                 cfg, events_log, trades_log, x5_ctx_a,
             )
             cierre_previo[activo] = candle['Close']
+            ventana_precios[activo].append((ts, candle['Low'], candle['High']))
 
             # Registro periódico: cada _freq_periodico velas con al menos 1 OA
             if x5_mode and x5_ctx_a is not None and _freq_periodico > 0:
@@ -1183,6 +1216,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
 
         # Paso G: snapshot equity
         mc = _append_equity(ts, estado, precios_ts, cfg)
+        hist_balance.append((ts, mc['balance']))
 
         estado['ts_ultimo_procesado'] = ts.isoformat()
         velas_procesadas += 1
@@ -1228,7 +1262,13 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
             _guardar_checkpoint(estado, cfg)
             n_trades_total += _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
             _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
-            print(f'  [{ts}] eq={mc["equity"]:.2f} bal={mc["balance"]:.2f} | OA={mc["n_OA"]} OE={mc["n_OE"]} | trades={n_trades_total}')
+            while hist_balance and hist_balance[0][0] <= ts - dia:
+                balance_base = hist_balance.popleft()[1]
+            for v in ventana_precios.values():
+                while v and v[0][0] <= ts - dia:
+                    v.popleft()
+            print(_resumen_diario(ts, mc, estado, precios_ts, ventana_precios,
+                                  balance_base, n_trades_total, cfg))
 
     # Fin de datos
     _guardar_checkpoint(estado, cfg)
