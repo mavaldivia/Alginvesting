@@ -2430,3 +2430,10 @@ Claude: mostró los próximos 3 pendientes (Q5-1, Q5-2, Q5-3). Explicó que `[A�
 Mauricio: pidió más información en el resumen diario: rango min/max y cantidad de OA y OE, precio actual con min/max de 24 h, y P&L total, cerrado del día y cerrado acumulado. Después preguntó la diferencia entre P&L total y flotante, y confirmó que el rango `[min–max]` de OA/OE es solo mínimo y máximo, no el detalle.
 Claude: implementó `_resumen_diario` en `X4_backtester.py` (tres líneas: cuenta, P&L, y una por activo) con ventanas de 24 h por tiempo (no por velas) para precio y balance, rellenadas también al reanudar desde checkpoint; probado con datos sintéticos en el entorno `revenAI`. Aclaró que P&L total = cerrado acumulado + flotante (`equity − capital_inicial`).
 (Cierre: 2026-11-03 21:11)
+
+## SECCIÓN 297
+Mauricio: interrumpió con Ctrl+C la vuelta de medición de V4 en el Mac (iba en 2022) y al reanudar apareció "Iniciando desde cero"; preguntó si no se había guardado el avance.
+Claude: verificó que `checkpoint.json` seguía intacto (ts=2022-12-05 15:00, capital 984.206,30) y que el "desde cero" venía de usar `--reset` (la salida no traía `Buscando checkpoint...`). Explicó que el checkpoint se pisa recién al terminar el cold start (`X4_backtester.py:1093`), dejó un respaldo (`checkpoint_respaldo_2022-12-05.json`) e indicó reanudar sin `--reset`. Advirtió que `--reset` no borra `trades.json`, `events.json` ni los `equity_*.csv`.
+Mauricio: pidió mejorar el reporte de la búsqueda de soportes: cuántos son, entre qué precios y cuántos se activan una vez que están OK.
+Claude: agregó `_reporte_soportes` y `_distancia_ok` en `X4_backtester.py`: tras cada búsqueda (cold start y recálculos periódicos) imprime por activo el total de soportes con su rango, los OK (desglosados en ya OA, ya OE y por activar) y los O0 con su rango. `_paso_F` ahora usa `_distancia_ok` para que reporte y activación compartan la regla. Probado con datos sintéticos en `revenAI`; el loop completo queda para Windows/Mac con `Data/`.
+(Cierre: 2026-11-03 21:59)

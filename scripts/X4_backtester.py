@@ -216,6 +216,31 @@ def _informar_recalculo(infos: list, ts_actual, demo: bool, estado: dict,
         print()
 
 
+def _distancia_ok(precio_ref: float, soporte: float, L: float, cfg) -> bool:
+    return (precio_ref - soporte) * L >= cfg.A
+
+
+def _reporte_soportes(estado: dict, precios_ref: dict, cfg) -> None:
+    """Por activo: cuántos soportes hay, entre qué precios y cuántos ya cumplen `distancia_ok`.
+
+    OK = soporte que ya se puede activar como OE; O0 = aún demasiado cerca del precio (o por encima)."""
+    for activo, est_a in estado['por_activo'].items():
+        soportes = est_a['soportes']
+        precio = precios_ref.get(activo)
+        if not soportes or precio is None:
+            continue
+        L = cfg.LOTAJES[activo] * cfg.UNITS[activo]
+        ok = [s for s in soportes if _distancia_ok(precio, s, L, cfg)]
+        o0 = [s for s in soportes if not _distancia_ok(precio, s, L, cfg)]
+        n_oa = sum(s in est_a['OA'] for s in ok)
+        n_oe = sum(s in est_a['OE'] for s in ok)
+        print(f'    {activo}: {len(soportes)} soportes entre {min(soportes):.2f} y {max(soportes):.2f}'
+              f' | precio={precio:.2f}')
+        print(f'      OK (se pueden activar): {len(ok)} [{_fmt_rango(ok)}]'
+              f' → ya OA={n_oa}, ya OE={n_oe}, por activar={len(ok) - n_oa - n_oe}'
+              f' | O0 (aún cerca del precio): {len(o0)} [{_fmt_rango(o0)}]')
+
+
 def _demo_evento_plot(infos: list, ts_actual) -> None:
     """Explica (una vez) el gráfico de soportes que acompaña a cada recálculo."""
     info = next((i for i in infos if i and i.get('plot')), None)
@@ -588,7 +613,7 @@ def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
     for soporte in sorted(est_a['soportes'], reverse=True):
         if soporte in est_a['OA'] or soporte in est_a['OE']:
             continue
-        distancia_ok = (precio_ref - soporte) * L >= cfg.A
+        distancia_ok = _distancia_ok(precio_ref, soporte, L, cfg)
         reemplazo_ok = umbral_reemplazo is not None and soporte < umbral_reemplazo
         if not (distancia_ok or reemplazo_ok):
             continue
@@ -1090,6 +1115,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
               f'hasta {ts_cold} ...')
         print('(puede tardar varios minutos)')
         _infos = _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
+        _reporte_soportes(estado, {a: df['Open'].iloc[0] for a, df in datos_h1.items()}, cfg)
         _guardar_checkpoint(estado, cfg)
         print('Cold start completado.\n')
         if x5_demo.esta_activo():
@@ -1153,6 +1179,7 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                                           _min_lotajes_x5)
                 print(f'  [{ts}] Recalculando soportes...')
                 _infos = _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
+                _reporte_soportes(estado, cierre_previo, cfg)
                 if x5_demo.esta_activo():
                     import config as _gc
                     _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
