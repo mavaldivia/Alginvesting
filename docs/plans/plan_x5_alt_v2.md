@@ -54,7 +54,7 @@ La evidencia Q3 es correlación **descriptiva** contra `retorno_log_1h` — para
 
 ### 3.1. Índice compuesto por parámetro
 
-Cada parámetro usa 1 o 2 variables explicativas (nunca más — ver §5), salvo `N`, que desde 2026-11-02 usa 3. Se combinan en un único índice de estado `s_t`:
+Cada parámetro usa hoy 1 o 2 variables explicativas, salvo `N`, que desde 2026-11-02 usa 3. El máximo es tentativo (decisión de Mauricio, 2026-11-04): puede haber 3, 4 o más, y la lista de variables de un parámetro puede cambiar después de ver resultados (ver §9.12). Se combinan en un único índice de estado `s_t`:
 
 ```
 z_{i,t} = (x_{i,t} - μ_i) / σ_i          # z-score, μ_i/σ_i fijos (calculados una sola vez sobre el histórico de calibración)
@@ -109,7 +109,7 @@ Y se ajusta `P̂(s_t; punto_medio, pendiente, w_1)` contra `y*_t` por mínimos c
 
 ## 5. Combinaciones parámetro↔variable de esta fase
 
-Deliberadamente limitadas (restricción explícita de Mauricio). Reutilizan las variables ya evaluadas en `Q3` cuando la evidencia alcanza; cuando la hipótesis documentada pide una dimensión que `Q3` no testeó (caso de `N`, que según `X5_alternativo.md` §10.5 es `f(drawdown, volatilidad)` pero `Q3` solo testeó variables de drawdown), se agrega en `Q4`.
+Deliberadamente pocas en esta fase (restricción explícita de Mauricio, tentativa: ver §9.12 para agregar, quitar o cambiar variables). Reutilizan las variables ya evaluadas en `Q3` cuando la evidencia alcanza; cuando la hipótesis documentada pide una dimensión que `Q3` no testeó (caso de `N`, que según `X5_alternativo.md` §10.5 es `f(drawdown, volatilidad)` pero `Q3` solo testeó variables de drawdown), se agrega en `Q4`.
 
 | Parámetro | `k` | Variables (`x_1`, `x_2`) | Rango productivo (`piso`, `techo`) default | Nota |
 |---|---|---|---|---|
@@ -179,7 +179,7 @@ Los pesos se normalizan: `w̃_i = w_i / Σ_j w_j`, de modo que `Σ w̃_i = 1`. E
 
 Los C2 que `Q5` siempre calibra (decidido 2026-11-02): para **cada** C1, los cuatro grupos `w_1, ..., w_n`, `span`, `punto_medio` y `pendiente`. En `Q4` los pesos de `N` y `A` y el `span` van fijos a mano y solo `punto_medio`/`pendiente` se ajustan contra el target sintético; esos valores quedan como punto de partida y de comparación, no como valores finales. `piso`/`techo` y las ventanas de las variables (hoy 30 días en `drawdown_30d` y `ln_razon_vol_30d`) no se calibran por ahora.
 
-**Dimensión del problema.** `N` tiene 3 variables (2 pesos libres), `A`, `factor_B` y `LAMBDA` tienen 2 (1 peso libre cada uno), `K`, `N_EXP` y `PERDIDA_MAX` tienen 1 (peso trivialmente 1). Total: 7 parámetros × 3 (`span`, `punto_medio`, `pendiente`) + 5 pesos libres = **26 grados de libertad** por valor.
+**Dimensión del problema.** `N` tiene 3 variables (2 pesos libres), `A`, `factor_B` y `LAMBDA` tienen 2 (1 peso libre cada uno), `K`, `N_EXP` y `PERDIDA_MAX` tienen 1 (peso trivialmente 1). Total: 7 parámetros × 3 (`span`, `punto_medio`, `pendiente`) + 5 pesos libres = **26 grados de libertad** por valor con la estructura actual. En general son `21 + Σ(k_c − 1)`, con `k_c` el número de variables del C1 `c`; agregar una variable suma una dimensión (§9.12).
 
 ### 9.1. Lógica de `Q5` para cada valor `v`
 
@@ -285,9 +285,9 @@ Toda vuelta registra siempre sus datos, sin opción para apagarlo: son la materi
 
 | Archivo | Una fila por | Contenido |
 |---|---|---|
-| `{valor}_vueltas.csv` | vuelta | id, fase (Sobol o RLM), los C2 completos, promedio de cada C1, premio del tramo de aprendizaje y del reservado, KPIs (valor final de la cuenta, drawdown máximo, trades, tasa de aciertos, tiempo en mercado, margen usado, stop-outs, `lotajes_m` máximo), duración |
+| `{valor}_vueltas.csv` | vuelta | id, `version_estructura` (9.12), `semilla` de la intra-vela, `replica_de` (id de la vuelta que repite, vacío si es original; 9.13), fase (Sobol o RLM), los C2 completos (de todas las variables que alguna vez estuvieron en la estructura de cada C1), por cada C1: media, desviación estándar, mínimo, máximo, porcentaje de velas en `piso` y en `techo` y cantidad de pasos distintos de la grilla usados (9.13), promedio de cada C1, premio del tramo de aprendizaje y del reservado, KPIs (valor final de la cuenta, drawdown máximo, trades, tasa de aciertos, tiempo en mercado, margen usado, stop-outs, `lotajes_m` máximo), duración |
 | `{valor}_seguimiento.csv` | resumen cada `n_velas` de cada vuelta | exactamente los datos del resumen en pantalla (ver abajo), para poder reconstruir la vuelta sin releer la consola |
-| `{valor}_aprendizaje.csv` | vuelta | fase, coeficientes `h_i` de la RLM, su `R²`, paso de gradiente y C2 propuestos para la vuelta siguiente |
+| `{valor}_aprendizaje.csv` | vuelta | fase, número de filas usadas, coeficientes `h_i` de la RLM con su error estándar (o intervalo bootstrap), `R²`, error de predicción dejando una vuelta fuera (leave-one-out), número de condición, paso de gradiente y C2 propuestos para la vuelta siguiente |
 
 La serie de C1 vela a vela se reconstruye desde los C2 y la tabla de estado de `Q1`, así que no se guarda. La curva de `equity` por vela sí se necesita (drawdown, gráficos); `Q5-3` define cuántas vueltas se conservan completas (todas, o las mejores y la estática) para no acumular cientos de MB por valor.
 
@@ -314,6 +314,51 @@ Los 7 valores (`VALORES`: BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN, MSFT) corren 
 
 - Los valores son independientes: cada proceso hace su ciclo completo (vuelta, aprendizaje, vuelta siguiente) sin esperar a los demás, así que cada valor puede acumular un número distinto de vueltas. Si uno falla, los otros siguen y solo ese se reanuda desde su checkpoint.
 - Hoy X4 solo paraleliza la búsqueda de soportes (`_recalcular_soportes` abre un `ProcessPoolExecutor` de hasta 4 workers, uno por valor). Con un proceso por valor cada uno tendría una sola tarea, pero hay que medir en `Q5-1` el uso de CPU y de memoria de los 7 procesos a la vez (cada uno carga datos H1 y M1) y definir cuántos hilos y workers usa cada uno para no sobresuscribir el equipo.
+
+### 9.12. Cambios de estructura: agregar, quitar o cambiar variables de un C1
+
+Decidido el 2026-11-04. Después de varias vueltas Mauricio puede decidir que un C1 use otras variables (agregar `x3` a `{x1, x2}`, quitar `x2`, o cambiar `x2` por `x3`). El sistema debe absorberlo sin tocar código ni perder el aprendizaje acumulado: la estructura de cada C1 es un dato, no está fija en el código.
+
+**Estructura como dato.** Para cada C1 se guarda la lista de **todas las variables que alguna vez usó** (con su `μ`/`σ` congelado, su ventana y su fórmula) y cuáles están activas. El aprendizaje, el sorteo Sobol y las filas de `{valor}_vueltas.csv` trabajan sobre la lista completa, con un peso `w_i` por variable (un peso en 0 desactiva la variable, porque la función usa `w̃_i = w_i / Σ w_j`).
+
+| Cambio | Qué se hace | Qué pasa con las vueltas anteriores |
+|---|---|---|
+| Agregar `x3` | Entra con `w_3 = 0`: la función es idéntica a la anterior | Siguen siendo válidas: cada vuelta vieja es la misma vuelta con `w_3 = 0`, mismo `s_t`, misma serie del C1, mismo premio. Sin ruido ni indicadora de versión |
+| Quitar `x2` | Se fija `w_2 = 0` y sale de la búsqueda (se puede reactivar) | Siguen siendo válidas: están contenidas en el modelo completo |
+| Cambiar `x2` por `x3` | Agregar `x3` y quitar `x2`; el Gradient Ascent mueve el peso de una a otra de forma gradual, partiendo del mejor punto anterior | Siguen siendo válidas, sin reinicio de Sobol |
+| Redefinir una variable que se queda (fórmula o ventana, `piso`/`techo`, forma de la sigmoide) | Nueva `version_estructura` del C1 | Ya no son reproducibles: se usa arranque por bloques (los demás C1 congelados en su mejor valor, Sobol solo sobre los regresores del C1 afectado), las filas viejas entran a la RLM con una variable indicadora de versión y sus premios quedan como benchmark que la versión nueva debe superar |
+
+**Límite al agregar una variable.** Las filas viejas tienen todas `w_3 = 0`, así que la RLM no puede estimar el efecto de `w̃_3` hasta que existan vueltas con `w_3 > 0`. Tras el cambio hace falta una exploración corta (Sobol solo sobre `w̃_3` y el `punto_medio`/`pendiente` de ese C1, con el resto en su mejor valor) antes de volver al Gradient Ascent. Cuántas vueltas requiere se mide, no se supone.
+
+**Qué debe cumplir la implementación (`Q5-2`, `Q5-4`, `Q5-5`).**
+- La lista de variables por C1 sale de un archivo de estructura (no de constantes del código) y es lo que construye la lista de C2, las columnas de `{valor}_vueltas.csv`, el sorteo Sobol y los regresores de la RLM.
+- `{valor}_vueltas.csv` guarda los C2 de todas las variables que alguna vez estuvieron en la estructura (las no usadas en esa vuelta valen 0) y la columna `version_estructura`.
+- La RLM usa solo los regresores de variables que tienen variación en las filas disponibles; una columna constante se omite.
+- Una variable nueva debe existir en la tabla de estado de `Q1` para todo el histórico, con `μ`/`σ` calculados en el mismo tramo que las otras variables del C1.
+- El `w̃` que aprende el sistema es evidencia para decidir cambios: un `w̃_i` cercano a 0 tras muchas vueltas indica que esa variable no aporta. La decisión de cambiar variables no se toma con el premio del tramo reservado (9.6), para que siga siendo fuera de muestra.
+
+### 9.13. Preparación para el análisis posterior y las sugerencias de cambio de C2
+
+Decidido el 2026-11-04. Después de varias vueltas Mauricio pedirá a Claude un análisis estadístico de lo registrado y sugerencias de cambio de los C2 (rangos de sorteo, variables, `span`, `punto_medio`, `pendiente`, pesos). Por eso `Q5` registra desde la primera vuelta lo que ese análisis necesita; reconstruir después lo que no se guardó no siempre es posible.
+
+**Qué hay que poder responder, y con qué dato**
+
+| Pregunta del análisis | Dato que lo permite |
+|---|---|
+| ¿Qué C2 mueven el premio y con qué certeza? | `h_i` con error estándar y `R²` por vuelta (`aprendizaje.csv`); error leave-one-out para saber si la RLM predice de verdad fuera de las vueltas con que se ajustó |
+| ¿Una diferencia de premio entre dos vueltas es efecto o ruido? | Vueltas de réplica: mismos C2 con otra `semilla` de la intra-vela, para estimar la varianza del premio dado un C2 fijo |
+| ¿Algún C1 está mal calibrado? | Porcentaje de velas en `piso`/`techo`, desviación estándar y pasos de grilla usados por C1 y vuelta: un C1 pegado al piso o al techo la mayor parte del tiempo indica `pendiente` o `punto_medio` mal puestos; uno casi constante, que su variable no se mueve |
+| ¿Una variable aporta? | `w̃` aprendido por variable a lo largo de las vueltas; tendencia a 0 sugiere quitarla (9.12) |
+| ¿Hay sobreajuste al tramo de aprendizaje? | Premio del tramo de aprendizaje contra el del reservado por vuelta (9.6), sin usar el reservado para decidir |
+| ¿Cuándo funciona y cuándo no? | `{valor}_seguimiento.csv`: `Z`, trades, drawdown y C1 vigentes cada `n_velas` en **todas** las vueltas; la curva de `equity` completa solo en las vueltas que `Q5-3` decida conservar |
+| ¿Se repite entre valores? | Los 7 valores usan las mismas columnas; la comparación entre valores sale de unir los CSV |
+| ¿La búsqueda de soportes distorsionó la vuelta? | Duración de cada búsqueda y cuántas cortó el tope de 15 min (ya en `seguimiento.csv`) más su total por vuelta en `vueltas.csv`: el corte por tiempo hace que el resultado dependa de la velocidad del equipo |
+
+**Requisitos para que el análisis sea posible**
+- Los archivos de estructura de cada `version_estructura` (9.12) se guardan completos y nunca se sobrescriben (`resources/x5_alt/q5/{valor}_estructura_v{n}.json`, con las variables, sus `μ`/`σ`, ventanas y activas), para reconstruir la serie de cada C1 vela a vela desde los C2 y la tabla de estado de `Q1`.
+- Cada vuelta guarda su `semilla`, y existen vueltas de réplica (al menos de la vuelta estática de control y de la mejor vuelta) para medir el ruido del premio. Sin esa estimación no se puede decir si un C2 "mejoró" o solo tuvo suerte.
+- Con menos vueltas que coeficientes el análisis no es concluyente; el análisis lo declara y se limita a lo descriptivo (saturación de los C1, tendencia de `w̃`) en vez de afirmar efectos.
+- Toda sugerencia de cambio de variables lleva su argumento estadístico, no se elige a priori.
 
 ---
 
