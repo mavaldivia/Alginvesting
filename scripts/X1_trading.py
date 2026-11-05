@@ -12,6 +12,7 @@ Por cada ciclo y activo, con el mercado abierto:
      que el N configurado (caso c)
   C) Gestiona el trailing stop en posiciones abiertas
   D) Cierra posiciones cuya pérdida supere perdida_max
+  E) Registra las OE que el bróker eliminó por su cuenta (ej. '[session closed]')
 
 Uso:
     python X1_trading.py
@@ -21,6 +22,7 @@ import datetime
 import json
 import math
 import os
+import re
 import sys
 import time
 import traceback
@@ -45,6 +47,8 @@ from config import (
     X1_RETRY_RETCODE_SLEEP_S,
     X1_COMPACTAR_LOG_S,
     X1_LOG_CAMBIOS_MAX,
+    X1_ELIMINADAS_BROKER_CADA_S,
+    X1_ELIMINADAS_BROKER_VENTANA_H,
     soporte_de_orden as _soporte_de_orden,
 )
 
@@ -676,6 +680,103 @@ def _registrar_cambio(valor: str, lista_N: list, lista_OA_antes: list, cambio: d
         _log_traceback(f'Error registrando cambio de {valor} en cambios_{valor}.jsonl')
 
 
+_tickets_eliminadas_broker = None  # set de tickets ya registrados; se carga de los jsonl en el primer chequeo
+_ultimo_chequeo_eliminadas = 0.0
+_ESTADOS_ELIMINADA = (mt5.ORDER_STATE_CANCELED, mt5.ORDER_STATE_REJECTED, mt5.ORDER_STATE_EXPIRED)
+
+
+def _hora_servidor(epoch: int) -> str:
+    """Epoch de MT5 (reloj del servidor del bróker, que Exness mantiene en UTC) como texto."""
+    return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+
+
+def _registrar_eliminadas_broker() -> None:
+    """Agrega a resources/x1/logs/eliminadas_broker_{VALOR}.jsonl las OE que el bróker
+    eliminó por su cuenta, y resume por consola una línea por activo y motivo.
+
+    X1 coloca el comment 'P0={soporte}' sin corchetes; cuando el bróker elimina una orden
+    le agrega el motivo entre corchetes (ej. 'P0=370.51[session closed]'). Caso típico: el
+    precio toca un buy limit con la sesión de trading cerrada (pre-market o primeros
+    minutos tras la apertura) — no puede abrir la posición, elimina la OE y la entrada
+    se pierde sin que X1 lo note: solo queda un vacío de OE bajo el precio. Las
+    cancelaciones propias de X1 (reemplazo, poda, liberación) no llevan corchetes.
+
+    Corre como máximo cada X1_ELIMINADAS_BROKER_CADA_S segundos y consulta las últimas
+    X1_ELIMINADAS_BROKER_VENTANA_H horas, deduplicando por ticket (también contra lo ya
+    escrito en los jsonl, así un reinicio de X1 no repite eventos).
+
+    Un fallo del log no debe cortar el ciclo del loop principal, por eso no propaga."""
+    global _tickets_eliminadas_broker, _ultimo_chequeo_eliminadas
+    ahora = time.time()
+    if ahora - _ultimo_chequeo_eliminadas < X1_ELIMINADAS_BROKER_CADA_S:
+        return
+    _ultimo_chequeo_eliminadas = ahora
+
+    try:
+        if _tickets_eliminadas_broker is None:
+            _tickets_eliminadas_broker = set()
+            for valor in VALORES:
+                path = CARPETA_LOGS_X1 / f'eliminadas_broker_{valor}.jsonl'
+                if path.exists():
+                    for linea in path.read_text(encoding='utf-8').splitlines():
+                        _tickets_eliminadas_broker.add(json.loads(linea)['ticket'])
+
+        # hasta +1 día: la hora del servidor puede ir adelantada respecto a este equipo
+        desde = datetime.datetime.now() - datetime.timedelta(hours=X1_ELIMINADAS_BROKER_VENTANA_H)
+        hasta = datetime.datetime.now() + datetime.timedelta(days=1)
+        historial = mt5.history_orders_get(desde, hasta)
+        if not historial:
+            return
+
+        nuevos = {}  # {valor: [evento, ...]}
+        for o in historial:
+            if (o.symbol not in VALORES or o.type != mt5.ORDER_TYPE_BUY_LIMIT
+                    or o.state not in _ESTADOS_ELIMINADA or o.ticket in _tickets_eliminadas_broker):
+                continue
+            motivo = re.search(r'\[(.+?)\]', o.comment or '')
+            if motivo is None:
+                continue
+            soporte = re.match(r'P0=([\d.]+)', o.comment)
+            tick = mt5.symbol_info_tick(o.symbol)
+            nuevos.setdefault(o.symbol, []).append({
+                'ts': datetime.datetime.now().isoformat(timespec='seconds'),
+                'valor': o.symbol,
+                'ticket': o.ticket,
+                'soporte': round(float(soporte.group(1)), 2) if soporte else round(o.price_open, 2),
+                'precio_orden': o.price_open,
+                'volumen': o.volume_initial,
+                'motivo': motivo.group(1),
+                'colocada_servidor': _hora_servidor(o.time_setup),
+                'eliminada_servidor': _hora_servidor(o.time_done),
+                'p0': tick.bid if tick else None,
+                'mercado_abierto': mercado_abierto(o.symbol),
+            })
+
+        CARPETA_LOGS_X1.mkdir(parents=True, exist_ok=True)
+        for valor, eventos in nuevos.items():
+            eventos.sort(key=lambda e: e['eliminada_servidor'])
+            path = CARPETA_LOGS_X1 / f'eliminadas_broker_{valor}.jsonl'
+            with open(path, 'a', encoding='utf-8') as f:
+                for e in eventos:
+                    f.write(json.dumps(e, separators=(',', ':')) + '\n')
+            _tickets_eliminadas_broker.update(e['ticket'] for e in eventos)
+
+            lineas = path.read_text(encoding='utf-8').splitlines()
+            if len(lineas) > X1_LOG_CAMBIOS_MAX:
+                tmp = path.with_suffix('.jsonl.tmp')
+                tmp.write_text('\n'.join(lineas[-X1_LOG_CAMBIOS_MAX:]) + '\n', encoding='utf-8')
+                os.replace(tmp, path)
+
+            por_motivo = {}
+            for e in eventos:
+                por_motivo.setdefault(e['motivo'], []).append(e['soporte'])
+            for motivo, soportes in por_motivo.items():
+                print(f'\n\n  {_fmt_valor(valor)}: {len(soportes)} OE eliminadas por el bróker [{motivo}] '
+                      f'desde {min(soportes):.2f} hasta {max(soportes):.2f}')
+    except Exception:
+        _log_traceback('Error registrando OE eliminadas por el bróker')
+
+
 def reemplazar_ordenes_espera(actual_OE: list, lista_OA: list, lista_N: list, valor: str,
                                lotajes: dict, dic_bloqueados: dict,
                                fraccion_inicial: float = X1_REEMPLAZO_FRACCION_INICIAL):
@@ -1199,6 +1300,7 @@ if __name__ == '__main__':
                     if dic_seguimiento[c]:
                         time_sleep = False
 
+                _registrar_eliminadas_broker()
                 _flush_ejecuciones_pendientes()
 
                 if i % int(5000 / TS) == 0:

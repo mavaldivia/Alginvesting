@@ -235,8 +235,16 @@ X1_COMPACTAR_LOG_S = 2
 
 # Cantidad de reemplazos O0/OE (los que imprimen la tabla resumen en X1) que se
 # conservan por activo en resources/x1/logs/cambios_{VALOR}.jsonl — al superarla se
-# descartan los más antiguos.
+# descartan los más antiguos. También es el tope de eliminadas_broker_{VALOR}.jsonl.
 X1_LOG_CAMBIOS_MAX = 1000
+
+# OE que el bróker elimina por su cuenta (ej. '[session closed]': el precio toca un
+# buy limit con la sesión de trading cerrada y no puede abrir la posición): X1 consulta
+# el historial de MT5 cada X1_ELIMINADAS_BROKER_CADA_S segundos, sobre las últimas
+# X1_ELIMINADAS_BROKER_VENTANA_H horas — la ventana permite recuperar lo ocurrido
+# mientras X1 estaba apagado. Salida: resources/x1/logs/eliminadas_broker_{VALOR}.jsonl.
+X1_ELIMINADAS_BROKER_CADA_S = 60
+X1_ELIMINADAS_BROKER_VENTANA_H = 24
 
 # USD por cada 1x MIN_LOTAJES — el umbral real de cada posición abierta es
 # PERDIDA_MAX * (orden.volume / MIN_LOTAJES). Ej: 200 con 0.02 lot de BTC → corta a 400 USD.

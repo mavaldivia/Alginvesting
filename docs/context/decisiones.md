@@ -582,3 +582,17 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** cambiar de variable como reinicio completo de Sobol; poner un pool de variables por C1 desde el inicio para que el aprendizaje elija (sube las dimensiones sin evidencia y va contra elegir variables con argumento); decidir los cambios de variables con el premio del tramo reservado (dejaría de ser fuera de muestra).
 
 **Pendiente:** cuántas vueltas de exploración requiere una variable nueva antes de volver al Gradient Ascent (se mide); medir si las filas de una versión anterior ayudan o agregan ruido en el caso de redefiniciones.
+
+## 2026-11-05 — X1: las OE tocadas con la sesión cerrada las elimina el bróker; X1 solo lo registra
+
+**Decisión:** (1) X1 no cambia su manejo de pre-market: sigue usando `mercado_abierto` (`trade_mode` + tick fresco) y no importa `market_status.py`. (2) Se agrega `_registrar_eliminadas_broker`: cada `X1_ELIMINADAS_BROKER_CADA_S` = 60 s lee `mt5.history_orders_get` de las últimas `X1_ELIMINADAS_BROKER_VENTANA_H` = 24 h y guarda las buy limit canceladas/rechazadas/expiradas cuyo comment trae un motivo entre corchetes en `resources/x1/logs/eliminadas_broker_{VALOR}.jsonl` (tope `X1_LOG_CAMBIOS_MAX`), deduplicando por ticket.
+
+**Razón:** el 2026-11-05 el precio de TSLA cayó de 383 a ~352 y 10 OE (361,68 a 381,55) desaparecieron sin convertirse en OA. El historial de MT5 las muestra canceladas con `[session closed]`, cada una al ser tocada entre las 06:00 y las 09:38 hora NY: con la sesión de trading cerrada (pre-market y los primeros ~10 min de la sesión regular; la primera ejecución exitosa fue a las 09:40:22) el bróker no puede abrir la posición y elimina la orden en vez de dejarla pendiente. El 2026-11-04 hubo otras 10 en el mismo patrón (gap 397 a 382), no verificable porque el historial exportado parte tras ese hecho. X1 no lo sabía: sus logs solo registran cancelaciones propias.
+
+**Descartado:** cancelar las OE cercanas al precio antes de las 04:00 NY y recrearlas tras la apertura (el estado final es el mismo: los soportes quedan como O0 sobre el precio, y se suma riesgo y operaciones); reconstruir las entradas con órdenes de mercado al abrir (cambia la semántica de entrar en el soporte); tratar el vacío como falla de X0 o del gate `_distancia_ok` (los logs muestran que los soportes existían y que las OE estaban colocadas la tarde anterior).
+
+**Distinción útil:** las notificaciones "No se puede ejecutar la orden pendiente" del 2026-11-05 a las 12:51-12:53 (hora Chile; seis activos, incluidos BTCUSD y ETHUSD) son otro mecanismo, probablemente margen libre negativo: esas órdenes siguen pendientes, no se eliminan.
+
+**Pendiente:** confirmar el margen con el Diario de MT5 de esa hora; la cuenta ronda 986-995 entre órdenes pendientes y posiciones, cerca de un tope de ~1000 que no está confirmado.
+
+**Validado:** `python3 -m py_compile X1_trading.py config.py` y prueba en Mac con MT5 simulado sobre el historial real exportado: detecta exactamente las 10 OE, sin falsos positivos entre las ~760 restantes, respeta el throttle y no duplica tras un reinicio. Sin prueba en vivo (requiere MT5): falta confirmar en Windows que `history_orders_get` devuelve el comment con el sufijo.

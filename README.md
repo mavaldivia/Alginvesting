@@ -134,7 +134,7 @@ resources/               # Todo generado en Windows, fuera de git
   conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
   x0/logs/               # Logs de convergencia por combo {valor}_{N}.jsonl (append-only) + diag_conjunto_N/ (diagnóstico de crashes por tamaño de conjunto_N) + errores.log (traceback completo de errores del ciclo principal)
   x0/plots/              # Gráficos de X0 (Extremos, FO, Soportes, Zoom)
-  x1/logs/               # errores.log — traceback completo de errores del loop de trading + cambios_{VALOR}.jsonl (últimos 1000 reemplazos O0/OE por activo, foto ANTES/DESPUÉS, `X1_LOG_CAMBIOS_MAX`)
+  x1/logs/               # errores.log — traceback completo de errores del loop de trading + cambios_{VALOR}.jsonl (últimos 1000 reemplazos O0/OE por activo, foto ANTES/DESPUÉS, `X1_LOG_CAMBIOS_MAX`) + eliminadas_broker_{VALOR}.jsonl (OE que el bróker eliminó por su cuenta, ej. `[session closed]`)
   x2/                    # scores.json, x2_history.json, x2_last_run.json
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
@@ -237,6 +237,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-05** — feat(x1): registra en eliminadas_broker_{VALOR}.jsonl las OE que el bróker elimina con la sesión cerrada ([session closed]), causa confirmada del vacío de OE de TSLA tras el gap
 - **2026-11-04** — docs(q5): estructura de variables de cada C1 que admite cambios y registro para analizar las vueltas
 - **2026-11-04** — docs(q5-1b): documenta que la consola de V4 se perdió y el método para reconstruir el tramo dic-2022/ene-2023 desde los archivos de datos al terminar la corrida
 - **2026-11-03** — feat(x0,x4): saltos en el optimizador de soportes (M_SALTO) para cubrir zonas nuevas bajo/sobre las OA, tope de 15 min por búsqueda en X4 (9 min la fase gruesa) y `--reset` que limpia `resources_{versión}`
