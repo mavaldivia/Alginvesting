@@ -50,5 +50,5 @@ ANTIGUO
   [2023-01-10 00:00:00] Recalculando soportes...
 
 NUEVO
-(pendiente: se completa con la salida de la corrida completa de V4 con saltos y tope de 15 min, mismo tramo 2022-12-27 19:00 → 2023-01-10 00:00. Fuente: resources/x4/versionV4/salida_V4_*.txt)
+(pendiente: se completa con la salida de la corrida completa de V4 con saltos y tope de 15 min, mismo tramo 2022-12-27 19:00 → 2023-01-10 00:00. Fuente: reconstruido desde resources/x4/versionV4/resources_V4/ (la consola se perdió); método en docs/tracking/todos.md, ítem Q5-1b)
 

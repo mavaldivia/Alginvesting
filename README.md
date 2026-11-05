@@ -237,6 +237,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-04** — docs(q5-1b): documenta que la consola de V4 se perdió y el método para reconstruir el tramo dic-2022/ene-2023 desde los archivos de datos al terminar la corrida
 - **2026-11-03** — feat(x0,x4): saltos en el optimizador de soportes (M_SALTO) para cubrir zonas nuevas bajo/sobre las OA, tope de 15 min por búsqueda en X4 (9 min la fase gruesa) y `--reset` que limpia `resources_{versión}`
 - **2026-11-03** — fix(x1): coloca el 20% superior del reemplazo O0/OE de menor a mayor
 - **2026-11-03** — feat(x4): reporte tras cada búsqueda de soportes con total, rango de precios y desglose OK (ya OA, ya OE, por activar) vs. O0

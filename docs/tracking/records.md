@@ -2454,3 +2454,12 @@ Mauricio: rechazó la ordinalidad ("la regla es optimizar la FO con las OA fijas
 Mauricio: eligió saltos globales (A) e hizo implementarlos en X0 y X4, con un tope de 15 min por búsqueda en X4. Claude implementó `M_SALTO = 60` en `nuevo_optimizador_2` y `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN = 15`; la prueba real mostró 900 s y FO -0,191 porque la fase M=5 gastaba casi todo el tiempo. Mauricio decidió, sin pruebas, M=5 con máximo 9 min y M=30 con el resto: se agregó `X4_TIEMPO_MAX_FASE_GRUESA_MIN = 9` (solo compila, no probado).
 Mauricio: pidió que `--reset` limpie todo lo de V4. Claude hizo que vacíe `resources_{version}` (guardado por nombre), archivó antes las salidas viejas en `resources_V4_antiguo/` y dejó el caché viejo como causa de contaminación documentada. Creó `scripts/resumen_v4_ene2023.txt` (ANTIGUO con el print pegado, NUEVO pendiente) y el pendiente `[Q5-1b]` para compararlos tras la corrida completa de V4. Actualizó CLAUDE.md, README, `decisiones.md` e `instrucciones_Q5.md`.
 (Cierre: 2026-11-03 23:56)
+
+## SECCIÓN 300
+Mauricio: invocó /todos X5_alt_v2 y avisó que Q5-1 sigue en ejecución (la corrida de V4 con BTCUSD va en abril de 2024); pidió leer y analizar Q5-1b mientras tanto.
+Claude: mostró los próximos 3 ítems (Q5-1, Q5-1b, Q5-2) y las labores de Q5-1b. Leyó `scripts/resumen_v4_ene2023.txt` (ANTIGUO lleno, NUEVO vacío) y los archivos de `resources/x4/versionV4/` (`equity_global.csv`, `events.json`, `trades.json`, caché de soportes). Constató que no existe `salida_V4_*.txt`.
+Mauricio: cortó la reconstrucción de la salida de V4 ("para! no estamos hablando de la salida v4 aún") y aclaró que hablaba de Q5-1b. Confirmó que el scrollback de la consola con ese tramo ya se perdió.
+Claude: se detuvo y explicó el ítem. Propuso reconstruir NUEVO desde los archivos de datos; la duración de cada búsqueda y los cortes por el tope de 15 min quedan como no disponibles.
+Mauricio: decidió hacer la comparación entre ANTIGUO y lo recuperado del nuevo cuando termine el backtest, y pidió dejarlo anotado.
+Claude: actualizó las labores de Q5-1b en `docs/tracking/todos.md` con el método paso a paso (fuentes, validaciones, qué no se puede recuperar, no relanzar V4 con `--reset`) y la nota de origen de `scripts/resumen_v4_ene2023.txt`. Q5-1b queda pendiente.
+(Cierre: 2026-11-04 21:52)
