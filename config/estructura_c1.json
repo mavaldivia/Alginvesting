@@ -1,0 +1,50 @@
+{
+  "_comentario": "Variables de cada parámetro dinámico (C1) del backtesting inteligente (plan_x5_alt_v2.md 9.12). Una entrada por variable que el C1 alguna vez usó; 'activa': false la deja con peso 0. 'columnas' son columnas de la tabla de estado de Q1; 'transformacion': identidad (columna), ln_razon (log(col1/col2)) o abs (valor absoluto); 'signo': -1 invierte la variable. 'nombre' debe coincidir con la clave de 'pesos' de los C2. 'version' sube al redefinir una variable que se queda (fórmula, ventana). mu/sigma no se guardan: se calculan causales (ventana expansiva) en cada vela.",
+  "N": {
+    "version": 1,
+    "variables": [
+      {"nombre": "drawdown_30d", "transformacion": "identidad", "columnas": ["drawdown_30d"], "signo": 1, "activa": true},
+      {"nombre": "-x3_atr_pct", "transformacion": "identidad", "columnas": ["x3_atr_pct"], "signo": -1, "activa": true},
+      {"nombre": "ln_razon_vol_30d", "transformacion": "ln_razon", "columnas": ["vol_alcista_30d", "vol_bajista_30d"], "signo": 1, "activa": true}
+    ]
+  },
+  "A": {
+    "version": 1,
+    "variables": [
+      {"nombre": "x3_atr_pct", "transformacion": "identidad", "columnas": ["x3_atr_pct"], "signo": 1, "activa": true},
+      {"nombre": "ln_razon_vol_30d", "transformacion": "ln_razon", "columnas": ["vol_alcista_30d", "vol_bajista_30d"], "signo": 1, "activa": true}
+    ]
+  },
+  "factor_B": {
+    "version": 1,
+    "variables": [
+      {"nombre": "x3_atr_pct", "transformacion": "identidad", "columnas": ["x3_atr_pct"], "signo": 1, "activa": true},
+      {"nombre": "adx_14", "transformacion": "identidad", "columnas": ["adx_14"], "signo": 1, "activa": true}
+    ]
+  },
+  "K": {
+    "version": 1,
+    "variables": [
+      {"nombre": "-|ruptura_rango|", "transformacion": "abs", "columnas": ["ruptura_rango"], "signo": -1, "activa": true}
+    ]
+  },
+  "N_EXP": {
+    "version": 1,
+    "variables": [
+      {"nombre": "cambio_volatilidad", "transformacion": "identidad", "columnas": ["cambio_volatilidad"], "signo": 1, "activa": true}
+    ]
+  },
+  "LAMBDA": {
+    "version": 1,
+    "variables": [
+      {"nombre": "x3_bb_width", "transformacion": "identidad", "columnas": ["x3_bb_width"], "signo": 1, "activa": true},
+      {"nombre": "duracion_en_rango", "transformacion": "identidad", "columnas": ["duracion_en_rango"], "signo": 1, "activa": true}
+    ]
+  },
+  "PERDIDA_MAX": {
+    "version": 1,
+    "variables": [
+      {"nombre": "drawdown_7d", "transformacion": "identidad", "columnas": ["drawdown_7d"], "signo": 1, "activa": true}
+    ]
+  }
+}

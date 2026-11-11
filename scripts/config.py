@@ -443,6 +443,8 @@ def soporte_de_orden(orden) -> float:
 # ─── X5_alt — versión alternativa y simplificada (paralela, no reemplaza X5) ──
 
 CARPETA_X5_ALT = BASE_DIR / 'resources' / 'x5_alt'
+# Variables de cada parámetro dinámico (C1) del backtesting inteligente; se edita a mano, versionado en git.
+RUTA_ESTRUCTURA_C1 = BASE_DIR / 'config' / 'estructura_c1.json'
 
 # ─── X4 — Backtester ─────────────────────────────────────────────────────────
 X4_VERSION_ACTIVA = 'V1'

@@ -596,3 +596,31 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Pendiente:** confirmar el margen con el Diario de MT5 de esa hora; la cuenta ronda 986-995 entre órdenes pendientes y posiciones, cerca de un tope de ~1000 que no está confirmado.
 
 **Validado:** `python3 -m py_compile X1_trading.py config.py` y prueba en Mac con MT5 simulado sobre el historial real exportado: detecta exactamente las 10 OE, sin falsos positivos entre las ~760 restantes, respeta el throttle y no duplica tras un reinicio. Sin prueba en vivo (requiere MT5): falta confirmar en Windows que `history_orders_get` devuelve el comment con el sufijo.
+
+## 2026-11-10 — X5_alt_v2 (Q5-1b): se descarta la comparación del resumen de V4 contra el print antiguo
+
+**Decisión:** se elimina el ítem `Q5-1b` del TO DO. No se reconstruye el tramo 2022-12-27 a 2023-01-10 de la corrida completa de V4 y la sección NUEVO de `scripts/resumen_v4_ene2023.txt` queda marcada como descartada. La corrida de medición de `Q5-1` terminó el 2026-11-06 (hecha en Mac, BTCUSD hasta 2026-11-03 18:00, sin stop-out).
+
+**Razón:** Mauricio juzgó que la comparación antiguo/nuevo ya no es relevante. Además la consola de la corrida se perdió, así que el desglose por búsqueda (duración y cortes por el tope de 15 min) no se podía recuperar de todos modos.
+
+**Descartado:** reconstruir el tramo desde `trades.json`, `events.json` y `equity_global.csv`. Los archivos de la corrida siguen en `resources/x4/versionV4/resources_V4/` por si se retoma; queda un respaldo en el scratchpad de la sesión.
+
+## 2026-11-10 — X5_alt_v2 (Q5-1/Q5-4): 16 vueltas Sobol para comenzar
+
+**Decisión:** el bloque inicial de muestreo Sobol por valor es de 16 vueltas (el plan sugería 32). `Q5-1` se cierra con la medición de una vuelta: unas 56 h de reloj (Mac, BTCUSD, `N` = 180 fijo), con 245 búsquedas de soportes de unos 13,8 min en promedio, cerca del tope de 15 min.
+
+**Razón:** con ~56 h por vuelta, 32 vueltas serían unos 75 días por valor; 16 son unos 37 días y dan una primera lectura antes de comprometer el doble.
+
+**Consecuencia abierta:** 16 vueltas no superan los 27 coeficientes de la Regresión Lineal Múltiple (RLM) de grado 1, así que a las 16 no se pasa a RLM de forma automática. Se decide después, con las 16 vueltas a la vista (análisis descriptivo de `Q5-7`): seguir con Sobol hasta 32 o pasar a RLM con regularización ridge. Queda registrado en el ítem `Q5-4` y en `plan_x5_alt_v2.md` §9.5.
+
+**Descartado:** mantener 32 como bloque inicial.
+
+## 2026-11-10 — X5_alt_v2 (Q5-2): `μ`/`σ` causales (ventana expansiva), rangos de sorteo cerca de `Q4`, pasos actuales
+
+**Decisión:** (1) en el backtest `μ` y `σ` de cada variable se recalculan en cada vela con solo los datos hasta `t` (ventana expansiva), no con todo el historial; (2) el sorteo Sobol de los C2 se hace cerca de la calibración de `Q4`, no en rangos anchos; (3) se mantienen los `PASOS_*` actuales de `config_smart.py`. El rango de `PERDIDA_MAX_PCT` queda para `Q5-3`.
+
+**Razón:** (1) con `μ`/`σ` de todo el histórico, el backtest de marzo de 2022 usaría datos de 2026 que aún no existían (look-ahead) y el premio saldría inflado. (2) 16 vueltas en 26 dimensiones, a ~56 h cada una, no alcanzan para cubrir rangos anchos: se gastarían en configuraciones inútiles (ej. `pendiente` casi 0).
+
+**Descartado:** fijar `μ`/`σ` con un tramo inicial (ese tramo también mira el futuro y 2022 fue un año atípico para BTC); sorteo en rangos anchos.
+
+**Consecuencia:** los `μ`/`σ` congelados de `Q4` ya no se usan en el backtest; quedan solo para la prueba de `Q5-2` que reproduce las columnas `*_hat` de `Q4`. El archivo de estructura de §9.12 guarda nombre, signo, ventana y estado activo de cada variable, pero no `μ`/`σ`.

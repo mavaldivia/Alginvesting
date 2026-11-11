@@ -115,7 +115,7 @@ scripts/
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
   q5_empaquetar_medicion.py  # Empaqueta en resources/x4/version{V}/medicion_{V}.zip la salida de consola, config, checkpoint, log de búsquedas de soportes (filtrado a la corrida) y resumen/equipo de una medición de X4 (Q5-1); sirve también con la corrida interrumpida
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
-  config_smart.py        # Pisos, techos y pasos de los 7 parámetros dinámicos (cripto y acciones por separado), N_VELAS (cadencia de recálculo de soportes) y GRADO (aprendizaje), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
+  config_smart.py        # Pisos, techos y pasos de los 7 parámetros dinámicos (cripto y acciones por separado), N_VELAS (cadencia de recálculo de soportes), GRADO (aprendizaje) y SORTEO_C2 (rango del sorteo Sobol de los C2 cerca de Q4), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   agregar_valor.ipynb    # Interrogatorio para integrar un activo nuevo: escribe en config.py y X2_fundamentals.py
@@ -123,13 +123,15 @@ scripts/
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
   X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
   X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra 7 parámetros (N, A, factor_B, K, N_EXP, LAMBDA, PERDIDA_MAX) como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — cerrado 2026-11-02; resumen por activo con coeficientes y μ/σ en exp_Q4/{VALOR}_q4_resumen.csv
-  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro con 1-3 variables) — no depende de Data/MT5
+  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro con 1-3 variables) y de Q5 (serie_c1: cada parámetro dinámico vela a vela con z-score de ventana expansiva, redondeo a la grilla de pasos y variables leídas de config/estructura_c1.json; rangos de sorteo de los C2) — no depende de Data/MT5
+  test_x5_alt_funciones.py  # Pruebas de las funciones de Q5 con datos reales de exp_Q1/exp_Q4 (reproduce Q4, causalidad, grilla, sorteo); corren sin pytest: python scripts/test_x5_alt_funciones.py
   x5_alt_export.py       # carpeta_exp()/limpiar_exp()/exportar_zip() — cada notebook X5_Q*.ipynb lee/escribe en su propia resources/x5_alt/exp_Qi/ (limpiada al inicio) y comprime esa carpeta en exp_Qi.zip para pasarlo de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
-  active_parameters.json # Params recomendados por X5, leídos por X1/X0 en modo "din"
+  active_parameters.json # Params recomendados por X5, leídos por X1/X0 en modo "din" (fuera de git)
+  estructura_c1.json     # Variables de cada parámetro dinámico del backtesting inteligente (X5_alt_v2, Q5); se edita a mano, en git
 resources/               # Todo generado en Windows, fuera de git
   conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
   x0/logs/               # Logs de convergencia por combo {valor}_{N}.jsonl (append-only) + diag_conjunto_N/ (diagnóstico de crashes por tamaño de conjunto_N) + errores.log (traceback completo de errores del ciclo principal)
@@ -237,6 +239,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-10** — feat(q5-2): serie causal de cada C1, estructura de variables y 16 vueltas Sobol
 - **2026-11-05** — feat(x1): registra en eliminadas_broker_{VALOR}.jsonl las OE que el bróker elimina con la sesión cerrada ([session closed]), causa confirmada del vacío de OE de TSLA tras el gap
 - **2026-11-04** — docs(q5): estructura de variables de cada C1 que admite cambios y registro para analizar las vueltas
 - **2026-11-04** — docs(q5-1b): documenta que la consola de V4 se perdió y el método para reconstruir el tramo dic-2022/ene-2023 desde los archivos de datos al terminar la corrida

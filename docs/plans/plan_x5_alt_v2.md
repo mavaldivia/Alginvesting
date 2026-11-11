@@ -225,7 +225,7 @@ Al terminar la vuelta de un valor `v`, cada C2 es un regresor: `w̃_1^N, w̃_2^N
 
 Con una RLM se estiman los `h_i` y con **Gradient Ascent** se mueve levemente cada `p_i` en la dirección que sube `Z_tongo`. Mientras hay pocos registros se usa **muestreo Sobol** (secuencia casi aleatoria que cubre el espacio de los 26 C2 de forma pareja); pasado un umbral de vueltas se cambia a RLM + Gradient Ascent.
 
-Con 26 regresores, el grado 1 tiene 27 coeficientes y el grado 2 tiene 352 (1 + 26 + 325 productos cruzados). Con el grado 2 la RLM solo es identificable con muchas vueltas o con regularización (ridge), y cada vuelta aporta una sola observación por valor. Por eso el grado por defecto es 1 y el umbral para dejar Sobol debe superar el número de coeficientes (sugerido: 32 vueltas, potencia de 2, que conserva el balance de la secuencia). Los pesos se regresan como `w̃` omitiendo uno por grupo (con `Σ w̃ = 1` el último es redundante y haría singular la regresión); tras cada paso de gradiente se proyectan de vuelta al símplex. El paso del gradiente es una fracción del rango de cada C2 y siempre se recorta a sus límites. Estos detalles se fijan en `Q5-5`.
+Con 26 regresores, el grado 1 tiene 27 coeficientes y el grado 2 tiene 352 (1 + 26 + 325 productos cruzados). Con el grado 2 la RLM solo es identificable con muchas vueltas o con regularización (ridge), y cada vuelta aporta una sola observación por valor. Por eso el grado por defecto es 1 y el umbral para dejar Sobol debe superar el número de coeficientes (32 vueltas, potencia de 2, que conserva el balance de la secuencia; el 2026-11-10 Mauricio decidió empezar con 16, que no supera los 27 coeficientes: a las 16 no se pasa a RLM sin una decisión explícita). Los pesos se regresan como `w̃` omitiendo uno por grupo (con `Σ w̃ = 1` el último es redundante y haría singular la regresión); tras cada paso de gradiente se proyectan de vuelta al símplex. El paso del gradiente es una fracción del rango de cada C2 y siempre se recorta a sus límites. Estos detalles se fijan en `Q5-5`.
 
 ### 9.6. Compuerta de promoción: tramo reservado
 
@@ -268,11 +268,11 @@ Reglas de la comparación:
 
 Las decisiones que Mauricio debe tomar están en `docs/tracking/todos.md`, marcadas `[DECIDE MAURICIO]` en el ítem de `Q5` donde se necesitan.
 
-- **Una observación por valor y vuelta contra 26 dimensiones**: el aprendizaje depende de cuántas vueltas caben; `Q5-1` mide la duración de una vuelta antes de construir nada.
+- **Una observación por valor y vuelta contra 26 dimensiones**: el aprendizaje depende de cuántas vueltas caben; `Q5-1` mide la duración de una vuelta antes de construir nada. Medido el 2026-11-06 (Mac, BTCUSD, `N` = 180 fijo, un solo proceso, con saltos y tope de 15 min por búsqueda): 2022-03-01 a 2026-11-03 18:00 en unas 56 h de reloj (cota superior: incluye cualquier pausa del equipo), sin stop-out. El caché de soportes tiene 245 claves semanales, o sea unos 13,8 min por búsqueda en promedio, casi el tope (inferido, no medido: la consola se perdió): el costo de una vuelta lo dominan las búsquedas de soportes, no el recorrido de velas. A ese ritmo 32 vueltas Sobol serían unos 75 días por valor; no se midió el costo con `N` dinámico ni con los 7 procesos a la vez.
 - **Lote por posición**: X4 usa un solo `cfg.LOTAJES[activo]` por activo en `_paso_B`/`C`/`D`/`E`/`F`, `_calcular_estado_cuenta` y `_registrar_trade`. Con `lotajes_m(Z)` dinámico cada posición necesita su propio volumen. Decidido en `Q5-1` (2026-11-03): se fija al crear la Orden en Espera (OE). Cada OE y OA de X4 ya guarda `'lote'` (`X4_backtester.py:405`, `:441`, `:482`, `:599`), así que el cambio es leer ese campo en vez de `cfg.LOTAJES[activo]` (9 lugares), no rediseñar la estructura.
 - **Intra-vela aleatoria**: `_simular_intravela` elige el bloque M1 con `random.randint` sin semilla (`X4_backtester.py:662`), así que dos vueltas con los mismos C2 dan premios distintos, lo que agrega ruido a una observación por vuelta y rompe la prueba de reproducibilidad de `Q5-3`. Se siembra por `(valor, ts)`.
 - **Caché de soportes indexado por `N`** (`{VALOR}_{N}_bt.json`): con `N_t` dinámico cambia en cada recálculo y rompe el warm start (solución previa como punto de partida).
-- **`μ`/`σ` de `Q4` usan todo el histórico** (look-ahead): en el backtest deben ser expanding o fijarse en un tramo inicial.
+- **`μ`/`σ` de `Q4` usan todo el histórico** (look-ahead): decidido el 2026-11-10 que en el backtest sean causales, con ventana expansiva (en cada vela solo datos hasta `t`).
 - **Premio no lineal**: `lotajes_m` sube con `Z`, así que ganar temprano compone y pesa más que ganar tarde; el premio por tramo reservado y el control estático con las mismas reglas lo hacen comparable.
 - **`PERDIDA_MAX`, `A` y `B` con `m > 1`** (resuelto en `Q5-1`, 2026-11-03): X1 escala los tres por `m = orden.volume / MIN_LOTAJES` (el comentario de `config.py:234` es el correcto) y X4 no escala nada, así que solo coinciden con `m = 1`, el caso de toda la recolección de X5 (`LOTAJES_M = (1,1)`). Reglas del script nuevo en 9.3; `pars_configurables.md` corregido.
 - **`N_VELAS` de acciones** (35) es un supuesto (~7 velas H1 por día × 5 días). El `Data/` local (hasta 2026-06-02) da 10 velas por día en TSLA, NVDA, AMZN y MSFT y 7 en GOOGL, así que 50 equivale a una semana; confirmar en Windows (decisión en `Q5-3`).
@@ -319,7 +319,7 @@ Los 7 valores (`VALORES`: BTCUSD, ETHUSD, TSLA, GOOGL, NVDA, AMZN, MSFT) corren 
 
 Decidido el 2026-11-04. Después de varias vueltas Mauricio puede decidir que un C1 use otras variables (agregar `x3` a `{x1, x2}`, quitar `x2`, o cambiar `x2` por `x3`). El sistema debe absorberlo sin tocar código ni perder el aprendizaje acumulado: la estructura de cada C1 es un dato, no está fija en el código.
 
-**Estructura como dato.** Para cada C1 se guarda la lista de **todas las variables que alguna vez usó** (con su `μ`/`σ` congelado, su ventana y su fórmula) y cuáles están activas. El aprendizaje, el sorteo Sobol y las filas de `{valor}_vueltas.csv` trabajan sobre la lista completa, con un peso `w_i` por variable (un peso en 0 desactiva la variable, porque la función usa `w̃_i = w_i / Σ w_j`).
+**Estructura como dato.** Para cada C1 se guarda la lista de **todas las variables que alguna vez usó** (con su fórmula, su signo y su ventana; `μ`/`σ` no se guardan porque son causales, ventana expansiva, decidido el 2026-11-10) y cuáles están activas. Vive en `config/estructura_c1.json` (versionado en git, se edita a mano) y lo lee `cargar_estructura_c1` de `x5_alt_funciones.py`. El aprendizaje, el sorteo Sobol y las filas de `{valor}_vueltas.csv` trabajan sobre la lista completa, con un peso `w_i` por variable (un peso en 0 desactiva la variable, porque la función usa `w̃_i = w_i / Σ w_j`).
 
 | Cambio | Qué se hace | Qué pasa con las vueltas anteriores |
 |---|---|---|
@@ -334,7 +334,7 @@ Decidido el 2026-11-04. Después de varias vueltas Mauricio puede decidir que un
 - La lista de variables por C1 sale de un archivo de estructura (no de constantes del código) y es lo que construye la lista de C2, las columnas de `{valor}_vueltas.csv`, el sorteo Sobol y los regresores de la RLM.
 - `{valor}_vueltas.csv` guarda los C2 de todas las variables que alguna vez estuvieron en la estructura (las no usadas en esa vuelta valen 0) y la columna `version_estructura`.
 - La RLM usa solo los regresores de variables que tienen variación en las filas disponibles; una columna constante se omite.
-- Una variable nueva debe existir en la tabla de estado de `Q1` para todo el histórico, con `μ`/`σ` calculados en el mismo tramo que las otras variables del C1.
+- Una variable nueva debe existir en la tabla de estado de `Q1` para todo el histórico (sin NaN desde el inicio del backtest, 2022-03-01).
 - El `w̃` que aprende el sistema es evidencia para decidir cambios: un `w̃_i` cercano a 0 tras muchas vueltas indica que esa variable no aporta. La decisión de cambiar variables no se toma con el premio del tramo reservado (9.6), para que siga siendo fuera de muestra.
 
 ### 9.13. Preparación para el análisis posterior y las sugerencias de cambio de C2

@@ -11,9 +11,13 @@ No es un script standalone. Se importa con:
     from x5_alt_funciones import calibrar_parametro
 """
 
+import json
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
+
+import config_smart
 
 
 class _FenwickRankTree:
@@ -214,3 +218,176 @@ def calibrar_parametro(
         if mejor is None or ajuste['r2'] > mejor['r2']:
             mejor = {**compuesto, **ajuste}
     return mejor
+
+
+# ─── Q5: serie causal de cada C1 a partir de sus C2 (plan_x5_alt_v2.md 9.0-9.4, 9.12) ───────────
+
+MIN_OBS_Z = 30  # observaciones mínimas para que la ventana expansiva entregue un z-score; antes, z = 0 (neutro)
+_TRANSFORMACIONES = ('identidad', 'ln_razon', 'abs')
+_CLAVE_Q5 = {'PERDIDA_MAX': 'PERDIDA_MAX_PCT'}  # en el backtesting inteligente PERDIDA_MAX es la fracción p de Z
+
+
+def cargar_estructura_c1(ruta) -> dict:
+    """Lee `config/estructura_c1.json` (variables de cada C1; ver su `_comentario`). Valida lo que la función usa."""
+    with open(ruta, encoding='utf-8') as f:
+        estructura = {k: v for k, v in json.load(f).items() if not k.startswith('_')}
+    for c1, entrada in estructura.items():
+        nombres = [v['nombre'] for v in entrada['variables']]
+        if len(set(nombres)) != len(nombres):
+            raise ValueError(f"estructura {c1}: nombres de variable repetidos {nombres}")
+        for v in entrada['variables']:
+            if v['transformacion'] not in _TRANSFORMACIONES:
+                raise ValueError(f"estructura {c1}.{v['nombre']}: transformacion '{v['transformacion']}' no soportada")
+            if v['signo'] not in (1, -1):
+                raise ValueError(f"estructura {c1}.{v['nombre']}: signo debe ser 1 o -1")
+    return estructura
+
+
+def _columna_variable(tabla: pd.DataFrame, variable: dict) -> np.ndarray:
+    cols = [tabla[c].to_numpy(dtype=float) for c in variable['columnas']]
+    t = variable['transformacion']
+    if t == 'identidad':
+        x = cols[0]
+    elif t == 'abs':
+        x = np.abs(cols[0])
+    else:  # ln_razon
+        x = np.log(cols[0] / cols[1])
+    return variable['signo'] * x
+
+
+def z_expanding(x: np.ndarray, min_obs: int = MIN_OBS_Z) -> np.ndarray:
+    """
+    z-score causal con ventana expansiva: en cada t usa solo x_0..x_t (inclusive) para la media y la
+    desviación estándar (ddof=0), a diferencia de `z_score`, que usa toda la serie (look-ahead). Con menos
+    de `min_obs` observaciones válidas o desviación nula entrega 0; un x_t sin dato (NaN) entrega NaN.
+    """
+    s = pd.Series(np.asarray(x, dtype=float))
+    media = s.expanding(min_periods=min_obs).mean()
+    desv = s.expanding(min_periods=min_obs).std(ddof=0)
+    z = ((s - media) / desv).where(desv > 0, 0.0)
+    z[s.isna()] = np.nan
+    return z.to_numpy()
+
+
+def redondear_a_grilla(x, piso: float, techo: float, paso: float) -> np.ndarray:
+    """Lleva x al valor permitido más cercano de la grilla `piso + k * paso` (plan 9.4); ej. N acciones (40, 180, 10): 52.33 -> 50."""
+    x = np.asarray(x, dtype=float)
+    k = np.floor((x - piso) / paso + 0.5)
+    return np.round(np.clip(piso + k * paso, piso, techo), 10)
+
+
+def perdida_max_usd(p: float, z: float) -> float:
+    """Umbral de pérdida por orden abierta: p * Z (plan 9.3). `max(Z, 0)` es un supuesto a confirmar en Q5-3."""
+    return p * max(z, 0.0)
+
+
+def serie_c1(
+    parametro: str,
+    valor: str,
+    c2: dict,
+    tabla: pd.DataFrame,
+    estructura: dict,
+    normalizacion: str = 'expanding',
+    mu_sigma: dict | None = None,
+    rango: tuple | None = None,
+    redondear: bool = True,
+) -> dict:
+    """
+    Serie vela a vela de un C1 (`parametro`) para `valor`, dados sus C2 y la tabla de estado de Q1.
+
+    c2: {'pesos': {nombre_variable: w_i}, 'span': int, 'punto_medio': float, 'pendiente': float}.
+        Variable de la estructura sin peso en `pesos` o con `activa: false` -> w = 0; los pesos se
+        normalizan `w̃_i = w_i / Σ w_j`. `span` se redondea a entero >= 1.
+    normalizacion: 'expanding' (por defecto, causal) o 'fija' (con `mu_sigma` {nombre: (mu, sigma)}; solo
+        para reproducir Q4, que usa mu/sigma de todo el histórico).
+    rango: (piso, techo); por defecto el de `config_smart` (para PERDIDA_MAX, el de PERDIDA_MAX_PCT).
+    redondear: lleva el C1 a la grilla de `config_smart.paso` (la serie sin redondear va siempre en 'c1_sin_redondeo').
+
+    Devuelve {'s': índice suavizado, 'c1_sin_redondeo', 'c1', 'pesos': {nombre: w̃}}. Mismas filas que `tabla`;
+    los NaN de variables sin dato (inicio de ventanas) pasan como NaN.
+    """
+    variables = estructura[parametro]['variables']
+    pesos_c2 = c2['pesos']
+    desconocidas = set(pesos_c2) - {v['nombre'] for v in variables}
+    if desconocidas:
+        raise ValueError(f"{parametro}: pesos para variables que no están en la estructura: {sorted(desconocidas)}")
+    w = np.array([float(pesos_c2.get(v['nombre'], 0.0)) if v['activa'] else 0.0 for v in variables])
+    if w.sum() <= 0:
+        raise ValueError(f"{parametro}: todos los pesos son 0")
+    w_norm = w / w.sum()
+
+    s = np.zeros(len(tabla))
+    for wi, v in zip(w_norm, variables):
+        if wi == 0:
+            continue
+        x = _columna_variable(tabla, v)
+        if normalizacion == 'expanding':
+            z = z_expanding(x)
+        elif normalizacion == 'fija':
+            mu, sigma = mu_sigma[v['nombre']]
+            z = (x - mu) / sigma
+        else:
+            raise ValueError(f"normalizacion '{normalizacion}' no soportada")
+        s = s + wi * z
+
+    span = max(1, int(round(c2['span'])))
+    s = suavizar_ema(s, span)
+
+    clave = _CLAVE_Q5.get(parametro, parametro)
+    piso, techo = rango if rango is not None else config_smart.rango(clave, valor)
+    sin_redondeo = sigmoide_acotada(s, piso, techo, c2['punto_medio'], c2['pendiente'])
+    c1 = redondear_a_grilla(sin_redondeo, piso, techo, config_smart.paso(clave, valor)) if redondear else sin_redondeo
+    return {
+        's': s,
+        'c1_sin_redondeo': sin_redondeo,
+        'c1': c1,
+        'pesos': {v['nombre']: float(wi) for v, wi in zip(variables, w_norm)},
+    }
+
+
+def cargar_c2_q4(ruta_resumen_csv) -> dict:
+    """
+    C2 que calibró Q4 de cada C1, desde `{valor}_q4_resumen.csv`: {C1: {'pesos': {nombre: w}, 'span', 'punto_medio',
+    'pendiente', 'mu_sigma': {nombre: (mu, sigma)}}}. Son el punto de partida de Q5 y la base de `rangos_sorteo_c2`.
+    """
+    resumen = pd.read_csv(ruta_resumen_csv)
+    c2 = {}
+    for _, fila in resumen.iterrows():
+        nombres = json.loads(fila['variables'])
+        pesos = json.loads(fila['pesos'])
+        norm = json.loads(fila['normalizacion'])
+        c2[fila['parametro']] = {
+            'pesos': dict(zip(nombres, pesos)),
+            'span': int(fila['span_suavizado']),
+            'punto_medio': float(fila['punto_medio']),
+            'pendiente': float(fila['pendiente']),
+            'mu_sigma': {n: (m['mu'], m['sigma']) for n, m in zip(nombres, norm)},
+        }
+    return c2
+
+
+def rangos_sorteo_c2(c2_base: dict) -> dict:
+    """
+    Rango del sorteo Sobol de los C2 de un C1 cerca de su calibración `c2_base` (reglas en `config_smart.SORTEO_C2`).
+    Devuelve {'pesos': {nombre: (min, max)}, 'span': (min, max), 'punto_medio': (min, max), 'pendiente': (min, max)}.
+    Un C1 con una sola variable no sortea su peso (queda en (1, 1)); una variable sin peso base queda en (0, 0).
+    """
+    cfg = config_smart.SORTEO_C2
+    pesos_base = c2_base['pesos']
+    una_variable = sum(1 for w in pesos_base.values() if w > 0) == 1
+    pesos = {}
+    for nombre, w in pesos_base.items():
+        if w <= 0:
+            pesos[nombre] = (0.0, 0.0)
+        elif una_variable:
+            pesos[nombre] = (1.0, 1.0)
+        else:
+            pesos[nombre] = (max(cfg['peso_min'], w - cfg['peso_delta']), min(1.0, w + cfg['peso_delta']))
+    pm, pe = c2_base['punto_medio'], c2_base['pendiente']
+    extremos_pe = sorted((pe / cfg['pendiente_factor'], pe * cfg['pendiente_factor']))
+    return {
+        'pesos': pesos,
+        'span': tuple(cfg['span']),
+        'punto_medio': (pm - cfg['punto_medio_delta'], pm + cfg['punto_medio_delta']),
+        'pendiente': tuple(extremos_pe),
+    }

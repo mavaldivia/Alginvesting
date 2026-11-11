@@ -67,6 +67,19 @@ N_VELAS = {'crypto': 168, 'accion': 35}
 GRADO = 1
 
 
+# Rango del sorteo Sobol de los C2 de cada C1, relativo a la calibración de Q4 (decidido 2026-11-10: cerca de Q4).
+# punto_medio: Q4 ± punto_medio_delta (unidades del índice, que es un z-score); pendiente: de Q4/pendiente_factor
+# a Q4*pendiente_factor; span: rango absoluto en velas H1 (entero); peso w_i (sin normalizar): Q4 ± peso_delta,
+# con piso peso_min.
+SORTEO_C2 = {
+    'punto_medio_delta': 0.5,
+    'pendiente_factor': 2.0,
+    'span': (6, 24),
+    'peso_delta': 0.2,
+    'peso_min': 0.05,
+}
+
+
 def tipo_valor(valor: str) -> str:
     return 'crypto' if valor in CRYPTOS else 'accion'
 
@@ -75,3 +88,9 @@ def rango(parametro: str, valor: str) -> tuple:
     """(piso, techo) del parámetro dinámico para ese activo, según su tipo (crypto o acción)."""
     rangos = RANGOS_CRYPTO if valor in CRYPTOS else RANGOS_ACCION
     return rangos[parametro]
+
+
+def paso(parametro: str, valor: str) -> float:
+    """Paso de la grilla del parámetro dinámico para ese activo, según su tipo (crypto o acción)."""
+    pasos = PASOS_CRYPTO if valor in CRYPTOS else PASOS_ACCION
+    return pasos[parametro]
