@@ -638,3 +638,15 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Consecuencia abierta:** `premio_aprendizaje = Z al corte / velas` incluye los 3000 USD iniciales y `premio_reservado` no, así que no son comparables tal cual (ver `plan_x5_alt_v2.md` §9.6). La reproducibilidad exacta solo vale si ninguna búsqueda toca el tope de 15 min; en una vuelta completa con `N = 180` es lo esperable (13,8 min promedio), y habrá que mirarlo con las réplicas de `Q5-4`.
 
 **Validado:** `python scripts/test_x4s_backtesting_inteligente.py` (10 pruebas sobre BTCUSD real, N = 20) y `python scripts/test_x5_alt_funciones.py` (14). Con `m = 1`, X4 nuevo y anterior dan estado, trades y eventos idénticos sobre una serie sintética de 900 velas. Sin prueba de una vuelta completa, de acciones ni en Windows.
+
+## 2026-11-14 — X5_alt_v2 (Q5-3): las duraciones se miden en tiempo de cómputo, no de reloj
+
+**Decisión:** la `duracion` de cada búsqueda de soportes (`_procesar_valor_N`, `X0_data_supports.py`) y la duración y el ETA de la vuelta (`X4S_backtesting_inteligente.py`) usan `time.monotonic()`. El log de convergencia de X0 (`resources/x0/logs`) conserva `time.time()` en sus marcas de inicio y fin. El resumen en pantalla rotula `A`, `B` y `p` como promedios del bloque y el umbral como el de la última vela.
+
+**Razón:** la corrida corta de BTCUSD (1.080 velas, 2026-11-14) marcó 406 min de reloj, pero el Mac estuvo suspendido casi todo el tiempo (`pmset -g log`: despierto unos 70 min). El tope de 15 min por búsqueda ya usaba `time.monotonic()`, que en macOS no cuenta la suspensión, y la duración reportada usaba `time.time()`, que sí: cinco de siete búsquedas marcaron entre 1.988 y 8.463 s sin que el tope las cortara. Con la misma medición, las 56 h del 2026-11-06 pueden incluir suspensión y no sirven para dimensionar las vueltas de `Q5-4`.
+
+**Descartado:** reportar ambos relojes (ruido en el resumen); cambiar el log de convergencia (sus marcas son fechas reales y sirven para detectar pausas).
+
+**Consecuencia:** la duración medida en `Q5-1` queda pendiente de repetir con cómputo real; la vuelta completa de `Q5-3` la entrega. Recomendado correr con `caffeinate -i`, enchufado y con la tapa abierta.
+
+**Registro adicional:** al cerrar, cada vuelta escribe `resources/x5_alt/q5/{valor}/{vuelta}/resumen.json` (`escribir_resumen_json`, `X4S_backtesting_inteligente.py`): fila de la vuelta, resumen final, tiempos de cómputo y de reloj (la diferencia es la pausa), cada búsqueda de soportes, cada bloque, equity de fin de mes, entorno (commit, equipo) y config vigente. Pensado para revisar una vuelta sin la consola. Si la vuelta se corta a medias no se escribe; `{valor}_seguimiento.csv` sí queda con los bloques hechos.

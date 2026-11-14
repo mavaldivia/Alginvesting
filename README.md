@@ -143,7 +143,7 @@ resources/               # Todo generado en Windows, fuera de git
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
-  x5_alt/                # X5_alt v1: {VALOR}_tabla_maestra.csv suelto en la raíz (X5_P1.ipynb). X5_alt_v2: exp_Qi/ por notebook (ej. exp_Q1/{VALOR}_tabla_estado_v2.csv + {VALOR}_catalogo_variables.csv de X5_Q1.ipynb, consumidos por X5_Q2/Q3/Q4 vía carpeta_exp) + exp_Qi.zip (comprime exp_Qi/ completa, reemplazado en cada corrida — ver x5_alt_export.py) + q5/ (salida de X4S: {VALOR}_vueltas.csv, {VALOR}_seguimiento.csv, {VALOR}_estructura_v{n}.json y una carpeta por vuelta en {VALOR}/{vuelta}/ con trades, eventos, equity y x4.log)
+  x5_alt/                # X5_alt v1: {VALOR}_tabla_maestra.csv suelto en la raíz (X5_P1.ipynb). X5_alt_v2: exp_Qi/ por notebook (ej. exp_Q1/{VALOR}_tabla_estado_v2.csv + {VALOR}_catalogo_variables.csv de X5_Q1.ipynb, consumidos por X5_Q2/Q3/Q4 vía carpeta_exp) + exp_Qi.zip (comprime exp_Qi/ completa, reemplazado en cada corrida — ver x5_alt_export.py) + q5/ (salida de X4S: {VALOR}_vueltas.csv, {VALOR}_seguimiento.csv, {VALOR}_estructura_v{n}.json y una carpeta por vuelta en {VALOR}/{vuelta}/ con trades, eventos, equity, x4.log y resumen.json: resumen final, tiempos de cómputo y de reloj, búsquedas, bloques, entorno y config)
 docs/
   context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md, funciones_pars_dinamicos.pdf/.tex (una hoja por parámetro dinámico de X5_Q4)
   plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + plan_x5_alt_v2.md (Fase 2: parámetros como funciones dinámicas) + documentacion.html (doc interactiva por sección, ver /documentar)
@@ -241,6 +241,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-14** — feat(q5-3): duraciones en tiempo de cómputo (no de reloj) y resumen.json por vuelta en X4S
 - **2026-11-14** — feat(q5-3): X4S con cuenta de 3000 USD, lote por posición, premio por tramo y registro por vuelta
 - **2026-11-10** — feat(q5-2): serie causal de cada C1, estructura de variables y 16 vueltas Sobol
 - **2026-11-05** — feat(x1): registra en eliminadas_broker_{VALOR}.jsonl las OE que el bróker elimina con la sesión cerrada ([session closed]), causa confirmada del vacío de OE de TSLA tras el gap

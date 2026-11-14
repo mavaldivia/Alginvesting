@@ -1381,6 +1381,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
     o None si el combo se saltó por falta de datos.
     """
     t_inicio = time.time()
+    t_mono = time.monotonic()  # la duración y el tope no cuentan la suspensión del equipo (time.time() sí)
     prep = _preparar_valor_N(valor, N, carpeta_data, carpeta_n_prod, carpeta_n_bt,
                              fecha_hora_max, estado_compartido, verbose,
                              params_soporte, warm_start)
@@ -1388,7 +1389,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         return None
 
     oa = ordenes_abiertas_bt if prep['es_bt'] else ordenes_activas
-    restante_s = (max(0.0, tiempo_limite_s - (time.time() - t_inicio))
+    restante_s = (max(0.0, tiempo_limite_s - (time.monotonic() - t_mono))
                   if tiempo_limite_s is not None else None)
     r = _optimizar_y_guardar_valor_N(
         valor, N, prep, oa, carpeta_n_prod, carpeta_n_bt,
@@ -1405,7 +1406,7 @@ def _procesar_valor_N(valor: str, N: int, carpeta_data: Path,
         r['n_iters'], r['cambios'],
         prep['FO_ref'], r['FO_final'], r['convergio'],
     )
-    duracion = t_fin - t_inicio
+    duracion = time.monotonic() - t_mono
     if verbose:
         mins = int(duracion // 60)
         segs = duracion % 60

@@ -24,7 +24,10 @@ import contextlib
 import csv
 import datetime
 import json
+import os
+import platform
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -232,7 +235,7 @@ def formatear_resumen(fila: dict) -> list:
         f'acumulado {fila["trades_acum"]} ({"—" if aciertos is None else f"{aciertos:.0f}%"}) | '
         f'drawdown máx {fila["drawdown_max_pct"]:.1f}%',
         f'{pre}   C1       : N {fila["N"]} | K {fila["K"]:.1f} | N_EXP {fila["N_EXP"]:.1f} | LAMBDA {fila["LAMBDA"]:.2f} | '
-        f'A {fila["A_prom"]:.1f} | B {fila["B_prom"]:.1f} | p {fila["p_prom"]:.3f} (umbral {fila["umbral_usd"]:,.0f} USD)',
+        f'A prom {fila["A_prom"]:.1f} | B prom {fila["B_prom"]:.1f} | p prom {fila["p_prom"]:.3f} (umbral última vela {fila["umbral_usd"]:,.0f} USD)',
     ]
     if fila['FO_inicial'] is not None:
         lineas.append(f'{pre}   soportes : FO {fila["FO_inicial"]:.1e} -> {fila["FO_final"]:.1e} '
@@ -318,7 +321,7 @@ def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 
     z = capital
     i_busqueda, n_previo, n_ret_previo = None, None, 0
     stop_outs, en_stop_out = 0, False
-    t0 = time.time()
+    t0 = time.monotonic()  # sin la suspensión del equipo: ETA y duración de la vuelta son tiempo de cómputo
 
     def decir(texto: str) -> None:
         print(texto, file=consola, flush=True)
@@ -352,7 +355,7 @@ def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 
             'vuelta': id_vuelta, 'valor': valor, 'bloque': k, 'bloques_total': bloques_total,
             'tramo': 'aprendizaje' if i - 1 < corte else 'reservado', 'ts': str(ts),
             'pct_velas': round(100 * min(i, n_total) / n_total, 2),
-            'eta_s': (time.time() - t0) / i * (n_total - i) if i > 0 else None,
+            'eta_s': (time.monotonic() - t0) / i * (n_total - i) if i > 0 else None,
             'status': status, 'margin_level': ml, 'n_OA': mc['n_OA'], 'n_OE': mc['n_OE'],
             'margen_usado': mc['margen_usado'],
             'cerrado': estado['capital'], 'pnl_abierto': z - estado['capital'], 'Z': z, 'lotajes_m': lotajes_m(z),
@@ -433,7 +436,7 @@ def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 
     return {'valor': valor, 'id': id_vuelta, 'estado': estado, 'indice': h1.index, 'equity': equity,
             'm_serie': m_serie, 'en_mercado': en_mercado, 'margen_usado': margen_usado, 'aplicado': aplicado,
             'retornos': retornos, 'busquedas': busquedas, 'stop_outs': stop_outs, 'm_max': int(m_serie.max()),
-            'semilla': semilla, 'corte': corte, 'duracion_s': time.time() - t0}
+            'semilla': semilla, 'corte': corte, 'duracion_s': time.monotonic() - t0}
 
 
 # ─── Premios, KPIs y registro de la vuelta ────────────────────────────────────
@@ -481,6 +484,80 @@ def resumir_vuelta(res: dict, c2: dict | None, estructura: dict, fase: str, repl
     return fila
 
 
+def _json_limpio(o):
+    """Tipos numpy a nativos, fechas a texto y NaN/inf a None, para que el JSON sea válido."""
+    if isinstance(o, dict):
+        return {str(k): _json_limpio(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_json_limpio(v) for v in o]
+    if isinstance(o, np.generic):
+        o = o.item()
+    if isinstance(o, float) and not np.isfinite(o):
+        return None
+    if isinstance(o, datetime.datetime):
+        return o.isoformat()
+    return o
+
+
+def _git(*args: str) -> str | None:
+    try:
+        return subprocess.run(['git', *args], cwd=Path(__file__).parent, capture_output=True, text=True,
+                              timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def escribir_resumen_json(carpeta: Path, res: dict, fila: dict, inicio: datetime.datetime, reloj_s: float,
+                          hasta) -> Path:
+    """`resumen.json` en la carpeta de la vuelta: todo lo necesario para revisarla sin la consola. `reloj_s` es el
+    tiempo de reloj (cuenta la suspensión del equipo) y `fila['duracion_min']` el de cómputo; la diferencia es la pausa."""
+    valor, id_vuelta = res['valor'], res['id']
+    seguimiento = pd.read_csv(gc.CARPETA_Q5 / f'{valor}_seguimiento.csv')
+    busquedas = [{'ts': b['ts'], 'N': b['info']['N'], 'n_velas': b['info']['n_velas'],
+                  'warm_start_n': b['info']['warm_start_n'], 'duracion_s': b['info']['duracion'],
+                  'convergio': b['info']['convergio'], 'cortada': bool(b['info']['tiempo_agotado']),
+                  'FO_inicial': b['info']['FO_inicial'], 'FO_final': b['info']['FO_final']}
+                 for b in res['busquedas'] if b['info']]
+    dur = np.array([b['duracion_s'] for b in busquedas])
+    equity = pd.Series(res['equity'], index=res['indice'])
+    computo_s = res['duracion_s']
+    doc = {
+        'vuelta': fila,
+        'resumen_final': formatear_resumen_final(fila),
+        'tiempos': {
+            'inicio': inicio.isoformat(timespec='seconds'), 'computo_s': computo_s, 'reloj_s': reloj_s,
+            'pausa_estimada_s': reloj_s - computo_s, 'busquedas_s': float(dur.sum()),
+            'busquedas_pct_del_computo': float(100 * dur.sum() / computo_s),
+        },
+        'busquedas_resumen': {
+            'n': len(busquedas), 'cortadas': sum(b['cortada'] for b in busquedas),
+            'sin_converger': sum(not b['convergio'] for b in busquedas),
+            'duracion_s': {'min': dur.min(), 'mediana': np.median(dur), 'p90': np.percentile(dur, 90), 'max': dur.max()},
+        },
+        'busquedas': busquedas,
+        'bloques': seguimiento[seguimiento['vuelta'] == id_vuelta].to_dict('records'),
+        'equity_fin_de_mes': {str(m): float(v) for m, v in equity.groupby(equity.index.to_period('M')).last().items()},
+        'entorno': {
+            'host': platform.node(), 'sistema': platform.platform(), 'python': platform.python_version(),
+            'cpus': os.cpu_count(), 'commit': _git('rev-parse', '--short', 'HEAD'),
+            'cambios_sin_commit': bool(_git('status', '--porcelain')),
+        },
+        'config': {
+            'hasta': str(hasta) if hasta else None, 'FECHA_INICIAL': gc.FECHA_INICIAL,
+            'FECHA_INICIO_BT': config_smart.FECHA_INICIO_BT, 'N_VELAS': config_smart.N_VELAS,
+            'FRACCION_RESERVADA': config_smart.FRACCION_RESERVADA, 'CUENTA': config_smart.CUENTA,
+            'tope_busqueda_min': gc.X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN,
+            'tope_fase_gruesa_min': gc.X4_TIEMPO_MAX_FASE_GRUESA_MIN, 'MAX_ITERS': gc.MAX_ITERS,
+            'MAX_CAMBIOS': gc.MAX_CAMBIOS, 'M': gc.M, 'M_COARSE': gc.M_COARSE, 'M_SALTO': gc.M_SALTO,
+        },
+    }
+    ruta = carpeta / 'resumen.json'
+    # una clave por línea: legible sin que las listas de búsquedas y bloques ocupen miles de líneas
+    ruta.write_text('{\n' + ',\n'.join(f'{json.dumps(k)}: {json.dumps(_json_limpio(v), ensure_ascii=False)}'
+                                        for k, v in doc.items()) + '\n}\n', encoding='utf-8')
+    return ruta
+
+
 def podar_curvas(valor: str, mejores: int | None = None) -> list:
     """Conserva las curvas de equity de las vueltas estáticas y de las `mejores` con más premio de aprendizaje (nunca
     el reservado) y borra las de las demás; trades, eventos y registro se conservan. Devuelve los ids podados."""
@@ -513,11 +590,15 @@ def correr_vuelta(valor: str, c1: pd.DataFrame, nombre: str, semilla: int = 0, c
     if reset:
         quitar_vuelta_de_csv(gc.CARPETA_Q5 / f'{valor}_vueltas.csv', nombre, 'id')
         quitar_vuelta_de_csv(gc.CARPETA_Q5 / f'{valor}_seguimiento.csv', nombre, 'vuelta')
+    inicio, t_reloj = datetime.datetime.now(), time.time()
     res = ejecutar_vuelta(valor, c1, carpeta, semilla, hasta, id_vuelta=nombre)
+    reloj_s = time.time() - t_reloj
     fila = resumir_vuelta(res, c2, estructura, fase, replica_de, registrar_version_estructura(valor, estructura))
     agregar_fila_csv(gc.CARPETA_Q5 / f'{valor}_vueltas.csv', fila)
     for linea in formatear_resumen_final(fila):
         print(linea, flush=True)
+    ruta_resumen = escribir_resumen_json(carpeta, res, fila, inicio, reloj_s, hasta)
+    print(f'[{valor} | {nombre}] resumen completo en {ruta_resumen}', flush=True)
     podadas = podar_curvas(valor)
     if podadas:
         print(f'[{valor} | {nombre}] curvas de equity borradas de: {", ".join(podadas)}', flush=True)

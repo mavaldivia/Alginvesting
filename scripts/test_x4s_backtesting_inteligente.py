@@ -157,7 +157,7 @@ def test_resumen_en_pantalla_lleva_prefijo_en_todas_las_lineas():
     lineas = s.formatear_resumen(fila)
     assert len(lineas) == 6 and all(l.startswith(f'[{VALOR} | q4_s0]') for l in lineas)
     assert 'bloque 37/250' in lineas[0] and 'ETA 1h20m' in lineas[0] and '14.8%' in lineas[0]
-    assert 'lotajes_m 1' in lineas[2] and 'umbral 140 USD' in lineas[4] and 'convergió, 41 s' in lineas[5]
+    assert 'lotajes_m 1' in lineas[2] and 'umbral última vela 140 USD' in lineas[4] and 'convergió, 41 s' in lineas[5]
     sin_busqueda = {**fila, 'FO_inicial': None, 'FO_final': None, 'busqueda_s': None, 'busqueda_cortada': None, 'convergio': None}
     assert len(s.formatear_resumen(sin_busqueda)) == 5
 
@@ -230,6 +230,7 @@ def test_vuelta_registrada_premios_kpis_y_seguimiento():
         seguimiento = pd.read_csv(q5 / f'{VALOR}_seguimiento.csv')
         log_x4 = (q5 / VALOR / 'test_reg' / 'x4.log').read_text(encoding='utf-8')
         trades = pd.read_json(q5 / VALOR / 'test_reg' / 'trades.json')
+        resumen = json.loads((q5 / VALOR / 'test_reg' / 'resumen.json').read_text(encoding='utf-8'))
         version = s.registrar_version_estructura(VALOR, estructura)
         archivo_estructura = (q5 / f'{VALOR}_estructura_v{version}.json').exists()
 
@@ -249,6 +250,11 @@ def test_vuelta_registrada_premios_kpis_y_seguimiento():
     assert fila['n_trades'] == len(trades) > 5 and 0 <= fila['tasa_aciertos_pct'] <= 100
     assert fila['drawdown_max_pct'] <= 0 and fila['lotajes_m_max'] >= 1 and fila['stop_outs'] == 0
     assert fila['n_busquedas'] == 1 and fila['n_busquedas_cortadas'] == 0
+    # resumen.json: lo mismo que la fila y la consola, más tiempos, búsquedas y bloques
+    assert resumen['vuelta']['n_trades'] == fila['n_trades'] and len(resumen['resumen_final']) == 4
+    assert resumen['tiempos']['computo_s'] > 0 and resumen['tiempos']['reloj_s'] >= resumen['tiempos']['computo_s'] - 0.5
+    assert len(resumen['busquedas']) == 1 and resumen['busquedas_resumen']['cortadas'] == 0
+    assert len(resumen['bloques']) == 2 and resumen['equity_fin_de_mes'] and resumen['config']['hasta'] == str(HASTA)
     for c1_nombre in ('N', 'K', 'N_EXP', 'LAMBDA', 'A', 'factor_B', 'p'):
         assert {f'c1_{c1_nombre}_{k}' for k in ('media', 'std', 'min', 'max', 'pct_piso', 'pct_techo', 'pasos')} <= set(vueltas.columns)
     assert vueltas.loc[0, 'c1_N_media'] == 20 and vueltas.loc[0, 'c1_N_pasos'] == 1
