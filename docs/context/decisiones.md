@@ -624,3 +624,17 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** fijar `μ`/`σ` con un tramo inicial (ese tramo también mira el futuro y 2022 fue un año atípico para BTC); sorteo en rangos anchos.
 
 **Consecuencia:** los `μ`/`σ` congelados de `Q4` ya no se usan en el backtest; quedan solo para la prueba de `Q5-2` que reproduce las columnas `*_hat` de `Q4`. El archivo de estructura de §9.12 guarda nombre, signo, ventana y estado activo de cada variable, pero no `μ`/`σ`.
+
+## 2026-11-14 — X5_alt_v2 (Q5-3): cuenta de la vuelta, tramo reservado, curvas y registro
+
+**Decisión:** (1) la vuelta estática de control usa `p = 0.067` fijo (`P_ESTATICO`), con la misma semántica `p · Z` que la dinámica; (2) `perdida_max_USD = p · max(Z, 0)`; (3) el tramo reservado es el último 20% de las velas y el corte es por número de velas, no por fecha (`FRACCION_RESERVADA`); (4) se conservan completas las curvas de `equity` de la vuelta estática y de las 3 con mejor premio de aprendizaje (`CURVAS_MEJORES`), del resto solo se borran los `equity_*.csv`; (5) `N_VELAS` queda en 168 (crypto) y 35 (acción), sin cambios, la de acciones sigue sin confirmar en Windows.
+
+**Razón:** (1) parte igual al estático actual de 200 USD sobre 3000 USD. (2) un umbral negativo cerraría incluso posiciones en ganancia. (3) en una vuelta de ~42.000 velas el corte por velas es exacto y no depende de huecos de datos. (4) ~5 MB de `equity` por vuelta, unas 30 vueltas por valor y 7 valores serían ~1 GB. (5) sin evidencia para moverlos.
+
+**Decisiones de implementación (Claude):** la vela donde se recalculan los soportes queda congelada, como en X4 (la búsqueda ya vio su cierre); `A`, `B` y `p` de la vela `t` salen de la fila `t-1` (lo que se conoce al abrirla), `N`/`K`/`N_EXP`/`LAMBDA` de la fila de la vela donde se busca; la vuelta termina en la última fila de la tabla de `Q1` (hoy 2026-10-17 en BTCUSD) para no operar con C1 congelados; con `N` dinámico se copia al caché del `N` nuevo la última solución del `N` anterior, que X0 recorta o completa (el warm start no se pierde); la búsqueda y la intra-vela se siembran por `(valor, ts)`; lo que imprime X4 va a `x4.log` de la vuelta y a pantalla solo el resumen por bloque; `version_estructura` es la combinación de versiones de los C1 (agregar una variable no la cambia).
+
+**Descartado:** extraer el paso por vela de `ejecutar_backtest` (`_procesar_candle` ya es la unidad reutilizable); modo `--smart` en X4; reutilizar el caché de soportes entre vueltas (las haría depender del orden en que corren).
+
+**Consecuencia abierta:** `premio_aprendizaje = Z al corte / velas` incluye los 3000 USD iniciales y `premio_reservado` no, así que no son comparables tal cual (ver `plan_x5_alt_v2.md` §9.6). La reproducibilidad exacta solo vale si ninguna búsqueda toca el tope de 15 min; en una vuelta completa con `N = 180` es lo esperable (13,8 min promedio), y habrá que mirarlo con las réplicas de `Q5-4`.
+
+**Validado:** `python scripts/test_x4s_backtesting_inteligente.py` (10 pruebas sobre BTCUSD real, N = 20) y `python scripts/test_x5_alt_funciones.py` (14). Con `m = 1`, X4 nuevo y anterior dan estado, trades y eventos idénticos sobre una serie sintética de 900 velas. Sin prueba de una vuelta completa, de acciones ni en Windows.

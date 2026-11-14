@@ -21,10 +21,12 @@ import random
 import shutil
 import sys
 import time
+import zlib
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -162,7 +164,11 @@ def _guardar_checkpoint(estado: dict, cfg):
 
 def _worker_recalcular(args):
     (activo, N, carpeta_data, carpeta_n_prod, carpeta_n_bt, ts_actual, oa_bt,
-     params_soporte, warm_start, ruta_plot, tiempo_limite_s, tope_fase_gruesa_s) = args
+     params_soporte, warm_start, ruta_plot, tiempo_limite_s, tope_fase_gruesa_s) = args[:12]
+    semilla = args[12] if len(args) > 12 else None
+    if semilla is not None:  # el worker es un proceso nuevo: sin esto los puntos aleatorios del optimizador cambian en cada vuelta
+        random.seed(semilla)
+        np.random.seed(semilla)
     return _procesar_valor_N(
         activo, N,
         carpeta_data,
@@ -236,6 +242,18 @@ def _informar_recalculo(infos: list, ts_actual, demo: bool, estado: dict,
         print()
 
 
+def _lote_pos(pos: dict, activo: str, cfg) -> float:
+    """Lote de una OE/OA: el que se fijó al crearla. `cfg.LOTAJES` solo si la posición no lo trae."""
+    return pos.get('lote', cfg.LOTAJES[activo])
+
+
+def _L_min(activo: str, cfg) -> float:
+    """L a lotaje mínimo: base de A, B y `_distancia_ok`, invariantes en precio como en X1.
+
+    Sin `cfg.MIN_LOTAJES` cae en `cfg.LOTAJES` (m = 1, comportamiento de siempre)."""
+    return getattr(cfg, 'MIN_LOTAJES', cfg.LOTAJES)[activo] * cfg.UNITS[activo]
+
+
 def _distancia_ok(precio_ref: float, soporte: float, L: float, cfg) -> bool:
     return (precio_ref - soporte) * L >= cfg.A
 
@@ -249,7 +267,7 @@ def _reporte_soportes(estado: dict, precios_ref: dict, cfg) -> None:
         precio = precios_ref.get(activo)
         if not soportes or precio is None:
             continue
-        L = cfg.LOTAJES[activo] * cfg.UNITS[activo]
+        L = _L_min(activo, cfg)
         ya_oa = [s for s in soportes if s in est_a['OA']]
         ya_oe = [s for s in soportes if s in est_a['OE']]
         libres = [s for s in soportes if s not in est_a['OA'] and s not in est_a['OE']]
@@ -290,9 +308,12 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
         N = cfg.n_sizes[activo]
         oa_bt = list(estado['por_activo'][activo]['OA'].keys())
         ruta_plot = _ruta_plot_demo(activo, N, ts_actual) if demo else None
+        semilla_base = getattr(cfg, 'SEMILLA_BUSQUEDA', None)
+        semilla = (None if semilla_base is None
+                   else zlib.crc32(f'{semilla_base}|{activo}|{pd.Timestamp(ts_actual).isoformat()}'.encode()))
         tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT,
                       ts_actual, oa_bt, params_soporte, warm_start, ruta_plot, tiempo_limite_s,
-                      tope_fase_gruesa_s))
+                      tope_fase_gruesa_s, semilla))
 
     n_workers = min(len(tasks), 4)
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
@@ -322,11 +343,11 @@ def _calcular_estado_cuenta(estado: dict, precios_cierre: dict, cfg) -> dict:
     n_OA = n_OE = 0
 
     for activo, est_a in estado['por_activo'].items():
-        lote = cfg.LOTAJES[activo]
         units = cfg.UNITS[activo]
         apal = cfg.APALANCAMIENTO[activo]
         precio_actual = precios_cierre.get(activo, 0.0)
-        for precio_ap in est_a['OA']:
+        for precio_ap, pos in est_a['OA'].items():
+            lote = _lote_pos(pos, activo, cfg)
             GA_global += (precio_actual - precio_ap) * lote * units
             margen_usado += precio_ap * lote * units / apal
             n_OA += 1
@@ -343,7 +364,7 @@ def _calcular_estado_cuenta(estado: dict, precios_cierre: dict, cfg) -> dict:
 
 
 def _calcular_GA(est_a: dict, precio_actual: float, lote: float, units: int) -> float:
-    return sum((precio_actual - p) * lote * units for p in est_a['OA'])
+    return sum((precio_actual - p) * pos.get('lote', lote) * units for p, pos in est_a['OA'].items())
 
 
 # ─── Eventos y trades ─────────────────────────────────────────────────────────
@@ -373,7 +394,7 @@ def _registrar_trade(pos: dict, precio_ap: float, precio_cierre: float,
                      capital_estado: float, cfg) -> dict:
     # Usa el capital al momento de apertura si está disponible, si no el actual
     capital = pos.get('capital_apertura', capital_estado)
-    lote = cfg.LOTAJES[activo]
+    lote = _lote_pos(pos, activo, cfg)
     units = cfg.UNITS[activo]
     L = lote * units
     retorno_usd = (precio_cierre - precio_ap) * L
@@ -431,8 +452,7 @@ def _margen_libre_actual(estado: dict, precios: dict, cfg, extra_usado: float = 
 def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
             capital_ap: float, cfg, events: list, trades: list, usa_iv: bool = False,
             x5_ctx=None):
-    """Ejecuta OE. Detecta gap de mercado."""
-    lote = cfg.LOTAJES[activo]
+    """Ejecuta OE. Detecta gap de mercado. La OA hereda el lote de su OE."""
     units = cfg.UNITS[activo]
     apal = cfg.APALANCAMIENTO[activo]
     N = cfg.n_sizes[activo]
@@ -444,6 +464,7 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
         for precio_oe in oes_gap:
             if precio_oe not in est_a['OE']:
                 continue
+            lote = _lote_pos(est_a['OE'][precio_oe], activo, cfg)
             margen_nueva = precio_gap * lote * units / apal
             if _margen_libre_actual(estado, precios, cfg) - margen_nueva < cfg.MARGEN_LIBRE_MIN_BT:
                 events.append(_evt('OE_eliminada', activo, ts, cfg, usa_iv,
@@ -481,6 +502,7 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
         if precio_oe not in est_a['OE']:
             continue
         if candle['Low'] <= precio_oe:
+            lote = _lote_pos(est_a['OE'][precio_oe], activo, cfg)
             margen_nueva = precio_oe * lote * units / apal
             if _margen_libre_actual(estado, precios, cfg) - margen_nueva < cfg.MARGEN_LIBRE_MIN_BT:
                 events.append(_evt('OE_eliminada', activo, ts, cfg, usa_iv,
@@ -514,19 +536,22 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
 
 
 def _paso_C(est_a: dict, precio_max: float, activo: str, ts, cfg, events: list, usa_iv: bool = False):
-    """Trailing stop: actualiza SL cuando la posición alcanza ganancia suficiente."""
-    lote = cfg.LOTAJES[activo]
+    """Trailing stop: actualiza SL cuando la posición alcanza ganancia suficiente.
+
+    A y B se miden a lotaje mínimo (`_L_min`): la distancia en precio no depende del lote de la posición."""
+    lote = cfg.LOTAJES[activo]  # lote vigente, solo para la OE repuesta
     units = cfg.UNITS[activo]
-    L = lote * units
+    L_min = _L_min(activo, cfg)
 
     for precio_ap, pos in est_a['OA'].items():
+        L = _lote_pos(pos, activo, cfg) * units
         ga_flotante = (precio_max - precio_ap) * L
         pos['ganancia_max'] = max(pos.get('ganancia_max', 0.0), ga_flotante)
 
         sl = pos['sl']
         if sl == 0:
-            if ga_flotante >= cfg.A:
-                sl_nuevo = precio_max - cfg.B / L
+            if (precio_max - precio_ap) * L_min >= cfg.A:
+                sl_nuevo = precio_max - cfg.B / L_min
                 pos['sl'] = sl_nuevo
                 # Reponer OE en el nivel de apertura
                 if precio_ap not in est_a['OE']:
@@ -535,7 +560,7 @@ def _paso_C(est_a: dict, precio_max: float, activo: str, ts, cfg, events: list, 
                                    precio_apertura=precio_ap, sl_anterior=0,
                                    sl_nuevo=sl_nuevo, precio_max_vela=precio_max))
         else:
-            sl_nuevo = precio_max - cfg.B / L
+            sl_nuevo = precio_max - cfg.B / L_min
             if sl_nuevo > sl:
                 pos['sl'] = sl_nuevo
                 events.append(_evt('SL_cambiado', activo, ts, cfg, usa_iv,
@@ -546,15 +571,15 @@ def _paso_C(est_a: dict, precio_max: float, activo: str, ts, cfg, events: list, 
 def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
             capital_ap: float, N: int, cfg, events: list, trades: list, usa_iv: bool = False,
             x5_ctx=None):
-    """Cierra posiciones cuya pérdida supera PERDIDA_MAX_BT."""
-    lote = cfg.LOTAJES[activo]
+    """Cierra posiciones cuya pérdida en USD (con su propio lote) supera PERDIDA_MAX_BT."""
     units = cfg.UNITS[activo]
-    L = lote * units
 
     a_cerrar = [p for p, pos in est_a['OA'].items()
-                if (p - precio_min) * L > cfg.PERDIDA_MAX_BT]
+                if (p - precio_min) * _lote_pos(pos, activo, cfg) * units > cfg.PERDIDA_MAX_BT]
     for precio_ap in a_cerrar:
         pos = est_a['OA'].pop(precio_ap)
+        lote = _lote_pos(pos, activo, cfg)
+        L = lote * units
         # Actualizar drawdown_max
         dd = (precio_min - precio_ap) * L
         pos['drawdown_max'] = min(pos.get('drawdown_max', 0.0), dd)
@@ -585,14 +610,14 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
             capital_ap: float, N: int, cfg, events: list, trades: list, usa_iv: bool = False,
             x5_ctx=None):
     """Cierra posiciones cuyo SL fue tocado."""
-    lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
-    L = lote * units
 
     a_cerrar = [p for p, pos in est_a['OA'].items()
                 if pos['sl'] > 0 and precio_min <= pos['sl']]
     for precio_ap in a_cerrar:
         pos = est_a['OA'].pop(precio_ap)
+        lote = _lote_pos(pos, activo, cfg)
+        L = lote * units
         dd = (precio_min - precio_ap) * L
         pos['drawdown_max'] = min(pos.get('drawdown_max', 0.0), dd)
         precio_cierre = pos['sl']
@@ -626,10 +651,10 @@ def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
     Regla de reemplazo (paridad con X1.crear_ordenes_espera): si _paso_A canceló
     un buy limit este ciclo (precio_max_saliente), un soporte también entra si queda
     por debajo del promedio entre el precio y ese buy limit saliente."""
-    lote = cfg.LOTAJES[activo]
+    lote = cfg.LOTAJES[activo]  # lote vigente: el que queda fijo en las OE que se crean ahora
     units = cfg.UNITS[activo]
     apal = cfg.APALANCAMIENTO[activo]
-    L = lote * units
+    L = _L_min(activo, cfg)  # distancia_ok a lotaje mínimo, como X1
     margen_comprometido = 0.0  # margen reservado dentro de este ciclo por nuevas OE
     umbral_reemplazo = None
     if precio_max_saliente is not None and precio_max_saliente < precio_ref:
@@ -659,20 +684,24 @@ def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
 
 # ─── Intra-vela ───────────────────────────────────────────────────────────────
 
-def _necesita_intravela(est_a: dict, candle, L: float, cfg) -> bool:
+def _necesita_intravela(est_a: dict, candle, activo: str, cfg) -> bool:
     rango = candle['High'] - candle['Low']
+    units = cfg.UNITS[activo]
+    L_min = _L_min(activo, cfg)
     for precio_ap, pos in est_a['OA'].items():
+        L = _lote_pos(pos, activo, cfg) * units
         sl = pos['sl']
         if sl == 0:
-            if rango * L >= cfg.A or (precio_ap - candle['Low']) * L >= cfg.PERDIDA_MAX_BT:
+            if rango * L_min >= cfg.A or (precio_ap - candle['Low']) * L >= cfg.PERDIDA_MAX_BT:
                 return True
         else:
-            sl_nuevo = candle['High'] - cfg.B / L
+            sl_nuevo = candle['High'] - cfg.B / L_min
             if sl_nuevo > sl and candle['Low'] <= sl_nuevo:
                 return True
-    for precio_oe in est_a['OE']:
+    for precio_oe, oe in est_a['OE'].items():
         if candle['Low'] <= precio_oe:
-            if rango * L >= cfg.A or (precio_oe - candle['Low']) * L >= cfg.PERDIDA_MAX_BT:
+            L = _lote_pos(oe, activo, cfg) * units
+            if rango * L_min >= cfg.A or (precio_oe - candle['Low']) * L >= cfg.PERDIDA_MAX_BT:
                 return True
     return False
 
@@ -710,7 +739,11 @@ def _simular_intravela(est_a: dict, candle_h1, activo: str, ts, estado: dict,
     if datos_m1 is None or len(datos_m1) < 60:
         return
 
-    t = random.randint(0, len(datos_m1) - 60)
+    # Con `cfg.SEMILLA_INTRAVELA` el bloque M1 depende solo de (semilla, valor, ts): dos vueltas
+    # con los mismos parámetros dan el mismo premio. Sin ella, aleatorio como siempre.
+    semilla = getattr(cfg, 'SEMILLA_INTRAVELA', None)
+    rng = random if semilla is None else random.Random(f'{semilla}|{activo}|{ts.isoformat()}')
+    t = rng.randint(0, len(datos_m1) - 60)
     bloque = _escalar_bloque_m1(datos_m1.iloc[t: t + 60], candle_h1)
 
     for _, vela_m1 in bloque.iterrows():
@@ -726,21 +759,19 @@ def _simular_intravela(est_a: dict, candle_h1, activo: str, ts, estado: dict,
 def _procesar_candle(ts, candle, activo: str, est_a: dict, estado: dict,
                      datos_m1, precios: dict, N: int,
                      cfg, events: list, trades: list, x5_ctx=None):
-    lote = cfg.LOTAJES[activo]
     units = cfg.UNITS[activo]
-    L = lote * units
     capital_ap = estado['capital']
 
     # Actualizar contadores por vela (duracion y drawdown flotante)
     for precio_ap, pos in est_a['OA'].items():
         pos['duracion_velas'] = pos.get('duracion_velas', 0) + 1
-        dd_flotante = (candle['Low'] - precio_ap) * L
+        dd_flotante = (candle['Low'] - precio_ap) * _lote_pos(pos, activo, cfg) * units
         pos['drawdown_max'] = min(pos.get('drawdown_max', 0.0), dd_flotante)
 
     # Paso A: siempre primero
     precio_max_saliente = _paso_A(est_a, activo, ts, cfg, events)
 
-    usar_iv = _necesita_intravela(est_a, candle, L, cfg)
+    usar_iv = _necesita_intravela(est_a, candle, activo, cfg)
 
     if usar_iv and datos_m1 is not None and len(datos_m1) >= 60:
         _simular_intravela(est_a, candle, activo, ts, estado, precios, capital_ap, N, datos_m1, cfg, events, trades, precio_max_saliente, x5_ctx=x5_ctx)

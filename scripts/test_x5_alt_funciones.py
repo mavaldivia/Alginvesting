@@ -20,7 +20,11 @@ import config_smart
 from x5_alt_funciones import (
     cargar_c2_q4,
     cargar_estructura_c1,
+    drawdown_maximo,
+    estadisticas_c1,
+    lotajes_m,
     perdida_max_usd,
+    premios_por_tramo,
     rangos_sorteo_c2,
     redondear_a_grilla,
     serie_c1,
@@ -57,6 +61,42 @@ def test_redondeo_ejemplo_del_plan():
 def test_perdida_max_usd():
     assert perdida_max_usd(0.04, 5000) == 200
     assert perdida_max_usd(0.04, -100) == 0
+
+
+def test_premios_por_tramo_ejemplo_del_plan():
+    z = np.full(42000, 3000.0)
+    z[33599], z[-1] = 4200.0, 4500.0
+    p = premios_por_tramo(z, 0.20)
+    assert p['corte'] == 33600
+    assert abs(p['premio_aprendizaje'] - 0.125) < 1e-12
+    assert abs(p['premio_reservado'] - 300 / 8400) < 1e-12
+    for malo in (np.full(1, 3000.0), np.array([3000.0, np.nan, 3000.0])):
+        try:
+            premios_por_tramo(malo, 0.20)
+        except ValueError:
+            continue
+        raise AssertionError('debió rechazar una curva sin dos tramos o con NaN')
+
+
+def test_drawdown_maximo():
+    pct, usd = drawdown_maximo([3500, 2800, 3300], 3000)
+    assert abs(usd + 700) < 1e-9 and abs(pct + 0.2) < 1e-12  # de 3500 a 2800
+    assert drawdown_maximo([3100, 3200], 3000) == (0.0, 0.0)  # solo sube
+    pct, usd = drawdown_maximo([2000], 3000)  # el capital inicial cuenta como el primer máximo
+    assert abs(usd + 1000) < 1e-9
+
+
+def test_estadisticas_c1():
+    e = estadisticas_c1([50, 50, 60, 200, 200, 200], 50, 200)
+    assert e['pasos'] == 3 and e['min'] == 50 and e['max'] == 200
+    assert abs(e['pct_piso'] - 100 / 3) < 1e-9 and abs(e['pct_techo'] - 50) < 1e-9
+    assert estadisticas_c1([0.3] * 5, 0.2, 0.7)['std'] == 0
+
+
+def test_lotajes_m_ejemplos_del_plan():
+    esperado = {3000: 1, 5999: 1, 6000: 2, 8999: 2, 9000: 3, 12000: 4, 0: 1, -10000: 1}
+    for z, m in esperado.items():
+        assert lotajes_m(z) == m, (z, lotajes_m(z), m)
 
 
 def test_z_expanding_usa_solo_el_pasado():

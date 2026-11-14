@@ -66,6 +66,25 @@ N_VELAS = {'crypto': 168, 'accion': 35}
 # Grado del modelo de la etapa de aprendizaje (Z_tongo = f(C2)): 1 lineal, 2 suma productos cruzados.
 GRADO = 1
 
+# ─── Backtesting inteligente (Q5-3, plan_x5_alt_v2.md 9.3 y 9.6) ──────────────────────────────────────────
+# Toda vuelta parte siempre en esta fecha (60 días de calentamiento); los soportes usan datos desde FECHA_INICIAL.
+FECHA_INICIO_BT = '2022-03-01'
+
+# Cuenta por valor: lotajes_m = max(1, (Z - z_base_lote) // paso_lote + 2) con Z = cerrado + P&L abierto.
+CUENTA = {'capital_inicial': 3000.0, 'z_base_lote': 6000.0, 'paso_lote': 3000.0,
+          'margen_libre_min': 50.0, 'stop_out_level': 50}  # las dos últimas: mismos valores que la plantilla de X4B
+
+# Fracción final de las velas que no entra al aprendizaje (tramo reservado); el corte es por número de velas.
+FRACCION_RESERVADA = 0.20
+
+# Curvas de equity que se conservan completas por valor: las de la vuelta estática y las de las vueltas con mejor
+# premio de aprendizaje (nunca el reservado, que no decide nada); del resto se borran los CSV de equity, no los trades.
+CURVAS_MEJORES = 3
+
+# Fracción p de la vuelta estática de control: el PERDIDA_MAX estático de 200 USD sobre los 3000 USD iniciales
+# (200 / 3000 = 0.0667), fuera del rango dinámico (0.03, 0.06). Misma semántica p * Z que la vuelta dinámica.
+P_ESTATICO = 0.067
+
 
 # Rango del sorteo Sobol de los C2 de cada C1, relativo a la calibración de Q4 (decidido 2026-11-10: cerca de Q4).
 # punto_medio: Q4 ± punto_medio_delta (unidades del índice, que es un z-score); pendiente: de Q4/pendiente_factor

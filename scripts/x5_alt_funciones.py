@@ -277,8 +277,55 @@ def redondear_a_grilla(x, piso: float, techo: float, paso: float) -> np.ndarray:
 
 
 def perdida_max_usd(p: float, z: float) -> float:
-    """Umbral de pérdida por orden abierta: p * Z (plan 9.3). `max(Z, 0)` es un supuesto a confirmar en Q5-3."""
+    """Umbral de pérdida por orden abierta: p * Z (plan 9.3). Con Z < 0 el umbral es 0 (confirmado en Q5-3)."""
     return p * max(z, 0.0)
+
+
+def lotajes_m(z: float) -> int:
+    """Múltiplo del lote mínimo según Z = cerrado + P&L abierto (plan 9.3): max(1, (Z - 6000) // 3000 + 2).
+
+    Z = 3000 -> 1; 5999 -> 1; 6000 -> 2; 8999 -> 2; 9000 -> 3; 12000 -> 4. Con Z negativo queda en 1."""
+    cuenta = config_smart.CUENTA
+    return max(1, int((z - cuenta['z_base_lote']) // cuenta['paso_lote']) + 2)
+
+
+def premios_por_tramo(equity, fraccion_reservada: float) -> dict:
+    """
+    Premio de cada tramo de una vuelta a partir de la curva de Z vela a vela (plan 9.5 y 9.6). El corte es por
+    número de velas: las primeras `corte = int(n * (1 - fraccion_reservada))` son el tramo de aprendizaje.
+
+    premio_aprendizaje = Z al corte / velas hasta el corte
+    premio_reservado   = (Z final - Z al corte) / velas del tramo reservado
+
+    Ej. con 42.000 velas y fraccion 0.2: corte = 33.600; Z al corte 4.200 -> 0.125; Z final 4.500 -> 0.0357.
+    """
+    z = np.asarray(equity, dtype=float)
+    if np.isnan(z).any():
+        raise ValueError('premios_por_tramo: la curva de Z tiene NaN')
+    n = len(z)
+    corte = int(n * (1 - fraccion_reservada))
+    if corte < 1 or n - corte < 1:
+        raise ValueError(f'premios_por_tramo: {n} velas no alcanzan para dos tramos con fraccion {fraccion_reservada}')
+    z_corte, z_final = float(z[corte - 1]), float(z[-1])
+    return {'corte': corte, 'z_corte': z_corte, 'z_final': z_final,
+            'premio_aprendizaje': z_corte / corte, 'premio_reservado': (z_final - z_corte) / (n - corte)}
+
+
+def drawdown_maximo(equity, capital_inicial: float) -> tuple:
+    """(pct, usd) de la peor caída de Z desde su máximo previo, ambos <= 0; el capital inicial cuenta como primer punto."""
+    z = np.r_[float(capital_inicial), np.asarray(equity, dtype=float)]
+    caida = z - np.maximum.accumulate(z)
+    pct = caida / np.maximum.accumulate(z)  # el máximo previo es >= capital_inicial > 0
+    return float(pct.min()), float(caida.min())
+
+
+def estadisticas_c1(serie, piso: float, techo: float) -> dict:
+    """Resumen de un C1 durante una vuelta (plan 9.13): media, desviación, extremos, % de velas en piso y en techo,
+    y cuántos valores distintos de la grilla usó (un C1 pegado al piso/techo o casi constante está mal calibrado)."""
+    s = np.asarray(serie, dtype=float)
+    return {'media': float(s.mean()), 'std': float(s.std()), 'min': float(s.min()), 'max': float(s.max()),
+            'pct_piso': float(100 * np.isclose(s, piso).mean()), 'pct_techo': float(100 * np.isclose(s, techo).mean()),
+            'pasos': int(len(np.unique(np.round(s, 10))))}
 
 
 def serie_c1(
