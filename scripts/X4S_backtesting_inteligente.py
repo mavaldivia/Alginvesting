@@ -11,20 +11,26 @@ cada tramo y los KPIs y los registra en resources/x5_alt/q5/ (plan 9.10):
   {valor}_vueltas.csv       una fila por vuelta
   {valor}_seguimiento.csv   una fila por bloque de N_VELAS velas (lo mismo que el resumen en pantalla)
   {valor}_estructura_v{n}.json  estructura de variables de cada version_estructura, nunca se sobrescribe
-  {valor}/{vuelta}/         trades.json, events.json, equity_*.csv, checkpoint y x4.log (lo que imprime X4)
+  {valor}/{vuelta}/         trades.json, events.json, equity_*.csv, estado_x4s.pkl y x4.log (lo que imprime X4)
+
+`estado_x4s.pkl` se reescribe al inicio de cada bloque y permite reanudar una vuelta interrumpida (`--reanudar`); se
+borra cuando la vuelta termina.
 
 Uso:
   python scripts/X4S_backtesting_inteligente.py --activo BTCUSD               # C2 de Q4 (primera vuelta)
   python scripts/X4S_backtesting_inteligente.py --activo BTCUSD --estatica    # control: C1 de config.py
   python scripts/X4S_backtesting_inteligente.py --activo BTCUSD --hasta 2022-04-15 --reset
+  python scripts/X4S_backtesting_inteligente.py --activo BTCUSD --reanudar    # sigue la vuelta interrumpida
 """
 
 import argparse
 import contextlib
 import csv
 import datetime
+import hashlib
 import json
 import os
+import pickle
 import platform
 import shutil
 import subprocess
@@ -53,6 +59,8 @@ C1_OPERACION = ['A', 'factor_B', 'p']
 CLAVE_RANGO = {'N': 'N', 'K': 'K', 'N_EXP': 'N_EXP', 'LAMBDA': 'LAMBDA', 'A': 'A', 'factor_B': 'factor_B',
                'p': 'PERDIDA_MAX_PCT'}
 CURVAS_EQUITY = ('equity_global.csv', 'equity_activos.csv')
+ARCHIVO_SNAPSHOT = 'estado_x4s.pkl'
+VERSION_SNAPSHOT = 1
 
 
 # ─── C1 vela a vela ───────────────────────────────────────────────────────────
@@ -259,10 +267,87 @@ def formatear_resumen_final(fila: dict) -> list:
     ]
 
 
+# ─── Reanudación ──────────────────────────────────────────────────────────────
+
+def _huella(c1: pd.DataFrame, semilla: int, hasta, n_total: int, n_velas: int, corte: int, capital: float) -> str:
+    """Identifica los insumos de la vuelta: si cambian entre la interrupción y la reanudación, el estado guardado ya
+    no corresponde a lo que se va a seguir simulando."""
+    h = hashlib.sha256(pd.util.hash_pandas_object(c1, index=True).to_numpy().tobytes())
+    h.update(f'{semilla}|{hasta}|{n_total}|{n_velas}|{corte}|{capital}'.encode())
+    return h.hexdigest()
+
+
+def _escribir_atomico(ruta: Path, objeto) -> None:
+    tmp = ruta.with_suffix(ruta.suffix + '.tmp')
+    with open(tmp, 'wb') as f:
+        pickle.dump(objeto, f, protocol=pickle.HIGHEST_PROTOCOL)
+    os.replace(tmp, ruta)
+
+
+def _cargar_snapshot(ruta: Path, huella: str) -> dict:
+    if not ruta.exists():
+        raise SystemExit(f'No hay {ruta.name} en {ruta.parent}: la vuelta no tiene nada que reanudar.')
+    with open(ruta, 'rb') as f:
+        snap = pickle.load(f)
+    if snap.get('version') != VERSION_SNAPSHOT:
+        raise SystemExit(f'{ruta.name} es de otra versión del formato ({snap.get("version")}); usa --reset.')
+    if snap['huella'] != huella:
+        raise SystemExit('Los C1, la semilla o la cuenta cambiaron desde que se guardó el estado de la vuelta; '
+                         'usa --reset para empezarla de nuevo.')
+    return snap
+
+
+def _truncar_archivo(ruta: Path, tam: int) -> None:
+    if ruta.exists() and ruta.stat().st_size > tam:
+        with open(ruta, 'r+b') as f:
+            f.truncate(tam)
+
+
+def _truncar_lista_json(ruta: Path, n: int) -> None:
+    if not ruta.exists():
+        return
+    items = json.loads(ruta.read_text())
+    if len(items) > n:
+        ruta.write_text(json.dumps(items[:n], indent=2, default=str))
+
+
+def _truncar_seguimiento(ruta: Path, id_vuelta: str, n: int) -> None:
+    """Deja solo las primeras `n` filas de la vuelta; las filas de otras vueltas no se tocan."""
+    if not ruta.exists():
+        return
+    df = pd.read_csv(ruta)
+    propias = df['vuelta'] == id_vuelta
+    sobran = propias & (propias.cumsum() > n)
+    if sobran.any():
+        df[~sobran].to_csv(ruta, index=False)
+
+
+def _truncar_cache_bt(carpeta_n_bt: Path, ts_corte) -> None:
+    """Quita del caché de soportes las búsquedas posteriores al snapshot: la reanudación las rehace y no deben
+    servirle de warm start (la vuelta sin interrupción no las tenía)."""
+    for ruta in carpeta_n_bt.glob('*_bt.json'):
+        cache = json.loads(ruta.read_text())
+        vigentes = {k: v for k, v in cache.items() if pd.Timestamp(k) <= ts_corte}
+        if len(vigentes) != len(cache):
+            ruta.write_text(json.dumps(vigentes))
+
+
+def _restaurar_archivos(carpeta: Path, cfg: SimpleNamespace, ruta_seguimiento: Path, id_vuelta: str, snap: dict,
+                        ts_corte) -> None:
+    """Deja los archivos de la vuelta como estaban al guardar el snapshot: lo escrito después (velas y bloques que
+    la reanudación va a rehacer) se descarta para no duplicarlo."""
+    for nombre, tam in snap['tam_equity'].items():
+        _truncar_archivo(carpeta / nombre, tam)
+    for nombre, clave in (('trades.json', 'trades'), ('events.json', 'events')):
+        _truncar_lista_json(carpeta / nombre, snap['n_json'][clave])
+    _truncar_seguimiento(ruta_seguimiento, id_vuelta, snap['n_filas_seg'])
+    _truncar_cache_bt(cfg.CARPETA_N_BT, ts_corte)
+
+
 # ─── Una vuelta ───────────────────────────────────────────────────────────────
 
 def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 0, hasta=None,
-                    id_vuelta: str | None = None) -> dict:
+                    id_vuelta: str | None = None, reanudar: bool = False) -> dict:
     """Corre una vuelta de `valor` con los C1 de `c1` (índice DateTime, columnas N, K, N_EXP, LAMBDA, A, factor_B, p).
 
     Los C1 del grupo de búsqueda se leen de la fila de la vela donde se busca (datos hasta ese instante, los mismos
@@ -273,6 +358,11 @@ def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 
     Cada `N_VELAS` velas imprime el resumen del bloque y lo agrega a `{valor}_seguimiento.csv`; lo que imprime X4
     (cada trade cerrado, cada búsqueda) va a `x4.log` en la carpeta de la vuelta. Devuelve las series vela a vela
     (equity, lote, margen, C1 aplicados) para calcular premios y KPIs con `resumir_vuelta`.
+
+    Al inicio de cada bloque (con su búsqueda ya hecha) guarda `estado_x4s.pkl`. Con `reanudar=True` carga ese estado,
+    descarta de los archivos lo escrito después y sigue desde la vela siguiente. Las semillas de la intra-vela y de la
+    búsqueda salen de (semilla, valor, ts), no de un generador con estado, así que el resultado es el mismo que sin
+    interrupción salvo en las búsquedas cortadas por el tope de tiempo, que dependen del reloj.
     """
     cfg = construir_cfg(valor, carpeta, semilla)
     cfg.CARPETA_N_BT.mkdir(parents=True, exist_ok=True)
@@ -321,15 +411,45 @@ def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 
     z = capital
     i_busqueda, n_previo, n_ret_previo = None, None, 0
     stop_outs, en_stop_out = 0, False
-    t0 = time.monotonic()  # sin la suspensión del equipo: ETA y duración de la vuelta son tiempo de cómputo
+    n_json = {'trades': 0, 'events': 0}  # items ya volcados a trades.json / events.json
+    n_filas_seg, duracion_previa_s, i_inicio = 0, 0.0, 0
+
+    ruta_snapshot = carpeta / ARCHIVO_SNAPSHOT
+    huella = _huella(c1, semilla, hasta, n_total, n_velas, corte, capital)
+    if reanudar:
+        snap = _cargar_snapshot(ruta_snapshot, huella)
+        estado, retornos, busquedas, aplicado = snap['estado'], snap['retornos'], snap['busquedas'], snap['aplicado']
+        equity, m_serie, en_mercado, margen_usado = snap['equity'], snap['m_serie'], snap['en_mercado'], snap['margen_usado']
+        series = [equity, m_serie, en_mercado, margen_usado, *aplicado.values()]
+        mc, z, i_busqueda, n_previo, n_ret_previo = snap['mc'], snap['z'], snap['i_busqueda'], snap['n_previo'], snap['n_ret_previo']
+        stop_outs, en_stop_out = snap['stop_outs'], snap['en_stop_out']
+        n_json, n_filas_seg, duracion_previa_s, i_inicio = snap['n_json'], snap['n_filas_seg'], snap['duracion_s'], snap['siguiente']
+        _restaurar_archivos(carpeta, cfg, ruta_seguimiento, id_vuelta, snap, h1.index[i_busqueda])
+        fila_busqueda = c1.iloc[i_busqueda]  # lo que `_buscar_soportes` dejó fijado en cfg para el bloque en curso
+        cfg.K, cfg.N_EXP, cfg.LAMBDA = float(fila_busqueda['K']), float(fila_busqueda['N_EXP']), float(fila_busqueda['LAMBDA'])
+        cfg.n_sizes[valor] = int(fila_busqueda['N'])
+    t0 = time.monotonic() - duracion_previa_s  # sin la suspensión del equipo: ETA y duración son tiempo de cómputo
 
     def decir(texto: str) -> None:
         print(texto, file=consola, flush=True)
 
     def flush() -> None:
         retornos.extend((t['timestamp_cierre'], t['retorno_usd']) for t in trades_log)
-        x4._flush_json_list(trades_log, carpeta / 'trades.json')
-        x4._flush_json_list(events_log, carpeta / 'events.json')
+        n_json['trades'] += x4._flush_json_list(trades_log, carpeta / 'trades.json')
+        n_json['events'] += x4._flush_json_list(events_log, carpeta / 'events.json')
+
+    def guardar_snapshot(i: int) -> None:
+        """Estado completo con la vela `i` recién congelada (búsqueda hecha, filas y JSON ya volcados), para seguir
+        desde la `i + 1`. Guarda también el tamaño de los archivos que crecen por vela, para podarlos al reanudar."""
+        _escribir_atomico(ruta_snapshot, {
+            'version': VERSION_SNAPSHOT, 'huella': huella, 'siguiente': i + 1, 'i_busqueda': i_busqueda,
+            'estado': estado, 'retornos': retornos, 'busquedas': busquedas, 'aplicado': aplicado, 'equity': equity,
+            'm_serie': m_serie, 'en_mercado': en_mercado, 'margen_usado': margen_usado, 'mc': mc, 'z': z,
+            'n_previo': n_previo, 'n_ret_previo': n_ret_previo, 'stop_outs': stop_outs, 'en_stop_out': en_stop_out,
+            'n_json': dict(n_json), 'n_filas_seg': n_filas_seg, 'duracion_s': time.monotonic() - t0,
+            'tam_equity': {nombre: (carpeta / nombre).stat().st_size for nombre in CURVAS_EQUITY
+                           if (carpeta / nombre).exists()},
+        })
 
     def fila_seguimiento(i: int, ts, info: dict | None, k: int) -> dict:
         ini = i_busqueda if i_busqueda is not None else 0
@@ -371,18 +491,24 @@ def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 
         }
 
     def registrar_bloque(i: int, ts, info: dict | None, k: int) -> None:
-        nonlocal n_ret_previo
+        nonlocal n_ret_previo, n_filas_seg
         fila = fila_seguimiento(i, ts, info, k)
         for linea in formatear_resumen(fila):
             decir(linea)
         agregar_fila_csv(ruta_seguimiento, fila)
         n_ret_previo = len(retornos)
+        n_filas_seg += 1
 
     decir(f'[{valor} | {id_vuelta}] vuelta: {h1.index[0]} → {h1.index[-1]} ({n_total} velas H1, corte del aprendizaje en la '
           f'{corte}), búsqueda cada {n_velas} velas, carpeta {carpeta}')
+    if reanudar:
+        decir(f'[{valor} | {id_vuelta}] reanudada desde la vela {i_inicio} ({h1.index[i_busqueda]}, bloque '
+              f'{i_busqueda // n_velas}/{bloques_total})')
 
     with open(carpeta / 'x4.log', 'a', encoding='utf-8') as log, contextlib.redirect_stdout(log):
-        for i, (ts, candle) in enumerate(h1.iterrows()):
+        if reanudar:
+            print(f'\n=== VUELTA REANUDADA desde la vela {i_inicio} (bloque iniciado en {h1.index[i_busqueda]}) ===')
+        for i, (ts, candle) in enumerate(h1.iloc[i_inicio:].iterrows(), start=i_inicio):
             if i_busqueda is None or i - i_busqueda >= n_velas:
                 info = _buscar_soportes(estado, cfg, valor, ts, c1.iloc[i], n_previo)
                 if not estado['por_activo'][valor]['soportes']:
@@ -396,6 +522,7 @@ def ejecutar_vuelta(valor: str, c1: pd.DataFrame, carpeta: Path, semilla: int = 
                 if congelada:
                     for s in series:
                         s[i] = s[i - 1]
+                    guardar_snapshot(i)
                     continue
 
             fila = c1_op.iloc[i]
@@ -581,17 +708,30 @@ def podar_curvas(valor: str, mejores: int | None = None) -> list:
 
 
 def correr_vuelta(valor: str, c1: pd.DataFrame, nombre: str, semilla: int = 0, c2: dict | None = None,
-                  fase: str = 'q4', replica_de: str = '', hasta=None, reset: bool = False) -> dict:
+                  fase: str = 'q4', replica_de: str = '', hasta=None, reset: bool = False,
+                  reanudar: bool = False) -> dict:
     """Vuelta completa con su registro: corre, calcula premios y KPIs, agrega la fila a `{valor}_vueltas.csv` y poda
-    las curvas de equity. `nombre` es el id de la vuelta (y de su carpeta). Devuelve la fila registrada."""
+    las curvas de equity. `nombre` es el id de la vuelta (y de su carpeta). Devuelve la fila registrada.
+
+    `reanudar` sigue la vuelta interrumpida desde su último `estado_x4s.pkl`. Si la carpeta no existe o está vacía
+    empieza una vuelta nueva (así un lanzador puede pasarlo siempre); si tiene datos pero no snapshot, falla."""
     estructura = cargar_estructura_c1(gc.RUTA_ESTRUCTURA_C1)
     carpeta = gc.CARPETA_Q5 / valor / nombre
-    preparar_carpeta(carpeta, reset)
-    if reset:
-        quitar_vuelta_de_csv(gc.CARPETA_Q5 / f'{valor}_vueltas.csv', nombre, 'id')
-        quitar_vuelta_de_csv(gc.CARPETA_Q5 / f'{valor}_seguimiento.csv', nombre, 'vuelta')
+    if reanudar:
+        if reset:
+            raise SystemExit('--reanudar y --reset se excluyen: uno sigue la vuelta y el otro la borra.')
+        if not (carpeta / ARCHIVO_SNAPSHOT).exists():
+            if carpeta.exists() and any(carpeta.iterdir()):
+                raise SystemExit(f'{carpeta} tiene datos pero no {ARCHIVO_SNAPSHOT}: la vuelta ya terminó o corrió sin '
+                                 f'reanudación. Usa --reset o un --nombre distinto.')
+            reanudar = False
+    if not reanudar:
+        preparar_carpeta(carpeta, reset)
+        if reset:
+            quitar_vuelta_de_csv(gc.CARPETA_Q5 / f'{valor}_vueltas.csv', nombre, 'id')
+            quitar_vuelta_de_csv(gc.CARPETA_Q5 / f'{valor}_seguimiento.csv', nombre, 'vuelta')
     inicio, t_reloj = datetime.datetime.now(), time.time()
-    res = ejecutar_vuelta(valor, c1, carpeta, semilla, hasta, id_vuelta=nombre)
+    res = ejecutar_vuelta(valor, c1, carpeta, semilla, hasta, id_vuelta=nombre, reanudar=reanudar)
     reloj_s = time.time() - t_reloj
     fila = resumir_vuelta(res, c2, estructura, fase, replica_de, registrar_version_estructura(valor, estructura))
     agregar_fila_csv(gc.CARPETA_Q5 / f'{valor}_vueltas.csv', fila)
@@ -599,6 +739,7 @@ def correr_vuelta(valor: str, c1: pd.DataFrame, nombre: str, semilla: int = 0, c
         print(linea, flush=True)
     ruta_resumen = escribir_resumen_json(carpeta, res, fila, inicio, reloj_s, hasta)
     print(f'[{valor} | {nombre}] resumen completo en {ruta_resumen}', flush=True)
+    (carpeta / ARCHIVO_SNAPSHOT).unlink(missing_ok=True)
     podadas = podar_curvas(valor)
     if podadas:
         print(f'[{valor} | {nombre}] curvas de equity borradas de: {", ".join(podadas)}', flush=True)
@@ -615,6 +756,8 @@ def main() -> None:
     ap.add_argument('--hasta', help='última fecha a simular (pruebas cortas)')
     ap.add_argument('--nombre', help='id de la vuelta (por defecto {q4|estatica}_s{semilla})')
     ap.add_argument('--reset', action='store_true', help='borra la vuelta si ya existe (carpeta y filas de los CSV)')
+    ap.add_argument('--reanudar', action='store_true',
+                    help='sigue la vuelta interrumpida desde su último estado_x4s.pkl (sin snapshot ni datos, la empieza)')
     args = ap.parse_args()
 
     tabla, estructura, c2_q4 = cargar_insumos(args.activo)
@@ -623,7 +766,8 @@ def main() -> None:
     else:
         c1, c2, fase = c1_dinamicos(args.activo, c2_q4, tabla, estructura), c2_q4, 'q4'
     nombre = args.nombre or f'{fase}_s{args.semilla}'
-    correr_vuelta(args.activo, c1, nombre, args.semilla, c2, fase, hasta=args.hasta, reset=args.reset)
+    correr_vuelta(args.activo, c1, nombre, args.semilla, c2, fase, hasta=args.hasta, reset=args.reset,
+                  reanudar=args.reanudar)
 
 
 if __name__ == '__main__':

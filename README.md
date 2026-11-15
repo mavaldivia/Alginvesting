@@ -113,7 +113,7 @@ scripts/
   market_status.py       # Estado de mercado por activo (abierto/pre-market/cerrado; acciones USA por horario NY + tick fresco) y próximo cambio de estado, vía MT5
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
-  X4S_backtesting_inteligente.py  # Una vuelta del backtesting inteligente de un valor (X5_alt_v2, Q5-3): cuenta de 3000 USD con lotajes_m(Z) y pérdida máxima p·Z, C1 dinámicos con sus dos cadencias, premio por tramo (aprendizaje/reservado) y KPIs; importa de X4, no reimplementa X0/X1; registra en resources/x5_alt/q5/ (--activo, --estatica, --hasta, --reset)
+  X4S_backtesting_inteligente.py  # Una vuelta del backtesting inteligente de un valor (X5_alt_v2, Q5-3): cuenta de 3000 USD con lotajes_m(Z) y pérdida máxima p·Z, C1 dinámicos con sus dos cadencias, premio por tramo (aprendizaje/reservado) y KPIs; importa de X4, no reimplementa X0/X1; registra en resources/x5_alt/q5/ y guarda estado_x4s.pkl al inicio de cada bloque para reanudar (--activo, --estatica, --hasta, --reset, --reanudar)
   q5_empaquetar_medicion.py  # Empaqueta en resources/x4/version{V}/medicion_{V}.zip la salida de consola, config, checkpoint, log de búsquedas de soportes (filtrado a la corrida) y resumen/equipo de una medición de X4 (Q5-1); sirve también con la corrida interrumpida
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   config_smart.py        # Pisos, techos y pasos de los 7 parámetros dinámicos (cripto y acciones por separado), N_VELAS (cadencia de recálculo de soportes), GRADO (aprendizaje), SORTEO_C2 (rango del sorteo Sobol de los C2 cerca de Q4) y los de la vuelta de Q5-3 (FECHA_INICIO_BT, CUENTA, FRACCION_RESERVADA, CURVAS_MEJORES, P_ESTATICO), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
@@ -126,7 +126,7 @@ scripts/
   X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra 7 parámetros (N, A, factor_B, K, N_EXP, LAMBDA, PERDIDA_MAX) como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — cerrado 2026-11-02; resumen por activo con coeficientes y μ/σ en exp_Q4/{VALOR}_q4_resumen.csv
   x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro con 1-3 variables) y de Q5 (serie_c1: cada parámetro dinámico vela a vela con z-score de ventana expansiva, redondeo a la grilla de pasos y variables leídas de config/estructura_c1.json; rangos de sorteo de los C2; lotajes_m(Z), premios por tramo, drawdown y estadísticas de cada C1 de una vuelta) — no depende de Data/MT5
   test_x5_alt_funciones.py  # Pruebas de las funciones de Q5 con datos reales de exp_Q1/exp_Q4 (reproduce Q4, causalidad, grilla, sorteo, lotajes_m, premios); corren sin pytest: python scripts/test_x5_alt_funciones.py
-  test_x4s_backtesting_inteligente.py  # Pruebas de X4S sobre vueltas cortas reales de BTCUSD (lote según Z, stop-out sin corte, reproducibilidad con semilla, registro, poda de curvas, versiones de estructura); escriben en un directorio temporal: python scripts/test_x4s_backtesting_inteligente.py
+  test_x4s_backtesting_inteligente.py  # Pruebas de X4S sobre vueltas cortas reales de BTCUSD (lote según Z, stop-out sin corte, reproducibilidad con semilla, reanudación tras interrupción, registro, poda de curvas, versiones de estructura); escriben en un directorio temporal: python scripts/test_x4s_backtesting_inteligente.py
   x5_alt_export.py       # carpeta_exp()/limpiar_exp()/exportar_zip() — cada notebook X5_Q*.ipynb lee/escribe en su propia resources/x5_alt/exp_Qi/ (limpiada al inicio) y comprime esa carpeta en exp_Qi.zip para pasarlo de Windows a Mac
   otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
@@ -170,8 +170,8 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 | `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
 | `M_AFINADO` | (100, 300) | Solo en vivo: barridos más finos tras converger con `M`, hasta agotar el bloque de `T_UPDATE_O0` |
 | `M_SALTO` | 60 | Candidatos de salto por soporte libre en todo `[p_min, p_max]` (sin respetar vecinos); 0 = solo búsqueda local |
-| `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` | 15 (min) | Tope de cada búsqueda de soportes en X4/X5 (cold start y recálculos); conserva la mejor solución al agotarse |
-| `X4_TIEMPO_MAX_FASE_GRUESA_MIN` | 9 (min) | Tope de la fase gruesa (`M_COARSE`) dentro de esa búsqueda; la fase fina (`M`) usa el resto hasta los 15 min |
+| `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` | 6 (min) | Tope de cada búsqueda de soportes en X4/X5 (cold start y recálculos); conserva la mejor solución al agotarse |
+| `X4_TIEMPO_MAX_FASE_GRUESA_MIN` | 3,6 (min) | Tope de la fase gruesa (`M_COARSE`) dentro de esa búsqueda; la fase fina (`M`) usa el resto hasta los 6 min |
 | `T_UPDATE_O0` | 15 (min) | Cadencia de flush del `conjunto_N` a `resources/conjuntos_N/` en producción |
 | `T_UPDATE_CICLO_X0` | 60 (min) | Cadencia de refresco de data/X2/X3/distancias en producción |
 | `N_MAX_MODELS` | `len(VALORES)` (7) | Tope de combos corriendo a la vez en el pool de procesos compartido (None/0 = sin tope) |
@@ -241,6 +241,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-15** — feat(q5-3): X4S reanudable con --reanudar (estado por bloque) y tope de búsqueda de soportes en backtesting de 15 a 6 min
 - **2026-11-14** — feat(q5-3): duraciones en tiempo de cómputo (no de reloj) y resumen.json por vuelta en X4S
 - **2026-11-14** — feat(q5-3): X4S con cuenta de 3000 USD, lote por posición, premio por tramo y registro por vuelta
 - **2026-11-10** — feat(q5-2): serie causal de cada C1, estructura de variables y 16 vueltas Sobol

@@ -650,3 +650,21 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Consecuencia:** la duración medida en `Q5-1` queda pendiente de repetir con cómputo real; la vuelta completa de `Q5-3` la entrega. Recomendado correr con `caffeinate -i`, enchufado y con la tapa abierta.
 
 **Registro adicional:** al cerrar, cada vuelta escribe `resources/x5_alt/q5/{valor}/{vuelta}/resumen.json` (`escribir_resumen_json`, `X4S_backtesting_inteligente.py`): fila de la vuelta, resumen final, tiempos de cómputo y de reloj (la diferencia es la pausa), cada búsqueda de soportes, cada bloque, equity de fin de mes, entorno (commit, equipo) y config vigente. Pensado para revisar una vuelta sin la consola. Si la vuelta se corta a medias no se escribe; `{valor}_seguimiento.csv` sí queda con los bloques hechos.
+
+## 2026-11-15 — X5_alt_v2 (Q5-3): X4S se puede reanudar
+
+**Decisión:** `X4S_backtesting_inteligente.py` escribe `{valor}/{vuelta}/estado_x4s.pkl` al inicio de cada bloque (después de la búsqueda de soportes) y `--reanudar` lo carga y sigue desde la vela siguiente. Guarda el estado completo (X4, series vela a vela, retornos, búsquedas, contadores) más el tamaño de los archivos que crecen por vela; al reanudar trunca `equity_*.csv`, `trades.json`, `events.json`, las filas de la vuelta en `{valor}_seguimiento.csv` y las claves del caché de soportes posteriores al snapshot. Una huella de los C1, la semilla y la cuenta impide reanudar con insumos distintos. `--reanudar` con carpeta vacía o inexistente empieza una vuelta nueva (para que el lanzador de `Q5-4` lo pase siempre); con datos y sin snapshot falla.
+
+**Razón:** una vuelta dura 40–55 h y la primera (BTCUSD `q4_s0`) no se podía retomar: X4S solo guardaba `checkpoint.json` al terminar y nunca lo cargaba, y ese archivo no tiene las series ni los registros de la vuelta. Un corte a las 30 h obligaba a empezar de cero.
+
+**Descartado:** reconstruir las series desde `trades.json`/`equity_global.csv`/`seguimiento.csv` al reanudar (frágil: un corte entre dos escrituras los deja desfasados); reutilizar `checkpoint.json` de X4 (no cubre lo que X4S agrega). Pickle en vez de JSON: el estado lleva claves float, `Timestamp` y arrays de numpy que JSON no devuelve tal cual, y el archivo es local y propio.
+
+**Consecuencia:** la vuelta reanudada da el mismo resultado que la ininterrumpida (equity, trades, eventos, caché y seguimiento idénticos en las pruebas) porque las semillas salen de (semilla, valor, ts); solo difieren las búsquedas cortadas por el tope de tiempo. Se pierde el bloque en curso. Las vueltas lanzadas antes de este cambio no tienen snapshot y no se pueden reanudar. Pruebas: `test_reanudar_*` en `scripts/test_x4s_backtesting_inteligente.py`.
+
+## 2026-11-15 — Tope de tiempo de la búsqueda de soportes en X4/X5: 15 → 6 min
+
+**Decisión:** `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` pasa de 15 a 6 (Mauricio) y `X4_TIEMPO_MAX_FASE_GRUESA_MIN` de 9 a 3,6 (Claude: misma proporción, 60 %). Con la fase gruesa en 9 > 6 min se habría comido todo el presupuesto y la fase fina (`M`) nunca habría corrido.
+
+**Razón:** en la vuelta `q4_s0` de BTCUSD casi todas las búsquedas llegaban al tope de 15 min (900 s, "cortada por tope de tiempo"), así que el tope manda sobre la duración de la vuelta (242 bloques × 15 min ≈ 60 h de búsqueda; con 6 min ≈ 24 h).
+
+**Consecuencia:** las búsquedas cortadas conservan una solución menos refinada (FO final peor) y, como el corte depende del reloj, la reproducibilidad exacta solo vale si ninguna búsqueda lo toca. Las vueltas hechas con 15 min (`q4_s0`) no son comparables con las nuevas. Se recomienda mirar `n_busquedas_cortadas` y la FO final de las primeras vueltas antes de fiarse del aprendizaje.

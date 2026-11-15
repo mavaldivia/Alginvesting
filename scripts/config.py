@@ -112,8 +112,8 @@ T_UPDATE_CICLO_X0 = 60   # minutos entre refrescos de data H1/M1 + X2 + X3 + rec
 # X4/X5: tope de tiempo de cada búsqueda de soportes (cold start y recálculos cada delta_recalculo_soportes).
 # Al agotarse corta y conserva la mejor solución hallada; no hay barridos M_AFINADO (solo en vivo).
 # La fase gruesa (M_COARSE) tiene su propio tope; la fina (M) usa lo que quede hasta el total.
-X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN = 15
-X4_TIEMPO_MAX_FASE_GRUESA_MIN = 9
+X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN = 6
+X4_TIEMPO_MAX_FASE_GRUESA_MIN = 3.6   # 60 % del total, como antes (9 de 15): con 9 > 6 la fase fina no correría
 
 # ─── Velocidad / cómputo ──────────────────────────────────────────────────────
 

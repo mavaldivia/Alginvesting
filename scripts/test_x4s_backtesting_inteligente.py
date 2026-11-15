@@ -75,6 +75,21 @@ def _cuenta(**cambios):
         config_smart.CUENTA.update(original)
 
 
+@contextlib.contextmanager
+def _n_velas(n: int):
+    tipo = config_smart.tipo_valor(VALOR)
+    original = config_smart.N_VELAS[tipo]
+    config_smart.N_VELAS[tipo] = n
+    try:
+        yield
+    finally:
+        config_smart.N_VELAS[tipo] = original
+
+
+class _Interrumpido(Exception):
+    pass
+
+
 def _estructura_de_prueba() -> dict:
     return {
         'N': {'version': 1, 'variables': [{'nombre': 'a', 'transformacion': 'identidad', 'columnas': ['a'], 'signo': 1, 'activa': True}]},
@@ -269,8 +284,130 @@ def test_vuelta_registrada_premios_kpis_y_seguimiento():
     assert '[A→C]' not in salida and '[A→C]' in log_x4
 
 
+def _interrumpir(parche: str, nombre: str, n_llamada: int, despues_de_ejecutar: bool):
+    """Hace que la `n_llamada`-ésima llamada a `s.<parche>` (o `s.x4.<parche>`) levante `_Interrumpido`, antes o después
+    de correr la original: simula matar el proceso en ese punto. Devuelve (instalar, restaurar)."""
+    destino = s.x4 if parche.startswith('_procesar') else s
+    original, llamadas = getattr(destino, parche), {'n': 0}
+
+    def envoltura(*a, **k):
+        llamadas['n'] += 1
+        if llamadas['n'] == n_llamada and not despues_de_ejecutar:
+            raise _Interrumpido(nombre)
+        r = original(*a, **k)
+        if llamadas['n'] == n_llamada:
+            raise _Interrumpido(nombre)
+        return r
+
+    return (lambda: setattr(destino, parche, envoltura)), (lambda: setattr(destino, parche, original))
+
+
+def _comparar_vuelta_reanudada(parche: str, n_llamada: int, despues_de_ejecutar: bool) -> None:
+    c1 = _c1_n20()
+    with _n_velas(48), _q5_temporal() as q5, contextlib.redirect_stdout(io.StringIO()):
+        completa = q5 / VALOR / 'completa'
+        s.preparar_carpeta(completa, True)
+        a = s.ejecutar_vuelta(VALOR, c1, completa, 5, '2022-03-07')
+        assert len(a['busquedas']) >= 3 and not any(b['info']['tiempo_agotado'] for b in a['busquedas'] if b['info'])
+
+        cortada = q5 / VALOR / 'cortada'
+        s.preparar_carpeta(cortada, True)
+        instalar, restaurar = _interrumpir(parche, 'kill', n_llamada, despues_de_ejecutar)
+        instalar()
+        try:
+            s.ejecutar_vuelta(VALOR, c1, cortada, 5, '2022-03-07')
+        except _Interrumpido:
+            pass
+        else:
+            raise AssertionError('la vuelta debió interrumpirse')
+        finally:
+            restaurar()
+        assert (cortada / s.ARCHIVO_SNAPSHOT).exists()
+        b = s.ejecutar_vuelta(VALOR, c1, cortada, 5, '2022-03-07', reanudar=True)
+
+        assert np.array_equal(a['equity'], b['equity'])
+        assert a['retornos'] == b['retornos'] and a['stop_outs'] == b['stop_outs']
+        for k in a['aplicado']:
+            assert np.array_equal(a['aplicado'][k], b['aplicado'][k], equal_nan=True), k
+        assert len(a['busquedas']) == len(b['busquedas'])
+        for archivo in ('trades.json', 'events.json'):
+            assert json.loads((completa / archivo).read_text()) == json.loads((cortada / archivo).read_text()), archivo
+        for archivo in s.CURVAS_EQUITY:
+            assert (completa / archivo).read_bytes() == (cortada / archivo).read_bytes(), archivo
+        for ruta in (completa / 'conjuntos_N').glob('*_bt.json'):
+            assert json.loads(ruta.read_text()) == json.loads((cortada / 'conjuntos_N' / ruta.name).read_text()), ruta.name
+        seg = pd.read_csv(q5 / f'{VALOR}_seguimiento.csv')
+        reloj = ['vuelta', 'eta_s', 'busqueda_s']  # dependen del reloj o del nombre de la vuelta
+        sa = seg[seg['vuelta'] == 'completa'].drop(columns=reloj).reset_index(drop=True)
+        sb = seg[seg['vuelta'] == 'cortada'].drop(columns=reloj).reset_index(drop=True)
+        pd.testing.assert_frame_equal(sa, sb)
+
+
+def test_reanudar_tras_matar_a_mitad_de_un_bloque_da_la_misma_vuelta():
+    if not _hay_datos():
+        return
+    _comparar_vuelta_reanudada('_procesar_candle', 60, False)  # vela 60 = a mitad del segundo bloque
+
+
+def test_reanudar_tras_matar_justo_despues_de_una_busqueda_da_la_misma_vuelta():
+    if not _hay_datos():
+        return
+    _comparar_vuelta_reanudada('_buscar_soportes', 3, True)  # la búsqueda del 3er bloque ya escribió su caché
+
+
+def test_reanudar_rechaza_carpeta_sin_snapshot_y_reset():
+    if not _hay_datos():
+        return
+    c1 = _c1_n20()
+    with _q5_temporal() as q5, contextlib.redirect_stdout(io.StringIO()):
+        carpeta = q5 / VALOR / 'vieja'
+        carpeta.mkdir(parents=True)
+        (carpeta / 'trades.json').write_text('[]')
+        for kwargs, texto in (({'reanudar': True}, f'no {s.ARCHIVO_SNAPSHOT}'), ({'reanudar': True, 'reset': True}, 'se excluyen')):
+            try:
+                s.correr_vuelta(VALOR, c1, 'vieja', **kwargs)
+            except SystemExit as e:
+                assert texto in str(e), str(e)
+            else:
+                raise AssertionError(f'debió rechazarse: {kwargs}')
+
+
+def test_reanudar_rechaza_snapshot_de_otros_c1():
+    if not _hay_datos():
+        return
+    c1 = _c1_n20()
+    with _n_velas(48), _q5_temporal() as q5, contextlib.redirect_stdout(io.StringIO()):
+        carpeta = q5 / VALOR / 'cortada'
+        s.preparar_carpeta(carpeta, True)
+        instalar, restaurar = _interrumpir('_procesar_candle', 'kill', 60, False)
+        instalar()
+        try:
+            s.ejecutar_vuelta(VALOR, c1, carpeta, 5, '2022-03-07')
+        except _Interrumpido:
+            pass
+        finally:
+            restaurar()
+        otros = c1.copy()
+        otros['A'] = otros['A'] * 2
+        try:
+            s.ejecutar_vuelta(VALOR, otros, carpeta, 5, '2022-03-07', reanudar=True)
+        except SystemExit as e:
+            assert 'cambiaron' in str(e)
+        else:
+            raise AssertionError('debió rechazar el snapshot de otros C1')
+
+
+def test_vuelta_terminada_borra_su_snapshot():
+    if not _hay_datos():
+        return
+    c1 = _c1_n20()
+    with _q5_temporal() as q5, contextlib.redirect_stdout(io.StringIO()):
+        s.correr_vuelta(VALOR, c1, 'fin', semilla=5, hasta=HASTA)
+        assert not (q5 / VALOR / 'fin' / s.ARCHIVO_SNAPSHOT).exists()
+
+
 if __name__ == '__main__':
-    pruebas = [(n, f) for n, f in sorted(globals().items()) if n.startswith('test_') and callable(f)]
+    pruebas =[(n, f) for n, f in sorted(globals().items()) if n.startswith('test_') and callable(f)]
     fallos = 0
     for nombre, f in pruebas:
         try:
