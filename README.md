@@ -241,6 +241,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-17** — docs(q5-3b): ítem de riesgo por cuenta (umbral por tramos de lotajes_m y tope de órdenes) pendiente de decidir
 - **2026-11-15** — feat(q5-3): X4S reanudable con --reanudar (estado por bloque) y tope de búsqueda de soportes en backtesting de 15 a 6 min
 - **2026-11-14** — feat(q5-3): duraciones en tiempo de cómputo (no de reloj) y resumen.json por vuelta en X4S
 - **2026-11-14** — feat(q5-3): X4S con cuenta de 3000 USD, lote por posición, premio por tramo y registro por vuelta
