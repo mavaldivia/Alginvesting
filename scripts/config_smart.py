@@ -116,6 +116,20 @@ SEMILLA_RESERVADAS = 20261118
 SEMILLA_SOBOL = 0
 
 
+# ─── Aprendizaje por ventanas (Q5-5, plan_x5_alt_v2.md 9.14; x5_alt_aprendizaje.py) ───────────────────────────
+# Ventanas de aprendizaje válidas con C2 por Sobol antes de pasar a RLM + Gradient Ascent (decidido 2026-11-19: 32, potencia
+# de 2 sobre los 27 coeficientes del grado 1; con los dos controles, 29).
+UMBRAL_VENTANAS_SOBOL = 32
+
+# El C2 de mayor efecto sobre Y se mueve esta fracción de su rango en cada paso del Gradient Ascent; los demás, en proporción.
+PASO_GRADIENTE = 0.10
+
+# Penalización ridge (sobre variables estandarizadas) elegida por validación cruzada de PLIEGUES_CV pliegues al azar.
+ALPHAS_RIDGE = tuple(10.0 ** (k / 2) for k in range(-4, 7))
+PLIEGUES_CV = 5
+SEMILLA_CV = 0
+
+
 def tipo_valor(valor: str) -> str:
     return 'crypto' if valor in CRYPTOS else 'accion'
 

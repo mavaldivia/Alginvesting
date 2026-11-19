@@ -382,7 +382,7 @@ Una vuelta completa dura 40–55 h y da una observación contra 26 C2; 32 vuelta
 5. Mide `Y = cerrado + P&L abierto − 3000` al cerrar la ventana.
 6. Registra `Y`, los C2 y las variables de mercado de la ventana (la semana misma, hora por hora, no los 7 días previos a `t*`), calculadas solo con los cierres: con `C_0` el cierre previo a `t*` y `C_1, …, C_n` los cierres de la semana, `r_i = C_i / C_{i−1} − 1` (cierres correlativos de la serie; en acciones incluye el salto nocturno entre sesiones), `ret_medio = (1/n) Σ r_i` y `ret_vol` = desviación estándar muestral de los `r_i` (retornos porcentuales, no precios).
 
-**Aprendizaje.** Regresión Lineal Múltiple (RLM) de `Y` sobre los C2 (y las variables de mercado) y Gradient Ascent sobre los C2, como en 9.5 pero con una observación por ventana. Cómo entran `ret_medio` y `ret_vol` queda por definir (Mauricio busca "aislar ese efecto" del mercado de la semana): controles aditivos (29 coeficientes en grado 1) o interacciones C2 × régimen (81). Ambas variables se miden después de `t*`, así que no sirven para elegir C2 en producción salvo estimándolas.
+**Aprendizaje.** Regresión Lineal Múltiple (RLM) de `Y` sobre los C2 (y las variables de mercado) y Gradient Ascent sobre los C2, como en 9.5 pero con una observación por ventana. Decidido el 2026-11-19: `ret_medio` y `ret_vol` entran como controles aditivos, `Y = f(C2) + g(ret_medio, ret_vol)` (29 coeficientes en grado 1), para "aislar ese efecto" del mercado de la semana; se descartaron las interacciones C2 × régimen (81 coeficientes). Ambas variables se miden después de `t*`, así que no sirven para elegir C2 en producción salvo estimándolas.
 
 **Validación sin vuelta completa.** El 20% de las ventanas (`FRACCION_RESERVADA`) se reserva al azar, con semilla fija, entre los `t*` de la bisección; no es un tramo final del calendario. Ni esas ventanas ni las de aprendizaje que se solapen con ellas en velas (pasadas ~250 ventanas) entran al aprendizaje. En cada reservada se corren la configuración estática (`P_ESTATICO`), los C2 de `Q4` y, cada vez que se evalúa una promoción, el candidato; este se promueve solo si supera a ambos por la diferencia de `Y` en la misma `t*`. Para elegir la penalización ridge y el `GRADO` se usa validación cruzada de 5 pliegues (20% al azar cada uno) sobre las ventanas de aprendizaje: mide el error fuera de pliegue reajustando solo la RLM, sin backtests extra. Antes de producción rige igual `Q5-5b` (velas nuevas y aprobación manual). Al ser al azar, la validación no mide si el candidato funciona hacia adelante en el tiempo, solo dentro de la historia 2022–2026.
 
@@ -390,7 +390,7 @@ Una vuelta completa dura 40–55 h y da una observación contra 26 C2; 32 vuelta
 
 **Costo estimado** (inferido de ~10 min por búsqueda, sin medir): 32 ventanas ≈ 6 h por valor; ~250 ventanas sin solape (~42.000 velas en BTCUSD) ≈ 46 h por valor.
 
-Ítems: `Q5-3c` (ventana en X4S), `Q5-4` (orquestador, `t*`, Sobol, control) y `Q5-5` (aprendizaje y compuerta).
+Ítems: `Q5-3c` (ventana en X4S), `Q5-4` (orquestador, `t*`, Sobol, control; cerrado para BTCUSD el 2026-11-19), `Q5-4b` (lanzador de los 7 valores) y `Q5-5` (aprendizaje y compuerta).
 
 ---
 

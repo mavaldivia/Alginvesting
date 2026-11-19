@@ -17,19 +17,24 @@ visitarlos todos empieza otra ronda, y si llegan datos nuevos sus `t` (0 visitas
 Cada `t*` es reservado (`FRACCION_RESERVADA`, hash fijo de semilla, valor y `t*`) o de aprendizaje:
   reservado     corre la configuración estática (`estatica`) y los C2 de Q4 (`q4`) con las mismas reglas de cuenta; cada
                 ronda repite ambas con otra semilla de la intra-vela, lo que mide el ruido de `Y` (`replica_de`)
-  aprendizaje   corre unos C2 sorteados por Sobol (`sobol`); cuando exista Q5-5 los entregará el aprendizaje
+  aprendizaje   corre unos C2 sorteados por Sobol (`sobol`) hasta reunir `UMBRAL_VENTANAS_SOBOL` ventanas válidas y, desde
+                ahí, los que propone la Regresión Lineal Múltiple (RLM) + Gradient Ascent (`rlm`, Q5-5; cada propuesta
+                sale de la anterior, partiendo de Q4); cada ajuste queda en `{valor}_aprendizaje.csv`
 
 `t*` es la vela donde se buscan los soportes (queda congelada, como en X4); la semana operada son las velas siguientes
 hasta `t* + VENTANA_DIAS` días y `C_0` es el cierre de `t*`.
 
 Registro en resources/x5_alt/q5/:
   {valor}_ventanas.csv          una fila por ventana
+  {valor}_aprendizaje.csv       una fila por ventana `rlm`: ventanas del ajuste, penalización ridge, R² fuera de pliegue
+  {valor}_compuerta.csv         una fila por evaluación del candidato en las ventanas reservadas
   ventanas/{valor}/{id}/        trades.json, events.json, equity_*.csv, conjuntos_N/ y x4.log (lo que imprime X4)
 
 Uso:
   python scripts/X4_bckt_ventanas.py --activo BTCUSD                      # corre hasta Ctrl+C; volver a lanzar reanuda
   python scripts/X4_bckt_ventanas.py --activo BTCUSD --max_ventanas 32
   python scripts/X4_bckt_ventanas.py --activo BTCUSD --t_star 0 500       # solo la siguiente visita de esos t*
+  python scripts/X4_bckt_ventanas.py --activo BTCUSD --evaluar_candidato  # compuerta: candidato vigente en los t* reservados
 """
 
 import argparse
@@ -37,6 +42,7 @@ import contextlib
 import datetime
 import hashlib
 import io
+import json
 import sys
 import time
 import warnings
@@ -53,6 +59,7 @@ import config as gc
 import config_smart
 import X4_backtester as x4
 import X4S_backtesting_inteligente as s
+from x5_alt_aprendizaje import ajustar_rlm, c2_desde_fila, proponer_c2
 from x5_alt_funciones import drawdown_maximo, estadisticas_c1, rangos_sorteo_c2
 
 FASES_RESERVADA = ('estatica', 'q4')
@@ -217,6 +224,104 @@ def sortear_c2(c2_base: dict, k: int, semilla: int | None = None) -> dict:
     return c2
 
 
+# ─── Aprendizaje y compuerta (Q5-5) ───────────────────────────────────────────
+
+def ruta_aprendizaje(valor: str) -> Path:
+    return gc.CARPETA_Q5 / f'{valor}_aprendizaje.csv'
+
+
+def ruta_compuerta(valor: str) -> Path:
+    return gc.CARPETA_Q5 / f'{valor}_compuerta.csv'
+
+
+def ventanas_para_aprender(df: pd.DataFrame) -> pd.DataFrame:
+    """Ventanas de aprendizaje válidas de la estructura vigente (la última `version_estructura` del registro): una
+    ventana de otra estructura tiene C2 que ya no son los del modelo."""
+    if df.empty:
+        return df
+    validas = ventanas_de_aprendizaje(df)
+    return validas[validas['version_estructura'] == df['version_estructura'].max()]
+
+
+def fase_de_aprendizaje(df: pd.DataFrame) -> str:
+    """`sobol` hasta reunir `UMBRAL_VENTANAS_SOBOL` ventanas de aprendizaje válidas con C2 sorteados; después, `rlm`."""
+    validas = ventanas_para_aprender(df)
+    n_sobol = 0 if validas.empty else int((validas['fase'] == 'sobol').sum())
+    return 'sobol' if n_sobol < config_smart.UMBRAL_VENTANAS_SOBOL else 'rlm'
+
+
+def proponer_ventana_rlm(df: pd.DataFrame, c2_q4: dict) -> tuple:
+    """(C2 de la próxima ventana `rlm`, modelo). Ajusta la RLM con las ventanas de aprendizaje válidas y da un paso de
+    Gradient Ascent desde los C2 de la última ventana `rlm` o, si aún no hay, desde los de Q4: cada propuesta sale de la
+    anterior, así que el camino no depende de qué ventanas se solaparon después."""
+    modelo = ajustar_rlm(ventanas_para_aprender(df))
+    rlm = df[(df['fase'] == 'rlm') & (df['version_estructura'] == df['version_estructura'].max())]
+    actual = c2_desde_fila(rlm.sort_values('fecha_ejecucion').iloc[-1]) if len(rlm) else c2_q4
+    return proponer_c2(modelo, actual, c2_q4), modelo
+
+
+def registrar_aprendizaje(valor: str, id_ventana: str, modelo) -> None:
+    s.agregar_fila_csv(ruta_aprendizaje(valor), {
+        'id': id_ventana, 'fecha_ejecucion': datetime.datetime.now().isoformat(timespec='seconds'), 'n': modelo.n,
+        'grado': modelo.grado, 'alpha': modelo.alpha, 'r2_cv': modelo.r2_cv,
+        'coeficientes': json.dumps(modelo.coeficientes()),
+    })
+
+
+def comparar_candidato(df: pd.DataFrame, fase_candidato: str) -> tuple:
+    """(tabla por `t*` reservado, resumen) del candidato contra la estática y Q4 en la ronda 1 (misma semilla: control
+    pareado). El candidato supera a ambas si la **mediana** de la diferencia de `Y` es positiva contra las dos: la media
+    la domina un solo `t*` (en BTCUSD, 2025-01-17: +2.653 USD de la estática sobre una mediana de 152)."""
+    r1 = df[(df['tramo'] == 'reservada') & (df['ronda'] == 1)]
+    y = r1.pivot_table(index='ts_star', columns='fase', values='Y', aggfunc='first')
+    columnas = ['estatica', 'q4', fase_candidato]
+    y = y.dropna(subset=columnas) if set(columnas) <= set(y.columns) else y.iloc[0:0].reindex(columns=columnas)
+    tabla = pd.DataFrame({'Y_candidato': y[fase_candidato], 'Y_estatica': y['estatica'], 'Y_q4': y['q4']})
+    resumen = {'n': len(tabla)}
+    for rival in ('estatica', 'q4'):
+        dif = tabla['Y_candidato'] - tabla[f'Y_{rival}']
+        tabla[f'dif_{rival}'] = dif
+        resumen.update({f'mediana_dif_{rival}': float(dif.median()) if len(dif) else float('nan'),
+                        f'media_dif_{rival}': float(dif.mean()) if len(dif) else float('nan'),
+                        f'aciertos_{rival}': int((dif > 0).sum())})
+    resumen['promovido'] = bool(len(tabla) and resumen['mediana_dif_estatica'] > 0 and resumen['mediana_dif_q4'] > 0)
+    return tabla, resumen
+
+
+def evaluar_candidato(valor: str, semilla_base: int = 0) -> dict:
+    """Compuerta de Q5-5: corre el candidato vigente (la propuesta de la RLM + Gradient Ascent con todas las ventanas
+    de hoy) en cada `t*` reservado ya visitado, con la semilla de la ronda 1, y lo compara con la estática y Q4. Cada
+    ventana cuesta ~10 min; las ya corridas de ese candidato se omiten, así que interrumpir y relanzar reanuda. Usar la
+    misma `--semilla` con que se corrieron los controles."""
+    datos, tabla, estructura, c2_q4 = _insumos_vigentes(valor, None)
+    df = leer_registro(valor)
+    if fase_de_aprendizaje(df) != 'rlm':
+        validas = ventanas_para_aprender(df)
+        n_sobol = 0 if validas.empty else int((validas['fase'] == 'sobol').sum())
+        raise SystemExit(f'[{valor}] aún no hay candidato: {n_sobol} de {config_smart.UMBRAL_VENTANAS_SOBOL} ventanas Sobol.')
+    c2, modelo = proponer_ventana_rlm(df, c2_q4)
+    fase = f'candidato_{modelo.n:03d}'
+    posicion = {ts: i for i, ts in enumerate(datos['h1'].index)}
+    r1 = df[(df['tramo'] == 'reservada') & (df['ronda'] == 1)]
+    visitados = {pd.Timestamp(ts) for ts, g in r1.groupby('ts_star') if set(FASES_RESERVADA) <= set(g['fase'])}
+    hechos = {pd.Timestamp(ts) for ts in df.loc[df['fase'] == fase, 'ts_star']}
+    pendientes = sorted(ts for ts in visitados - hechos if ts in posicion)
+    print(f'[{valor}] {fase}: RLM de {modelo.n} ventanas, R² fuera de pliegue {modelo.r2_cv:.2f}; '
+          f'{len(pendientes)} de {len(visitados)} t* reservados por correr (~10 min cada uno)', flush=True)
+    for ts in pendientes:
+        correr_ventana(valor, posicion[ts], 1, 'reservada', fase, c2, datos, tabla, estructura, semilla_base)
+    comparacion, resumen = comparar_candidato(leer_registro(valor), fase)
+    print(comparacion.round(1).to_string())
+    print(f'[{valor}] {fase} sobre {resumen["n"]} t* reservados | vs estática: mediana {resumen["mediana_dif_estatica"]:+.1f} '
+          f'USD, media {resumen["media_dif_estatica"]:+.1f}, gana en {resumen["aciertos_estatica"]} | vs Q4: mediana '
+          f'{resumen["mediana_dif_q4"]:+.1f}, media {resumen["media_dif_q4"]:+.1f}, gana en {resumen["aciertos_q4"]} | '
+          f'{"SUPERA a ambas" if resumen["promovido"] else "no supera a ambas"} (la promoción la decide Mauricio, Q5-5b)', flush=True)
+    s.agregar_fila_csv(ruta_compuerta(valor), {
+        'fecha_ejecucion': datetime.datetime.now().isoformat(timespec='seconds'), 'candidato': fase,
+        'n_ventanas_modelo': modelo.n, 'r2_cv': modelo.r2_cv, **resumen})
+    return resumen
+
+
 # ─── Una ventana ──────────────────────────────────────────────────────────────
 
 def ejecutar_ventana(valor: str, t_star: int, c1: pd.DataFrame, carpeta: Path, semilla: int, datos: dict,
@@ -291,6 +396,7 @@ def ejecutar_ventana(valor: str, t_star: int, c1: pd.DataFrame, carpeta: Path, s
                 print(f'[{valor} | {id_ventana}] *** STOP OUT {ts}: Z={mc["equity"]:,.2f} (la ventana sigue) ***',
                       file=consola, flush=True)
             en_stop_out = quemada
+        retornos_trades = [t['retorno_usd'] for t in trades_log]  # el flush vacía trades_log
         x4._flush_json_list(trades_log, carpeta / 'trades.json')
         x4._flush_json_list(events_log, carpeta / 'events.json')
 
@@ -301,7 +407,7 @@ def ejecutar_ventana(valor: str, t_star: int, c1: pd.DataFrame, carpeta: Path, s
     return {
         'valor': valor, 'id': id_ventana, 't_star': t_star, 'ts_star': ts_star, 'indice': velas.index,
         'equity': equity, 'en_mercado': en_mercado, 'margen_usado': margen_usado, 'aplicado': aplicado,
-        'retornos_trades': [t['retorno_usd'] for t in trades_log], 'stop_outs': stop_outs, 'info': info,
+        'retornos_trades': retornos_trades, 'stop_outs': stop_outs, 'info': info,
         'c1_busqueda': {k: float(c1.loc[ts_star, k]) for k in s.C1_BUSQUEDA},
         'Y': z_final - capital, 'cerrado': estado['capital'] - capital, 'pnl_abierto': z_final - estado['capital'],
         'n_OA_cierre': len(est_a['OA']), 'n_OE_cierre': len(est_a['OE']),
@@ -416,17 +522,23 @@ def correr_visita(valor: str, t_star: int, datos: dict, tabla: pd.DataFrame, est
     reservada = es_reservada(valor, ts_star)
     ronda = visitas.get(t_star, 0) + 1
     hechas = parciales[t_star][1] if t_star in parciales else set()
-    tramo, fases = ('reservada', FASES_RESERVADA) if reservada else ('aprendizaje', ('sobol',))
+    tramo, fases = ('reservada', FASES_RESERVADA) if reservada else ('aprendizaje', (fase_de_aprendizaje(df),))
     print(f'[{valor}] visita a t*={t_star} ({ts_star}) | {tramo} | ronda {ronda} | T={t_maximo(datos["h1"].index)}',
           flush=True)
     filas = []
     for fase in fases:
         if fase in hechas:
             continue
-        c2 = {'estatica': None, 'q4': c2_q4}.get(fase)
+        c2, modelo = {'estatica': None, 'q4': c2_q4}.get(fase), None
         if fase == 'sobol':
             c2 = sortear_c2(c2_q4, int((df['fase'] == 'sobol').sum()))
+        elif fase == 'rlm':
+            c2, modelo = proponer_ventana_rlm(df, c2_q4)
+            print(f'[{valor}] RLM de {modelo.n} ventanas | ridge {modelo.alpha:g} | R² fuera de pliegue {modelo.r2_cv:.2f}',
+                  flush=True)
         filas.append(correr_ventana(valor, t_star, ronda, tramo, fase, c2, datos, tabla, estructura, semilla_base))
+        if modelo is not None:
+            registrar_aprendizaje(valor, filas[-1]['id'], modelo)
         df = leer_registro(valor)
     return filas
 
@@ -480,10 +592,15 @@ def main() -> None:
     ap.add_argument('--semilla', type=int, default=0, help='semilla base de la intra-vela y de la búsqueda de soportes')
     ap.add_argument('--max_ventanas', type=int, help='detiene el orquestador tras esa cantidad de ventanas')
     ap.add_argument('--max_horas', type=float, help='detiene el orquestador tras esas horas de reloj')
+    ap.add_argument('--evaluar_candidato', action='store_true',
+                    help='compuerta: corre el candidato vigente en los t* reservados ya visitados y lo compara con la estática y Q4')
     ap.add_argument('--t_star', type=int, nargs='+',
                     help='visita solo la siguiente ronda de estos t* (índice de vela desde FECHA_INICIO_BT) y termina')
     args = ap.parse_args()
-    correr(args.activo, args.semilla, args.max_ventanas, args.max_horas, args.t_star)
+    if args.evaluar_candidato:
+        evaluar_candidato(args.activo, args.semilla)
+    else:
+        correr(args.activo, args.semilla, args.max_ventanas, args.max_horas, args.t_star)
 
 
 if __name__ == '__main__':

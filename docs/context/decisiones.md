@@ -724,3 +724,33 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** el modo ventana dentro de X4S; un tope fijo de ventanas o de horas por valor; ventanas de réplica separadas (3 sobre la estática); guardar `entra_aprendizaje` como columna al correr cada ventana.
 
 **Consecuencia abierta:** (1) `entra_aprendizaje` no se guarda: `ventanas_de_aprendizaje(df)` lo calcula al leer, porque una reservada visitada después cambia el estado de ventanas de aprendizaje ya registradas (dos ventanas se solapan si sus `t*` distan menos de `VENTANA_DIAS`). (2) Por la regla del mínimo las ventanas solapadas con una reservada se corren igual, aunque no entren al aprendizaje: pasada la primera ronda densa (~`T/168` ventanas) una parte creciente de las ventanas nuevas gasta ~10 min sin aprender. (3) El Sobol tiene 30 dimensiones libres con la estructura actual de BTCUSD, no 26 como decía el plan.
+
+## 2026-11-19 — X5_alt_v2 (Q5-4/Q5-5): las filas de `{valor}_ventanas.csv` no suman X2 ni X3 a `t*`
+
+**Decisión:** (Mauricio) las variables X del aprendizaje supervisado por ventanas son los C2 (más `ret_medio` y `ret_vol`, aún por definir en `Q5-5`); no se agrega un snapshot de X2 ni de X3 a `t*` como columnas aparte. X2 y X3 ya participan en `C1 = f(C2)` como variables de las funciones dinámicas (`x3_atr_pct`, `x3_bb_width`, `x3_adx_14`, ...), y por esa vía llegan a `Y`.
+
+**Razón:** duplicarlas como X de la fila sumaría dimensiones sin evidencia que lo pida; con ~30 dimensiones libres y decenas de ventanas, cada columna extra empeora la RLM.
+
+**Descartado:** (A) X3 a `t*` más `fear_greed` histórico en todas las filas, con X2 completo hacia adelante; (B) solo X3 a `t*`.
+
+**Consecuencia abierta:** si se retoma, X3 es reconstruible para cualquier `t*` desde `Data/` (función de precios hasta `t*`), pero X2 no: `x2_history.json` solo cubre 2026-06-12 a 2026-09-21 y los fundamentales de yfinance son una foto actual, así que usarlos en `t*` pasados metería look-ahead. Solo `fear_greed` (alternative.me, con historial diario) sería reconstruible, sin verificar.
+
+## 2026-11-19 — X5_alt_v2 (Q5-4/Q5-5): Q5-4 desdoblado y decisiones previas al aprendizaje por ventanas
+
+**Decisión:** (Mauricio) (1) `Q5-4` se cierra para BTCUSD (el orquestador ya corre y hay 24 ventanas registradas); el lanzador de los 7 valores pasa al ítem nuevo `Q5-4b`, que no bloquea a `Q5-5`. Prioridad: avanzar con BTCUSD; la prueba de una acción se hace en paralelo y queda en segundo plano. (2) `ret_medio` y `ret_vol` entran a la Regresión Lineal Múltiple (RLM) como controles aditivos, `Y = f(C2) + g(ret_medio, ret_vol)`: 29 coeficientes en grado 1. (3) El candidato de las ventanas reservadas son los C2 que propone la RLM + Gradient Ascent y se promueve si supera a la estática y a `Q4` en la diferencia de `Y` por `t*`, sin margen mínimo. (4) Valores por defecto: 32 ventanas Sobol antes de pasar al aprendizaje, paso del gradiente de 10 % del rango de cada C2, `GRADO = 1` con regularización ridge.
+
+**Razón:** (1) en BTCUSD el orquestador no necesita el lanzador y bloquear `Q5-5` por él frena lo único que acumula evidencia. (2) con controles aditivos los C2 óptimos no dependen del régimen y se resta el efecto de la semana; las interacciones C2 × régimen (81 coeficientes) no se pueden estimar con decenas de ventanas y exigirían predecir el régimen en producción.
+
+**Descartado:** mantener `Q5-4` entero; `ret_medio`/`ret_vol` solo registrados o como interacciones; exigir un margen mínimo sobre la estática; candidato = C2 de la ventana Sobol con mejor `Y`.
+
+**Consecuencia abierta:** con las primeras 24 ventanas de BTCUSD (11 de aprendizaje): la estática le gana a `Q4` en 6 de 6 `t*` reservados (`Y` mediana 152 contra 97 USD), así que "basta superar" es una barra que se pasa con `A` bajo; la estática usa `A = 3` (piso de `A`) y la ventana de una semana premia la rotación (todos los trades cerrados ganan, las pérdidas solo aparecen como P&L abierto); 3 ventanas sin Órdenes en Espera bajo el precio dan `Y = 0` sin informar sobre los C2. Registrado como `[DECIDE MAURICIO]` en `Q5-5`.
+
+## 2026-11-19 — X5_alt_v2 (Q5-5): implementación del aprendizaje por ventanas y la compuerta
+
+**Decisión:** (Claude, dentro del plan aprobado por Mauricio) (1) Paso del Gradient Ascent normalizado: el C2 de mayor efecto (derivada × rango) se mueve `PASO_GRADIENTE` = 10 % de su rango y los demás en proporción a su efecto. (2) Cada propuesta `rlm` parte de los C2 de la última ventana `rlm` (los de `Q4` la primera), no de la mejor observada. (3) Cada C2 se recorta a su rango del sorteo Sobol; los pesos, al intervalo alcanzable de `w̃` y se renormalizan a suma 1 (no hay proyección euclidiana al símplex). (4) La penalización ridge se elige por validación cruzada de 5 pliegues sobre regresores estandarizados; el gradiente se calcula por diferencias centrales, así que `GRADO = 2` funciona sin cambios. (5) El candidato de la compuerta es la propuesta vigente con todas las ventanas de aprendizaje, fase `candidato_{n:03d}`, ronda 1 y misma semilla que los controles (comparación pareada); (Mauricio) supera si la **mediana** de la diferencia de `Y` es positiva contra la estática y contra `Q4`.
+
+**Razón:** (1) un paso de 10 % en cada C2 con el signo del gradiente movería también los coeficientes que son ruido (con 26 regresores y decenas de ventanas, casi todos). (2) con `Y` ruidoso, partir de la mejor observada persigue valores afortunados. (5) la media la domina un solo `t*`: el 2025-01-17 la estática hizo +2.653 USD sobre una mediana de 152.
+
+**Descartado:** paso de signo en cada C2; partir de la ventana con mejor `Y` residual; proyección euclidiana al símplex con cajas; evaluar el candidato en cada visita reservada (triplicaría el costo de los controles): se evalúa con `--evaluar_candidato`, cuando Mauricio lo pide.
+
+**Consecuencia abierta:** (1) con `GRADO = 1` el modelo es lineal y el ascenso termina en una esquina del rango de sorteo; el grado 2 (por el error de la validación cruzada) permite óptimos interiores. (2) `Y` de cola pesada y las ventanas sin Órdenes en Espera bajo el precio siguen dentro de la RLM (decisiones pendientes en `Q5-5`). (3) Evaluar el candidato cuesta ~10 min por `t*` reservado (~1 h con 6 `t*`).

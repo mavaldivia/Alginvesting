@@ -12,7 +12,9 @@ Sin pytest:
 """
 
 import contextlib
+import datetime
 import io
+import json
 import shutil
 import sys
 import tempfile
@@ -27,6 +29,7 @@ import config as gc
 import config_smart
 import X4_bckt_ventanas as v
 import X4S_backtesting_inteligente as s
+from test_x5_alt_aprendizaje import C2_BASE as C2_SINTETICO, _lineal, _ventanas_sinteticas
 
 VALOR = 'BTCUSD'
 TOPE_CORTO_MIN = 0.1
@@ -215,6 +218,102 @@ def test_sortear_c2_respeta_rangos_y_fija_lo_que_no_se_sortea():
     assert v.sortear_c2(base, 2) != v.sortear_c2(base, 3)
 
 
+# ─── Sin datos: aprendizaje (Q5-5) y compuerta ────────────────────────────────
+
+@contextlib.contextmanager
+def _umbral_sobol(n: int):
+    original = config_smart.UMBRAL_VENTANAS_SOBOL
+    config_smart.UMBRAL_VENTANAS_SOBOL = n
+    try:
+        yield
+    finally:
+        config_smart.UMBRAL_VENTANAS_SOBOL = original
+
+
+def _registro_sintetico(n_sobol: int, n_rlm: int = 0, version: int = 1) -> pd.DataFrame:
+    """Registro de ventanas de aprendizaje separadas 10 días (sin solapes), con C2 y `Y` de `_ventanas_sinteticas`."""
+    n = n_sobol + n_rlm
+    df = _ventanas_sinteticas(n, _lineal, semilla=2).drop(columns=['w_a'])
+    base = pd.Timestamp('2022-03-01')
+    df['id'] = [f'w{i}' for i in range(n)]
+    df['ts_star'] = [base + pd.Timedelta(days=10 * i) for i in range(n)]
+    df['tramo'], df['ronda'], df['version_estructura'] = 'aprendizaje', 1, version
+    df['fase'] = ['sobol'] * n_sobol + ['rlm'] * n_rlm
+    df['fecha_ejecucion'] = [(datetime.datetime(2026, 11, 20) + datetime.timedelta(minutes=10 * i)).isoformat() for i in range(n)]
+    return df
+
+
+def test_fase_de_aprendizaje_pasa_a_rlm_en_el_umbral():
+    with _umbral_sobol(12):
+        assert v.fase_de_aprendizaje(pd.DataFrame(columns=v.COLUMNAS_REGISTRO)) == 'sobol'
+        assert v.fase_de_aprendizaje(_registro_sintetico(11)) == 'sobol'
+        assert v.fase_de_aprendizaje(_registro_sintetico(12)) == 'rlm'
+        assert v.fase_de_aprendizaje(_registro_sintetico(12, n_rlm=3)) == 'rlm'
+        solapada = pd.concat([_registro_sintetico(12), pd.DataFrame([
+            {'id': 'res', 'ts_star': pd.Timestamp('2022-03-01') + pd.Timedelta(days=3), 'tramo': 'reservada', 'fase': 'q4',
+             'ronda': 1, 'version_estructura': 1}])], ignore_index=True)
+        assert v.fase_de_aprendizaje(solapada) == 'sobol'  # w0 se solapa con la reservada: quedan 11 válidas
+        nueva_estructura = pd.concat([_registro_sintetico(12), _registro_sintetico(1, version=2).assign(
+            ts_star=pd.Timestamp('2023-06-01'), id='nueva')], ignore_index=True)
+        assert v.fase_de_aprendizaje(nueva_estructura) == 'sobol'  # solo cuentan las de la estructura vigente
+
+
+def test_proponer_ventana_rlm_parte_de_q4_y_luego_encadena_desde_la_ultima_rlm():
+    primera, modelo = v.proponer_ventana_rlm(_registro_sintetico(12), C2_SINTETICO)
+    assert modelo.n == 12
+    assert primera['K']['pendiente'] < C2_SINTETICO['K']['pendiente']  # Y baja con la pendiente de K: el paso la baja desde Q4
+    df = _registro_sintetico(12, n_rlm=1)
+    df.loc[df.index[-1], 'c2_K_pendiente'] = 1.5
+    siguiente, modelo = v.proponer_ventana_rlm(df, C2_SINTETICO)
+    assert modelo.n == 13 and abs(siguiente['K']['pendiente'] - 1.2) < 0.1  # 1,5 - 10 % de su rango [1, 4]
+
+
+def test_comparar_candidato_usa_la_mediana_y_pareja_por_t_star():
+    t = pd.Timestamp
+    filas = []
+    for dia, (est, q4, cand) in {1: (100, 50, 90), 2: (100, 50, 95), 3: (100, 50, 700)}.items():
+        for fase, y in (('estatica', est), ('q4', q4), ('candidato_032', cand)):
+            filas.append({'ts_star': t('2023-01-0' + str(dia)), 'tramo': 'reservada', 'ronda': 1, 'fase': fase, 'Y': y})
+    filas.append({'ts_star': t('2023-01-04'), 'tramo': 'reservada', 'ronda': 1, 'fase': 'estatica', 'Y': 1})  # sin candidato
+    filas.append({'ts_star': t('2023-01-01'), 'tramo': 'reservada', 'ronda': 2, 'fase': 'estatica', 'Y': 9999})  # réplica: no cuenta
+    tabla, r = v.comparar_candidato(pd.DataFrame(filas), 'candidato_032')
+    assert r['n'] == 3 and list(tabla['dif_estatica']) == [-10, -5, 600]
+    assert r['media_dif_estatica'] > 0 and r['mediana_dif_estatica'] == -5  # un t* grande no basta
+    assert r['aciertos_estatica'] == 1 and r['aciertos_q4'] == 3 and r['promovido'] is False
+    ganador = pd.DataFrame([{**f, 'Y': f['Y'] + 20 if f['fase'] == 'candidato_032' else f['Y']} for f in filas[:9]])
+    assert v.comparar_candidato(ganador, 'candidato_032')[1]['promovido'] is True  # +10, +15, +620 contra la estática
+    sin_candidato = [f for f in filas if f['fase'] != 'candidato_032']
+    tabla, r = v.comparar_candidato(pd.DataFrame(sin_candidato), 'candidato_032')
+    assert tabla.empty and r['n'] == 0 and pd.isna(r['mediana_dif_estatica']) and r['promovido'] is False
+
+
+def test_visita_de_aprendizaje_pasa_a_rlm_y_registra_el_ajuste():
+    h1 = pd.DataFrame(index=pd.date_range('2023-01-01', periods=3000, freq='h'))
+    datos = {'h1': h1}
+    t = next(t for t in range(100, 600) if not v.es_reservada(VALOR, h1.index[t]))
+    llamadas = []
+
+    def correr_ventana_falsa(valor, t_star, ronda, tramo, fase, c2, *resto):
+        llamadas.append({'t_star': t_star, 'tramo': tramo, 'fase': fase, 'c2': c2})
+        return {'id': 'ventana_falsa'}
+
+    original = v.correr_ventana
+    v.correr_ventana = correr_ventana_falsa
+    try:
+        with _q5_temporal(), _umbral_sobol(12), contextlib.redirect_stdout(io.StringIO()):
+            v.ruta_ventanas(VALOR).parent.mkdir(parents=True)
+            _registro_sintetico(12).to_csv(v.ruta_ventanas(VALOR), index=False)
+            filas = v.correr_visita(VALOR, t, datos, None, None, C2_SINTETICO, semilla_base=0)
+            aprendizaje = pd.read_csv(v.ruta_aprendizaje(VALOR))
+    finally:
+        v.correr_ventana = original
+    assert [f['id'] for f in filas] == ['ventana_falsa']
+    assert [(c['tramo'], c['fase']) for c in llamadas] == [('aprendizaje', 'rlm')]
+    assert llamadas[0]['c2']['K']['pendiente'] < C2_SINTETICO['K']['pendiente']
+    assert list(aprendizaje['id']) == ['ventana_falsa'] and aprendizaje['n'].iloc[0] == 12
+    assert 'ret_medio' in json.loads(aprendizaje['coeficientes'].iloc[0])
+
+
 # ─── Con datos: una ventana ───────────────────────────────────────────────────
 
 def _c1_n20(tabla) -> pd.DataFrame:
@@ -241,6 +340,7 @@ def test_ventana_cuenta_limpia_semana_completa_y_label():
     assert not np.isnan(res['equity']).any()
     assert abs(res['Y'] - (res['equity'][-1] - config_smart.CUENTA['capital_inicial'])) < 1e-9
     assert abs(res['Y'] - (res['cerrado'] + res['pnl_abierto'])) < 1e-9
+    assert abs(sum(res['retornos_trades']) - res['cerrado']) < 1e-2
     cierres = h1['Close'].iloc[100:269].to_numpy()
     r = cierres[1:] / cierres[:-1] - 1
     assert abs(res['ret_medio'] - r.mean()) < 1e-12 and abs(res['ret_vol'] - r.std(ddof=1)) < 1e-12
