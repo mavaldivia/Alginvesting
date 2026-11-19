@@ -754,3 +754,11 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** paso de signo en cada C2; partir de la ventana con mejor `Y` residual; proyección euclidiana al símplex con cajas; evaluar el candidato en cada visita reservada (triplicaría el costo de los controles): se evalúa con `--evaluar_candidato`, cuando Mauricio lo pide.
 
 **Consecuencia abierta:** (1) con `GRADO = 1` el modelo es lineal y el ascenso termina en una esquina del rango de sorteo; el grado 2 (por el error de la validación cruzada) permite óptimos interiores. (2) `Y` de cola pesada y las ventanas sin Órdenes en Espera bajo el precio siguen dentro de la RLM (decisiones pendientes en `Q5-5`). (3) Evaluar el candidato cuesta ~10 min por `t*` reservado (~1 h con 6 `t*`).
+
+## 2026-11-19 — X5_alt_v2 (Q5-5a): variables de estado de Q1 como módulo importable
+
+**Decisión:** (Claude, implementación) las 8 funciones de la tabla de estado pasan de `X5_Q1.ipynb` a `scripts/x5_alt_variables.py` con nombres públicos (sin guion bajo inicial), más `construir_tabla_estado(tabla_base)` que las aplica en el orden del notebook. La carga se separa de la matemática (`cargar_precio`, `cargar_registros_x2`, `armar_tabla_base(df_precio, registros_x2)`) para poder recortar velas en las pruebas. El notebook mantiene sus secciones y llama a las mismas funciones; `METADATA_VARIABLES` queda en el notebook. Con un activo sin registros de X2 los scores se convierten a `float` (antes quedaban `object` y `np.sign` fallaba).
+
+**Razón:** producción necesita la tabla al día para `serie_c1` (`Q5-5b`) y una sola implementación evita que el notebook y X0/X1 diverjan; la prueba de causalidad (recortar velas no cambia las filas anteriores) exige poder construir la tabla desde datos en memoria.
+
+**Descartado:** duplicar las funciones en el publicador de `Q5-5b`; reemplazar las celdas por una sola llamada a `construir_tabla_estado` (se perdería el resumen por sección del notebook).

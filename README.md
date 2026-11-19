@@ -121,11 +121,13 @@ scripts/
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   agregar_valor.ipynb    # Interrogatorio para integrar un activo nuevo: escribe en config.py y X2_fundamentals.py
-  X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores = list(cfg.VALORES)
+  X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores = list(cfg.VALORES); las funciones de cálculo se importan de x5_alt_variables.py
   X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
   X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
   X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra 7 parámetros (N, A, factor_B, K, N_EXP, LAMBDA, PERDIDA_MAX) como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — cerrado 2026-11-02; resumen por activo con coeficientes y μ/σ en exp_Q4/{VALOR}_q4_resumen.csv
   x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro con 1-3 variables) y de Q5 (serie_c1: cada parámetro dinámico vela a vela con z-score de ventana expansiva, redondeo a la grilla de pasos y variables leídas de config/estructura_c1.json; rangos de sorteo de los C2; lotajes_m(Z), premios por tramo, drawdown y estadísticas de cada C1 de una vuelta) — no depende de Data/MT5
+  x5_alt_variables.py    # Variables de estado de Q1 como módulo (Q5-5a): cargar_tabla_base/armar_tabla_base (precio + X3 recalculado desde Data/ + X2 con forward-fill), las seis familias de variables (drawdown, volatilidad, liquidez, fundamentales, ruido, tendencia/régimen) y construir_tabla_estado; causales, las usa X5_Q1.ipynb y servirán a producción (serie_c1)
+  test_x5_alt_variables.py  # Pruebas de x5_alt_variables.py con datos reales: reproduce exp_Q1 en las velas comunes, causalidad (recortar velas no cambia filas anteriores, con X2 sintético y real) y activo sin registros de X2; corren sin pytest: python scripts/test_x5_alt_variables.py
   x5_alt_aprendizaje.py  # Aprendizaje por ventanas de Q5-5 (matemática pura, sin MT5): matriz de C2 (pesos normalizados omitiendo uno por C1, columnas constantes fuera) más ret_medio/ret_vol como controles aditivos, Regresión Lineal Múltiple con ridge y validación cruzada de 5 pliegues (GRADO 1 o 2) y paso de Gradient Ascent normalizado (el C2 de mayor efecto se mueve el 10 % de su rango, recorte al rango del sorteo, pesos renormalizados); lo usa X4_bckt_ventanas.py
   test_x5_alt_aprendizaje.py  # Pruebas de x5_alt_aprendizaje.py con ventanas sintéticas de relación conocida y un ajuste de humo con las ventanas reales de BTCUSD; corren sin pytest: python scripts/test_x5_alt_aprendizaje.py
   test_x5_alt_funciones.py  # Pruebas de las funciones de Q5 con datos reales de exp_Q1/exp_Q4 (reproduce Q4, causalidad, grilla, sorteo, lotajes_m, premios); corren sin pytest: python scripts/test_x5_alt_funciones.py
@@ -245,6 +247,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-19** — feat(q5-5a): variables de estado de Q1 como módulo x5_alt_variables.py con pruebas de causalidad
 - **2026-11-19** — feat(q5-5): aprendizaje por ventanas (RLM + Gradient Ascent), compuerta y fix de KPIs de trades
 - **2026-11-18** — docs(records): próximos pasos tras X4_bckt_ventanas.py (prueba corta en Windows antes de Q5-5)
 - **2026-11-18** — feat(q5-3c): ventana semanal y orquestador de t* en X4_bckt_ventanas.py
