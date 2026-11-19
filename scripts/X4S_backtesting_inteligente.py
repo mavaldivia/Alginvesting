@@ -3,7 +3,7 @@ X4S_backtesting_inteligente.py
 
 Una vuelta del backtesting inteligente (docs/plans/plan_x5_alt_v2.md, sección 9) para un valor: backtest
 completo desde FECHA_INICIO_BT con los C2 fijos y los C1 cambiando en el tiempo, sobre una cuenta de 3000 USD
-cuyo lote (`lotajes_m`) y pérdida máxima (`p · Z`) dependen de Z = cerrado + P&L abierto.
+cuyo lote (`lotajes_m`) y pérdida máxima (`p · 3000 · lotajes_m`) y tope de Órdenes Abiertas dependen de Z = cerrado + P&L abierto.
 
 Importa de X4_backtester.py el paso por vela, la búsqueda de soportes, la cuenta y el equity; no reimplementa
 X0 ni X1. Un proceso por valor. Esta vuelta no aprende ni sortea nada (eso es Q5-4 y Q5-5): mide el premio de
@@ -107,7 +107,7 @@ def construir_cfg(valor: str, carpeta: Path, semilla: int) -> SimpleNamespace:
         version=f'Q5_{valor}', valores=[valor], n_sizes={valor: gc.n_sizes_ejecucion[valor]},
         fecha_inicio=config_smart.FECHA_INICIO_BT, fecha_fin='F',
         capital_inicial=cuenta['capital_inicial'],
-        A=gc.A[valor], B=gc.B[valor], PERDIDA_MAX_BT=0.0,
+        A=gc.A[valor], B=gc.B[valor], PERDIDA_MAX_BT=0.0, R_TOPE_OA=config_smart.R_TOPE_OA,
         MARGEN_LIBRE_MIN_BT=cuenta['margen_libre_min'], STOP_OUT_LEVEL=cuenta['stop_out_level'],
         K=gc.K, N_EXP=gc.N_EXP, LAMBDA=gc.LAMBDA,
         LOTAJES={valor: gc.MIN_LOTAJES[valor]}, MIN_LOTAJES={valor: gc.MIN_LOTAJES[valor]},

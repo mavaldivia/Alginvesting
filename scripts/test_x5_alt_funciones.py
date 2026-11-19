@@ -59,8 +59,10 @@ def test_redondeo_ejemplo_del_plan():
 
 
 def test_perdida_max_usd():
-    assert perdida_max_usd(0.04, 5000) == 200
-    assert perdida_max_usd(0.04, -100) == 0
+    assert perdida_max_usd(0.04, 5000) == 120
+    assert perdida_max_usd(0.04, 5999) == 120
+    assert perdida_max_usd(0.04, 6000) == 240  # m = 2
+    assert perdida_max_usd(0.04, -100) == 120  # Z < 0 deja m = 1
 
 
 def test_premios_por_tramo_ejemplo_del_plan():

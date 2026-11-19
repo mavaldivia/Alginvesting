@@ -19,6 +19,7 @@ import sys
 import tempfile
 import traceback
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -106,6 +107,48 @@ def test_c1_operacion_usa_la_vela_anterior():
     assert list(op.columns) == ['A', 'factor_B', 'p']
     assert op.iloc[0].tolist() == c1[['A', 'factor_B', 'p']].iloc[0].tolist()
     assert op.iloc[5].tolist() == c1[['A', 'factor_B', 'p']].iloc[4].tolist()
+
+
+def _paso_f_tope(z: float, n_oa: int, n_oe: int = 0, r=0.5):
+    """Corre `_paso_F` con `n_oa` OA y `n_oe` OE colocadas, Z = `z`, umbral 132 USD y 3 soportes libres bajo el precio."""
+    precio = 100.0
+    oa = {precio + i: {'lote': 1} for i in range(n_oa)}  # cada OA vale -i en Z: el capital lo compensa
+    oe = {50.0 - i: {'lote': 1} for i in range(n_oe)}
+    est_a = {'soportes': [90.0, 80.0, 70.0] + list(oe), 'OA': oa, 'OE': oe}
+    estado = {'capital': z + sum(range(n_oa)), 'por_activo': {VALOR: est_a}}
+    cfg = SimpleNamespace(version='t', A=1.0, UNITS={VALOR: 1}, APALANCAMIENTO={VALOR: 1000}, LOTAJES={VALOR: 1},
+                          MIN_LOTAJES={VALOR: 1}, MARGEN_LIBRE_MIN_BT=0.0, PERDIDA_MAX_BT=132.0)
+    if r is not None:
+        cfg.R_TOPE_OA = r
+    events = []
+    s.x4._paso_F(est_a, precio, VALOR, pd.Timestamp('2022-03-01'), estado, {VALOR: precio}, cfg, events)
+    return est_a, events
+
+
+def test_tope_oa_cupo_segun_z():
+    # cupo = floor(0.5 * Z / 132): Z 3000 -> 11, 1759 -> 6, 400 -> 1, 264 -> 1, 263 -> 0
+    for z, cupo in [(3000, 11), (1759, 6), (400, 1), (264, 1), (263, 0)]:
+        if cupo > 0:
+            est_a, _ = _paso_f_tope(z, cupo - 1)
+            assert len(est_a['OE']) == 3, (z, cupo)  # con una OA menos que el cupo se siguen creando OE
+        est_a, _ = _paso_f_tope(z, cupo)
+        assert est_a['OE'] == {}, (z, cupo)
+
+
+def test_tope_oa_cancela_las_oe_colocadas_al_llenarse_el_cupo():
+    est_a, events = _paso_f_tope(1759, 6, n_oe=2)
+    assert est_a['OE'] == {} and len(est_a['OA']) == 6  # no cierra OA
+    assert [e['motivo'] for e in events if e['tipo'] == 'OE_eliminada'] == ['tope_oa'] * 2
+
+
+def test_tope_oa_con_z_negativo_no_abre_ordenes():
+    est_a, _ = _paso_f_tope(-500, 0)
+    assert est_a['OE'] == {}
+
+
+def test_sin_r_tope_oa_x4_se_comporta_como_siempre():
+    est_a, events = _paso_f_tope(100, 20, r=None)
+    assert len(est_a['OE']) == 3 and not any(e.get('motivo') == 'tope_oa' for e in events)
 
 
 def test_agregar_fila_csv_con_columnas_nuevas():

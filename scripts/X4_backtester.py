@@ -650,7 +650,21 @@ def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
 
     Regla de reemplazo (paridad con X1.crear_ordenes_espera): si _paso_A canceló
     un buy limit este ciclo (precio_max_saliente), un soporte también entra si queda
-    por debajo del promedio entre el precio y ese buy limit saliente."""
+    por debajo del promedio entre el precio y ese buy limit saliente.
+
+    Tope de OA (solo si `cfg.R_TOPE_OA`, backtesting inteligente): cupo = floor(r * Z / PERDIDA_MAX_BT). Con las OA
+    en el cupo se cancelan las OE colocadas y no se crean nuevas; no cierra OA. Una vela que cruza varios soportes
+    puede llenar más OE que el cupo (el tope cuenta solo OA, decidido 2026-11-18)."""
+    r_tope = getattr(cfg, 'R_TOPE_OA', None)
+    if r_tope is not None:
+        z = _calcular_estado_cuenta(estado, precios, cfg)['equity']
+        cupo = int(np.floor(r_tope * z / cfg.PERDIDA_MAX_BT))
+        if len(est_a['OA']) >= cupo:
+            for precio in list(est_a['OE']):
+                events.append(_evt('OE_eliminada', activo, ts, cfg, usa_iv, precio=precio, motivo='tope_oa'))
+                del est_a['OE'][precio]
+            return
+
     lote = cfg.LOTAJES[activo]  # lote vigente: el que queda fijo en las OE que se crean ahora
     units = cfg.UNITS[activo]
     apal = cfg.APALANCAMIENTO[activo]

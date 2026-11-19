@@ -35,7 +35,7 @@ RANGOS_ACCION = {
 }
 
 # `PERDIDA_MAX` (USD) es el de X5_Q4, que queda reproducible. `PERDIDA_MAX_PCT` es el del backtesting
-# inteligente: fracción de Z = cerrado + P&L abierto del valor (0.04 con Z=5000 -> 200 USD por orden).
+# inteligente: fracción de la cuenta inicial por tramo de lotajes_m: p * 3000 * m (0.04 con m=1 -> 120 USD por orden).
 
 # Paso permitido de cada parámetro C1: el valor calculado se lleva al más cercano de la grilla
 # piso + k * paso. Ej. N crypto (50, 200, paso 10): 52.33 -> 50.
@@ -74,6 +74,11 @@ FECHA_INICIO_BT = '2022-03-01'
 CUENTA = {'capital_inicial': 3000.0, 'z_base_lote': 6000.0, 'paso_lote': 3000.0,
           'margen_libre_min': 50.0, 'stop_out_level': 50}  # las dos últimas: mismos valores que la plantilla de X4B
 
+# Tope de Órdenes Abiertas (OA): cupo = floor(R_TOPE_OA * Z / umbral), con umbral = p * capital_inicial * lotajes_m(Z).
+# R_TOPE_OA es el peor caso: si todas las OA permitidas llegaran a su umbral a la vez, la pérdida sería a lo más
+# R_TOPE_OA * Z. Con el umbral fijo de 132 USD (p = 0.044, m = 1) y 0.5, bajo Z = 264 el cupo es 0 y no se opera.
+R_TOPE_OA = 0.5
+
 # Fracción final de las velas que no entra al aprendizaje (tramo reservado); el corte es por número de velas.
 FRACCION_RESERVADA = 0.20
 
@@ -82,7 +87,7 @@ FRACCION_RESERVADA = 0.20
 CURVAS_MEJORES = 3
 
 # Fracción p de la vuelta estática de control: el PERDIDA_MAX estático de 200 USD sobre los 3000 USD iniciales
-# (200 / 3000 = 0.0667), fuera del rango dinámico (0.03, 0.06). Misma semántica p * Z que la vuelta dinámica.
+# (200 / 3000 = 0.0667), fuera del rango dinámico (0.03, 0.06). Misma semántica p * 3000 * m que la vuelta dinámica.
 P_ESTATICO = 0.067
 
 

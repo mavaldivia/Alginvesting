@@ -204,9 +204,10 @@ Ejemplo con `N_VELAS = 168`: en la vela 168, 336, 504, ... el backtest toma los 
 Cada valor opera con una cuenta propia que parte con **3000 USD** (hoy `X5_CAPITAL_BT = 1_000_000`, sin restricción de margen: con 3000 USD el margen sí limita). Sea `Z = cerrado + P&L abierto` del valor en ese momento.
 
 - **Lotaje**: `lotajes_m = max(1, (Z − 6000) // 3000 + 2)`. Con `Z` = 3000 → 1; 5999 → 1; 6000 → 2; 8999 → 2; 9000 → 3; 12000 → 4. Se fija **al crear la Orden en Espera (OE)**, como en X1 (el buy limit lleva su volumen); una OE que espera conserva su `m` aunque `Z` cambie después (decidido 2026-11-03).
-- **Pérdida máxima**: `perdida_max_USD = p · Z`, con `p` la fracción que entrega la función dinámica (`PERDIDA_MAX_PCT`, rango `(0.03, 0.06)` en `config_smart.py`, es decir 90-180 USD sobre los 3000 USD iniciales). Una orden abierta (OA) se cierra cuando su pérdida en USD supera ese umbral, **sin escalar por lotaje**. Ejemplo: `p = 0.04`, `cerrado = 6000`, `P&L = −1000` → `Z = 5000` → `perdida_max_USD = 200`.
+- **Pérdida máxima**: `perdida_max_USD = p · 3000 · m` (`m = lotajes_m(Z)`, por tramos desde 2026-11-18; antes `p · Z`), con `p` la fracción que entrega la función dinámica (`PERDIDA_MAX_PCT`, rango `(0.03, 0.06)` en `config_smart.py`, es decir 90-180 USD sobre los 3000 USD iniciales). Una orden abierta (OA) se cierra cuando su pérdida en USD supera ese umbral, **sin escalar por lotaje**. Ejemplo: `p = 0.04`, `Z = 5000` → `m = 1` → `perdida_max_USD = 120`; con `Z = 6000` (`m = 2`) son 240.
+- **Tope de Órdenes Abiertas (OA)** (`Q5-3b`, decidido 2026-11-18): cupo = `floor(r · Z / perdida_max_USD)` con `r = 0,5` fijo (`R_TOPE_OA` en `config_smart.py`, no es un C1). `r` es el peor caso: si todas las OA permitidas llegaran a su umbral a la vez, la pérdida sería a lo más `r · Z`. Con las OA en el cupo, `_paso_F` de `X4_backtester.py` cancela las OE colocadas y no crea nuevas; no cierra OA, y una vela que cruza varios soportes puede llenar más OE que el cupo (cuenta solo OA). Ej. umbral 132 USD: `Z = 3000` → 11, `Z = 1759` → 6, `Z = 400` → 1, bajo `Z = 264` → 0 (no se opera).
 - `A` y `B` siguen en USD **a lotaje mínimo**: como en X1 se escalan por `m = lote / MIN_LOTAJES` (`a_efectivo = A · m`, `b_efectivo = B · m`, `X1_trading.py:898-902`), de modo que la distancia en precio no depende del lote, y el filtro de creación de OE (`distancia_ok`) usa `MIN_LOTAJES` (`X1_trading.py:523`). X4 hoy no escala (`X4_backtester.py:477-478`, `:590`) y solo coincide con X1 cuando `m = 1`; el script nuevo lo alinea (decidido 2026-11-03).
-- **`PERDIDA_MAX` realizada** en X4: `p · max(Z, 0)` por orden. X1 escala `PERDIDA_MAX` por `m` (`X1_trading.py:962-967`), así que a producción se le entregaría `p · Z / m` (`Q5-5b`); coinciden en posiciones abiertas con el `m` vigente.
+- **`PERDIDA_MAX` realizada** en X4: `p · 3000 · m` por orden. X1 escala `PERDIDA_MAX` por `m` (`X1_trading.py:962-967`), así que a producción se le entregaría `p · 3000` (`Q5-5b`) y coinciden con el `m` vigente.
 
 `PERDIDA_MAX` en USD (`(100, 300)`) se mantiene en `config_smart.py` solo para que `X5_Q4.ipynb` siga reproducible; las funciones de `Q4` se ajustaron contra un target de percentil, así que su `punto_medio`/`pendiente` no dependen de la escala del rango.
 
@@ -237,7 +238,7 @@ Evaluar con la misma historia con la que se aprendió sobreestima: el candidato 
 - El aprendizaje (9.5) usa solo el premio del tramo de aprendizaje; el tramo reservado nunca alimenta la RLM, porque si lo hiciera dejaría de ser fuera de muestra y solo serviría para decidir si el candidato pasa.
 - Ejemplo con 42.000 velas y corte en la 33.600: si `Z` al corte es 4.200, el premio de aprendizaje es 4.200 / 33.600 = 0.125. Si `Z_final` es 4.500, el premio del tramo reservado es (4.500 − 4.200) / 8.400 ≈ 0.036, y se compara con el del estático y el de `Q4` sobre esas mismas 8.400 velas.
 - Un candidato se promueve solo si supera a la vuelta estática de control y a la calibración de `Q4` en el tramo reservado. Antes de pasar a producción se confirma además con velas nuevas posteriores a su elección, con aprobación manual de Mauricio (`Q5-5b`).
-- La vuelta estática de control corre con las mismas reglas de cuenta (3000 USD, `lotajes_m(Z)`, `perdida_max = p · Z` con `p` fijo equivalente al estático actual; el estático de 200 USD equivale a `p ≈ 0.067`, fuera del rango `(0.03, 0.06)`; decidido 2026-11-14: `P_ESTATICO = 0.067` fijo en `config_smart.py`) para que la diferencia venga solo de los C1.
+- La vuelta estática de control corre con las mismas reglas de cuenta (3000 USD, `lotajes_m(Z)`, `perdida_max = p · 3000 · m` con `p` fijo equivalente al estático actual; el estático de 200 USD equivale a `p ≈ 0.067`, fuera del rango `(0.03, 0.06)`; decidido 2026-11-14: `P_ESTATICO = 0.067` fijo en `config_smart.py`) para que la diferencia venga solo de los C1.
 - `premio_aprendizaje = Z al corte / velas` incluye los 3000 USD iniciales, mientras que `premio_reservado` es una diferencia de `Z`: no son comparables entre sí tal cual. Entre vueltas del mismo valor la diferencia es una constante (`3000 / velas del tramo`), así que no afecta ni a la RLM ni a la comparación con el estático. Para contrastar un tramo con el otro (`Q5-7`) hay que usar `(Z al corte − 3000) / velas`; `z_corte` queda registrado en `{valor}_vueltas.csv`.
 
 ### 9.7. Stop-out
@@ -245,7 +246,7 @@ Evaluar con la misma historia con la que se aprendió sobreestima: el candidato 
 La vuelta **no se corta** al hacer stop-out: sigue hasta el final "como si el valor de la cuenta fuera negativo" (decisión de Mauricio 2026-11-02). Hoy X4 hace `break` cuando `equity ≤ 0` o el nivel de margen baja de `STOP_OUT_LEVEL` (`X4_backtester.py:1199-1224`); en el modo inteligente eso se reemplaza por un evento registrado como KPI (`X4S_backtesting_inteligente.py`: un evento por episodio, se vuelve a contar si la cuenta sale y vuelve a entrar). Reglas operativas (confirmadas en `Q5-3`, 2026-11-14):
 
 - `lotajes_m` queda acotado por el `max(1, ·)`.
-- `perdida_max_USD = p · max(Z, 0)`: con `Z < 0` el umbral negativo cerraría incluso posiciones en ganancia.
+- `perdida_max_USD = p · 3000 · m`: con `Z < 0`, `m = 1` y el umbral no se anula; el tope de OA da 0 y no se abren órdenes.
 - El control de margen existente de X4 sigue impidiendo abrir posiciones nuevas sin margen libre.
 
 ### 9.8. Prueba de tres niveles de agregación (pausada)
@@ -375,7 +376,7 @@ Una vuelta completa dura 40–55 h y da una observación contra 26 C2; 32 vuelta
 
 **Qué hace cada ventana:**
 1. Elige `t*` (bisección) y los C2 (Sobol al comienzo, después el aprendizaje).
-2. Cuenta nueva de 3000 USD con `lotajes_m = 1`, sin órdenes heredadas. Sin tope de órdenes ni umbral de pérdida por tramos (`Q5-3b` aplazado el 2026-11-18); `PERDIDA_MAX` sigue siendo un C1, `p · max(Z, 0)` por orden.
+2. Cuenta nueva de 3000 USD con `lotajes_m = 1`, sin órdenes heredadas. Umbral de pérdida por tramos y tope de OA como en `Q5-3b` (retomado el 2026-11-18): `p · 3000` por orden con `m = 1` fijo y cupo `floor(0,5 · Z / umbral)`; `PERDIDA_MAX` sigue siendo un C1.
 3. Busca los soportes en `t*` con la historia hasta `t*`, con el algoritmo de X0 y tope de 10 min (parámetro propio, distinto del tope de 6 min de X4/X5). Una sola búsqueda por ventana: `N`, `K`, `N_EXP` y `LAMBDA` quedan fijos en `t*`; `A`, `factor_B` y `PERDIDA_MAX` se leen por vela.
 4. Corre una semana de calendario: 168 velas H1 en crypto; en acciones, las velas H1 de esos 7 días (35–50, confirmado 2026-11-18).
 5. Mide `Y = cerrado + P&L abierto − 3000` al cerrar la ventana.

@@ -711,4 +711,6 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 
 **Descartado:** `r = 1,0` (peor caso cercano a toda la cuenta); `r` como C1 aprendido (27 dimensiones); contar OA + OE contra el tope (límite duro, pero reduce la escalera de ~100 niveles de OE a unos pocos).
 
+**Reemplaza:** el aplazamiento de `Q5-3b` del mismo día (ventanas sin tope ni umbral por tramos): las ventanas de `Q5-3c` corren con ambos. Implementado y probado en X4/X4S (19/19 y 14/14 pruebas).
+
 **Consecuencia abierta:** al contar solo OA, una vela que cae a través de muchos soportes llena varias OE a la vez y puede pasarse del tope; el tope solo bloquea OE nuevas y cancela las colocadas, no cierra las OA abiertas. X1 no se toca hasta `Q5-5b` (hoy `lotajes_m(Z)` y el umbral solo existen en X4/X4S).

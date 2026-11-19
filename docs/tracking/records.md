@@ -2531,3 +2531,10 @@ Claude: verificó que `Q5-3` estaba en `done.md`, mostró las labores y explicó
 Mauricio: aprobó el plan y pidió hacer /guardar antes de que Claude escriba el código.
 Claude: avisó que era el momento (sin código aún) y ejecutó /guardar; `Q5-3b` queda pendiente, con las decisiones tomadas y sin implementar.
 (Cierre: 2026-11-18 22:00)
+
+## SECCIÓN 310
+Mauricio: tras el primer /guardar pidió que se implementara el plan aprobado de [Q5-3b]; mientras corrían las pruebas preguntó qué se estaba ejecutando (si eran ventanas y cuántas) y la ETA.
+Claude: implementó el umbral por tramos (`perdida_max_usd = p · 3000 · m` en `x5_alt_funciones.py`), `R_TOPE_OA = 0.5` en `config_smart.py` y el tope de Órdenes Abiertas (OA) en `_paso_F` de `X4_backtester.py` (cancela las OE colocadas al llenarse el cupo, solo rige si `cfg.R_TOPE_OA` existe). Agregó 4 pruebas puras en `test_x4s_backtesting_inteligente.py` y ajustó la de `perdida_max_usd`; resultado 19/19 y 14/14. Aclaró que lo que corría no eran ventanas (`Q5-3c` no existe aún) sino la suite de X4S con unas doce vueltas cortas de BTCUSD, con ETA gruesa de 10 a 20 min.
+Claude: movió `Q5-3b` a `done.md`, actualizó las fórmulas `p · Z` en `todos.md`, `plan_x5_alt_v2.md` y `decisiones.md`, y dejó la regla 6 de `Q5-3c` con tope y umbral por tramos. X1 queda sin tocar hasta `Q5-5b`.
+Mauricio: invocó /guardar de nuevo para subir los cambios.
+(Cierre: 2026-11-18 22:16)

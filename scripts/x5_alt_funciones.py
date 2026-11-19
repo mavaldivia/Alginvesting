@@ -277,8 +277,10 @@ def redondear_a_grilla(x, piso: float, techo: float, paso: float) -> np.ndarray:
 
 
 def perdida_max_usd(p: float, z: float) -> float:
-    """Umbral de pérdida por orden abierta: p * Z (plan 9.3). Con Z < 0 el umbral es 0 (confirmado en Q5-3)."""
-    return p * max(z, 0.0)
+    """Umbral de pérdida por orden abierta, por tramos como `lotajes_m`: p * capital_inicial * m (Q5-3b, 2026-11-18).
+
+    Ej. p = 0.044: Z = 1.759 o 5.999 -> 132 USD (m = 1); Z = 6.000 -> 264 USD (m = 2). Con Z < 0, m = 1."""
+    return p * config_smart.CUENTA['capital_inicial'] * lotajes_m(z)
 
 
 def lotajes_m(z: float) -> int:
