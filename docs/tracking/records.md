@@ -2524,3 +2524,10 @@ Mauricio: corrigió la validación: el 20% reservado debe ser de los registros (
 Claude: listó dudas restantes. Mauricio decidió: registrar fracción de OA abiertas al cierre y ventanas sin operaciones (`VENTANA_DIAS = 7`); aplazar `Q5-3b` (sin tope de órdenes ni umbral por tramos por ahora, `PERDIDA_MAX` sigue como C1); arrancar solo con BTCUSD; pospuestos el criterio de "no hay señal" y las colas pesadas de `Y`; en acciones la ventana también es de 7 días hora a hora, con el salto nocturno incluido tal cual; `ret_medio` y `ret_vol` son siempre de la ventana misma, no de los 7 días previos a `t*`.
 Claude: cerró `Q5-3` (movido a `done.md`, sin la corrida de vuelta completa en Windows) y dejó `Q5-3c` sin decisiones pendientes, listo para empezar; no se escribió código.
 (Cierre: 2026-11-18 21:50)
+
+## SECCIÓN 309
+Mauricio: invocó /todos, eligió la sección X5_alt_v2 y de ahí el ítem [Q5-3b] (riesgo por cuenta: umbral por tramos y tope de órdenes), aplazado esa misma mañana. Preguntó si `r = 0,5` significa que se pierden todas las órdenes cuando la cuenta baja a la mitad; después fijó `r = 0,5`, eligió que el tope cuente solo las Órdenes Abiertas (OA), confirmó que bajo `Z ≈ 264` la cuenta deja de operar y preguntó por qué 264.
+Claude: verificó que `Q5-3` estaba en `done.md`, mostró las labores y explicó `Z` con el ejemplo del bloque 9 (`cerrado 2.957,97 + P&L abierto -1.199,10 = Z 1.758,87`). Aclaró que `r` es un peor caso (si todas las OA permitidas llegaran a su umbral a la vez se pierde como máximo `r · Z`), no una liquidación automática, y que 264 sale de umbral 132 USD / `r` 0,5. Registró las decisiones en `docs/tracking/todos.md` y `docs/context/decisiones.md`, y propuso un plan de implementación en 4 pasos (umbral `p · 3000 · m` en `x5_alt_funciones.py`, `R_TOPE_OA` en `config_smart.py`, tope en `_paso_F` de `X4_backtester.py`, pruebas).
+Mauricio: aprobó el plan y pidió hacer /guardar antes de que Claude escriba el código.
+Claude: avisó que era el momento (sin código aún) y ejecutó /guardar; `Q5-3b` queda pendiente, con las decisiones tomadas y sin implementar.
+(Cierre: 2026-11-18 22:00)

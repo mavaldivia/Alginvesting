@@ -702,3 +702,13 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Razón:** Mauricio aún no define qué hacer con el riesgo por cuenta; con `Z ≈ 3000` y `lotajes_m = 1` el umbral por tramos casi coincide con `p · Z`, así que lo que se difiere es sobre todo el tope de órdenes.
 
 **Consecuencia abierta:** `Y` no tiene cota inferior: una semana de caída fuerte puede abrir decenas de Órdenes Abiertas (OA), como las 45 del bloque 9 de BTCUSD, y dar un `Y` muy negativo que domine la RLM (ver las colas pesadas pospuestas en `Q5-5`). Como `ret_medio` y `ret_vol` se miden después de `t*`, no sirven para elegir C2 en producción salvo estimándolas.
+
+## 2026-11-18 — X5_alt_v2 (Q5-3b): tope de Órdenes Abiertas por cuenta, `r = 0,5` fijo y umbral por tramos
+
+**Decisión:** (Mauricio) se retoma `Q5-3b`. Umbral de pérdida por tramos, `perdida_max_USD = p · 3000 · m` (`m = lotajes_m(Z)`), en vez de `p · Z` continuo. Tope de Órdenes Abiertas (OA) `máx. OA = r · Z / umbral` con `r = 0,5` fijo en `config_smart.py` (no es un C1, el sorteo Sobol se mantiene en 26 dimensiones). El tope cuenta solo las OA: se mantiene la escalera de Órdenes en Espera (OE) y se cancelan al llenarse el cupo. Bajo `Z ≈ 264` (umbral 132 USD / 0,5) el tope da 0 y la cuenta deja de operar.
+
+**Razón:** con `p · Z` el riesgo se medía por posición, no por cuenta: en el bloque 9 de BTCUSD (2022-05-03) había 45 OA con umbral de 81 USD (3.645 USD posibles contra `Z = 1.759`). `r` es un peor caso: si todas las OA permitidas llegaran a su umbral a la vez, la pérdida sería como máximo `r · Z`; no liquida nada por sí mismo.
+
+**Descartado:** `r = 1,0` (peor caso cercano a toda la cuenta); `r` como C1 aprendido (27 dimensiones); contar OA + OE contra el tope (límite duro, pero reduce la escalera de ~100 niveles de OE a unos pocos).
+
+**Consecuencia abierta:** al contar solo OA, una vela que cae a través de muchos soportes llena varias OE a la vez y puede pasarse del tope; el tope solo bloquea OE nuevas y cancela las colocadas, no cierra las OA abiertas. X1 no se toca hasta `Q5-5b` (hoy `lotajes_m(Z)` y el umbral solo existen en X4/X4S).

@@ -241,6 +241,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-18** — docs(q5-3b): decisiones de riesgo por cuenta (r = 0,5 fijo, tope solo sobre Órdenes Abiertas y umbral por tramos) y plan de implementación
 - **2026-11-18** — docs(q5): aprendizaje por ventanas semanales, Q5-3 cerrado y Q5-3b aplazado
 - **2026-11-17** — docs(q5-3b): ítem de riesgo por cuenta (umbral por tramos de lotajes_m y tope de órdenes) pendiente de decidir
 - **2026-11-15** — feat(q5-3): X4S reanudable con --reanudar (estado por bloque) y tope de búsqueda de soportes en backtesting de 15 a 6 min
