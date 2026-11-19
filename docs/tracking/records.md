@@ -2546,3 +2546,8 @@ Mauricio: sobre las réplicas pidió el barrido sin límite: siempre un `t*` con
 Claude: presentó plan de 5 puntos (ventana, selector, tipo de visita, réplicas como rondas, pruebas y docs) con defaults (`t*` = vela de la búsqueda congelada, `C_0` = cierre de `t*`, solapadas se corren igual); Mauricio aprobó. Implementó `scripts/X4_bckt_ventanas.py` (ventana, selector por bisección con mínimo de visitas, reservadas por hash, Sobol, registro `{valor}_ventanas.csv`, CLI), 2 líneas en `X4_backtester.py` para `cfg.TIEMPO_MAX_BUSQUEDA_MIN` y constantes en `config_smart.py`.
 Claude: 21/21 pruebas nuevas pasan con datos reales (`test_x4_bckt_ventanas.py`) y no rompió X4S (19/19) ni `x5_alt_funciones` (14/14). Hallazgos: el Sobol tiene 30 dimensiones libres (no 26) y `entra_aprendizaje` se calcula al leer (`ventanas_de_aprendizaje`). Actualizó `decisiones.md`, `todos.md` (Q5-3c y Q5-4 con la parte de Claude hecha; labor de Mauricio pendiente en Windows) y `CLAUDE.md`.
 (Cierre: 2026-11-18 23:03)
+
+## SECCIÓN 312
+Mauricio: preguntó qué viene ahora y avisó que parte con la ejecución en Windows.
+Claude: indicó los pasos: prueba corta (`--t_star 0 500` en BTCUSD y una acción), luego corrida larga con `--activo BTCUSD`. `Q5-5` sigue bloqueado por `[dep: Q5-4]`; recomendó no empezarlo hasta tener unas 30-40 ventanas reales de BTCUSD y dejó pendientes las decisiones de cómo entran `ret_medio` y `ret_vol` a la RLM y el candidato a evaluar en las reservadas. Pidió el CSV de ventanas, el resumen en pantalla o el `x4.log` si algo falla.
+(Cierre: 2026-11-18 23:05)

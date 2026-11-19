@@ -243,6 +243,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-18** — docs(records): próximos pasos tras X4_bckt_ventanas.py (prueba corta en Windows antes de Q5-5)
 - **2026-11-18** — feat(q5-3c): ventana semanal y orquestador de t* en X4_bckt_ventanas.py
 - **2026-11-18** — feat(q5-3b): umbral de pérdida por tramos de lotajes_m y tope de Órdenes Abiertas (r = 0,5) en X4/X4S
 - **2026-11-18** — docs(q5-3b): decisiones de riesgo por cuenta (r = 0,5 fijo, tope solo sobre Órdenes Abiertas y umbral por tramos) y plan de implementación
