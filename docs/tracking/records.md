@@ -2538,3 +2538,11 @@ Claude: implementó el umbral por tramos (`perdida_max_usd = p · 3000 · m` en 
 Claude: movió `Q5-3b` a `done.md`, actualizó las fórmulas `p · Z` en `todos.md`, `plan_x5_alt_v2.md` y `decisiones.md`, y dejó la regla 6 de `Q5-3c` con tope y umbral por tramos. X1 queda sin tocar hasta `Q5-5b`.
 Mauricio: invocó /guardar de nuevo para subir los cambios.
 (Cierre: 2026-11-18 22:16)
+
+## SECCIÓN 311
+Mauricio: invocó `/todos X5_alt_v2`, eligió el ítem 1 (`Q5-3c`) y pidió crear un `.py` completamente nuevo, `X4_bckt_ventanas.py`, para la ventana semanal.
+Claude: leyó X4S, X4, `config_smart.py` y el plan §9.14; antes de escribir código preguntó alcance. Mauricio eligió importar helpers de X4S, alcance "ventana + orquestador" y editar X4 para el tope de 10 min; sin criterio de término (Ctrl+C), 20 % de `t*` reservados con exclusión de solapadas y solo `--activo BTCUSD`.
+Mauricio: sobre las réplicas pidió el barrido sin límite: siempre un `t*` con `ventanas(t*) = min_t ventanas(t)`, al terminar todos empieza otra ronda, los datos nuevos entran primero, con la lógica de extremos y luego `T/2`.
+Claude: presentó plan de 5 puntos (ventana, selector, tipo de visita, réplicas como rondas, pruebas y docs) con defaults (`t*` = vela de la búsqueda congelada, `C_0` = cierre de `t*`, solapadas se corren igual); Mauricio aprobó. Implementó `scripts/X4_bckt_ventanas.py` (ventana, selector por bisección con mínimo de visitas, reservadas por hash, Sobol, registro `{valor}_ventanas.csv`, CLI), 2 líneas en `X4_backtester.py` para `cfg.TIEMPO_MAX_BUSQUEDA_MIN` y constantes en `config_smart.py`.
+Claude: 21/21 pruebas nuevas pasan con datos reales (`test_x4_bckt_ventanas.py`) y no rompió X4S (19/19) ni `x5_alt_funciones` (14/14). Hallazgos: el Sobol tiene 30 dimensiones libres (no 26) y `entra_aprendizaje` se calcula al leer (`ventanas_de_aprendizaje`). Actualizó `decisiones.md`, `todos.md` (Q5-3c y Q5-4 con la parte de Claude hecha; labor de Mauricio pendiente en Windows) y `CLAUDE.md`.
+(Cierre: 2026-11-18 23:03)

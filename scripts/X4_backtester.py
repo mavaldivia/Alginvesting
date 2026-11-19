@@ -299,8 +299,11 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
     warm_start = bool(getattr(cfg, 'X5_WARM_START_SOPORTES', True)) if x5_mode else True
     demo = x5_demo.esta_activo()
     import config as _gc
-    tiempo_limite_s = _gc.X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN * 60
-    tope_fase_gruesa_s = _gc.X4_TIEMPO_MAX_FASE_GRUESA_MIN * 60
+    tope_min = getattr(cfg, 'TIEMPO_MAX_BUSQUEDA_MIN', None) or _gc.X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN
+    tiempo_limite_s = tope_min * 60
+    # la fase gruesa mantiene su proporción (60 %) cuando el tope viene de la config, no de config.py
+    tope_fase_gruesa_s = (0.6 * tiempo_limite_s if getattr(cfg, 'TIEMPO_MAX_BUSQUEDA_MIN', None)
+                          else _gc.X4_TIEMPO_MAX_FASE_GRUESA_MIN * 60)
     tasks = []
     for activo in cfg.valores:
         if activo not in estado['por_activo']:

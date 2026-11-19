@@ -104,6 +104,18 @@ SORTEO_C2 = {
 }
 
 
+# ─── Ventanas semanales (Q5-3c y Q5-4, plan_x5_alt_v2.md 9.14; X4_bckt_ventanas.py) ───────────────────────────
+# Largo de la ventana en días de calendario: 168 velas H1 en crypto, las velas H1 de esos días en acciones.
+VENTANA_DIAS = 7
+
+# Tope de la única búsqueda de soportes de cada ventana (X4/X5 usan el de config.py: 6 min); la fase gruesa mantiene 60 %.
+TIEMPO_MAX_BUSQUEDA_VENTANA_MIN = 10
+
+# Semillas fijas: qué t* son reservados (se combina con FRACCION_RESERVADA) y el scramble de la secuencia Sobol de los C2.
+SEMILLA_RESERVADAS = 20261118
+SEMILLA_SOBOL = 0
+
+
 def tipo_valor(valor: str) -> str:
     return 'crypto' if valor in CRYPTOS else 'accion'
 
