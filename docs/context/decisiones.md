@@ -668,3 +668,37 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Razón:** en la vuelta `q4_s0` de BTCUSD casi todas las búsquedas llegaban al tope de 15 min (900 s, "cortada por tope de tiempo"), así que el tope manda sobre la duración de la vuelta (242 bloques × 15 min ≈ 60 h de búsqueda; con 6 min ≈ 24 h).
 
 **Consecuencia:** las búsquedas cortadas conservan una solución menos refinada (FO final peor) y, como el corte depende del reloj, la reproducibilidad exacta solo vale si ninguna búsqueda lo toca. Las vueltas hechas con 15 min (`q4_s0`) no son comparables con las nuevas. Se recomienda mirar `n_busquedas_cortadas` y la FO final de las primeras vueltas antes de fiarse del aprendizaje.
+
+## 2026-11-17 — X5_alt_v2 (Q5): el aprendizaje pasa de vueltas completas a ventanas semanales
+
+**Decisión:** (Mauricio) el aprendizaje de los C2 se hace con **ventanas**: una semana de backtest que parte en `t*`, con cuenta nueva de 3000 USD, `lotajes_m = 1`, una sola búsqueda de soportes en `t*` (tope de 10 min) y label `Y = cerrado + P&L abierto − 3000`. Los `t*` se eligen por bisección sobre `[0, T]`, con `T = T_tot − semana` (0 y `T`, `T/2`, `T/4` y `3T/4`, …); los C2 salen de Sobol al comienzo y del aprendizaje después. Cada ventana registra además el retorno porcentual medio y la desviación estándar de los retornos porcentuales de cierre de la semana. **Sin vuelta completa**: la validación es fuera de muestra por `t*` (20% de las ventanas reservado; la cola temporal con una semana de margen de esta entrada fue reemplazada el 2026-11-18, ver abajo; estático y `Q4` corridos en esas mismas ventanas). Reemplaza el aprendizaje de `Q5-4`/`Q5-5` y `plan_x5_alt_v2.md` 9.5/9.6; ítems `Q5-3c`, `Q5-4`, `Q5-5` reescritos.
+
+**Razón:** una vuelta completa son 40–55 h por una observación contra 26 C2 (32 vueltas ≈ 75 días por valor); una ventana son ~10–12 min y cientos de observaciones por valor. La bisección deja cobertura pareja en cualquier punto de corte.
+
+**Descartado:** conservar la vuelta completa como validación del candidato (Mauricio eligió reemplazarla); correr ambos esquemas en paralelo como ítem aparte.
+
+**Consecuencia abierta:** (1) no se ejercitan `lotajes_m(Z)` dinámico, `N_VELAS` ni la composición de ganar temprano; (2) cómo entran `ret_medio` y `ret_vol` al modelo queda por definir (controles aditivos o interacciones C2 × régimen); se miden después de `t*`, así que no sirven para elegir C2 en producción salvo estimándolas; (3) pendiente decidir si se cierra `Q5-3` sin la vuelta completa en Windows; (4) la ventana de acciones (7 días de calendario, 35–50 velas) y `ret_vol` como desviación estándar muestral, confirmados el 2026-11-18; (5) el esquema vuelve a una ventana de 7 días como la descartada el 2026-11-02, ahora con `t*` por bisección, cuenta nueva y variables de mercado registradas.
+
+## 2026-11-18 — X5_alt_v2 (Q5): 20% de las ventanas al azar y validación cruzada, en vez de cola temporal
+
+**Decisión:** (Mauricio) el conjunto reservado es el 20% de las ventanas (no el último 20% del calendario), elegido al azar con semilla fija entre los `t*` de la bisección. Además se usa validación cruzada (cross-validation) de 5 pliegues, con 20% al azar cada uno, sobre las ventanas de aprendizaje para elegir la penalización ridge y el `GRADO` de la RLM (reajusta solo la RLM, sin backtests extra). La compuerta (candidato contra estático y `Q4`) se evalúa solo en las ventanas reservadas. (Claude, por defecto) se excluyen del aprendizaje las ventanas que se solapen en velas con una reservada.
+
+**Razón:** lo que importa para la validación es el número de registros fuera de muestra, no la fracción del calendario; con un tramo final de ~8 ventanas el ruido de `Y` es alto y se valida en un solo régimen.
+
+**Descartado:** cola temporal del último 20% con una semana de margen (propuesta del 2026-11-17).
+
+**Consecuencia abierta:** al ser al azar, la validación no mide el desempeño hacia adelante en el tiempo, solo dentro de la historia 2022–2026; solo queda eso y la confirmación con velas nuevas de `Q5-5b`. Semanas vecinas comparten régimen, así que la estimación puede salir algo optimista aun sin solape de velas.
+
+## 2026-11-18 — X5_alt_v2 (Q5): arranque solo con BTCUSD y KPIs de truncamiento de la ventana
+
+**Decisión:** (Mauricio) el aprendizaje por ventanas arranca solo con BTCUSD; los demás valores se lanzan después, midiendo antes CPU y memoria. Cada ventana registra `frac_oa_abiertas_cierre` y `sin_trades`; el largo de la ventana (`VENTANA_DIAS = 7`) se revisa con esos datos. Pospuestos para después de ver resultados: criterio de "no hay señal" de la RLM y tratamiento de las colas pesadas de `Y`.
+
+**Razón:** una semana trunca el ciclo de las órdenes (OE sin llenar dan `Y = 0`; OA abiertas se valoran a mercado sin cerrar su trailing stop) y premia la rotación rápida; medirlo cuesta una columna. Con un solo proceso no hay competencia por CPU contra el tope de 10 min.
+
+## 2026-11-18 — X5_alt_v2 (Q5): ventanas sin tope de órdenes ni umbral por tramos (Q5-3b aplazado)
+
+**Decisión:** (Mauricio) por ahora las ventanas corren sin tope de órdenes activas ni umbral de pérdida por tramos de `lotajes_m`. `Q5-3b` queda aplazado y `Q5-3c` ya no depende de él. (Claude, a confirmar) `PERDIDA_MAX` sigue siendo un C1 aprendido y rige como en `Q5-3`: `p · max(Z, 0)` por orden. Confirmado también que `ret_medio` y `ret_vol` son siempre de la ventana misma (retornos hora a hora, de `t*` a `t*+7 días`), nunca de los 7 días previos a `t*`.
+
+**Razón:** Mauricio aún no define qué hacer con el riesgo por cuenta; con `Z ≈ 3000` y `lotajes_m = 1` el umbral por tramos casi coincide con `p · Z`, así que lo que se difiere es sobre todo el tope de órdenes.
+
+**Consecuencia abierta:** `Y` no tiene cota inferior: una semana de caída fuerte puede abrir decenas de Órdenes Abiertas (OA), como las 45 del bloque 9 de BTCUSD, y dar un `Y` muy negativo que domine la RLM (ver las colas pesadas pospuestas en `Q5-5`). Como `ret_medio` y `ret_vol` se miden después de `t*`, no sirven para elegir C2 en producción salvo estimándolas.

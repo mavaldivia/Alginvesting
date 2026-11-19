@@ -411,3 +411,33 @@ Define el parámetro grado en config_smart.py
 
 
 /consultar
+
+
+
+
+
+
+
+/new_todo X5_alt_v2
+Planifica lo siguiente en los todos
+Pensando en el proceso de aprendizaje y, para no hacerlo demasiado extenso, se me ocurre lo siguiente. Te lo planteo con un ejemplo
+Imaginemos en la historia de BTCUSD, tenemos T_tot = 1000 + 24 * 7 velas
+24 * 7 representa las velas de una semana completa
+Calculamos T = T_tot - 24 * 7 (en el ejemplo T = 1000)
+Digamos t = 0 es dos meses después de la primera vela, para tener historia en la obtención de soportes/resistencias
+Entonces, entre t=0 y T, quiero hacer un sobol, donde:
+- Se elije t* entre 0 y T
+- Se comience con una cuenta de 3000 usd y lotajes_m = 1
+- Se elijan los parámetros C2 aleatorios (aleatorios al comienzo, después aprendizaje)
+- Se obtienen los soportes/resistencias en t*, usando la historia hasta ese t, considerando el método en X0 con un máximo de tiempo de 10 mins
+- Se ejecuta una semana de backtesting, es decir, hasta t* + 24 * 7 (para el caso de cryptos, si es una acción, siempre es una semana)
+- Se obtiene cuanto es el total de cuenta acumulado: Y = cerrado + P&L activo - 3000
+- Se registra en el aprendizaje el label Y, además de las variables explicativas: todos los parámetros C2 + el retorno promedio de las velas esa semana + la variabilidad de las velas en esa semana, ocupando solo los precios de cierre
+
+- Se itera en t* de la siguiente manera
+1. Los extremos: t = 0 y t = T (ej: 0 y 1000)
+2. El punto medio: t = T/2 (ej: 500)
+3. Los puntos medios de los intervalos de arriba (T/4 y 3T/4) (ej: t = 250 y t=750)
+4. Así sucesivamente
+
+/consultar
