@@ -246,6 +246,10 @@ X1_LOG_CAMBIOS_MAX = 1000
 X1_ELIMINADAS_BROKER_CADA_S = 60
 X1_ELIMINADAS_BROKER_VENTANA_H = 24
 
+# Tope de OA en modo "din" (Q5-5b): X1 calcula la Z virtual de cada valor (3000 USD + P&L realizado desde
+# `cuenta_desde` + P&L abierto) y relee el realizado del historial de deals de MT5 como máximo cada X1_Z_CADA_S s.
+X1_Z_CADA_S = 60
+
 # USD por cada 1x MIN_LOTAJES — el umbral real de cada posición abierta es
 # PERDIDA_MAX * (orden.volume / MIN_LOTAJES). Ej: 200 con 0.02 lot de BTC → corta a 400 USD.
 PERDIDA_MAX = {
@@ -271,13 +275,13 @@ MIN_LOTAJES = {
 
 # Multiplicador de lote por activo
 LOTAJES_M = {
-    'BTCUSD': 2,
-    'ETHUSD': 2,
-    'TSLA':   2,
-    'GOOGL':  2,
-    'NVDA':   2,
-    'AMZN':   2,
-    'MSFT': 2.0,
+    'BTCUSD': 1,
+    'ETHUSD': 1,
+    'TSLA':   1,
+    'GOOGL':  1,
+    'NVDA':   1,
+    'AMZN':   1,
+    'MSFT':   1,
 }
 
 # Lote efectivo: LOTAJES[v] = LOTAJES_M[v] * MIN_LOTAJES[v]
@@ -326,12 +330,13 @@ ICONOS_VALOR = {
 
 # ─── Modo de ejecución ────────────────────────────────────────────────────────
 # "est" → X1/X0/X4 usan los parámetros definidos en este archivo (estático).
-# "din" → X1/X0/X4 leen config/active_parameters.json generado por X5.
-#          Si model_status[activo] == "untrained" para un activo concreto,
-#          ese activo cae back a los valores de este archivo.
+# "din" → X0/X1 leen los C1 de config/active_parameters.json (esquema q5), que escribe publicador_c1.py
+#          (Q5-5b) desde la candidata de cada valor (config/candidatas/); lectura en params_din.py. X4 no lo lee.
+#          Un activo sin entrada válida (sin candidata, model_status != "trained" o publicada hace más de
+#          PARAMS_DIN_EDAD_MAX_MIN) cae a los valores de este archivo, solo ese activo.
 #          La transición es por activo: BTCUSD puede estar en "din" mientras TSLA sigue en "est".
 
-TIPO_EJECUCION = "est"
+TIPO_EJECUCION = "din"
 
 # ─── X5 — Backtester y surrogate model ───────────────────────────────────────
 
@@ -447,6 +452,15 @@ CARPETA_X5_ALT = BASE_DIR / 'resources' / 'x5_alt'
 RUTA_ESTRUCTURA_C1 = BASE_DIR / 'config' / 'estructura_c1.json'
 # Salida del backtesting inteligente (X4S_backtesting_inteligente.py): una carpeta por valor y vuelta.
 CARPETA_Q5 = CARPETA_X5_ALT / 'q5'
+# Q5-5b (traspaso a X0/X1): la candidata que pasa la compuerta va a git (resources/ no viaja a Windows); el publicador
+# (publicador_c1.py, Windows) la convierte en los C1 vigentes de active_parameters.json, que X0/X1 leen con TIPO_EJECUCION="din".
+RUTA_CANDIDATAS = BASE_DIR / 'config' / 'candidatas'
+RUTA_ACTIVE_PARAMETERS = BASE_DIR / 'config' / 'active_parameters.json'
+PUBLICADOR_PERIODO_MIN = 60   # cada cuánto recalcula el publicador (alineado con T_UPDATE_CICLO_X0)
+PARAMS_DIN_EDAD_MAX_MIN = 120  # un valor con calculado_en más viejo que esto cae a config.py en X0/X1
+# Registro único de la validación en Windows (registro_din.py): una línea JSON por evento de publicador, X0 y X1.
+RUTA_REGISTRO_DIN = BASE_DIR / 'resources' / 'validacion_din' / 'eventos.jsonl'
+REGISTRO_DIN_Z_CADA_S = 300   # cada cuánto X1 deja una foto de Z/cupo/OA por valor (además de cada cambio del tope)
 
 # ─── X4 — Backtester ─────────────────────────────────────────────────────────
 X4_VERSION_ACTIVA = 'V1'

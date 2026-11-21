@@ -59,6 +59,7 @@ import config as gc
 import config_smart
 import X4_backtester as x4
 import X4S_backtesting_inteligente as s
+import publicador_c1 as pub
 from x5_alt_aprendizaje import ajustar_rlm, c2_desde_fila, proponer_c2
 from x5_alt_funciones import drawdown_maximo, estadisticas_c1, rangos_sorteo_c2
 
@@ -315,10 +316,15 @@ def evaluar_candidato(valor: str, semilla_base: int = 0) -> dict:
     print(f'[{valor}] {fase} sobre {resumen["n"]} t* reservados | vs estática: mediana {resumen["mediana_dif_estatica"]:+.1f} '
           f'USD, media {resumen["media_dif_estatica"]:+.1f}, gana en {resumen["aciertos_estatica"]} | vs Q4: mediana '
           f'{resumen["mediana_dif_q4"]:+.1f}, media {resumen["media_dif_q4"]:+.1f}, gana en {resumen["aciertos_q4"]} | '
-          f'{"SUPERA a ambas" if resumen["promovido"] else "no supera a ambas"} (la promoción la decide Mauricio, Q5-5b)', flush=True)
+          f'{"SUPERA a ambas" if resumen["promovido"] else "no supera a ambas"}', flush=True)
     s.agregar_fila_csv(ruta_compuerta(valor), {
         'fecha_ejecucion': datetime.datetime.now().isoformat(timespec='seconds'), 'candidato': fase,
         'n_ventanas_modelo': modelo.n, 'r2_cv': modelo.r2_cv, **resumen})
+    if resumen['promovido']:
+        ruta = pub.guardar_candidata(valor, fase, c2, {**resumen, 'n_ventanas_modelo': int(modelo.n),
+                                                       'r2_cv': float(modelo.r2_cv)})
+        print(f'[{valor}] {fase} queda como candidata vigente en {ruta}: súbela a git para que llegue a Windows '
+              f'(publicador_c1.py, Q5-5b)', flush=True)
     return resumen
 
 

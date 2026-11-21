@@ -49,8 +49,12 @@ from config import (
     X1_LOG_CAMBIOS_MAX,
     X1_ELIMINADAS_BROKER_CADA_S,
     X1_ELIMINADAS_BROKER_VENTANA_H,
+    X1_Z_CADA_S,
+    REGISTRO_DIN_Z_CADA_S,
     soporte_de_orden as _soporte_de_orden,
 )
+import registro_din
+from params_din import cupo_oa, n_vigente, parametros_vigentes, ruta_soportes, z_virtual
 
 
 def _fmt_valor(valor: str) -> str:
@@ -157,6 +161,7 @@ def _log_traceback(contexto: str) -> None:
     print(f'[{ts}] {contexto}\n{tb}')
     with open(CARPETA_LOGS_X1 / 'errores.log', 'a') as f:
         f.write(f'\n[{ts}] {contexto}\n{tb}')
+    registro_din.registrar('error', contexto=contexto, traceback=tb)
 
 
 # ─── Utilidades ───────────────────────────────────────────────────────────────
@@ -196,13 +201,13 @@ def leer_lista_N(valor: str, N: int) -> list:
     pausa de 5s, por si X0 lo está reescribiendo en ese instante (OneDrive puede
     extender la ventana de lock/sync más allá de la propia escritura del proceso).
     """
-    json_path = CARPETA_N_PROD / f'{valor}_{N}.json'
+    json_path = ruta_soportes(valor, N, CARPETA_N_PROD)
     if not json_path.exists():
         raise FileNotFoundError(f'{json_path} no existe todavía')
     ultimo_error = None
     for _ in range(12):
         try:
-            lista_N = json_act(str(CARPETA_N_PROD / f'{valor}_{N}'))
+            lista_N = json_act(str(json_path.with_suffix('')))
             return [round(n, 2) for n in lista_N]
         except (json.JSONDecodeError, PermissionError, OSError) as e:
             ultimo_error = e
@@ -277,6 +282,38 @@ def _cierre_historico(ticket: int) -> tuple:
     return salidas[-1].price, salidas[-1].profit
 
 
+_cache_realizado = {}  # valor -> (momento de la lectura, P&L realizado)
+
+
+def _pnl_realizado(valor: str, desde_epoch: int) -> float:
+    """P&L realizado de `valor` desde `desde_epoch` según el historial de deals de MT5 (ganancia + comisión + swap + fee
+    de cada deal de compra/venta; excluye depósitos). Relee como máximo cada X1_Z_CADA_S s por valor; si MT5 falla,
+    usa la última lectura. El reloj del servidor es UTC (Exness), igual que `d.time`."""
+    ahora = time.time()
+    previo = _cache_realizado.get(valor)
+    if previo and ahora - previo[0] < X1_Z_CADA_S:
+        return previo[1]
+    # ventana holgada (la hora del servidor puede ir adelantada o atrasada); el corte exacto es por d.time
+    desde = datetime.datetime.fromtimestamp(desde_epoch) - datetime.timedelta(days=1)
+    hasta = datetime.datetime.now() + datetime.timedelta(days=1)
+    deals = mt5.history_deals_get(desde, hasta)
+    if deals is None:
+        if registro_din.cada(f'deals_none_{valor}', 300):
+            registro_din.registrar('error', valor, contexto='history_deals_get retornó None', mensaje=str(mt5.last_error()))
+        if previo:
+            return previo[1]
+        raise RuntimeError(f'history_deals_get retornó None: {mt5.last_error()}')
+    propios = [d for d in deals
+               if d.symbol == valor and d.time >= desde_epoch and d.type in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL)]
+    total = sum(d.profit + d.commission + d.swap + d.fee for d in propios)
+    if previo is None or previo[1] != total:  # primera lectura y cada deal nuevo que mueve el realizado
+        registro_din.registrar('x1_realizado', valor, realizado=round(total, 2), n_deals=len(propios),
+                               n_deals_ventana=len(deals), desde_epoch=desde_epoch,
+                               ultimo_deal_epoch=max((d.time for d in propios), default=None))
+    _cache_realizado[valor] = (ahora, total)
+    return total
+
+
 def _informar_cierre(valor: str, ticket: int, info: dict) -> None:
     """Imprime lotaje, precio de apertura, precio de cierre y ganancia al detectar
     que una OA pasó a OC — por perdida_max, trailing stop (SL ejecutado por el
@@ -287,6 +324,8 @@ def _informar_cierre(valor: str, ticket: int, info: dict) -> None:
     g_str = f'${ganancia:.2f}' if ganancia is not None else 'desconocida'
     print(f'  [OA > OC] {_fmt_valor(valor)}  ticket={ticket}  lotaje={info["lote"]}  '
           f'precio_apertura={info["precio_apertura"]:.2f}  precio_cierre={pc_str}  ganancia={g_str}')
+    registro_din.registrar('x1_cierre', valor, ticket=ticket, lote=info['lote'], precio_apertura=info['precio_apertura'],
+                           precio_cierre=precio_cierre, ganancia=ganancia)
 
 
 def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict,
@@ -319,6 +358,7 @@ def obtener_conjuntos_actuales(valor: str, dic_seguimiento: dict, pos_info: dict
         if p.ticket not in pos_info:
             if ya_inicializado:
                 print(f'  [OE > OA] {_fmt_valor(valor)}  ticket={p.ticket}  lotaje={p.volume}  ejecutada @ {p.price_open:.2f}')
+                registro_din.registrar('x1_apertura', valor, ticket=p.ticket, lote=p.volume, precio=p.price_open)
             pos_info[p.ticket] = {'valor': valor, 'lote': p.volume, 'precio_apertura': p.price_open}
 
     tickets_previos = [t for t, info in pos_info.items() if info['valor'] == valor]
@@ -630,7 +670,7 @@ def _registrar_cambio(valor: str, lista_N: list, lista_OA_antes: list, cambio: d
         def _o0(oe, oa):
             return sorted(set(lista_N) - set(oe) - set(oa))
 
-        json_x0 = CARPETA_N_PROD / f'{valor}_{n_sizes[valor]}.json'
+        json_x0 = ruta_soportes(valor, n_vigente(valor, n_sizes[valor]), CARPETA_N_PROD)
         ahora = time.time()
         evento = {
             'ts': datetime.datetime.now().isoformat(timespec='seconds'),
@@ -1071,6 +1111,8 @@ def controlar_perdida_max(actual_OA: list, valor: str,
         perdida = (Pi - P0) * L
         if perdida > perdida_max_efectivo:
             print(f'  PERDIDA_MAX alcanzada: {_fmt_valor(valor)} lotaje={orden.volume} Pi={Pi:.2f} P0={P0:.2f} pérdida={perdida:.2f} USD')
+            registro_din.registrar('x1_perdida_max', valor, ticket=orden.ticket, lote=orden.volume, Pi=Pi, P0=P0,
+                                   perdida=round(perdida, 2), umbral=round(perdida_max_efectivo, 2))
             cerrar_posicion(orden, valor, lotajes)
 
 
@@ -1093,7 +1135,7 @@ def informacion(valores: list, n_sizes: dict, a: dict):
     datos = {}
     for valor in valores:
         try:
-            N = n_sizes[valor]
+            N = n_vigente(valor, n_sizes[valor])
             lista_N = leer_lista_N(valor, N)
         except FileNotFoundError:
             # Mismo criterio que el loop principal: activo sin JSON de soportes
@@ -1102,7 +1144,8 @@ def informacion(valores: list, n_sizes: dict, a: dict):
             continue
         P0 = obtener_precio_actual(valor, modo='B')
         L = MIN_LOTAJES[valor] * UNITS[valor]
-        a_valor = a[valor]
+        p_din = parametros_vigentes(valor)
+        a_valor = p_din['A'] if p_din else a[valor]
 
         actual_OA = mt5.positions_get(symbol=valor)
         if actual_OA is None:
@@ -1164,6 +1207,13 @@ if __name__ == '__main__':
     if not mt5.initialize():
         sys.exit(f'MT5 initialize() falló: {mt5.last_error()}')
 
+    registro_din.iniciar('X1')
+    # Reloj del servidor MT5: `d.time` de los deals y `cuenta_desde` del tope de OA suponen UTC (Exness); BTCUSD cotiza 24/7,
+    # así que su último tick está al día y la diferencia con el reloj local es el desfase real del servidor.
+    tick_reloj = mt5.symbol_info_tick('BTCUSD')
+    if tick_reloj:
+        registro_din.registrar('reloj_servidor', 'BTCUSD', tick_menos_ahora_s=round(tick_reloj.time - time.time()))
+
     # Validar que todos los activos existen en el broker
     for valor in VALORES:
         info = mt5.symbol_info(valor)
@@ -1178,11 +1228,12 @@ if __name__ == '__main__':
     # Si falta, X1 igual arranca (leer_lista_N reintenta y salta el activo por
     # ciclo), pero sin este aviso el desfase (config.py desincronizado con lo que
     # X0 ya generó) queda silencioso durante horas.
-    faltantes = [f'{valor}_{n_sizes[valor]}.json' for valor in VALORES
-                 if not (CARPETA_N_PROD / f'{valor}_{n_sizes[valor]}.json').exists()]
+    faltantes = [f'{valor}_{n_vigente(valor, n_sizes[valor])}.json' for valor in VALORES
+                 if not ruta_soportes(valor, n_vigente(valor, n_sizes[valor]), CARPETA_N_PROD).exists()]
     if faltantes:
         print(f'\n⚠ Faltan JSONs de soportes (config.py desincronizado con X0, '
               f'se saltarán cada ciclo): {", ".join(faltantes)}')
+        registro_din.registrar('soportes_faltantes', archivos=faltantes)
 
     def _fmt_duracion(s):
         s = int(s)
@@ -1198,6 +1249,7 @@ if __name__ == '__main__':
     pos_info = {}
     valores_inicializados = set()  # evita falso [OE > OA] con OA ya abiertas antes de arrancar X1
     dic_bloqueados = {}  # {valor: {precio: timestamp}} — buy limits lejanos liberados por retcode 10040
+    tope_oa_previo = {}  # valor -> tope de OA del ciclo anterior (el registro anota cada cambio)
     pausar_reemplazo_global_prev = None
     i = 0
 
@@ -1238,10 +1290,41 @@ if __name__ == '__main__':
 
                 for valor in VALORES:
                     try:
-                        N = n_sizes[valor]
+                        # TIPO_EJECUCION="din": C1 publicados por publicador_c1.py (Q5-5b); sin entrada válida, config.py
+                        p_din = parametros_vigentes(valor)
+                        N = int(p_din['N']) if p_din else n_sizes[valor]
+                        a_valor = p_din['A'] if p_din else A[valor]
+                        b_valor = p_din['B'] if p_din else B[valor]
+                        perdida_max_valor = p_din['PERDIDA_MAX'] if p_din else PERDIDA_MAX[valor]
                         lista_N = leer_lista_N(valor, N)
 
                         lista_OA, lista_OE, actual_OA, actual_OE, dic_seguimiento = obtener_conjuntos_actuales(valor, dic_seguimiento, pos_info, valores_inicializados)
+
+                        # Tope de OA (solo "din", como en Q5): con las OA en el cupo floor(R_TOPE_OA · Z / umbral) se
+                        # cancelan las OE y no se crean nuevas; no cierra OA (trailing stop y pérdida máxima siguen).
+                        tope_oa = False
+                        if p_din:
+                            realizado = _pnl_realizado(valor, p_din['cuenta_desde'])
+                            flotante = sum(p.profit + p.swap for p in actual_OA)
+                            z = z_virtual(realizado, flotante)
+                            umbral = perdida_max_valor * LOTAJES[valor] / MIN_LOTAJES[valor]
+                            cupo = cupo_oa(z, umbral)
+                            tope_oa = len(lista_OA) >= cupo
+                            cambio_tope = tope_oa != tope_oa_previo.get(valor)
+                            tope_oa_previo[valor] = tope_oa
+                            if cambio_tope or registro_din.cada(f'x1_z_{valor}', REGISTRO_DIN_Z_CADA_S):
+                                registro_din.registrar('x1_z', valor, motivo='cambio_tope' if cambio_tope else 'periodico',
+                                                       realizado=round(realizado, 2), flotante=round(flotante, 2),
+                                                       z=round(z, 2), umbral=round(umbral, 2), cupo=cupo, tope_oa=tope_oa,
+                                                       n_oa=len(lista_OA), n_oe=len(actual_OE), N=N, A=a_valor, B=b_valor,
+                                                       PERDIDA_MAX=perdida_max_valor, candidato=p_din['candidato'])
+                            if tope_oa and actual_OE and mercado_abierto(valor):
+                                eliminadas = [o for o in actual_OE if _cancelar_orden(o, valor)]
+                                if eliminadas:
+                                    print(f'\n\n  {_fmt_valor(valor)}: tope de OA ({len(lista_OA)} abiertas, cupo {cupo}, '
+                                          f'Z {z:.0f} USD) — {len(eliminadas)} OE eliminadas')
+                                    registro_din.registrar('x1_oe_eliminadas_por_tope', valor, n=len(eliminadas),
+                                                           tickets=[o.ticket for o in eliminadas])
 
                         # A y B: solo si el mercado permite nuevas órdenes; si está cerrado,
                         # no eliminar las OE existentes porque no se pueden reponer.
@@ -1250,7 +1333,7 @@ if __name__ == '__main__':
                         # (a) y la poda (c) para priorizar la revisión del trailing
                         # stop. La promoción de O0 a OE por alcance de precio (b) sigue
                         # activa: si el precio ya cruzó el margen, no debe esperar.
-                        if mercado_abierto(valor):
+                        if mercado_abierto(valor) and not tope_oa:
                             hay_salientes = any(_soporte_de_orden(o) not in lista_N for o in actual_OE)
                             if hay_salientes:
                                 # Caso (a): el conjunto de soportes cambió — reemplazo total
@@ -1258,7 +1341,7 @@ if __name__ == '__main__':
                                     reemplazar_ordenes_espera(actual_OE, lista_OA, lista_N, valor, LOTAJES, dic_bloqueados)
                             else:
                                 # Caso (b): promoción normal de O0 a OE por margen
-                                crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, A[valor], LOTAJES, dic_bloqueados)
+                                crear_ordenes_espera(lista_OA, lista_OE, lista_N, valor, a_valor, LOTAJES, dic_bloqueados)
                                 # Caso (c): poda por saturación, solo sin reemplazo en curso
                                 if not pausar_reemplazo_global:
                                     podar_ordenes_saturacion(actual_OE, valor, N)
@@ -1271,13 +1354,13 @@ if __name__ == '__main__':
                         # antes de este cambio) y reemplazarían OE de todas formas hasta
                         # el próximo ciclo, aunque este SL recién haya quedado a distancia
                         # completa de su máximo.
-                        if trailing_stop(actual_OA, valor, A[valor], B[valor], dic_seguimiento) and not pausar_reemplazo_global:
+                        if trailing_stop(actual_OA, valor, a_valor, b_valor, dic_seguimiento) and not pausar_reemplazo_global:
                             print('  SL activo más cerca de P_MAX que de P_SL → pausando reemplazo y poda de buy limits (foco en trailing stop)')
                             pausar_reemplazo_global = True
                             pausar_reemplazo_global_prev = True
 
                         # D: Cierre por pérdida máxima
-                        controlar_perdida_max(actual_OA, valor, LOTAJES, PERDIDA_MAX[valor])
+                        controlar_perdida_max(actual_OA, valor, LOTAJES, perdida_max_valor)
 
                     except FileNotFoundError as e:
                         # Conjunto_N aún no generado por X0 (activo nuevo o config.py

@@ -441,3 +441,30 @@ Entonces, entre t=0 y T, quiero hacer un sobol, donde:
 4. Así sucesivamente
 
 /consultar
+
+
+/new_todo
+Agrega esto a los to dos, pero al final...lo primero que quiero es tener un sistema funcional
+aclaremos un punto clave...si estoy con alta autonomía (75 o 100) y tienes una duda compleja, que no puedes encontrar en mi contexto, guardala, omite esta postulación y sigue iterando. En el menú, muestrame cuantas dudas hay, y dame la opción corregir dudas
+Posteriormente cuando vuelvas a buscar, si la duda ya está resuelta (porque debe quedar marcada para que cargo(s) era), vuelve a postular
+
+-----------
+/new_todo X5_v3 (nueva sección)
+Seré claro..este proyecto es mi futuro..espero vivir de esto en unos 5-10 años
+Quiero que funcione con todas mis fuerzas y creo que X0 y X1 están trabajando bastante bien, descartando X2 y X3, que solo obtienen datos finalmente
+La lógica de los parámetros dinámicos tiene todo el sentido del mundo y creo que he avanzado (en cuanto a X5 y sus variantes, la más actual alt v2), en simplificar, darle sentido lógico y garantizar el hecho de que, con el tiempo, haya aprendizaje que lleve a mejores soluciones.
+Hoy me vuelvo a sentir estancado en una de las variantes
+Lo que se me ocurre es, poner a Opus a revisar X5 alt v2 y, cuestionarlo....ahí está la idea, ahora cuestiona
+Dame los 3-5 principales puntos que están bien y tienen más sentido y los 5 que menos sentido tienen. Necesito que la solución final sea eficiente y simple
+Dame propuestas muy concretas para solucionar lo que puede estar mejor hoy
+He pensado en cosas como
+- Estudiar los Pars C1, de a uno
+- Mi universo de C2 es muy grande...todo lo que viene de X2 y X3, además de otras variantes (ventanas temporales por ejemplo) u otras métricas como el drawdown o fibonacci, que pueden desprenderse....por que no construir desde todo ese universo
+- NO aprender con RLM, quizás algo más complejo (dentro de lo que manejo) como una FFNN, o algo así
+- Creo que quiero seguir con la misión de obtener Pars C1 = f(Pars C2), de tal forma que evolucionen en el tiempo con sentido lógico
+Vamos Opus! A cuestionar
+
+Entregame un informe en latex de 10-15 páginas. Evita lenguaje complicado...si tienes algún concepto más complejo, definelo en pie de página. Espero: lo que está bien, lo que está mal, propuestas de lo que podríamos probar, etc
+Respalda toda tu investigación en un md más complejo
+Por lo tanto debes entregarme un pdf y un md
+Tomate tu tiempo

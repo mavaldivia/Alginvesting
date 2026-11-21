@@ -225,6 +225,10 @@ def calibrar_parametro(
 MIN_OBS_Z = 30  # observaciones mínimas para que la ventana expansiva entregue un z-score; antes, z = 0 (neutro)
 _TRANSFORMACIONES = ('identidad', 'ln_razon', 'abs')
 _CLAVE_Q5 = {'PERDIDA_MAX': 'PERDIDA_MAX_PCT'}  # en el backtesting inteligente PERDIDA_MAX es la fracción p de Z
+# Cadencias (plan 9.2): el grupo de búsqueda cambia cada N_VELAS velas y obliga a buscar soportes de nuevo;
+# el de operación se lee en cada vela.
+C1_BUSQUEDA = ['N', 'K', 'N_EXP', 'LAMBDA']
+C1_OPERACION = ['A', 'factor_B', 'p']
 
 
 def cargar_estructura_c1(ruta) -> dict:
@@ -392,6 +396,14 @@ def serie_c1(
         'c1': c1,
         'pesos': {v['nombre']: float(wi) for v, wi in zip(variables, w_norm)},
     }
+
+
+def c1_dinamicos(valor: str, c2: dict, tabla: pd.DataFrame, estructura: dict) -> pd.DataFrame:
+    """Los 7 C1 vela a vela (ya en la grilla) a partir de los C2; `PERDIDA_MAX` queda como la fracción `p`."""
+    cols = {parametro: serie_c1(parametro, valor, c2[parametro], tabla, estructura)['c1']
+            for parametro in estructura}
+    df = pd.DataFrame(cols, index=pd.DatetimeIndex(tabla['DateTime']))
+    return df.rename(columns={'PERDIDA_MAX': 'p'})
 
 
 def cargar_c2_q4(ruta_resumen_csv) -> dict:

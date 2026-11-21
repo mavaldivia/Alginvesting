@@ -55,7 +55,7 @@ X5 — Entrena modelo sobre el store → config/active_parameters.json
                                           (X5 reentrena periódicamente)
 ```
 
-X0, X2 y X3 son independientes de las fases — siguen corriendo igual. La transición Fase 1 → Fase 2 es por activo y se activa manualmente (`TIPO_EJECUCION = "din"`). Si un activo no tiene modelo entrenado (`model_status = "untrained"`), X1 cae back a `config.py` automáticamente para ese activo. **Estado verificado el 2026-11-19:** X0, X1 y X4 todavía no leen `config/active_parameters.json` (ese archivo es del X5 original); el mecanismo se construye en `Q5-5b` (ver `docs/tracking/todos.md`).
+X0, X2 y X3 son independientes de las fases — siguen corriendo igual. La transición Fase 1 → Fase 2 es por activo y se activa manualmente (`TIPO_EJECUCION = "din"`). Si un activo no tiene modelo entrenado (`model_status = "untrained"`), X1 cae back a `config.py` automáticamente para ese activo. **Estado (2026-11-21):** el diagrama es el del X5 original. Con `TIPO_EJECUCION = "din"`, X0 y X1 leen hoy `config/active_parameters.json` en un esquema propio (`q5`) que escribe `publicador_c1.py` desde `config/candidatas/` (vía `params_din.py`); un activo sin entrada válida cae a `config.py`, y X1 aplica el tope de Órdenes Abiertas con la `Z` virtual del valor. Implementado en `Q5-5b`, probado en Mac y pendiente de validar en Windows en cuenta demo (ver `docs/tracking/todos.md`).
 
 ---
 
@@ -116,6 +116,12 @@ scripts/
   X4S_backtesting_inteligente.py  # Una vuelta del backtesting inteligente de un valor (X5_alt_v2, Q5-3): cuenta de 3000 USD con lotajes_m(Z) y pérdida máxima p·3000·m y tope de Órdenes Abiertas, C1 dinámicos con sus dos cadencias, premio por tramo (aprendizaje/reservado) y KPIs; importa de X4, no reimplementa X0/X1; registra en resources/x5_alt/q5/ y guarda estado_x4s.pkl al inicio de cada bloque para reanudar (--activo, --estatica, --hasta, --reset, --reanudar)
   X4_bckt_ventanas.py    # Backtesting inteligente por ventanas semanales de un valor (X5_alt_v2, Q5-3c y Q5-4): una ventana es una semana desde `t*` con cuenta nueva de 3000 USD, lotajes_m = 1 y una búsqueda de soportes en `t*` (tope 10 min), con label Y = cerrado + P&L abierto − 3000, ret_medio/ret_vol y KPIs; el orquestador elige siempre un `t*` con el mínimo de visitas (bisección como desempate; al visitarlos todos empieza otra ronda y los datos nuevos entran primero), reserva el 20 % de los `t*` (estática y Q4 como control, las rondas siguientes son réplicas) y sortea los C2 de aprendizaje con Sobol; importa de X4S y X4, no reimplementa X0/X1; desde 32 ventanas de aprendizaje válidas (`UMBRAL_VENTANAS_SOBOL`) pasa de Sobol a la fase `rlm` (C2 propuestos por Regresión Lineal Múltiple + Gradient Ascent, Q5-5) y `--evaluar_candidato` corre el candidato en los `t*` reservados contra la estática y Q4 (supera si la mediana de la diferencia de Y es positiva contra ambas); registra en resources/x5_alt/q5/ y reanuda al volver a lanzar (--activo, --max_ventanas, --max_horas, --t_star, --evaluar_candidato)
   q5_empaquetar_medicion.py  # Empaqueta en resources/x4/version{V}/medicion_{V}.zip la salida de consola, config, checkpoint, log de búsquedas de soportes (filtrado a la corrida) y resumen/equipo de una medición de X4 (Q5-1); sirve también con la corrida interrumpida
+  publicador_c1.py       # Q5-5b (Windows, bucle horario): convierte la candidata de cada valor (config/candidatas/{valor}_candidata.json, la escribe X4_bckt_ventanas.py --evaluar_candidato al pasar la compuerta) en los C1 vigentes de config/active_parameters.json: A/factor_B/p cada corrida; N/K/N_EXP/LAMBDA solo cada N_VELAS velas o al cambiar de candidata (--una_vez, --activos)
+  params_din.py          # Lectura de active_parameters.json para X0/X1 con TIPO_EJECUCION="din": respaldo por activo a config.py (sin entrada, untrained o más vieja que PARAMS_DIN_EDAD_MAX_MIN), N vigente, ruta de soportes con respaldo y warm start al cambiar N, Z virtual y cupo del tope de Órdenes Abiertas
+  registro_din.py        # Registro único de la validación en Windows de Q5-5b: publicador, X0 y X1 anexan una línea JSON por evento a resources/validacion_din/eventos.jsonl (pandas.read_json(ruta, lines=True))
+  test_publicador_c1.py  # Pruebas del publicador (cadencias, cuenta_desde, candidata e historial, punta a punta contra el backtest con datos reales de BTCUSD); corren sin pytest
+  test_params_din.py     # Pruebas de params_din.py (respaldo por causa de caída, recuperación, Z virtual y cupo, ruta y warm start de soportes, registro); corren sin pytest
+  test_registro_din.py   # Pruebas de registro_din.py (formato JSON Lines, tipos numpy, fallo de escritura, procesos en paralelo); corren sin pytest
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   config_smart.py        # Pisos, techos y pasos de los 7 parámetros dinámicos (cripto y acciones por separado), N_VELAS (cadencia de recálculo de soportes), GRADO (aprendizaje), SORTEO_C2 (rango del sorteo Sobol de los C2 cerca de Q4) y los de la vuelta de Q5-3 (FECHA_INICIO_BT, CUENTA, FRACCION_RESERVADA, CURVAS_MEJORES, P_ESTATICO) y de las ventanas (VENTANA_DIAS, TIEMPO_MAX_BUSQUEDA_VENTANA_MIN, SEMILLA_RESERVADAS, SEMILLA_SOBOL), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
@@ -138,7 +144,8 @@ scripts/
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
 config/
-  active_parameters.json # Params recomendados por X5, leídos por X1/X0 en modo "din" (fuera de git)
+  active_parameters.json # C1 vigentes por valor (esquema q5) que escribe publicador_c1.py y leen X1/X0 en modo "din" (fuera de git; un archivo del X5 original se ignora)
+  candidatas/            # {valor}_candidata.json (la candidata vigente que pasó la compuerta) + {valor}_historial.jsonl; en git porque resources/ no llega a Windows
   estructura_c1.json     # Variables de cada parámetro dinámico del backtesting inteligente (X5_alt_v2, Q5); se edita a mano, en git
 resources/               # Todo generado en Windows, fuera de git
   conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
@@ -149,6 +156,7 @@ resources/               # Todo generado en Windows, fuera de git
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
   x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
+  validacion_din/        # eventos.jsonl: registro único de publicador, X0 y X1 en la validación de Q5-5b (registro_din.py)
   x5_alt/                # X5_alt v1: {VALOR}_tabla_maestra.csv suelto en la raíz (X5_P1.ipynb). X5_alt_v2: exp_Qi/ por notebook (ej. exp_Q1/{VALOR}_tabla_estado_v2.csv + {VALOR}_catalogo_variables.csv de X5_Q1.ipynb, consumidos por X5_Q2/Q3/Q4 vía carpeta_exp) + exp_Qi.zip (comprime exp_Qi/ completa, reemplazado en cada corrida — ver x5_alt_export.py) + q5/ (salida de X4S: {VALOR}_vueltas.csv, {VALOR}_seguimiento.csv, {VALOR}_estructura_v{n}.json y una carpeta por vuelta en {VALOR}/{vuelta}/ con trades, eventos, equity, x4.log y resumen.json: resumen final, tiempos de cómputo y de reloj, búsquedas, bloques, entorno y config; y de X4_bckt_ventanas.py: {VALOR}_ventanas.csv, una fila por ventana, {VALOR}_aprendizaje.csv (una fila por ajuste de la RLM) y {VALOR}_compuerta.csv (una por evaluación del candidato), y una carpeta por ventana en ventanas/{VALOR}/{id}/ con trades, eventos, equity y x4.log)
 docs/
   context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md, funciones_pars_dinamicos.pdf/.tex (una hoja por parámetro dinámico de X5_Q4)
@@ -247,6 +255,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-21** — feat(q5-5b): publicador de C1, lectura en X0/X1, tope de OA y registro de validación
 - **2026-11-19** — feat(q5-5a): variables de estado de Q1 como módulo x5_alt_variables.py con pruebas de causalidad
 - **2026-11-19** — feat(q5-5): aprendizaje por ventanas (RLM + Gradient Ascent), compuerta y fix de KPIs de trades
 - **2026-11-18** — docs(records): próximos pasos tras X4_bckt_ventanas.py (prueba corta en Windows antes de Q5-5)

@@ -47,14 +47,10 @@ import config as gc
 import config_smart
 import X4_backtester as x4
 from x5_alt_funciones import (
-    cargar_c2_q4, cargar_estructura_c1, drawdown_maximo, estadisticas_c1, lotajes_m, perdida_max_usd,
-    premios_por_tramo, serie_c1,
+    C1_BUSQUEDA, C1_OPERACION, c1_dinamicos, cargar_c2_q4, cargar_estructura_c1, drawdown_maximo, estadisticas_c1,
+    lotajes_m, perdida_max_usd, premios_por_tramo,
 )
 
-# Cadencias (plan 9.2): el grupo de búsqueda cambia cada N_VELAS velas y obliga a buscar soportes de nuevo;
-# el de operación se lee en cada vela.
-C1_BUSQUEDA = ['N', 'K', 'N_EXP', 'LAMBDA']
-C1_OPERACION = ['A', 'factor_B', 'p']
 # Clave de config_smart con el piso y el techo de cada C1 de la vuelta (p es la fracción de Z, no el PERDIDA_MAX en USD).
 CLAVE_RANGO = {'N': 'N', 'K': 'K', 'N_EXP': 'N_EXP', 'LAMBDA': 'LAMBDA', 'A': 'A', 'factor_B': 'factor_B',
                'p': 'PERDIDA_MAX_PCT'}
@@ -71,14 +67,6 @@ def cargar_insumos(valor: str) -> tuple:
     estructura = cargar_estructura_c1(gc.RUTA_ESTRUCTURA_C1)
     c2_q4 = cargar_c2_q4(gc.CARPETA_X5_ALT / 'exp_Q4' / f'{valor}_q4_resumen.csv')
     return tabla, estructura, c2_q4
-
-
-def c1_dinamicos(valor: str, c2: dict, tabla: pd.DataFrame, estructura: dict) -> pd.DataFrame:
-    """Los 7 C1 vela a vela (ya en la grilla) a partir de los C2; `PERDIDA_MAX` queda como la fracción `p`."""
-    cols = {parametro: serie_c1(parametro, valor, c2[parametro], tabla, estructura)['c1']
-            for parametro in estructura}
-    df = pd.DataFrame(cols, index=pd.DatetimeIndex(tabla['DateTime']))
-    return df.rename(columns={'PERDIDA_MAX': 'p'})
 
 
 def c1_estaticos(valor: str, indice: pd.DatetimeIndex) -> pd.DataFrame:
