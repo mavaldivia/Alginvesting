@@ -810,3 +810,16 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Opciones descartadas:** reescribir el historial (`filter-repo` + force push: irreversible, cambia todos los hashes y obliga a Windows a hacer `reset --hard`); dejar `params_din`/`registro_din`/`config_smart` en git (X0/X1 intactos, pero queda integración de X5 en GitHub).
 
 **Consecuencias:** `X5_otros/` existe solo en el Mac, sin copia en GitHub. `X4_backtester.py --x5` ya no funciona desde un clon limpio (importa `X5_macro_brain` y `config_x5_default.py`). Quedan menciones de X5 en `config.py` (constantes de rutas), `X4_backtester.py`, `docs/plans/documentacion.html` y `algoritmos.tex`; se resuelven en `X5v3-1`. Los procesos de `X4_bckt_ventanas.py` de BTCUSD y TSLA que ya corrían no se ven afectados; para relanzarlos: `PYTHONPATH=scripts python X5_otros/scripts/X4_bckt_ventanas.py --activo {VALOR}`.
+
+
+## 2026-11-22 — X5: objetivo híbrido, dinamismo obligatorio, plan en `X5/x5_informe.pdf` y X4 coordinado con X5
+
+**Contexto:** revisión completa de `X5_otros/` y `X5/` (`[X5-1]`). Entregables: `X5/x5_informe.pdf` (17 páginas, fuente `.tex`) y `X5/contexto_x5.md` (todo lo rescatable, para no volver a abrir `X5_otros/`). Hallazgo nuevo: `X4_backtester.py` no se puede importar (`import x5_demo` en la línea 36; el archivo se movió a `X5_otros/`), y la instrucción de relanzamiento del 2026-11-21 omitía esa ruta (`PYTHONPATH=scripts:X5_otros/scripts:X5_otros/Otros/scripts`).
+
+**Decisión:** (Mauricio) (1) criterio de éxito **híbrido**: la ganancia semanal pareada es el filtro rápido y el retorno total de la cuenta continua (con riesgo acotado) la vara final; (2) **X5 solo vale si hay dinamismo**: la mejor configuración estática es el rival a vencer, no una meta; (3) Mac casi dedicado (30 o más horas de cómputo por semana); (4) el backtester **no se repara por separado**: se diseña junto con el motor de repetición de X5 (`[X5-4]`, `[X5-5]`) para que X5 llame a X4 sin duplicar su lógica. (Claude, propuesta en el informe) embudo de tres niveles, escalera de dinamismo D0 a D6, 7 fases con 4 bifurcaciones y replanteos preparados si la escalera se agota.
+
+**Razón:** el instrumento anterior (ventanas con búsqueda cortada por tiempo y cuenta nueva por semana) no detectaba el efecto de ningún parámetro; sin instrumento no tiene sentido enseñar a los parámetros a moverse.
+
+**Descartado:** cerrar X5 en "mejor estática + tope de OA" aunque no haya dinamismo (Mauricio); reparar X4 aislado del diseño del motor.
+
+**Consecuencia abierta:** pendiente que Mauricio revise el informe y responda las 9 decisiones de su §8; umbrales de riesgo, bloque intocable (propuesta: desde 2026-04-01), spread y pérdida máxima se fijan en `[X5-3]`. X4 queda sin usar hasta `[X5-5]`.

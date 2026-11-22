@@ -207,6 +207,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-22** — docs(x5): informe de 17 págs y contexto consolidado del X5 nuevo, plan en todos y X4 coordinado con X5
 - **2026-11-21** — docs(x5): carpeta X5/ con docs v3 y resources del X5 anterior a X5_otros
 - **2026-11-21** — refactor(x5): X5 anterior a X5_otros fuera de git y X0/X1 revertidos a antes de Q5-5b
 - **2026-11-21** — docs(x5-v3): cuestionamiento de X5_alt_v2 con informe LaTeX, md de respaldo y propuesta de rumbo
