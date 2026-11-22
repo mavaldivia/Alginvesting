@@ -28,3 +28,6 @@ scripts/Respaldo 240614
 scripts/Respaldos
 scripts/Respaldos de v1
 scripts/*.csv
+
+# X5 anterior (macrobrain, alt, alt v2): solo local, fuera de GitHub
+X5_otros/

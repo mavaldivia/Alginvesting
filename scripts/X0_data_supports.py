@@ -62,8 +62,6 @@ from config import (
     GRAFICAR_EXTREMOS, GRAFICAR_FO, GRAFICAR_SOPORTES, GRAFICAR_ZOOM,
     n_sizes, n_sizes_ejecucion, N_MAX_MODELS, reiniciar_x0,
 )
-import params_din
-import registro_din
 from X3_technical_features import actualizar_features as _x3_actualizar_features
 from X2_fundamentals import _CRYPTO
 
@@ -136,8 +134,6 @@ console = Console()
 # llamadas separadas (ej. banner + detalle) igual pueden alternarse entre hilos sin este lock.
 _stdout_lock = threading.Lock()
 
-params_din.avisador = console.print  # los avisos de params_din (una línea) no pueden ir por un print() suelto
-
 
 def _log_error(carpeta_logs: Path, contexto: str, exc: Exception) -> None:
     """Imprime el traceback completo de exc y lo agrega a {carpeta_logs}/errores.log.
@@ -154,7 +150,6 @@ def _log_error(carpeta_logs: Path, contexto: str, exc: Exception) -> None:
         console.print(Text(f'\n[{ts}] {contexto}: {exc}\n{tb}', style='bold red'))
     with open(carpeta_logs / 'errores.log', 'a') as f:
         f.write(f'\n[{ts}] {contexto}: {exc}\n{tb}')
-    registro_din.registrar('error', contexto=contexto, mensaje=str(exc), traceback=tb)
 
 
 # ─── Funciones del algoritmo ──────────────────────────────────────────────────
@@ -1490,7 +1485,6 @@ def _texto_linea_x2(x2_estado: dict) -> Text:
 def _construir_tabla_viva(estado_compartido, ciclos_estado, x2_estado: dict, combos: list) -> Group:
     lineas = []
     for v, n in combos:
-        n = params_din.n_vigente(v, n, avisar=False)
         llave = f'{v}_{n}'
         cambios, iters, FO, estado_str = estado_compartido.get(llave, (0, 0, None, 'esperando'))
         i, j, deadline_bloque = ciclos_estado.get(v, (0, 0, None))
@@ -1694,12 +1688,6 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
     i = 0
     while not stop_event.is_set():
         i += 1  # 1-based, igual que j (que también arranca en 1 dentro de cada hora)
-        # TIPO_EJECUCION="din": N, K, N_EXP y LAMBDA del valor salen de active_parameters.json (Q5-5b) y rigen toda
-        # la hora; sin entrada válida, de config.py.
-        p_din = params_din.parametros_vigentes(valor)
-        n_list_i = [int(p_din['N'])] if p_din else n_list
-        registro_din.registrar('x0_ciclo', valor, ciclo=i, N=n_list_i, fuente='din' if p_din else 'config',
-                               params_soporte=params_din.params_soporte(p_din))
         ciclos_estado[valor] = (i, 0, None)
         es_primera_hora = (i == 1)
         if es_primera_hora:
@@ -1707,7 +1695,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                 console.print(f'\n── {valor}: ciclo {i} ──')
         try:
             if opcion in (0, 2):
-                for n in n_list_i:
+                for n in n_list:
                     estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando data (hora)')
                 with mt5_lock:
                     try:
@@ -1731,7 +1719,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                                 backfill_historico(VALORES, carpeta_data, gap)
                         except Exception as e:
                             _log_error(CARPETA_LOGS, 'Detección/backfill de vacíos falló, continuando', e)
-                    for n in n_list_i:
+                    for n in n_list:
                         estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando data (minuto)')
                     try:
                         descargar_datos_minuto([valor], carpeta_data_minuto, verbose=es_primera_hora)
@@ -1741,11 +1729,11 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                 csv_h1 = carpeta_data / f'{valor}.csv'
                 if csv_h1.exists():
                     try:
-                        for n in n_list_i:
+                        for n in n_list:
                             estado_compartido[f'{valor}_{n}'] = (0, 0, None, 'actualizando X3')
                         df_v = pd.read_csv(csv_h1)
-                        n_prod = int(p_din['N']) if p_din else n_sizes_ejecucion.get(valor, 120)
-                        json_path = params_din.ruta_soportes(valor, n_prod, carpeta_n_prod)
+                        n_prod = n_sizes_ejecucion.get(valor, 120)
+                        json_path = carpeta_n_prod / f'{valor}_{n_prod}.json'
                         conjunto_n_v = (set(json.load(open(json_path)))
                                         if json_path.exists() else set())
                         _x3_actualizar_features(valor, df_v, conjunto_n_v, verbose=es_primera_hora,
@@ -1758,15 +1746,13 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     ordenes_activas = obtener_ordenes_activas_mt5([valor]).get(valor, [])
 
                 prep_por_n = {}
-                for n in n_list_i:
+                for n in n_list:
                     llave = f'{valor}_{n}'
-                    if p_din:
-                        params_din.sembrar_soportes(valor, n, carpeta_n_prod)  # warm start si cambió N
                     if es_primera_hora:
                         _info_previa_combo(valor, n, carpeta_data, carpeta_n_prod)
                     estado_compartido[llave] = (0, 0, None, 'enviando al pool')
                     future = executor.submit(_preparar_valor_N, valor, n, carpeta_data, carpeta_n_prod,
-                                              None, None, estado_compartido, False, params_din.params_soporte(p_din))
+                                              None, None, estado_compartido, False)
                     try:
                         prep_por_n[n] = _esperar_resultado_pool(future, llave, estado_compartido)
                     except Exception as exc:
@@ -1785,7 +1771,7 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                     ciclos_estado[valor] = (i, j, deadline_bloque)
                     fases = ('coarse', 'fine') if j == 1 else ('fine',)
 
-                    for n in n_list_i:
+                    for n in n_list:
                         if prep_por_n[n] is None:
                             continue
                         llave = f'{valor}_{n}'
@@ -1804,8 +1790,6 @@ def _ciclo_activo(valor: str, n_list: list, carpeta_data: Path, carpeta_data_min
                             _log_error(CARPETA_LOGS, f'Error en bloque ({valor}, N={n})', exc)
                             continue
                         prep_por_n[n]['conjunto_N'] = res['conjunto_N']  # warm start del próximo bloque
-                        registro_din.registrar('x0_bloque', valor, ciclo=i, bloque=j, N=n, convergio=res['convergio'],
-                                               duracion=res['duracion'], n_soportes=len(res['conjunto_N']))
                         if es_primera_hora and j == 1:
                             p = prep_por_n[n]
                             _resumen_combo(valor, n, {
@@ -1867,7 +1851,6 @@ if __name__ == '__main__':
         sys.exit(f'T_UPDATE_CICLO_X0 ({T_UPDATE_CICLO_X0}) debe ser múltiplo exacto de '
                   f'T_UPDATE_O0 ({T_UPDATE_O0}) — revisa config.py')
 
-    registro_din.iniciar('X0', opcion=args.opcion, ciclos=args.ciclos)
     CARPETA_DATA.mkdir(parents=True, exist_ok=True)
     CARPETA_DATA_MINUTO.mkdir(parents=True, exist_ok=True)
     CARPETA_N_PROD.mkdir(parents=True, exist_ok=True)

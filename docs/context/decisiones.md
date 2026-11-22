@@ -800,3 +800,13 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Opciones presentadas:** (1) activación incremental desde la estática: un C1 dinámico a la vez (empezando por `A`), comparación pareada contra la estática en los `t*` reservados y se mantiene dinámico solo el que gane (recomendada); (2) aprender con la diferencia pareada `Y − Y_Q4` en el mismo `t*` (reduce la varianza del ruido ~8 a 16 veces pero sigue anclada en Q4 y revierte los controles aditivos del 2026-11-19).
 
 **Consecuencia abierta:** elegir el rumbo; cualquiera cambia `plan_x5_alt_v2.md` §9.14 y se presenta antes de construir. Los otros 5 valores no tienen aprendizaje.
+
+## 2026-11-21 — X5 anterior fuera de git (`X5_otros/`) y X0/X1 revertidos a antes de `Q5-5b`
+
+**Contexto:** Mauricio decidió rehacer X5 limpio y desde 0 (`X5_v3`) y dejar GitHub sin el X5 anterior (macrobrain, X5_alt, X5_alt_v2). X0 y X1 importaban `params_din` y `registro_din` al arrancar (integración de `Q5-5b`, sin validar en Windows), y `params_din` importa `config_smart`.
+
+**Decisión:** (1) todo el código, notebooks, planes y documentos del X5 anterior (57 rutas) se movieron a `X5_otros/` en la raíz, con la misma estructura de carpetas, y la carpeta quedó en `.gitignore`; se sacaron del índice con `git rm --cached`. (2) "GitHub limpio" significa solo el árbol desde este commit: no se reescribe el historial. (3) X0, X1 y `config.py` se revirtieron a antes de `Q5-5b` (`TIPO_EJECUCION = "est"`); `LOTAJES_M` se mantiene en 1 (la prueba de `Q5-5b` lo bajó de 2 y no era parte de la lógica dinámica). Con eso `params_din`, `registro_din`, `publicador_c1` y `config_smart` salieron también. (4) Se limpiaron `CLAUDE.md`, `README.md`, `todos.md` y `done.md`; sus secciones X5 quedaron en `X5_otros/docs/tracking/`. `records.md`, `decisiones.md` y `prompts.md` se dejan como bitácora con X5 dentro.
+
+**Opciones descartadas:** reescribir el historial (`filter-repo` + force push: irreversible, cambia todos los hashes y obliga a Windows a hacer `reset --hard`); dejar `params_din`/`registro_din`/`config_smart` en git (X0/X1 intactos, pero queda integración de X5 en GitHub).
+
+**Consecuencias:** `X5_otros/` existe solo en el Mac, sin copia en GitHub. `X4_backtester.py --x5` ya no funciona desde un clon limpio (importa `X5_macro_brain` y `config_x5_default.py`). Quedan menciones de X5 en `config.py` (constantes de rutas), `X4_backtester.py`, `docs/plans/documentacion.html` y `algoritmos.tex`; se resuelven en `X5v3-1`. Los procesos de `X4_bckt_ventanas.py` de BTCUSD y TSLA que ya corrían no se ven afectados; para relanzarlos: `PYTHONPATH=scripts python X5_otros/scripts/X4_bckt_ventanas.py --activo {VALOR}`.

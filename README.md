@@ -12,22 +12,21 @@ Sistema de trading algorítmico personal. Identifica soportes y resistencias óp
 
 ## Arquitectura
 
-El sistema está organizado en 6 módulos (X0→X5):
+El sistema está organizado en 5 módulos (X0→X4):
 
 | Módulo | Propósito | Estado |
 |--------|-----------|--------|
 | **X0** | Descarga precios vía MT5 + algoritmo de búsqueda de soportes/resistencias óptimos | Operativo |
-| **X1** | Loop semi-automático de trading: buy limits, trailing stop, control de pérdida máxima. `TIPO_EJECUCION="est\|din"` | Operativo |
+| **X1** | Loop semi-automático de trading: buy limits, trailing stop, control de pérdida máxima. | Operativo |
 | **X2** | Score fundamental por activo (yfinance + CoinGecko + Fear & Greed) con historial diario | Operativo |
-| **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) — alimenta X5 ([plan](docs/plans/x3_plan.md)) | Operativo |
+| **X3** | Features técnicas por precio/volumen (SMA, RSI, ATR, Bollinger, etc.) ([plan](docs/plans/x3_plan.md)) | Operativo |
 | **X4** | Backtester histórico sobre datos reales, vela a vela con simulación intra-vela M1 ([plan](docs/plans/x4_plan.md) · [doc interactiva](docs/plans/documentacion.html)) | Operativo |
-| **X5** | Surrogate model (X2+X3+config_params → retorno predicho) + optimización de params en inferencia. Output: `config/active_parameters.json` consumido por X1/X0 en modo dinámico ([plan](Otros/docs/plans/x5_plan.md) · [doc interactiva](docs/plans/documentacion.html)) | En `Otros/` — dejó de ser el foco día a día (ver X5_alt) |
 
 ---
 
 ## Flujo principal
 
-### Fase 1 — Estático (`TIPO_EJECUCION = "est"`, estado actual)
+### Flujo actual (parámetros estáticos de `config.py`)
 
 ```
 X0 — Etapa 1: Descarga/actualiza CSVs OHLCV desde MT5
@@ -36,26 +35,12 @@ X1 — Loop: Lee soportes → Gestiona buy limits → Trailing stop → Cierra s
              (parámetros de config.py — estáticos)
 X2 — Diario: Score fundamental por activo → resources/x2/scores.json + x2_history.json
 X3 — Incremental: Features técnicas → resources/x3/{VALOR}.csv (tras cada descarga H1 en X0)
-X5 backtester (por activo) — Genera store de trades con loop explore/exploit → resources/x5/{ACTIVO}_store.csv
-X5 — Entrena modelo sobre el store → config/active_parameters.json
 ```
 
-### Fase 2 — Dinámico con retroalimentación (`TIPO_EJECUCION = "din"`)
+### Estados de una orden
 
 > **O0\*** = orden sobre un soporte por encima de precio − margen, aún sin convertirse en buy limit · **OE** = Orden en Espera (buy limit en un soporte) · **OA** = Orden Abierta (posición activa) · **OC** = Orden Cerrada (trade finalizado)
 > Progresión: **O0\* → OE → OA → OC** (el asterisco marca que O0 es un estado opcional: no todas las órdenes lo atraviesan).
-
-```
-         X0 (soportes óptimos)          X2 (fundamentales)   X3 (técnicas)
-              │                                │                    │
-              ▼                                └────────────────────┘
-         X1 live ──── lee config/active_parameters.json ◄──── X5 (inferencia)
-              │                                                      ▲
-              └── OC cerrada ──► resources/x5/{ACTIVO}_store.csv ───┘
-                                          (X5 reentrena periódicamente)
-```
-
-X0, X2 y X3 son independientes de las fases — siguen corriendo igual. La transición Fase 1 → Fase 2 es por activo y se activa manualmente (`TIPO_EJECUCION = "din"`). Si un activo no tiene modelo entrenado (`model_status = "untrained"`), X1 cae back a `config.py` automáticamente para ese activo. **Estado (2026-11-21):** el diagrama es el del X5 original. Con `TIPO_EJECUCION = "din"`, X0 y X1 leen hoy `config/active_parameters.json` en un esquema propio (`q5`) que escribe `publicador_c1.py` desde `config/candidatas/` (vía `params_din.py`); un activo sin entrada válida cae a `config.py`, y X1 aplica el tope de Órdenes Abiertas con la `Z` virtual del valor. Implementado en `Q5-5b`, probado en Mac y pendiente de validar en Windows en cuenta demo (ver `docs/tracking/todos.md`).
 
 ---
 
@@ -83,9 +68,9 @@ donde `z = y * w * h_dist * v * f` (factores activables individualmente en `conf
 - **Inicialización inteligente** (`_inicializar_conjunto_smart`): cold start por cuantiles de precio ordenados por `y×w`, en lugar de uniforme aleatorio.
 - **Priorización por historial** (`mejora_acumulada`): EMA de mejoras aceptadas por soporte — los más activos se evalúan primero.
 - **Ciclos temporales independientes por activo**: cada activo corre su propio hilo con dos relojes anidados — cada `T_UPDATE_CICLO_X0` min (60 por defecto) re-descarga datos y recalcula distancias (ciclo `i`); cada `T_UPDATE_O0` min (15 por defecto) corre el optimizador con presupuesto de tiempo y flushea el `conjunto_N` a `resources/conjuntos_N/` (bloque `j`), sin esperar a los demás activos. `T_UPDATE_CICLO_X0` debe ser múltiplo exacto de `T_UPDATE_O0` (se valida al arrancar X0); el paso de bloque a ciclo se dispara por conteo de bloques, no por tiempo transcurrido, para no cortar un bloque a medio presupuesto. Todos comparten un `ProcessPoolExecutor` (paralelismo real del cómputo); un monitor en vivo (`rich.Live`) redibuja una línea fija por activo (`[C {i} | A {j}] {valor}_{N}: ...`) con su fase actual, incluyendo una barra `|████░░░░| N/T_UPDATE_O0min` que marca el avance del bloque en curso mientras está `[corriendo]`.
-- **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X5; se desactiva con `X5_WARM_START_SOPORTES = False` en `config_x5`.
+- **Warm start por combo `(valor, N, t*)`**: buscar los N soportes en `t` parte de la solución del mismo combo en un `t* <= t` (JSON de producción o cache `_bt.json` del backtesting) en vez de puntos aleatorios. Aplica a X0 y X4.
 
-El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y saltos a cualquier zona del rango (`M_SALTO`), y acepta cualquier cambio que mejore la FO (sin umbral mínimo). Las OA son soportes fijos que entran a la FO sin limitar a los libres. En X4/X5 cada búsqueda tiene un tope de `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` minutos. En backtesting/X5 corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse; si converge antes, el tiempo sobrante se usa en barridos más finos (`M_AFINADO`).
+El optimizador (`nuevo_optimizador_2`) usa búsqueda local iterativa con ajuste cuadrático y saltos a cualquier zona del rango (`M_SALTO`), y acepta cualquier cambio que mejore la FO (sin umbral mínimo). Las OA son soportes fijos que entran a la FO sin limitar a los libres. En X4 cada búsqueda tiene un tope de `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` minutos. En backtesting corre a convergencia natural: si se agotan `MAX_ITERS` sin converger, no se detiene — reinicia el contador y abre un nuevo ciclo tomando la mejor solución hallada como punto de partida, sin tope de ciclos, salvo que se alcance `MAX_CAMBIOS` (cambios aceptados totales), en cuyo caso corta y retorna la mejor solución hallada con `convergio=False`. En producción en vivo recibe además un presupuesto de tiempo (`tiempo_limite_s`, ver `T_UPDATE_O0` abajo) y corta al agotarse; si converge antes, el tiempo sobrante se usa en barridos más finos (`M_AFINADO`).
 
 ---
 
@@ -113,40 +98,12 @@ scripts/
   market_status.py       # Estado de mercado por activo (abierto/pre-market/cerrado; acciones USA por horario NY + tick fresco) y próximo cambio de estado, vía MT5
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
-  X4S_backtesting_inteligente.py  # Una vuelta del backtesting inteligente de un valor (X5_alt_v2, Q5-3): cuenta de 3000 USD con lotajes_m(Z) y pérdida máxima p·3000·m y tope de Órdenes Abiertas, C1 dinámicos con sus dos cadencias, premio por tramo (aprendizaje/reservado) y KPIs; importa de X4, no reimplementa X0/X1; registra en resources/x5_alt/q5/ y guarda estado_x4s.pkl al inicio de cada bloque para reanudar (--activo, --estatica, --hasta, --reset, --reanudar)
-  X4_bckt_ventanas.py    # Backtesting inteligente por ventanas semanales de un valor (X5_alt_v2, Q5-3c y Q5-4): una ventana es una semana desde `t*` con cuenta nueva de 3000 USD, lotajes_m = 1 y una búsqueda de soportes en `t*` (tope 10 min), con label Y = cerrado + P&L abierto − 3000, ret_medio/ret_vol y KPIs; el orquestador elige siempre un `t*` con el mínimo de visitas (bisección como desempate; al visitarlos todos empieza otra ronda y los datos nuevos entran primero), reserva el 20 % de los `t*` (estática y Q4 como control, las rondas siguientes son réplicas) y sortea los C2 de aprendizaje con Sobol; importa de X4S y X4, no reimplementa X0/X1; desde 32 ventanas de aprendizaje válidas (`UMBRAL_VENTANAS_SOBOL`) pasa de Sobol a la fase `rlm` (C2 propuestos por Regresión Lineal Múltiple + Gradient Ascent, Q5-5) y `--evaluar_candidato` corre el candidato en los `t*` reservados contra la estática y Q4 (supera si la mediana de la diferencia de Y es positiva contra ambas); registra en resources/x5_alt/q5/ y reanuda al volver a lanzar (--activo, --max_ventanas, --max_horas, --t_star, --evaluar_candidato)
-  q5_empaquetar_medicion.py  # Empaqueta en resources/x4/version{V}/medicion_{V}.zip la salida de consola, config, checkpoint, log de búsquedas de soportes (filtrado a la corrida) y resumen/equipo de una medición de X4 (Q5-1); sirve también con la corrida interrumpida
-  publicador_c1.py       # Q5-5b (Windows, bucle horario): convierte la candidata de cada valor (config/candidatas/{valor}_candidata.json, la escribe X4_bckt_ventanas.py --evaluar_candidato al pasar la compuerta) en los C1 vigentes de config/active_parameters.json: A/factor_B/p cada corrida; N/K/N_EXP/LAMBDA solo cada N_VELAS velas o al cambiar de candidata (--una_vez, --activos)
-  params_din.py          # Lectura de active_parameters.json para X0/X1 con TIPO_EJECUCION="din": respaldo por activo a config.py (sin entrada, untrained o más vieja que PARAMS_DIN_EDAD_MAX_MIN), N vigente, ruta de soportes con respaldo y warm start al cambiar N, Z virtual y cupo del tope de Órdenes Abiertas
-  registro_din.py        # Registro único de la validación en Windows de Q5-5b: publicador, X0 y X1 anexan una línea JSON por evento a resources/validacion_din/eventos.jsonl (pandas.read_json(ruta, lines=True))
-  test_publicador_c1.py  # Pruebas del publicador (cadencias, cuenta_desde, candidata e historial, punta a punta contra el backtest con datos reales de BTCUSD); corren sin pytest
-  test_params_din.py     # Pruebas de params_din.py (respaldo por causa de caída, recuperación, Z virtual y cupo, ruta y warm start de soportes, registro); corren sin pytest
-  test_registro_din.py   # Pruebas de registro_din.py (formato JSON Lines, tipos numpy, fallo de escritura, procesos en paralelo); corren sin pytest
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
-  config_smart.py        # Pisos, techos y pasos de los 7 parámetros dinámicos (cripto y acciones por separado), N_VELAS (cadencia de recálculo de soportes), GRADO (aprendizaje), SORTEO_C2 (rango del sorteo Sobol de los C2 cerca de Q4) y los de la vuelta de Q5-3 (FECHA_INICIO_BT, CUENTA, FRACCION_RESERVADA, CURVAS_MEJORES, P_ESTATICO) y de las ventanas (VENTANA_DIAS, TIEMPO_MAX_BUSQUEDA_VENTANA_MIN, SEMILLA_RESERVADAS, SEMILLA_SOBOL), editables en caliente — leídos por X5_Q4 y el backtesting inteligente
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
   agregar_valor.ipynb    # Interrogatorio para integrar un activo nuevo: escribe en config.py y X2_fundamentals.py
-  X5_Q1.ipynb            # Tabla maestra + variables de estado del activo (X5_alt_v2) — parametrizado por valores = list(cfg.VALORES); las funciones de cálculo se importan de x5_alt_variables.py
-  X5_Q2.ipynb            # Core descriptivo: Pearson/Spearman/coseno/regímenes/estabilidad/export (X5_alt_v2) — consume la tabla de X5_Q1, completo
-  X5_Q3.ipynb            # Hipótesis parámetro↔variable + tabla final (X5_alt_v2) — consume la tabla de X5_Q1 y el export de métricas de X5_Q2, completo — cierra la Fase 1 de X5_alt_v2
-  X5_Q4.ipynb            # Fase 2 de X5_alt_v2: calibra 7 parámetros (N, A, factor_B, K, N_EXP, LAMBDA, PERDIDA_MAX) como sigmoide acotada f(x) (docs/plans/plan_x5_alt_v2.md) — cerrado 2026-11-02; resumen por activo con coeficientes y μ/σ en exp_Q4/{VALOR}_q4_resumen.csv
-  x5_alt_funciones.py    # Utilidades matemáticas compartidas de X5_Q4 (sigmoide acotada, índice compuesto, percentil causal, suavizado EMA causal opcional, calibrar_parametro con 1-3 variables) y de Q5 (serie_c1: cada parámetro dinámico vela a vela con z-score de ventana expansiva, redondeo a la grilla de pasos y variables leídas de config/estructura_c1.json; rangos de sorteo de los C2; lotajes_m(Z), premios por tramo, drawdown y estadísticas de cada C1 de una vuelta) — no depende de Data/MT5
-  x5_alt_variables.py    # Variables de estado de Q1 como módulo (Q5-5a): cargar_tabla_base/armar_tabla_base (precio + X3 recalculado desde Data/ + X2 con forward-fill), las seis familias de variables (drawdown, volatilidad, liquidez, fundamentales, ruido, tendencia/régimen) y construir_tabla_estado; causales, las usa X5_Q1.ipynb y servirán a producción (serie_c1)
-  test_x5_alt_variables.py  # Pruebas de x5_alt_variables.py con datos reales: reproduce exp_Q1 en las velas comunes, causalidad (recortar velas no cambia filas anteriores, con X2 sintético y real) y activo sin registros de X2; corren sin pytest: python scripts/test_x5_alt_variables.py
-  x5_alt_aprendizaje.py  # Aprendizaje por ventanas de Q5-5 (matemática pura, sin MT5): matriz de C2 (pesos normalizados omitiendo uno por C1, columnas constantes fuera) más ret_medio/ret_vol como controles aditivos, Regresión Lineal Múltiple con ridge y validación cruzada de 5 pliegues (GRADO 1 o 2) y paso de Gradient Ascent normalizado (el C2 de mayor efecto se mueve el 10 % de su rango, recorte al rango del sorteo, pesos renormalizados); lo usa X4_bckt_ventanas.py
-  test_x5_alt_aprendizaje.py  # Pruebas de x5_alt_aprendizaje.py con ventanas sintéticas de relación conocida y un ajuste de humo con las ventanas reales de BTCUSD; corren sin pytest: python scripts/test_x5_alt_aprendizaje.py
-  test_x5_alt_funciones.py  # Pruebas de las funciones de Q5 con datos reales de exp_Q1/exp_Q4 (reproduce Q4, causalidad, grilla, sorteo, lotajes_m, premios); corren sin pytest: python scripts/test_x5_alt_funciones.py
-  test_x4s_backtesting_inteligente.py  # Pruebas de X4S sobre vueltas cortas reales de BTCUSD (lote según Z, tope de Órdenes Abiertas, stop-out sin corte, reproducibilidad con semilla, reanudación tras interrupción, registro, poda de curvas, versiones de estructura); escriben en un directorio temporal: python scripts/test_x4s_backtesting_inteligente.py
-  test_x4_bckt_ventanas.py  # Pruebas de X4_bckt_ventanas.py: orden de bisección, selección de `t*` por mínimo de visitas, reservadas, solape con reservadas, Sobol de los C2, ventana con cuenta limpia y reproducible, visita reservada con réplicas y visita a medias, con datos reales de BTCUSD; sin datos: cambio de fase Sobol → rlm en el umbral, cadena de propuestas y compuerta por mediana; escriben en un directorio temporal: python scripts/test_x4_bckt_ventanas.py
-  x5_alt_export.py       # carpeta_exp()/limpiar_exp()/exportar_zip() — cada notebook X5_Q*.ipynb lee/escribe en su propia resources/x5_alt/exp_Qi/ (limpiada al inicio) y comprime esa carpeta en exp_Qi.zip para pasarlo de Windows a Mac
-  otros_strings/         # X5_P1.ipynb y X5_P2.ipynb (X5_alt v1, congelados) — evolución paralela en X5_Q1/Q2/Q3.ipynb (X5_alt_v2, ver docs/plans/X5_alternativo.md)
 Data/                    # CSVs OHLCV H1 por activo — fuera de git (se generan en Windows)
 Data_minuto/             # CSVs OHLCV M1 — para simulación intra-vela en X4, fuera de git
-config/
-  active_parameters.json # C1 vigentes por valor (esquema q5) que escribe publicador_c1.py y leen X1/X0 en modo "din" (fuera de git; un archivo del X5 original se ignora)
-  candidatas/            # {valor}_candidata.json (la candidata vigente que pasó la compuerta) + {valor}_historial.jsonl; en git porque resources/ no llega a Windows
-  estructura_c1.json     # Variables de cada parámetro dinámico del backtesting inteligente (X5_alt_v2, Q5); se edita a mano, en git
 resources/               # Todo generado en Windows, fuera de git
   conjuntos_N/           # {VALOR}_{N}.json (producción) y {VALOR}_{N}_bt.json (cache backtesting)
   x0/logs/               # Logs de convergencia por combo {valor}_{N}.jsonl (append-only) + diag_conjunto_N/ (diagnóstico de crashes por tamaño de conjunto_N) + errores.log (traceback completo de errores del ciclo principal)
@@ -155,17 +112,12 @@ resources/               # Todo generado en Windows, fuera de git
   x2/                    # scores.json, x2_history.json, x2_last_run.json
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
-  x5/                    # Store por activo, models/, bt_{ACTIVO}/, demo_plots/
-  validacion_din/        # eventos.jsonl: registro único de publicador, X0 y X1 en la validación de Q5-5b (registro_din.py)
-  x5_alt/                # X5_alt v1: {VALOR}_tabla_maestra.csv suelto en la raíz (X5_P1.ipynb). X5_alt_v2: exp_Qi/ por notebook (ej. exp_Q1/{VALOR}_tabla_estado_v2.csv + {VALOR}_catalogo_variables.csv de X5_Q1.ipynb, consumidos por X5_Q2/Q3/Q4 vía carpeta_exp) + exp_Qi.zip (comprime exp_Qi/ completa, reemplazado en cada corrida — ver x5_alt_export.py) + q5/ (salida de X4S: {VALOR}_vueltas.csv, {VALOR}_seguimiento.csv, {VALOR}_estructura_v{n}.json y una carpeta por vuelta en {VALOR}/{vuelta}/ con trades, eventos, equity, x4.log y resumen.json: resumen final, tiempos de cómputo y de reloj, búsquedas, bloques, entorno y config; y de X4_bckt_ventanas.py: {VALOR}_ventanas.csv, una fila por ventana, {VALOR}_aprendizaje.csv (una fila por ajuste de la RLM) y {VALOR}_compuerta.csv (una por evaluación del candidato), y una carpeta por ventana en ventanas/{VALOR}/{id}/ con trades, eventos, equity y x4.log)
 docs/
-  context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md, funciones_pars_dinamicos.pdf/.tex (una hoja por parámetro dinámico de X5_Q4)
-  plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + plan_x5_alt_v2.md (Fase 2: parámetros como funciones dinámicas) + X5_v3.md y x5_v3_informe.pdf/.tex (cuestionamiento de X5_alt_v2 y propuesta de rumbo, 2026-11-21; sin decisiones tomadas) + documentacion.html (doc interactiva por sección, ver /documentar)
+  context/               # decisiones.md, vision.md, guia_git_v2.md
+  plans/                 # Planes de implementación por módulo (x2, x3, x4) + documentacion.html (doc interactiva por sección, ver /documentar)
   tracking/              # todos.md, done.md, records.md
-Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Alginvesting_base/, prompts (ver docs/context/propuesta_restructuracion.md)
-  scripts/               # X5_macro_brain.py, x5_demo.py, config_x5_default.py, X5_analisis_exploratorio.ipynb
-  docs/context/          # guia_git.md, paso_a_paso_git.md, documentacion_V0.md, correcciones_x5.md
-  docs/plans/            # x5_plan.md, x5_plan_redes_neuronales.md, x5_opus_review.md, x5_documento(_extendido).tex/pdf
+Otros/                   # Fuera de foco hoy: docs supersedidos, Alginvesting_base/, prompts
+  docs/context/          # guia_git.md, paso_a_paso_git.md, documentacion_V0.md
   docs/tracking/         # oportunidad de mejora.md
   Alginvesting_base/     # Versión anterior Windows/notebooks (solo lectura, referencia) — fuera de git
 ```
@@ -184,7 +136,7 @@ Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Al
 | `M_COARSE` | 5 | Candidatos en la fase coarse previa al refinamiento fino |
 | `M_AFINADO` | (100, 300) | Solo en vivo: barridos más finos tras converger con `M`, hasta agotar el bloque de `T_UPDATE_O0` |
 | `M_SALTO` | 60 | Candidatos de salto por soporte libre en todo `[p_min, p_max]` (sin respetar vecinos); 0 = solo búsqueda local |
-| `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` | 6 (min) | Tope de cada búsqueda de soportes en X4/X5 (cold start y recálculos); conserva la mejor solución al agotarse |
+| `X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN` | 6 (min) | Tope de cada búsqueda de soportes en X4 (cold start y recálculos); conserva la mejor solución al agotarse |
 | `X4_TIEMPO_MAX_FASE_GRUESA_MIN` | 3,6 (min) | Tope de la fase gruesa (`M_COARSE`) dentro de esa búsqueda; la fase fina (`M`) usa el resto hasta los 6 min |
 | `T_UPDATE_O0` | 15 (min) | Cadencia de flush del `conjunto_N` a `resources/conjuntos_N/` en producción |
 | `T_UPDATE_CICLO_X0` | 60 (min) | Cadencia de refresco de data/X2/X3/distancias en producción |
@@ -206,7 +158,7 @@ Desarrollo + refactor  →  git push   →    git pull
                                           python scripts/X2_fundamentals.py
 ```
 
-MT5 solo disponible en Windows. El desarrollo ocurre en Mac. `Data/`, `Data_minuto/` y `resources/` están fuera de git: se generan y mantienen desde Windows. El backtesting (X4, X4S, `X4_bckt_ventanas.py` y todo Q5) se ejecuta en Mac, con copias de `Data/` y `Data_minuto/`; Windows se usa solo para lo que requiere MT5. Ver [`docs/context/guia_git_v2.md`](docs/context/guia_git_v2.md).
+MT5 solo disponible en Windows. El desarrollo ocurre en Mac. `Data/`, `Data_minuto/` y `resources/` están fuera de git: se generan y mantienen desde Windows. El backtesting (X4) se ejecuta en Mac, con copias de `Data/` y `Data_minuto/`; Windows se usa solo para lo que requiere MT5. Ver [`docs/context/guia_git_v2.md`](docs/context/guia_git_v2.md).
 
 ---
 
@@ -255,6 +207,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-21** — refactor(x5): X5 anterior a X5_otros fuera de git y X0/X1 revertidos a antes de Q5-5b
 - **2026-11-21** — docs(x5-v3): cuestionamiento de X5_alt_v2 con informe LaTeX, md de respaldo y propuesta de rumbo
 - **2026-11-21** — feat(q5-5b): publicador de C1, lectura en X0/X1, tope de OA y registro de validación
 - **2026-11-19** — feat(q5-5a): variables de estado de Q1 como módulo x5_alt_variables.py con pruebas de causalidad
