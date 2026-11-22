@@ -21,7 +21,8 @@
 ### X5_v3 — versión nueva de X5, limpia y desde 0
 
 > El X5 anterior (macrobrain, X5_alt y X5_alt_v2, con todos sus códigos y documentos) vive en `X5_otros/`: carpeta local, ignorada por git, que **no está en GitHub**. Sus TO DOs quedaron en `X5_otros/docs/tracking/todos_x5.md` y sus ítems cerrados en `X5_otros/docs/tracking/done_x5.md`. Nada de eso se retoma sin decidirlo en esta sección.
-> Punto de partida: el cuestionamiento de X5_alt_v2 (`X5_otros/docs/plans/X5_v3.md` y `x5_v3_informe.pdf`) y lo que se rescate de `X5_otros/`.
+> Carpeta de trabajo de X5_v3, en git: `X5/` (por ahora con el cuestionamiento de X5_alt_v2: `X5/X5_v3.md` y `X5/x5_v3_informe.pdf`/`.tex`). Los `resources/x5` y `resources/x5_alt` del X5 anterior ahora viven en `X5_otros/resources/`.
+> Punto de partida: ese cuestionamiento y lo que se rescate de `X5_otros/`.
 
 - [ ] **[X5v3-1] Revisar `X5_otros/` completo y decidir qué rescatar**: recorrer todo el contenido de `X5_otros/` (código, notebooks, planes, decisiones y resultados) y clasificar cada pieza como rescatar, adaptar o descartar, con su argumento, para armar una versión de X5 limpia y desde 0. (I:9 C:4 H:10 → 2.37) [dep: —]
   - Claude: leer todo `X5_otros/` (scripts, los notebooks Q1 a Q4 y `x5_alt_variables.py`, que el cuestionamiento del 2026-11-21 no leyó línea a línea, y los docs) y entregar la tabla pieza → rescatar/adaptar/descartar con argumento. Incluir los residuos de X5 que quedaron en archivos compartidos: constantes de X5 en `config.py`, el modo `--x5` de `X4_backtester.py` (importa `X5_macro_brain` y `config_x5_default.py`, que ya no están en git), `docs/plans/documentacion.html`, `docs/plans/algoritmos.tex` y las menciones en `records.md`, `decisiones.md` y `README.md`.
