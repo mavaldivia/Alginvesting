@@ -465,6 +465,13 @@ He pensado en cosas como
 Vamos Opus! A cuestionar
 
 Entregame un informe en latex de 10-15 páginas. Evita lenguaje complicado...si tienes algún concepto más complejo, definelo en pie de página. Espero: lo que está bien, lo que está mal, propuestas de lo que podríamos probar, etc
-Respalda toda tu investigación en un md más complejo
+Respalda toda tu investigación en un md más complejo...aquí puedes dejar un plan, posibles pruebas y todo
 Por lo tanto debes entregarme un pdf y un md
 Tomate tu tiempo
+
+hagamos lo siguiente
+  Tomate tu tiempo
+  Sobre X5 - X5 macrobrain, X5_alt y X5_alt v2....todas esas secciones y todos los códigos asociados, metelos en una carpeta que se llame X5_otros
+  Esta carpeta debe estar en el gitignore y te pido en en github, no se vea la carpeta y todo su contenido, es decir, github debe quedar limpio de todo lo que tenga que ver con X5
+  Partamos con eso
+  Te pido que crees la sección X5 v3 en to dos y que el primer paso despues de esto, sea revisar el contenifo de X5_otros completo, vamos a ver que podemos rescatar desde ahí, para comenzar una nueva versión de X5, limpia y "desde 0"
