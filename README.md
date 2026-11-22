@@ -160,7 +160,7 @@ resources/               # Todo generado en Windows, fuera de git
   x5_alt/                # X5_alt v1: {VALOR}_tabla_maestra.csv suelto en la raíz (X5_P1.ipynb). X5_alt_v2: exp_Qi/ por notebook (ej. exp_Q1/{VALOR}_tabla_estado_v2.csv + {VALOR}_catalogo_variables.csv de X5_Q1.ipynb, consumidos por X5_Q2/Q3/Q4 vía carpeta_exp) + exp_Qi.zip (comprime exp_Qi/ completa, reemplazado en cada corrida — ver x5_alt_export.py) + q5/ (salida de X4S: {VALOR}_vueltas.csv, {VALOR}_seguimiento.csv, {VALOR}_estructura_v{n}.json y una carpeta por vuelta en {VALOR}/{vuelta}/ con trades, eventos, equity, x4.log y resumen.json: resumen final, tiempos de cómputo y de reloj, búsquedas, bloques, entorno y config; y de X4_bckt_ventanas.py: {VALOR}_ventanas.csv, una fila por ventana, {VALOR}_aprendizaje.csv (una fila por ajuste de la RLM) y {VALOR}_compuerta.csv (una por evaluación del candidato), y una carpeta por ventana en ventanas/{VALOR}/{id}/ con trades, eventos, equity y x4.log)
 docs/
   context/               # decisiones.md, vision.md, guia_git_v2.md, propuesta_restructuracion.md, funciones_pars_dinamicos.pdf/.tex (una hoja por parámetro dinámico de X5_Q4)
-  plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + plan_x5_alt_v2.md (Fase 2: parámetros como funciones dinámicas) + documentacion.html (doc interactiva por sección, ver /documentar)
+  plans/                 # Planes de implementación por módulo (x2, x3, x4) + X5_alternativo.md (versión paralela simplificada de X5, ver CLAUDE.md) + plan_x5_alt_v2.md (Fase 2: parámetros como funciones dinámicas) + X5_v3.md y x5_v3_informe.pdf/.tex (cuestionamiento de X5_alt_v2 y propuesta de rumbo, 2026-11-21; sin decisiones tomadas) + documentacion.html (doc interactiva por sección, ver /documentar)
   tracking/              # todos.md, done.md, records.md
 Otros/                   # Fuera de foco hoy: X5 original, docs supersedidos, Alginvesting_base/, prompts (ver docs/context/propuesta_restructuracion.md)
   scripts/               # X5_macro_brain.py, x5_demo.py, config_x5_default.py, X5_analisis_exploratorio.ipynb
@@ -255,6 +255,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-21** — docs(x5-v3): cuestionamiento de X5_alt_v2 con informe LaTeX, md de respaldo y propuesta de rumbo
 - **2026-11-21** — feat(q5-5b): publicador de C1, lectura en X0/X1, tope de OA y registro de validación
 - **2026-11-19** — feat(q5-5a): variables de estado de Q1 como módulo x5_alt_variables.py con pruebas de causalidad
 - **2026-11-19** — feat(q5-5): aprendizaje por ventanas (RLM + Gradient Ascent), compuerta y fix de KPIs de trades
