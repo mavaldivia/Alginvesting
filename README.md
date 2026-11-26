@@ -98,6 +98,7 @@ scripts/
   market_status.py       # Estado de mercado por activo (abierto/pre-market/cerrado; acciones USA por horario NY + tick fresco) y próximo cambio de estado, vía MT5
   X4_backtester.py       # Backtester histórico (vela a vela, con intra-vela M1)
   X4B_crear_version_backtesting.py  # Scaffolding de una versión de X4
+  X5_piloto.py           # Piloto de X5: soportes semanales guardados + grilla de A, factor_B, pérdida máxima y tope de OA sobre X4
   config.py              # Parámetros centralizados (rutas, VALORES, n_sizes, algoritmo, trading)
   limpiar_estructura.py  # Limpieza segura de carpetas fuera de la arquitectura vigente (útil en Windows tras reorganizar; ver --help)
   estructura_valida.json # Estructura de referencia (validas/opacas) para limpiar_estructura.py
@@ -112,6 +113,7 @@ resources/               # Todo generado en Windows, fuera de git
   x2/                    # scores.json, x2_history.json, x2_last_run.json
   x3/                    # Features técnicas por activo {VALOR}.csv
   x4/version{V}/         # Config y resultados por versión de backtesting
+  x5/piloto/             # Soportes semanales, logs y resultados.csv del piloto de X5
 docs/
   context/               # decisiones.md, vision.md, guia_git_v2.md
   plans/                 # Planes de implementación por módulo (x2, x3, x4) + documentacion.html (doc interactiva por sección, ver /documentar)
@@ -207,6 +209,7 @@ python scripts/X2_fundamentals.py --forzar
 ---
 
 ## Changelog
+- **2026-11-25** — feat(x5-p): piloto de operación sobre soportes guardados y X4 de nuevo importable
 - **2026-11-22** — docs(x5): informe de 17 págs y contexto consolidado del X5 nuevo, plan en todos y X4 coordinado con X5
 - **2026-11-21** — docs(x5): carpeta X5/ con docs v3 y resources del X5 anterior a X5_otros
 - **2026-11-21** — refactor(x5): X5 anterior a X5_otros fuera de git y X0/X1 revertidos a antes de Q5-5b

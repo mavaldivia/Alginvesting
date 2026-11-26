@@ -33,7 +33,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / 'Otros' / 'scripts'))
 from X0_data_supports import _procesar_valor_N, _bt_warm_start
 from X3_technical_features import compute_snapshot
-import x5_demo
 
 
 # ─── Config ───────────────────────────────────────────────────────────────────
@@ -83,6 +82,8 @@ def _cargar_datos_h1(cfg) -> dict:
                 .drop_duplicates(subset=['DateTime'])
                 .reset_index(drop=True))
         df = df[df['DateTime'] >= pd.Timestamp(cfg.fecha_inicio)].reset_index(drop=True)
+        if getattr(cfg, 'fecha_fin', 'F') != 'F':  # exclusiva: la vela de `fecha_fin` ya no se procesa
+            df = df[df['DateTime'] < pd.Timestamp(cfg.fecha_fin)].reset_index(drop=True)
         if len(df) == 0:
             print(f'  Advertencia: sin datos desde {cfg.fecha_inicio} para {activo}, skip.')
             continue
@@ -187,59 +188,17 @@ def _worker_recalcular(args):
     )
 
 
-def _ruta_plot_demo(activo: str, N: int, ts) -> Path | None:
-    """Ruta del PNG de esta búsqueda de soportes en el modo demo (None si está apagado)."""
-    import config as _gc
-    if not getattr(_gc, 'X5_DEMO_PLOTS', True):
-        return None
-    ciclo = os.environ.get('X5_DEMO_CICLO', '0')
-    carpeta = _gc.CARPETA_X5 / 'demo_plots' / activo
-    carpeta.mkdir(parents=True, exist_ok=True)
-    stamp = pd.Timestamp(ts).strftime('%Y%m%dT%H%M')
-    return carpeta / f'{activo}_c{ciclo}_N{N}_{stamp}.png'
-
-
-def _rango_precios(precios) -> str:
-    precios = list(precios)
-    if not precios:
-        return 'sin órdenes'
-    return f'{min(precios):.2f} – {max(precios):.2f}  ({len(precios)})'
-
-
-def _informar_recalculo(infos: list, ts_actual, demo: bool, estado: dict,
-                        params_soporte: dict | None = None) -> None:
+def _informar_recalculo(infos: list, ts_actual) -> None:
     """Reporta el rango de precios (t0 → tf) que alimentó cada búsqueda de soportes."""
     for info in infos:
         if not info:
             continue
         ws = (f'{info["warm_start_n"]} soportes desde t*={info["warm_start_t"]}'
               if info['warm_start_n'] else 'sin solución previa (aleatorio)')
-        if not demo:
-            print(f'  [{ts_actual}] {info["valor"]} N={info["N"]}: precios '
-                  f'{info["t0"]} → {info["tf"]} ({info["n_velas"]} velas) | '
-                  f'warm start: {ws} | {info["duracion"]}s'
-                  + (' (cortada por tope de tiempo)' if info['tiempo_agotado'] else ''))
-            continue
-        est_a = estado['por_activo'].get(info['valor'], {})
-        print()
-        print(f'  ── Soportes recalculados: {info["valor"]} ' + '─' * 26)
-        print(f'     t (backtest)   : {ts_actual}')
-        print(f'     precios usados : t0 = {info["t0"]}')
-        print(f'                      tf = {info["tf"]}   ({info["n_velas"]} velas H1)')
-        print(f'     N soportes     : {info["N"]}')
-        if params_soporte:
-            print(f'     params (tramo) : K={params_soporte["K"]:.4f}  '
-                  f'N_EXP={params_soporte["N_EXP"]:.4f}  '
-                  f'LAMBDA={params_soporte["LAMBDA"]:.6f}')
-        print(f'     warm start     : {ws}')
-        print(f'     OA (precio)    : {_rango_precios(est_a.get("OA", {}).keys())}')
-        print(f'     OE (precio)    : {_rango_precios(est_a.get("OE", {}).keys())}')
-        print(f'     FO             : {info["FO_inicial"]:.4e} → {info["FO_final"]:.4e}'
-              f'   ({"convergió" if info["convergio"] else "sin converger"}, {info["duracion"]}s)')
-        if info.get('plot'):
-            print(f'     gráfico        : {info["plot"]}')
-            x5_demo.abrir_archivo(info['plot'])
-        print()
+        print(f'  [{ts_actual}] {info["valor"]} N={info["N"]}: precios '
+              f'{info["t0"]} → {info["tf"]} ({info["n_velas"]} velas) | '
+              f'warm start: {ws} | {info["duracion"]}s'
+              + (' (cortada por tope de tiempo)' if info['tiempo_agotado'] else ''))
 
 
 def _lote_pos(pos: dict, activo: str, cfg) -> float:
@@ -280,49 +239,44 @@ def _reporte_soportes(estado: dict, precios_ref: dict, cfg) -> None:
               f' | O0 (aún cerca del precio)={len(o0)} [{_fmt_rango(o0)}]')
 
 
-def _demo_evento_plot(infos: list, ts_actual) -> None:
-    """Explica (una vez) el gráfico de soportes que acompaña a cada recálculo."""
-    info = next((i for i in infos if i and i.get('plot')), None)
-    if info is None:
-        return
-    x5_demo.evento('D10', activo=info['valor'], ts=str(ts_actual),
-                   t0=info['t0'], tf=info['tf'], n_velas=info['n_velas'],
-                   archivo=Path(info['plot']).name)
-
-
 def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) -> list:
-    carpeta_n_prod = Path(__file__).parent.parent / 'resources' / 'conjuntos_N'
-    # En x5, los soportes se calculan con los params explorados del ciclo (ya
-    # aplicados a cfg por _aplicar_params_x5).
-    params_soporte = ({'K': cfg.K, 'N_EXP': cfg.N_EXP, 'LAMBDA': cfg.LAMBDA}
-                      if x5_mode else None)
-    warm_start = bool(getattr(cfg, 'X5_WARM_START_SOPORTES', True)) if x5_mode else True
-    demo = x5_demo.esta_activo()
-    import config as _gc
-    tope_min = getattr(cfg, 'TIEMPO_MAX_BUSQUEDA_MIN', None) or _gc.X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN
-    tiempo_limite_s = tope_min * 60
-    # la fase gruesa mantiene su proporción (60 %) cuando el tope viene de la config, no de config.py
-    tope_fase_gruesa_s = (0.6 * tiempo_limite_s if getattr(cfg, 'TIEMPO_MAX_BUSQUEDA_MIN', None)
-                          else _gc.X4_TIEMPO_MAX_FASE_GRUESA_MIN * 60)
-    tasks = []
-    for activo in cfg.valores:
-        if activo not in estado['por_activo']:
-            continue
-        N = cfg.n_sizes[activo]
-        oa_bt = list(estado['por_activo'][activo]['OA'].keys())
-        ruta_plot = _ruta_plot_demo(activo, N, ts_actual) if demo else None
-        semilla_base = getattr(cfg, 'SEMILLA_BUSQUEDA', None)
-        semilla = (None if semilla_base is None
-                   else zlib.crc32(f'{semilla_base}|{activo}|{pd.Timestamp(ts_actual).isoformat()}'.encode()))
-        tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT,
-                      ts_actual, oa_bt, params_soporte, warm_start, ruta_plot, tiempo_limite_s,
-                      tope_fase_gruesa_s, semilla))
+    """Busca los soportes de cada activo en `ts_actual` (X0) y los carga al estado.
 
-    n_workers = min(len(tasks), 4)
-    with ProcessPoolExecutor(max_workers=n_workers) as executor:
-        infos = list(executor.map(_worker_recalcular, tasks))
+    Con `cfg.SOPORTES_PRECALCULADOS` no busca: toma del cache bt el conjunto más reciente <= `ts_actual`
+    (lo dejó una búsqueda previa, ej. `X5_piloto.py`) y falla si no hay ninguno."""
+    precalculados = bool(getattr(cfg, 'SOPORTES_PRECALCULADOS', False))
+    infos = []
+    if not precalculados:
+        carpeta_n_prod = Path(__file__).parent.parent / 'resources' / 'conjuntos_N'
+        # En x5, los soportes se calculan con los params explorados del ciclo (ya
+        # aplicados a cfg por _aplicar_params_x5).
+        params_soporte = ({'K': cfg.K, 'N_EXP': cfg.N_EXP, 'LAMBDA': cfg.LAMBDA}
+                          if x5_mode else None)
+        warm_start = bool(getattr(cfg, 'X5_WARM_START_SOPORTES', True)) if x5_mode else True
+        import config as _gc
+        tope_min = getattr(cfg, 'TIEMPO_MAX_BUSQUEDA_MIN', None) or _gc.X4_TIEMPO_MAX_BUSQUEDA_SOPORTES_MIN
+        tiempo_limite_s = tope_min * 60
+        # la fase gruesa mantiene su proporción (60 %) cuando el tope viene de la config, no de config.py
+        tope_fase_gruesa_s = (0.6 * tiempo_limite_s if getattr(cfg, 'TIEMPO_MAX_BUSQUEDA_MIN', None)
+                              else _gc.X4_TIEMPO_MAX_FASE_GRUESA_MIN * 60)
+        tasks = []
+        for activo in cfg.valores:
+            if activo not in estado['por_activo']:
+                continue
+            N = cfg.n_sizes[activo]
+            oa_bt = list(estado['por_activo'][activo]['OA'].keys())
+            semilla_base = getattr(cfg, 'SEMILLA_BUSQUEDA', None)
+            semilla = (None if semilla_base is None
+                       else zlib.crc32(f'{semilla_base}|{activo}|{pd.Timestamp(ts_actual).isoformat()}'.encode()))
+            tasks.append((activo, N, cfg.CARPETA_DATA, carpeta_n_prod, cfg.CARPETA_N_BT,
+                          ts_actual, oa_bt, params_soporte, warm_start, None, tiempo_limite_s,
+                          tope_fase_gruesa_s, semilla))
 
-    _informar_recalculo(infos, ts_actual, demo, estado, params_soporte)
+        n_workers = min(len(tasks), 4)
+        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+            infos = list(executor.map(_worker_recalcular, tasks))
+
+        _informar_recalculo(infos, ts_actual)
 
     # Cargar soportes recalculados desde cache bt
     for activo in cfg.valores:
@@ -330,6 +284,9 @@ def _recalcular_soportes(estado: dict, ts_actual, cfg, x5_mode: bool = False) ->
         nuevos = _bt_warm_start(cfg.CARPETA_N_BT, activo, N, ts_actual)
         if nuevos:
             estado['por_activo'][activo]['soportes'] = sorted(nuevos)
+        elif precalculados:
+            raise RuntimeError(f'Sin soportes precalculados para {activo} N={N} en {ts_actual} '
+                               f'(carpeta {cfg.CARPETA_N_BT}).')
         elif not estado['por_activo'][activo]['soportes']:
             print(f'  Advertencia: sin soportes para {activo} tras recálculo.')
 
@@ -493,12 +450,6 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
             events.append(_evt('OE_ejecutada', activo, ts, cfg, usa_iv,
                                precio=precio_oe, precio_ejecucion=precio_gap,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=True))
-            if x5_demo.esta_activo():
-                _id = _id_orden(activo, ts, precio_gap)
-                print(f'  [OE→OA] {activo}  id={_id}  ejecutada @ {precio_gap:.2f} '
-                      f'(gap)  ts={ts}')
-                x5_demo.evento('D04', activo=activo, ts=str(ts), id=_id,
-                               precio_ejecucion=precio_gap, es_gap=True)
 
     # Caso normal: OEs por debajo del Open
     for precio_oe in sorted([p for p in list(est_a['OE'].keys()) if p < candle['Open']]):
@@ -531,11 +482,6 @@ def _paso_B(est_a: dict, candle, activo: str, ts, estado: dict, precios: dict,
             events.append(_evt('OE_ejecutada', activo, ts, cfg, usa_iv,
                                precio=precio_oe, precio_ejecucion=precio_oe,
                                lote=lote, ts_oe_creacion=ts_creacion, es_gap=False))
-            if x5_demo.esta_activo():
-                _id = _id_orden(activo, ts, precio_oe)
-                print(f'  [OE→OA] {activo}  id={_id}  ejecutada @ {precio_oe:.2f}  ts={ts}')
-                x5_demo.evento('D04', activo=activo, ts=str(ts), id=_id,
-                               precio_ejecucion=precio_oe, es_gap=False)
 
 
 def _paso_C(est_a: dict, precio_max: float, activo: str, ts, cfg, events: list, usa_iv: bool = False):
@@ -601,9 +547,6 @@ def _paso_D(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_usd'])
-            x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
-                           motivo=_trade['motivo_cierre'],
-                           retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='perdida_max', retorno_usd=round(retorno_usd, 4), lote=lote))
@@ -638,9 +581,6 @@ def _paso_E(est_a: dict, precio_min: float, activo: str, ts, estado: dict,
                                         precio_cierre, cfg, x5_ctx['min_lotajes'])
             _append_x5_store(activo, _fila)
             est_a.setdefault('oc_recientes', []).append(_trade['retorno_usd'])
-            x5_demo.evento('D05', activo=activo, ts=str(ts), id=_trade['id'],
-                           motivo=_trade['motivo_cierre'],
-                           retorno_usd=round(retorno_usd, 4))
         events.append(_evt('posicion_cerrada', activo, ts, cfg, usa_iv,
                            precio_apertura=precio_ap, precio_cierre=precio_cierre,
                            motivo='trailing_stop', retorno_usd=round(retorno_usd, 4), lote=lote))
@@ -695,8 +635,6 @@ def _paso_F(est_a: dict, precio_ref: float, activo: str, ts, estado: dict,
             _oe_entry['x2_oe'] = x5_ctx['x2']
         est_a['OE'][soporte] = _oe_entry
         events.append(_evt('OE_creada', activo, ts, cfg, usa_iv, precio=soporte, lote=lote))
-        if x5_demo.esta_activo():
-            x5_demo.evento('D03', activo=activo, ts=str(ts), soporte=soporte, lote=lote)
 
 
 # ─── Intra-vela ───────────────────────────────────────────────────────────────
@@ -1189,15 +1127,12 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
         print(f'\nCold start: recalculando soportes desde {_gc.FECHA_INICIAL} '
               f'hasta {ts_cold} ...')
         print('(puede tardar varios minutos)')
-        _infos = _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
+        _recalcular_soportes(estado, ts_cold, cfg, x5_mode=x5_mode)
         _reporte_soportes(estado, {a: df['Open'].iloc[0] for a, df in datos_h1.items()}, cfg)
+        # La búsqueda ya usó la vela de t*: se opera desde la siguiente (igual que en los recálculos, que congelan su vela).
+        estado['ts_ultimo_procesado'] = ts_cold.isoformat()
         _guardar_checkpoint(estado, cfg)
         print('Cold start completado.\n')
-        if x5_demo.esta_activo():
-            _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
-            x5_demo.evento('D01', tipo='cold_start', desde=_gc.FECHA_INICIAL,
-                           hasta=str(ts_cold), n_soportes=_n_sop)
-            _demo_evento_plot(_infos, ts_cold)
 
     ts_ultimo = (pd.Timestamp(estado['ts_ultimo_procesado'])
                  if estado['ts_ultimo_procesado'] else None)
@@ -1253,14 +1188,8 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
                                           cierre_previo, _carpeta_fundamentals_x5,
                                           _min_lotajes_x5)
                 print(f'  [{ts}] Recalculando soportes...')
-                _infos = _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
+                _recalcular_soportes(estado, ts, cfg, x5_mode=x5_mode)
                 _reporte_soportes(estado, cierre_previo, cfg)
-                if x5_demo.esta_activo():
-                    import config as _gc
-                    _n_sop = sum(len(estado['por_activo'][a]['soportes']) for a in cfg.valores)
-                    x5_demo.evento('D01', tipo='periodico', desde=_gc.FECHA_INICIAL,
-                                   hasta=str(ts), n_soportes=_n_sop)
-                    _demo_evento_plot(_infos, ts)
                 estado['ts_ultimo_procesado'] = ts.isoformat()
                 n_trades_total += _flush_json_list(trades_log, cfg.CARPETA_RESOURCES / 'trades.json')
                 _flush_json_list(events_log, cfg.CARPETA_RESOURCES / 'events.json')
@@ -1328,8 +1257,6 @@ def ejecutar_backtest(cfg, reset: bool = False, x5_mode: bool = False,
             mes_ts = ts.strftime('%Y-%m')
             if mes_actual is not None and mes_ts != mes_actual:
                 print(f'[MES_BT] {mes_actual}', flush=True)
-                if x5_demo.esta_activo():
-                    x5_demo.evento('D07', mes_completado=mes_actual, siguiente=mes_ts)
             mes_actual = mes_ts
 
         # Stop-out: equity <= 0 o margin level bajo el umbral con posiciones abiertas
@@ -1491,12 +1418,6 @@ def _aplicar_seleccion_x5(cfg, estado: dict, ts: pd.Timestamp, datos_h1: dict,
               f'K={p["K"]:.3f} N_EXP={p["N_EXP"]:.3f} LAMBDA={p["LAMBDA"]:.5f} '
               f'A={p["A"]:.2f} B={p["B"]:.2f} LOTAJES_M={p["LOTAJES_M"]} '
               f'PERDIDA_MAX={p["PERDIDA_MAX"]:.0f}')
-        if x5_demo.esta_activo():
-            eid = 'D02' if tipos[activo] == 'EXPLORE' else 'D06'
-            x5_demo.evento(eid, activo=activo, ts=str(ts), modo=tipos[activo],
-                           N=p['n_sizes_ejecucion'], K=round(p['K'], 3),
-                           A=round(p['A'], 2), B=round(p['B'], 2),
-                           PERDIDA_MAX=round(p['PERDIDA_MAX'], 0))
 
 
 def _aplicar_params_x5(cfg, params: dict, min_lotajes: dict):
@@ -1578,13 +1499,6 @@ if __name__ == '__main__':
     if args.x5:
         # Modo X5: usa su config dedicada, no las versiones de X4 (--version se ignora).
         cfg = _cargar_config_x5()
-        # Modo demo (X5 --recolectar --demo) o recolección oficial de un solo
-        # activo: activa el narrador guiado en el subproceso; el activo llega
-        # por env. X5_DEMO_PAUSAR='0' → mismos prints/gráficos pero sin pausas
-        # (recolección oficial, nunca debe detenerse esperando Enter).
-        if os.environ.get('X5_DEMO_ACTIVO'):
-            pausar = os.environ.get('X5_DEMO_PAUSAR', '1') != '0'
-            x5_demo.activar(os.environ['X5_DEMO_ACTIVO'], pausar=pausar)
         ejecutar_x5_ciclo(cfg, activo=args.activo)
     else:
         cfg = _cargar_config(args.version)

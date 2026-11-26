@@ -2607,3 +2607,15 @@ Claude: Entregó `X5/contexto_x5.md` (contexto consolidado con veredicto por pie
 Mauricio: Pidió no arreglar aún el backtester: debe coordinarse con el nuevo X5, anotarlo en los to dos y dejar como primer to do su revisión del informe.
 Claude: Cargó en `todos.md` (sección X5) los ítems `X5-1` a `X5-12` con dependencias (`X5-4` diseño conjunto X4↔motor, `X5-5` implementación conjunta), alineó informe y contexto, actualizó `CLAUDE.md`, agregó la entrada del 2026-11-22 en `decisiones.md` y guardó la memoria del rumbo del X5 nuevo (borró la de Q4). `[X5-1]` queda pendiente de Mauricio, por eso no se movió a `done.md`.
 (Cierre: 2026-11-22 16:06)
+
+## SECCIÓN 320
+Mauricio: invocó `/todos`, eligió X5 y, revisando el informe (`[X5-1]`, leído hasta antes de la sección 5), preguntó si `LAMBDA` es C1 y de qué C2 dependía, y si el cuello de botella sigue siendo la búsqueda de soportes. Pidió un lenguaje más didáctico, con ejemplos y sin jerga ("banco", "pareado"), escribiéndole como al manager del proyecto.
+Claude: `LAMBDA` es C1 (en el diseño anterior, 5 C2 sobre ancho de Bollinger y duración en rango; esa jerarquía se abandona). El cuello de botella es la búsqueda para `N`, `K`, `N_EXP` y `LAMBDA`, no para `A`, `factor_B`, pérdida máxima ni tope de OA. Guardó en memoria la preferencia de redacción.
+Mauricio: propuso probar `A`, `factor_B`, pérdida máxima y tope de OA en ventanas de un mes; aprobó la opción de soportes guardados, BTCUSD, 4 meses con el de estrés, `N` fijo y el pre-registro (`[X5-P]`, fuera del orden de la lista). Preguntó si se usaban C2 (no: valores fijos).
+Claude: sacó `x5_demo` de X4, agregó `fecha_fin`, `SOPORTES_PRECALCULADOS` y operar desde la vela siguiente a t*; creó `scripts/X5_piloto.py`; reprodujo 5 ventanas viejas (diferencia máxima 0,003 USD); calculó 27 conjuntos semanales (el primer intento falló por no crear la carpeta del caché) y corrió 324 configuraciones más 8 de ruido.
+Claude: resultado exploratorio: `A` es lo que más mueve, luego `factor_B`; `A`=1,5 y `factor_B`=0,3 rinden más en los 3 meses normales; ninguna configuración gana en los 4 meses.
+Mauricio: preguntó qué pasó en el mes de estrés.
+Claude: en 2022-06 la actual (sin tope) llega a stop-out el 14 de junio con 44 OA; la pérdida máxima de 200 USD no se activa; con tope 0,5 sobrevive pero queda sin cerrar operaciones. Avisó que X1 en producción corre sin tope.
+Mauricio: invocó `/cerrado`, decidió no hacer el contraste con X4 real y pidió `/guardar`.
+Claude: cerró `[X5-P]` (conclusión en `decisiones.md`, movido a `done.md`); `[X5-1]` sigue abierto, con las 9 decisiones del §8 pendientes.
+(Cierre: 2026-11-25 22:44)

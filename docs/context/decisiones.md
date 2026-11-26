@@ -823,3 +823,28 @@ Con el acumulado, p_min/p_max son monótonos y por construcción siempre están 
 **Descartado:** cerrar X5 en "mejor estática + tope de OA" aunque no haya dinamismo (Mauricio); reparar X4 aislado del diseño del motor.
 
 **Consecuencia abierta:** pendiente que Mauricio revise el informe y responda las 9 decisiones de su §8; umbrales de riesgo, bloque intocable (propuesta: desde 2026-04-01), spread y pérdida máxima se fijan en `[X5-3]`. X4 queda sin usar hasta `[X5-5]`.
+
+## 2026-11-24 — X5: piloto exploratorio de operación sobre soportes guardados (fuera del orden de la lista)
+
+**Contexto:** mientras revisaba el informe (`[X5-1]`), Mauricio propuso probar `A`, `factor_B`, pérdida máxima y tope de Órdenes Abiertas (OA) en ventanas de un mes, aprovechando que operar sobre soportes ya calculados es rápido (2 a 4 s por semana contra 10 min de la búsqueda).
+
+**Decisión:** (Mauricio) piloto exploratorio con la opción A: los soportes se calculan una vez por semana (más 2 semanas de calentamiento para que la primera semana no parta en frío) y X4 los lee en vez de buscarlos. Solo BTCUSD, `N`=180, `K`/`N_EXP`/`LAMBDA` en su valor actual. Cuatro meses, todos antes del bloque intocable propuesto (2026-04-01): 2022-06 (estrés, −37 %), 2023-10 (alcista, +28,5 %), 2025-02 (bajista, −17,6 %) y 2025-06 (lateral, +2,5 %). Grilla de 3 × 3 × 3 × 3 = 81 configuraciones. Cambios en X4: sin `x5_demo` (para que se pueda importar), respeta `fecha_fin` y flag `SOPORTES_PRECALCULADOS`.
+Pre-registro: (1) cada configuración se compara contra la actual (`A`=3, `factor_B`=0,5, pérdida máxima 200, sin tope) en los mismos meses; (2) se mira el resultado en USD y la caída máxima de la cuenta; (3) una configuración "se ve mejor" solo si le gana a la actual en todos los meses y su caída máxima no es peor; (4) se repite la actual con 2 semillas para medir el ruido y las diferencias menores no cuentan; (5) no se elige ganador: se anota qué parámetro mueve más el resultado y eso pasa a la Fase 3.
+
+**Descartado:** opción B (X4 completo por configuración: recalcula soportes cada día simulado y no tiene tiempo medido); iterar `N` en esta vuelta (la máscara de 200 soportes es una decisión de diseño aparte y triplicaría la grilla); usar un solo mes (una sola tirada).
+
+**Consecuencia abierta:** el piloto no elige ganador. Aproximación que acepta: soportes fijos por semana y las OA no entran a la función objetivo. Se salta el orden de `[X5-2]` a `[X5-5]`; `[X5-4]` y `[X5-5]` deben absorber lo que X4 cambie aquí.
+
+## 2026-11-25 — X5-P: conclusión del piloto; no se contrasta con X4 real
+
+**Contexto:** grilla de 81 configuraciones × 4 meses de BTCUSD (324 corridas) más 8 de ruido, sobre soportes guardados por semana. Resultados en `resources/x5/piloto/resultados.csv` (fuera de git; `python scripts/X5_piloto.py analizar`).
+
+**Decisión:** (Mauricio) no hacer el contraste de 2 o 3 configuraciones con X4 real; `[X5-P]` se cierra.
+
+**Conclusión (punto 5 del pre-registro; exploratoria, sin ganador):** por rango del promedio de los 4 meses, `A` (637 USD) mueve más el resultado, luego `factor_B` (294), y tope de OA (163) y pérdida máxima (162) casi iguales. En los 3 meses sin estrés, `A`=1,5 y `factor_B`=0,3 rinden en promedio más que los valores actuales (3 y 0,5). Ninguna configuración cumple la regla 3. En 2022-06 las 27 configuraciones sin tope llegan a stop-out y ninguna con tope. La actual se quema el 14 de junio con 44 OA. La pérdida máxima de 200 USD no se activa ni una vez en ese mes (con 0,01 BTC exige una caída de 20.000 USD) y, cuando hay tope, actúa sobre todo por `cupo = floor(r · cuenta / pérdida_max)`. Con tope 0,5 la cuenta sobrevive, pero no cierra operaciones desde el 8 de junio y termina en −656 USD. Ruido por semilla de la simulación dentro de la hora: hasta unos 480 USD (2025-02).
+
+**Limitaciones:** sin spread ni comisión; soportes casi parejos (cv de distancias 0,03 a 0,09 contra 0,14 a 0,31 en producción); soportes fijos por semana y OA fuera de la función objetivo; 2022-06 es un solo evento.
+
+**Descartado:** el contraste con X4 real (unas 3 h estimadas por configuración y mes).
+
+**Consecuencia abierta:** la aproximación de soportes fijos queda sin medir contra X0 real hasta el examen de `[X5-10]`. Para la Fase 3: expresar la pérdida máxima en porcentaje o en volatilidad. X1 en producción corre sin tope de OA.
